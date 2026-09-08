@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-08T19:14:24Z",
+  "title": "Design System: 南京大学苏州校区 · Campus Atlas",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Porcelain",
+        "tonalRamp": [
+          "oklch(15% 0.001 106.4)",
+          "oklch(26% 0.001 106.4)",
+          "oklch(38% 0.001 106.4)",
+          "oklch(49% 0.001 106.4)",
+          "oklch(61% 0.001 106.4)",
+          "oklch(72% 0.001 106.4)",
+          "oklch(84% 0.001 106.4)",
+          "oklch(95% 0.001 106.4)"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Charcoal Green",
+        "tonalRamp": [
+          "oklch(15% 0.017 178.2)",
+          "oklch(26% 0.017 178.2)",
+          "oklch(38% 0.017 178.2)",
+          "oklch(49% 0.017 178.2)",
+          "oklch(61% 0.017 178.2)",
+          "oklch(72% 0.017 178.2)",
+          "oklch(84% 0.017 178.2)",
+          "oklch(95% 0.017 178.2)"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Academic Plum",
+        "tonalRamp": [
+          "oklch(15% 0.069 357)",
+          "oklch(26% 0.069 357)",
+          "oklch(38% 0.069 357)",
+          "oklch(49% 0.069 357)",
+          "oklch(61% 0.069 357)",
+          "oklch(72% 0.069 357)",
+          "oklch(84% 0.069 357)",
+          "oklch(95% 0.069 357)"
+        ]
+      },
+      "primary-foreground": {
+        "role": "neutral",
+        "displayName": "White",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(26% 0 0)",
+          "oklch(38% 0 0)",
+          "oklch(49% 0 0)",
+          "oklch(61% 0 0)",
+          "oklch(72% 0 0)",
+          "oklch(84% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Pale Green Grey",
+        "tonalRamp": [
+          "oklch(15% 0.004 134.8)",
+          "oklch(26% 0.004 134.8)",
+          "oklch(38% 0.004 134.8)",
+          "oklch(49% 0.004 134.8)",
+          "oklch(61% 0.004 134.8)",
+          "oklch(72% 0.004 134.8)",
+          "oklch(84% 0.004 134.8)",
+          "oklch(95% 0.004 134.8)"
+        ]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Supporting Green Grey",
+        "tonalRamp": [
+          "oklch(15% 0.022 152.4)",
+          "oklch(26% 0.022 152.4)",
+          "oklch(38% 0.022 152.4)",
+          "oklch(49% 0.022 152.4)",
+          "oklch(61% 0.022 152.4)",
+          "oklch(72% 0.022 152.4)",
+          "oklch(84% 0.022 152.4)",
+          "oklch(95% 0.022 152.4)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Quiet Divider",
+        "tonalRamp": [
+          "oklch(15% 0.008 139.4)",
+          "oklch(26% 0.008 139.4)",
+          "oklch(38% 0.008 139.4)",
+          "oklch(49% 0.008 139.4)",
+          "oklch(61% 0.008 139.4)",
+          "oklch(72% 0.008 139.4)",
+          "oklch(84% 0.008 139.4)",
+          "oklch(95% 0.008 139.4)"
+        ]
+      },
+      "ring": {
+        "role": "primary",
+        "displayName": "Plum Focus",
+        "tonalRamp": [
+          "oklch(15% 0.071 355.6)",
+          "oklch(26% 0.071 355.6)",
+          "oklch(38% 0.071 355.6)",
+          "oklch(49% 0.071 355.6)",
+          "oklch(61% 0.071 355.6)",
+          "oklch(72% 0.071 355.6)",
+          "oklch(84% 0.071 355.6)",
+          "oklch(95% 0.071 355.6)"
+        ]
+      },
+      "selected": {
+        "role": "primary",
+        "displayName": "Pale Plum Selection",
+        "tonalRamp": [
+          "oklch(15% 0.009 341.8)",
+          "oklch(26% 0.009 341.8)",
+          "oklch(38% 0.009 341.8)",
+          "oklch(49% 0.009 341.8)",
+          "oklch(61% 0.009 341.8)",
+          "oklch(72% 0.009 341.8)",
+          "oklch(84% 0.009 341.8)",
+          "oklch(95% 0.009 341.8)"
+        ]
+      },
+      "overlay": {
+        "role": "neutral",
+        "displayName": "Translucent Porcelain",
+        "tonalRamp": [
+          "oklch(15% 0.003 106.4)",
+          "oklch(26% 0.003 106.4)",
+          "oklch(38% 0.003 106.4)",
+          "oklch(49% 0.003 106.4)",
+          "oklch(61% 0.003 106.4)",
+          "oklch(72% 0.003 106.4)",
+          "oklch(84% 0.003 106.4)",
+          "oklch(95% 0.003 106.4)"
+        ]
+      },
+      "map-ground": {
+        "role": "neutral",
+        "displayName": "Model Backdrop",
+        "tonalRamp": [
+          "oklch(15% 0.009 128.6)",
+          "oklch(26% 0.009 128.6)",
+          "oklch(38% 0.009 128.6)",
+          "oklch(49% 0.009 128.6)",
+          "oklch(61% 0.009 128.6)",
+          "oklch(72% 0.009 128.6)",
+          "oklch(84% 0.009 128.6)",
+          "oklch(95% 0.009 128.6)"
+        ]
+      },
+      "model-brick": {
+        "role": "neutral",
+        "displayName": "Grey Masonry",
+        "tonalRamp": [
+          "oklch(15% 0.011 158.7)",
+          "oklch(26% 0.011 158.7)",
+          "oklch(38% 0.011 158.7)",
+          "oklch(49% 0.011 158.7)",
+          "oklch(61% 0.011 158.7)",
+          "oklch(72% 0.011 158.7)",
+          "oklch(84% 0.011 158.7)",
+          "oklch(95% 0.011 158.7)"
+        ]
+      },
+      "model-red": {
+        "role": "secondary",
+        "displayName": "Dark Red Architectural Detail",
+        "tonalRamp": [
+          "oklch(15% 0.098 20)",
+          "oklch(26% 0.098 20)",
+          "oklch(38% 0.098 20)",
+          "oklch(49% 0.098 20)",
+          "oklch(61% 0.098 20)",
+          "oklch(72% 0.098 20)",
+          "oklch(84% 0.098 20)",
+          "oklch(95% 0.098 20)"
+        ]
+      },
+      "model-grass": {
+        "role": "secondary",
+        "displayName": "Model Grass",
+        "tonalRamp": [
+          "oklch(15% 0.058 124.5)",
+          "oklch(26% 0.058 124.5)",
+          "oklch(38% 0.058 124.5)",
+          "oklch(49% 0.058 124.5)",
+          "oklch(61% 0.058 124.5)",
+          "oklch(72% 0.058 124.5)",
+          "oklch(84% 0.058 124.5)",
+          "oklch(95% 0.058 124.5)"
+        ]
+      },
+      "model-water": {
+        "role": "secondary",
+        "displayName": "Muted River Water",
+        "tonalRamp": [
+          "oklch(15% 0.039 188)",
+          "oklch(26% 0.039 188)",
+          "oklch(38% 0.039 188)",
+          "oklch(49% 0.039 188)",
+          "oklch(61% 0.039 188)",
+          "oklch(72% 0.039 188)",
+          "oklch(84% 0.039 188)",
+          "oklch(95% 0.039 188)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Campus Heading",
+        "purpose": "Serif overview headings; selected desktop scene titles increase to 31px."
+      },
+      "body": {
+        "displayName": "Scene Description",
+        "purpose": "Chinese descriptions with generous line spacing."
+      },
+      "label": {
+        "displayName": "Supporting Label",
+        "purpose": "Directory zones, control labels and map annotations."
+      }
+    },
+    "shadows": [
+      {
+        "name": "marker",
+        "value": "0 5px 16px #243e2415",
+        "purpose": "Lift projected labels."
+      },
+      {
+        "name": "controls",
+        "value": "0 7px 22px #344b3515",
+        "purpose": "Lift zoom and reset controls."
+      },
+      {
+        "name": "return",
+        "value": "0 8px 24px #4c283d25",
+        "purpose": "Emphasize scene return."
+      },
+      {
+        "name": "drawer",
+        "value": "0 12px 35px #344c3020",
+        "purpose": "Separate phone navigation from canvas."
+      },
+      {
+        "name": "popover",
+        "value": "0 14px 50px #23372820",
+        "purpose": "Separate map information."
+      }
+    ],
+    "motion": [
+      {
+        "name": "label-state",
+        "value": "180ms ease",
+        "purpose": "Directory and marker state transitions."
+      },
+      {
+        "name": "camera-travel",
+        "value": "1350ms; ease = 1 - (1 - t)^4",
+        "purpose": "Travel between overview and scene viewpoints."
+      },
+      {
+        "name": "orbit-damping",
+        "value": "0.08",
+        "purpose": "Damped manual movement."
+      },
+      {
+        "name": "loading-orbit",
+        "value": "1600ms linear infinite",
+        "purpose": "Loading indicator."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "Immediate camera travel; CSS durations 0.01ms",
+        "purpose": "Honor prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "camera-narrow-max-exclusive",
+        "value": "600px"
+      },
+      {
+        "name": "phone-max",
+        "value": "760px"
+      },
+      {
+        "name": "compact-max",
+        "value": "1000px"
+      },
+      {
+        "name": "wide-min",
+        "value": "1600px"
+      },
+      {
+        "name": "short-desktop-max-height",
+        "value": "800px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Scene Return",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Plum action returning to the overview.",
+      "html": "<button class=\"ds ds-return\">← 返回全景地图</button>",
+      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-return{height:42px;padding:0 18px;border:1px solid transparent;border-radius:6px;background:var(--primary,#663849);color:#fff;font-size:13px;box-shadow:0 8px 24px #4c283d25}.ds-return:hover{background:color-mix(in oklab,var(--primary,#663849) 80%,transparent)}.ds-return:disabled{opacity:.5;pointer-events:none}"
+    },
+    {
+      "name": "Scene Reset",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Outlined scene camera reset.",
+      "html": "<button class=\"ds ds-reset\">重置场景视角</button>",
+      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-reset{height:36px;padding:0 10px;border:1px solid #dce2da;border-radius:8px;background:transparent;color:#60725f;font-size:12px}.ds-reset:hover{background:var(--muted,#f0f2ef);color:var(--foreground,#273330)}"
+    },
+    {
+      "name": "Map Control",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Compact zoom/reset control.",
+      "html": "<button class=\"ds ds-control\" aria-label=\"放大地图\">＋</button>",
+      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-control{width:35px;height:35px;padding:0;border:1px solid transparent;border-radius:5px;background:#fcfcfaf2;color:#50644f;font-size:20px}.ds-control:hover{background:var(--muted,#f0f2ef)}.ds-control:disabled{opacity:.5;pointer-events:none}"
+    },
+    {
+      "name": "Location Directory",
+      "kind": "nav",
+      "refersTo": "location-row",
+      "description": "Destination rows with zone labels and plum selection.",
+      "html": "<nav class=\"ds-directory\" aria-label=\"校园地点\"><button class=\"ds ds-location\" aria-current=\"location\"><span>北大楼</span><small>西区</small></button><button class=\"ds ds-location\"><span>图书馆</span><small>西区</small></button></nav>",
+      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-directory{display:flex;flex-direction:column;gap:4px;width:244px}.ds-location{display:flex;align-items:center;justify-content:space-between;height:51px;padding:0 12px;border:1px solid transparent;border-radius:6px;background:transparent;color:#415048;font-size:14px;transition:background .18s,color .18s}.ds-location small{color:var(--muted-foreground,#5e6b61);font-size:12px}.ds-location:hover{background:#f0f2ee}.ds-location[aria-current=location]{background:#f0e9ed;color:var(--primary,#663849)}"
+    },
+    {
+      "name": "Projected Map Marker",
+      "kind": "custom",
+      "refersTo": "map-marker",
+      "description": "Clickable label, stem and dot; plum for hover or selection.",
+      "html": "<button class=\"ds ds-marker\" aria-label=\"进入南雍楼三维场景\"><span class=\"ds-label\">南雍楼 ↗</span><span class=\"ds-stem\"></span><span class=\"ds-dot\"></span></button>",
+      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-marker{display:inline-flex;flex-direction:column;align-items:center;padding:0;border:0;background:transparent;color:#435443}.ds-label{padding:9px 13px;border:1px solid #d1dace;border-radius:5px;background:#fcfcfaf2;font-size:12px;box-shadow:0 5px 16px #243e2415;transition:color .18s,background .18s}.ds-stem{height:18px;width:1px;background:#82907a}.ds-dot{width:5px;height:5px;border-radius:50%;background:#69805f;outline:3px solid #f0f4e9a0}.ds-marker:hover .ds-label,.ds-marker:focus-visible .ds-label,.ds-marker[data-selected] .ds-label{background:var(--primary,#663849);border-color:var(--primary,#663849);color:#fff}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Architectural exhibition model",
+    "overview": "The user-pinned direction is simple, spacious and tactile. An orthographic campus model supplies the material character; porcelain interface surfaces and quiet academic typography frame exploration. Runtime React/Three.js was chosen for this build without establishing a permanent workflow preference.",
+    "keyCharacteristics": [
+      "A continuous architectural model with nine exterior viewpoints.",
+      "Grey masonry, dark red details, wooded terrain and muted water.",
+      "Compact navigation with readable labels and restrained plum selection."
+    ],
+    "rules": [
+      {
+        "name": "The Stable Label Rule",
+        "body": "Keep the model caption and modeling note on opaque porcelain backings in close scenes.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Preserve the spacious model-first composition and concise navigation.",
+      "Retain the east/west, hill and river relationships.",
+      "Keep source and approximation language visible."
+    ],
+    "donts": [
+      "Don't present modeled heights, facades, vegetation or camera spans as surveyed measurements.",
+      "Don't imply indoor access, route guidance or precise navigation."
+    ]
+  }
+}
