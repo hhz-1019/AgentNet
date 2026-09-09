@@ -38,10 +38,12 @@ export default function Home() {
       <div className="header-center"><span className="view-indicator" />三维校园</div>
       <Popover><PopoverTrigger render={<Button variant="ghost" className="about-button" aria-label="地图说明" />}><Info size={17} /><span>地图说明</span></PopoverTrigger>
         <PopoverContent align="end" className="map-about"><PopoverTitle>关于这座校园</PopoverTitle>
-          <p>依据南大官方校园平面图（2026 年 8 月）及公开建筑资料进行概括建模，保留山水与建筑组团的位置关系。</p>
-          <p>建筑高度、立面与植被为风格化表达，不用于测量或实地导航。</p>
+          <p>依据南大官方校园平面图（2026 年 8 月）、建筑设计图与建成实景，细化建筑轮廓、立面和场地配色。</p>
+          <p>尚未取得完整竣工图，尺寸与未见立面仍为近似重建。东区蓝色跑道已对照实景；西区跑道颜色待近照确认。不用于测量或实地导航。</p>
           <a href="https://zcc.nju.edu.cn/dzdt/szxqdt/index.html" target="_blank" rel="noreferrer">南京大学官方校区地图 <ExternalLink size={14} /></a>
           <a href="https://www.artsgroup.cn/zhonghengdongtai/shejiqushi/2023-12-29/558.html" target="_blank" rel="noreferrer">建筑设计资料 · 中衡设计 <ExternalLink size={14} /></a>
+          <a href="https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20251205/i353895.html" target="_blank" rel="noreferrer">西区建成实景 · 南京大学 <ExternalLink size={14} /></a>
+          <a href="https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20231222/i256558.html" target="_blank" rel="noreferrer">东区建筑与运动场实景 <ExternalLink size={14} /></a>
         </PopoverContent>
       </Popover>
     </header>
@@ -74,7 +76,7 @@ export default function Home() {
         <div className="view-toolbar" aria-label="视角控制"><Button variant="ghost" className={!topView ? 'active-view' : ''} onClick={() => setTopView(false)} disabled={!ready} aria-pressed={!topView}><Layers2 size={16} />立体</Button><Button variant="ghost" className={topView ? 'active-view' : ''} onClick={() => setTopView(true)} disabled={!ready} aria-pressed={topView}><ArrowDownLeft size={16} />俯视</Button></div>
         <div className="map-compass" aria-label="北向指示"><span>N</span><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20" /><g id="compass-needle"><path d="M22 7 28 26 22 23Z" /><path d="M22 7 16 26 22 23Z" /></g></svg></div>
         <div className="map-controls" aria-label="地图缩放"><Button variant="ghost" size="icon" aria-label="放大地图" title="放大" onClick={() => controls.current?.zoom(1.25)} disabled={!ready}><Plus size={20} /></Button><Button variant="ghost" size="icon" aria-label="缩小地图" title="缩小" onClick={() => controls.current?.zoom(.8)} disabled={!ready}><Minus size={20} /></Button><span /><Button variant="ghost" size="icon" aria-label="重置地图视角" title="重置视角" onClick={() => controls.current?.reset()} disabled={!ready}><RotateCcw size={18} /></Button></div>
-        <div className="map-footnote"><span className="map-hint">拖动旋转<span>·</span>滚动缩放<span>·</span>点击地点进入</span><span className="mobile-map-hint">单指旋转 · 双指缩放</span><span className="model-note">概括建模</span></div>
+        <div className="map-footnote"><span className="map-hint">拖动旋转<span>·</span>滚动缩放<span>·</span>点击地点进入</span><span className="mobile-map-hint">单指旋转 · 双指缩放</span><span className="model-note">实景参考建模</span></div>
         {location && <Button className="floating-return" onClick={() => select(null)}><ArrowLeft size={16} />返回全景地图</Button>}
       </section>
     </div>

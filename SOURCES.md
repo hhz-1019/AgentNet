@@ -30,3 +30,22 @@ Noto Serif SC, Google Fonts, SIL Open Font License. A small Chinese heading subs
 ## Scope
 
 Nine navigable exterior scenes, full-campus overview, orbit and zoom, top view and camera return. Interiors, surveyed building heights and live student agents are outside this version.
+
+## Photo-based refinement — 2026-09-09
+
+User requested closer correspondence to the built Suzhou campus, including the running-track color. Built photographs take precedence over older design renderings. Images of the Gulou campus's ivy-covered North Building are not references for the Suzhou building.
+
+The following references were visually inspected in their original university/design-practice pages. Reference photos are linked, not copied into the public assets.
+
+| Reference | Observed features used in the model |
+| --- | --- |
+| [East campus photo album, 2023-12-22](https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20231222/i256558.html), 蒋松柳《操场一角》 | Blue east running track, white lane lines, green field, open goal frames; Nanyong's glazed sloping end, red accents and broad canopy |
+| [University's 2025 campus report](https://www.nju.edu.cn/info/3341/427561.htm) | Additional built photograph confirms the blue east track |
+| [ARTS Group built-project report](https://www.artsgroup.cn/zhonghengdongtai/shejiqushi/2023-12-29/558.html), images 4, 6, 22 and 23 | Pale residential facades; teaching courts and planted central spine; plan and section relationships. Seven courts are represented schematically; the reconstruction is not a dimensionally traced construction model. |
+| [West campus photo album, photographed 2025-11-25](https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20251205/i353895.html), 陈瀚 photos 2, 4, 5, 8 and 11 | Suzhou North Building's gray masonry, roof and glazed tower; library's colonnade, paired horizontal fins, square glazing and lifting eaves; silver sports-centre ribs and curved red-screened culture volumes |
+
+Verified color correction is specifically the **east** running track. A location-confirmed built close-up of the **west** track has not been found; its retained color is marked unverified in the model metadata and map information. East court surfaces are blue-gray in the inspected distant photograph; detailed west court colors remain unverified.
+
+The model adds window mullions, sills, parapets, roof ridges, railings, canopies, steps, playing-field markings and goal nets. Counts and dimensions not established by the images remain approximations. Residential and innovation-block heights are inferred from visible storeys, not measured. Unseen facades, rooftop equipment and exact planting positions still require current photographs or as-built drawings.
+
+Rendering uses a generated daylight environment, neutral sunlight, focused close-view shadow maps, desktop close-view ambient occlusion and world-scale procedural surface shading. Procedural shading is authored code, not a sampled photographic texture or measured material. The GLB contains geometry and standard PBR base materials; application shader effects and postprocessing belong to the web renderer.

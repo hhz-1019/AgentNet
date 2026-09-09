@@ -13,10 +13,10 @@ colors:
   selected: "#f0e9ed"
   overlay: "#fcfcfaf2"
   map-ground: "#edf0ea"
-  model-brick: "#a2aaa5"
-  model-red: "#853e40"
-  model-grass: "#a4b38b"
-  model-water: "#90b4b0"
+  model-brick: "#949690"
+  model-red: "#963e37"
+  model-grass: "#7b8c53"
+  model-water: "#637e75"
 typography:
   headline:
     fontFamily: "'Campus Serif', 'Noto Serif SC', 'Songti SC', SimSun, serif"
@@ -93,7 +93,7 @@ components:
 
 **Creative North Star: "Architectural exhibition model"**
 
-The user-pinned direction is simple, spacious and tactile. An orthographic campus model supplies the material character; porcelain interface surfaces and quiet academic typography frame exploration.
+The user-pinned direction is simple, spacious and tactile. The later refinement request prioritizes built-campus correspondence and more realistic rendering. The orthographic overview remains, with lower close-scene viewpoints; porcelain interface surfaces and quiet academic typography continue to frame exploration.
 
 This document describes the implemented campus-atlas surface. Runtime React/Three.js was chosen for this build; it establishes no permanent image-first or code-first preference. No approved composition or quality-bar image is recorded. Concept seed 3ab1e5ff ran; the user-pinned aesthetic took precedence.
 
@@ -123,7 +123,7 @@ At widths of at most 760px, the masthead/footer become 70px/30px and navigation 
 
 ## Elevation & Depth
 
-The model uses an extruded plinth, approximate building massing, terrain meshes and repeated trees under warm directional light. Orthographic projection preserves the exhibition-model character. Soft UI shadows lift markers, controls, the drawer and the information popover; thin borders separate stationary surfaces.
+The model uses an extruded plinth, photo-referenced building forms, terrain meshes and clustered tree crowns under neutral daylight. The renderer adds a generated sky environment for reflections, localized shadow coverage for close scenes, restrained ambient occlusion on desktop close views, and procedural masonry, paving and roof detail. Orthographic projection preserves overview legibility. Soft UI shadows lift markers, controls, the drawer and the information popover; thin borders separate stationary surfaces.
 
 Scene travel lasts 1350ms with a quartic ease-out. Reduced-motion preferences make travel immediate and suppress CSS animation. Manual camera interaction interrupts travel.
 
@@ -148,4 +148,4 @@ Interface corners are gently rounded and compact. Markers combine a rectangular 
 - **Don't** present modeled heights, facades, vegetation or camera spans as surveyed measurements.
 - **Don't** imply indoor access, route guidance or precise real-world navigation.
 
-Horizontal layout is traced from the official August 2026 campus plan and informed by public architectural material. Geometry, elevations and vegetation are simplified. The 北大楼 description explicitly notes the newer official map's 行政楼 label.
+Horizontal layout is traced from the official August 2026 campus plan and informed by public architectural material. The blue east running track is verified against built photographs; the west track color remains explicitly unverified. Architectural proportions and unphotographed details are still approximate. The 北大楼 description explicitly notes the newer official map's 行政楼 label. See SOURCES.md for reference dates and the boundary between observed features and reconstruction.
