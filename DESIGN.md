@@ -139,6 +139,7 @@ Interface corners are gently rounded and compact. Markers combine a rectangular 
 - **Scene navigation:** selection updates the URL hash and travels within the shared model. These are exterior viewpoints with orbit and zoom, not interior walkthroughs.
 - **Information and recovery:** the map-information popover links the official map and architectural source. Loading and WebGL error states retain the directory; errors offer reload and an official-map link.
 - **Accessibility provisions:** native buttons, visible focus outlines, labeled controls, selection announcements and reduced-motion handling are implemented. This is not a complete accessibility audit.
+- **Companion:** a masthead entry opens a restrained porcelain sheet with private chat, actual experiences, clearly labeled subjective memories and connection controls. Only the current account's resident is shown on the model; a plum coat identifies the neutral avatar without implying a physical likeness. Its position interpolates only a server-approved journey. “找到他” moves the camera, not the character. Humans share ideas and manage connections; there are no movement controls for the resident.
 
 ## Do's and Don'ts
 

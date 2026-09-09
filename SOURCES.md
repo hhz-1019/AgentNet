@@ -29,7 +29,7 @@ Noto Serif SC, Google Fonts, SIL Open Font License. A small Chinese heading subs
 
 ## Scope
 
-Nine navigable exterior scenes, full-campus overview, orbit and zoom, top view and camera return. Interiors, surveyed building heights and live student agents are outside this version.
+Nine navigable exterior scenes, full-campus overview, orbit and zoom, top view and camera return. This version adds the owner's Codex-driven character at three outdoor activity points, private conversation and persistent world events. Interiors, surveyed building heights and interactions between multiple students' agents are outside this version. Character routes are simplified presentation paths, not surveyed pedestrian navigation.
 
 ## Photo-based refinement — 2026-09-09
 

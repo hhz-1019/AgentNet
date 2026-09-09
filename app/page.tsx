@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Compass, ExternalLink, Focus, Info, Layers2, MapPin, Minus, Mountain, MoveUpRight, Plus, RotateCcw, Trees, Waves } from 'lucide-react';
+import { ArrowDownLeft, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Compass, ExternalLink, Focus, Info, Layers2, MapPin, MessageCircle, Minus, Mountain, MoveUpRight, Plus, RotateCcw, Trees, Waves } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { LOCATIONS, type LocationId } from '@/lib/campus-data';
 import CampusCanvas, { type CampusControls } from '@/components/campus-canvas';
+import { CompanionPanel,useCompanion } from '@/components/companion-panel';
 
 export default function Home() {
   const [selected, setSelected] = useState<LocationId | null>(null);
@@ -15,6 +16,8 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const controls = useRef<CampusControls | null>(null);
+  const world=useCompanion();
+  const [companionOpen,setCompanionOpen]=useState(false);
   const location = LOCATIONS.find((place) => place.id === selected);
   const select = useCallback((id: LocationId | null) => {
     setSelected(id); setTopView(false); setDirectoryOpen(window.innerWidth > 760);
@@ -36,6 +39,7 @@ export default function Home() {
         <span className="brand-name">南京大学 <span>苏州校区</span><small>NANJING UNIVERSITY · SUZHOU</small></span>
       </Button>
       <div className="header-center"><span className="view-indicator" />三维校园</div>
+      <Button variant="outline" className="companion-open" onClick={()=>setCompanionOpen(true)}><MessageCircle size={17}/><span>{world.view?.character?.name??'我的伙伴'}</span>{world.view?.connected&&<span className="companion-online" aria-label="Codex 在线"/>}</Button>
       <Popover><PopoverTrigger render={<Button variant="ghost" className="about-button" aria-label="地图说明" />}><Info size={17} /><span>地图说明</span></PopoverTrigger>
         <PopoverContent align="end" className="map-about"><PopoverTitle>关于这座校园</PopoverTitle>
           <p>依据南大官方校园平面图（2026 年 8 月）、建筑设计图与建成实景，细化建筑轮廓、立面和场地配色。</p>
@@ -69,7 +73,7 @@ export default function Home() {
         <div className="sidebar-footer"><Trees size={18} strokeWidth={1.4} /><p>依山而建，向水而生。<span>庄里山 · 九曲河</span></p></div>
       </aside>
       <section className={`map-stage ${location ? 'scene-mode' : ''}`} aria-label={location ? `${location.name}三维场景` : '苏州校区三维地图'}>
-        <CampusCanvas selected={selected} topView={topView} controlsRef={controls} onSelect={select} onReady={() => setReady(true)} onError={setError} />
+        <CampusCanvas selected={selected} topView={topView} controlsRef={controls} onSelect={select} onReady={() => setReady(true)} onError={setError} companion={world.view} onCompanionClick={()=>setCompanionOpen(true)} />
         <div className="map-topline"><div className="map-breadcrumb"><span>苏州校区</span><span className="breadcrumb-slash">/</span><strong>{location ? location.name : '全景地图'}</strong></div><span className="model-caption">CAMPUS ATLAS</span></div>
         {!ready && !error && <div className="loading-state" role="status"><span className="loading-orbit" /><p>正在展开校园</p><small>山、水与建筑，即将呈现</small></div>}
         {error && <div className="canvas-error" role="alert"><Mountain size={36} strokeWidth={1} /><h2>三维视图暂时无法打开</h2><p>{error}</p><Button onClick={() => window.location.reload()}>重新加载</Button><a href="https://zcc.nju.edu.cn/dzdt/szxqdt/index.html" target="_blank" rel="noreferrer">查看官方校园地图 <ExternalLink size={14} /></a></div>}
@@ -81,6 +85,7 @@ export default function Home() {
       </section>
     </div>
     <footer className="page-footer"><span>南京大学苏州校区</span><span className="footer-location">中国 · 苏州高新区</span><span>诚朴雄伟 · 励学敦行 <ArrowRight size={12} /></span></footer>
+    <CompanionPanel world={world} open={companionOpen} onOpenChange={setCompanionOpen} onLocate={()=>controls.current?.focusCompanion()}/>
     <div className="sr-only" aria-live="polite">{location ? `已进入${location.name}三维场景。${location.description}` : '当前为苏州校区全景地图。'}</div>
   </main>;
 }

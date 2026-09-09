@@ -12,13 +12,19 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildCampus } from '@/lib/campus-model';
 import { addCampusSurfaceDetail } from '@/lib/campus-materials';
 import { LOCATIONS, mapPosition, type LocationId } from '@/lib/campus-data';
+import { createCompanionModel } from '@/lib/companion-model';
+import { WORLD_PLACES,routePosition } from '@/lib/world-map';
+import type { WorldView } from '@/lib/world-types';
 
-export type CampusControls = { zoom: (factor: number) => void; reset: () => void };
-type Props = { selected: LocationId | null; topView: boolean; controlsRef: MutableRefObject<CampusControls | null>; onSelect: (id: LocationId | null) => void; onReady: () => void; onError: (message: string) => void };
+export type CampusControls = { zoom: (factor: number) => void; reset: () => void; focusCompanion:()=>void };
+type Props = { selected: LocationId | null; topView: boolean; controlsRef: MutableRefObject<CampusControls | null>; onSelect: (id: LocationId | null) => void; onReady: () => void; onError: (message: string) => void; companion:WorldView|null; onCompanionClick:()=>void };
 
 export default function CampusCanvas(props: Props) {
   const mount = useRef<HTMLDivElement>(null);
   const markers = useRef<(HTMLButtonElement | null)[]>([]);
+  const companionMarker=useRef<HTMLButtonElement|null>(null);
+  const snapshotAt=useRef({view:props.companion,receivedAt:Date.now()});
+  if(snapshotAt.current.view!==props.companion)snapshotAt.current={view:props.companion,receivedAt:Date.now()};
   const current = useRef(props); current.current = props;
   const travel = useRef<(() => void) | null>(null);
 
@@ -44,6 +50,14 @@ export default function CampusCanvas(props: Props) {
     orbit.minPolarAngle = .035; orbit.maxPolarAngle = Math.PI / 2.17; orbit.minZoom = .45; orbit.maxZoom = 22;
     orbit.screenSpacePanning = false; orbit.maxTargetRadius = 260;
     const model = buildCampus(); addCampusSurfaceDetail(model); scene.add(model);
+    const resident=createCompanionModel();scene.add(resident.group);
+    let lastCompanion:WorldView|null=null,focusCharacter=false;
+    function companionPosition(){
+      const view=current.current.companion,c=view?.character;if(!view||!c)return null;
+      const now=view.serverNow+Math.max(0,Date.now()-snapshotAt.current.receivedAt);
+      const p=c.motion?routePosition(c.motion.route,(now-c.motion.startAt)/(c.motion.endAt-c.motion.startAt)):WORLD_PLACES[c.place].point;
+      return {p,now,moving:!!c.motion&&now<c.motion.endAt};
+    }
     const hemi = new THREE.HemisphereLight('#d8e5ed','#767967',.54); scene.add(hemi);
     const sunOffset = new THREE.Vector3(-190,245,140);
     const sun = new THREE.DirectionalLight('#fff8eb',3.1); sun.position.copy(sunOffset); sun.castShadow=true;
@@ -70,16 +84,17 @@ export default function CampusCanvas(props: Props) {
     const ray = new THREE.Raycaster(), pointer=new THREE.Vector2(), hitPoint = new THREE.Vector3();
     function destination() {
       const p=LOCATIONS.find(p=>p.id===current.current.selected);
-      const [x,z]=p?mapPosition(p.x,p.y):[0,0];
-      const target=new THREE.Vector3(x,p?p.elevation*.28:0,z);
+      const companion=focusCharacter?companionPosition():null;
+      const [x,z]=companion?mapPosition(...companion.p):p?mapPosition(p.x,p.y):[0,0];
+      const target=new THREE.Vector3(x,companion?1:p?p.elevation*.28:0,z);
       const direction=current.current.topView?new THREE.Vector3(.001,1,.04):p?new THREE.Vector3(.62,.77,1.2):width<600?new THREE.Vector3(.42,1.25,1.15):new THREE.Vector3(.76,1.12,1.20);
       const position=target.clone().add(direction.normalize().multiplyScalar(560));
-      const zoom=p?Math.min(9,baseHalf*2/(p.span*(width<600?1.45:1))):1;
+      const zoom=companion?baseHalf*2/48:p?Math.min(9,baseHalf*2/(p.span*(width<600?1.45:1))):1;
       return {target,position,zoom};
     }
     function go(immediate=false) {
       const dest=destination();
-      const place=LOCATIONS.find(p=>p.id===current.current.selected),shadowSpan=place?Math.max(55,place.span*.85):285;
+      const place=LOCATIONS.find(p=>p.id===current.current.selected),shadowSpan=focusCharacter?55:place?Math.max(55,place.span*.85):285;
       sun.target.position.copy(dest.target);sun.position.copy(dest.target).add(sunOffset);
       sun.shadow.camera.left=-shadowSpan;sun.shadow.camera.right=shadowSpan;sun.shadow.camera.top=shadowSpan;sun.shadow.camera.bottom=-shadowSpan;sun.shadow.camera.updateProjectionMatrix();
       renderer.shadowMap.needsUpdate=true;
@@ -100,8 +115,8 @@ export default function CampusCanvas(props: Props) {
       renderer.setSize(width,height);composer.setSize(width,height);camera.updateProjectionMatrix();go(true);
     }
     const observer=new ResizeObserver(resize);observer.observe(container);resize();
-    travel.current=()=>go();
-    current.current.controlsRef.current={zoom:(factor)=>{flight=null;camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.45,18);camera.updateProjectionMatrix();dirty=true;},reset:()=>go()};
+    travel.current=()=>{focusCharacter=false;go();};
+    current.current.controlsRef.current={zoom:(factor)=>{flight=null;camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.45,18);camera.updateProjectionMatrix();dirty=true;},reset:()=>{focusCharacter=false;go();},focusCompanion:()=>{focusCharacter=true;go();}};
     const projected = new THREE.Vector3();
     function updateMarkers() {
       const occupied: { x:number;y:number;w:number;h:number }[]=[];
@@ -121,11 +136,29 @@ export default function CampusCanvas(props: Props) {
       });
       const needle=document.getElementById('compass-needle');
       if(needle)needle.style.transform=`rotate(${-orbit.getAzimuthalAngle()*180/Math.PI}deg)`;
+      if(companionMarker.current){
+        projected.copy(resident.group.position).add(new THREE.Vector3(0,2.3,0)).project(camera);
+        const x=(projected.x*.5+.5)*width,y=(-projected.y*.5+.5)*height,button=companionMarker.current;
+        button.style.visibility=resident.group.visible&&projected.z>=-1&&projected.z<=1&&x>40&&x<width-40&&y>35&&y<height-50?'visible':'hidden';
+        button.style.transform=`translate3d(${Math.round(x-button.offsetWidth/2)}px,${Math.round(y-button.offsetHeight)}px,0)`;
+      }
     }
     let first=true;
     function render(now:number) {
       frame=requestAnimationFrame(render);
       let moving=false;
+      const character=current.current.companion?.character,position=companionPosition();
+      resident.group.visible=!!character;
+      if(lastCompanion!==current.current.companion){lastCompanion=current.current.companion;dirty=true;}
+      if(position&&character){
+        const [x,z]=mapPosition(...position.p);resident.group.position.set(x,.3,z);
+        if(character.motion&&position.moving){
+          const ahead=routePosition(character.motion.route,(position.now+300-character.motion.startAt)/(character.motion.endAt-character.motion.startAt));
+          resident.group.rotation.y=Math.atan2(ahead[0]-position.p[0],ahead[1]-position.p[1]);moving=true;
+        }
+        const stride=position.moving&&!reduced.matches?Math.sin(now*.008)*.36:0;
+        resident.legs.forEach((leg,i)=>{leg.rotation.x=stride*(i===0?1:-1);});resident.arms.forEach((arm,i)=>{arm.rotation.x=stride*(i===0?-1:1)*.6;});
+      }
       if(flight){
         const t=Math.min(1,(now-flight.start)/1350),ease=1-Math.pow(1-t,4);
         camera.position.lerpVectors(flight.from,flight.to,ease);orbit.target.lerpVectors(flight.targetFrom,flight.targetTo,ease);
@@ -165,5 +198,5 @@ export default function CampusCanvas(props: Props) {
     };
   }, []);
   useEffect(()=>{travel.current?.();},[props.selected,props.topView]);
-  return <div ref={mount} className="campus-canvas"><div className="map-label-layer">{LOCATIONS.map((place,i)=><button key={place.id} ref={el=>{markers.current[i]=el;}} className="map-marker" aria-label={`进入${place.name}三维场景`} onClick={()=>props.onSelect(place.id)}><span className="map-marker-label">{place.name}<MoveUpRight size={12}/></span><span className="map-marker-stem"/><span className="map-marker-dot"/></button>)}</div></div>;
+  return <div ref={mount} className="campus-canvas"><div className="map-label-layer">{LOCATIONS.map((place,i)=><button key={place.id} ref={el=>{markers.current[i]=el;}} className="map-marker" aria-label={`进入${place.name}三维场景`} onClick={()=>props.onSelect(place.id)}><span className="map-marker-label">{place.name}<MoveUpRight size={12}/></span><span className="map-marker-stem"/><span className="map-marker-dot"/></button>)}<button ref={companionMarker} className="companion-map-marker" onClick={props.onCompanionClick} aria-label={`和${props.companion?.character?.name??'伙伴'}聊聊`}>{props.companion?.character?.name??'伙伴'}<MoveUpRight size={12}/></button></div></div>;
 }
