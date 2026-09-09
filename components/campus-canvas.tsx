@@ -31,7 +31,7 @@ export default function CampusCanvas(props: Props) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.02;
+    renderer.toneMappingExposure = .98;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.shadowMap.autoUpdate = false;
     renderer.domElement.setAttribute('aria-label', '三维校园。方向键旋转，加减键缩放。地点可以在左侧目录中选择。');
@@ -44,9 +44,9 @@ export default function CampusCanvas(props: Props) {
     orbit.minPolarAngle = .035; orbit.maxPolarAngle = Math.PI / 2.17; orbit.minZoom = .45; orbit.maxZoom = 22;
     orbit.screenSpacePanning = false; orbit.maxTargetRadius = 260;
     const model = buildCampus(); addCampusSurfaceDetail(model); scene.add(model);
-    const hemi = new THREE.HemisphereLight('#d5e3f2','#747567',.72); scene.add(hemi);
-    const sunOffset = new THREE.Vector3(-170,280,140);
-    const sun = new THREE.DirectionalLight('#fffaf1',2.8); sun.position.copy(sunOffset); sun.castShadow=true;
+    const hemi = new THREE.HemisphereLight('#d8e5ed','#767967',.54); scene.add(hemi);
+    const sunOffset = new THREE.Vector3(-190,245,140);
+    const sun = new THREE.DirectionalLight('#fff8eb',3.1); sun.position.copy(sunOffset); sun.castShadow=true;
     const shadowSize=Math.min(4096,renderer.capabilities.maxTextureSize);
     sun.shadow.mapSize.set(shadowSize,shadowSize); sun.shadow.camera.near=10; sun.shadow.camera.far=700; sun.shadow.normalBias=.035; sun.shadow.bias=-.00006; scene.add(sun,sun.target);
     const sky = new Sky(); sky.scale.setScalar(1000);
@@ -60,8 +60,8 @@ export default function CampusCanvas(props: Props) {
     ground.rotation.x=-Math.PI/2;ground.position.y=-7.2;ground.receiveShadow=true;scene.add(ground);
     const composer=new EffectComposer(renderer);composer.renderTarget1.samples=4;composer.renderTarget2.samples=4;
     const renderPass=new RenderPass(scene,camera),ao=new GTAOPass(scene,camera,512,512),output=new OutputPass();
-    ao.updateGtaoMaterial({radius:1.1,thickness:1.3,distanceExponent:1.6,distanceFallOff:1,samples:8});
-    ao.updatePdMaterial({radius:4,samples:8,rings:2});ao.blendIntensity=.42;
+    ao.updateGtaoMaterial({radius:1.5,thickness:1.8,distanceExponent:1.6,distanceFallOff:1,samples:8});
+    ao.updatePdMaterial({radius:4,samples:8,rings:2});ao.blendIntensity=.55;
     composer.addPass(renderPass);composer.addPass(ao);composer.addPass(output);
     let width=1,height=1,baseHalf=180,dirty=true,frame=0;
     const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -83,9 +83,11 @@ export default function CampusCanvas(props: Props) {
       sun.target.position.copy(dest.target);sun.position.copy(dest.target).add(sunOffset);
       sun.shadow.camera.left=-shadowSpan;sun.shadow.camera.right=shadowSpan;sun.shadow.camera.top=shadowSpan;sun.shadow.camera.bottom=-shadowSpan;sun.shadow.camera.updateProjectionMatrix();
       renderer.shadowMap.needsUpdate=true;
-      ao.enabled=!!place&&width>=800&&!current.current.topView;
-      // ponytail: lower-resolution AO only for desktop close views; full-scene mobile AO exceeds the useful GPU budget.
-      ao.setSize(ao.enabled?Math.ceil(width*renderer.getPixelRatio()*.6):128,ao.enabled?Math.ceil(height*renderer.getPixelRatio()*.6):128);
+      ao.enabled=width>=800&&!current.current.topView;
+      // ponytail: desktop AO includes the overview; omit it on mobile and cap its pixel budget.
+      const aoScale=Math.min(place ? .7 : .55,1100/(Math.max(width,height)*renderer.getPixelRatio()));
+      ao.updateGtaoMaterial({radius:place?1.5:2.8});
+      ao.setSize(ao.enabled?Math.ceil(width*renderer.getPixelRatio()*aoScale):128,ao.enabled?Math.ceil(height*renderer.getPixelRatio()*aoScale):128);
       container.dataset.moving = immediate || reduced.matches ? 'false' : 'true';
       if(immediate||reduced.matches){orbit.target.copy(dest.target);camera.position.copy(dest.position);camera.zoom=dest.zoom;camera.updateProjectionMatrix();orbit.update();flight=null;}
       else {flight={start:performance.now(),from:camera.position.clone(),to:dest.position,targetFrom:orbit.target.clone(),targetTo:dest.target,zoomFrom:camera.zoom,zoomTo:dest.zoom};}

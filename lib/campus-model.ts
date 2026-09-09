@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { MAP_SCALE as S, mapPosition } from './campus-data.ts';
 
 type Point = [number, number];
-type MaterialName = 'brick' | 'stone' | 'roof' | 'glass' | 'red' | 'redBright' | 'paving' | 'grass' | 'road' | 'walk' | 'water' | 'track' | 'trackBlue' | 'courtBlue' | 'turf' | 'turfLight' | 'white' | 'wood' | 'leaf' | 'leafLight' | 'leafDark' | 'metal' | 'frame' | 'residence' | 'residenceShade';
+type MaterialName = 'brick' | 'stone' | 'roof' | 'roofFlat' | 'glass' | 'glassLight' | 'glassShade' | 'interior' | 'red' | 'redBright' | 'paving' | 'grass' | 'road' | 'walk' | 'water' | 'track' | 'trackPurple' | 'trackBlue' | 'courtBlue' | 'turf' | 'turfLight' | 'white' | 'wood' | 'leaf' | 'leafLight' | 'leafDark' | 'metal' | 'frame' | 'residence' | 'residenceShade';
 export const CAMPUS_COLORS: Record<MaterialName, string> = {
-  brick: '#949690', stone: '#c0c0b8', roof: '#485058', glass: '#71919c', red: '#963e37', redBright: '#bd292e',
-  paving: '#c5c4bc', grass: '#7b8c53', road: '#535a5c', walk: '#d0cfca', water: '#637e75',
-  track: '#a65749', trackBlue: '#1385c3', courtBlue: '#4a94be', turf: '#287545', turfLight: '#398651',
+  brick: '#a4a7a3', stone: '#c9cbc6', roof: '#50595e', roofFlat: '#738187',
+  glass: '#36575f', glassLight: '#4e6a71', glassShade: '#2c444c', interior: '#1f2b2f', red: '#963e37', redBright: '#b1342e',
+  paving: '#bec3bd', grass: '#87966b', road: '#535d62', walk: '#cfd2ca', water: '#527a7d',
+  track: '#a65749', trackPurple: '#7650cf', trackBlue: '#1385c3', courtBlue: '#4a94be', turf: '#287545', turfLight: '#398651',
   white: '#f2f0e8', wood: '#645344', leaf: '#4d6d3e', leafLight: '#6e8549', leafDark: '#395939',
   metal: '#bfc8cb', frame: '#37454b', residence: '#c7c1bb', residenceShade: '#a9a6a2',
 };
@@ -23,16 +24,17 @@ function inside(x: number, y: number, points: Point[]) {
 export function buildCampus() {
   const campus = new THREE.Group(); campus.name = '南京大学苏州校区';
   campus.userData = {
-    source: '南京大学资产管理处苏州校区平面图，2026-08-25；南京大学东区 2023 / 西区 2025 实景；中衡设计建成项目图纸',
-    accuracy: 'Photo-referenced reconstruction, not a surveyed as-built twin. Heights, unseen elevations, roof equipment and west track color remain unverified.',
+    source: '南京大学资产管理处苏州校区平面图，2026-08-25；南京大学东区 2023 / 西区 2025 实景；中衡设计建成项目图纸；用户提供的西区紫色跑道照片',
+    accuracy: 'Photo-referenced reconstruction, not a surveyed as-built twin. West track is purple per the user\'s location-confirmed photograph. Heights, unseen elevations and roof equipment remain approximate.',
     references: ['https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20251205/i353895.html','https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20231222/i256558.html','https://www.artsgroup.cn/zhonghengdongtai/shejiqushi/2023-12-29/558.html'],
   };
   const materials = Object.fromEntries(Object.entries(CAMPUS_COLORS).map(([key, color]) => {
-    const material = new THREE.MeshStandardMaterial({ color, roughness: key === 'glass' ? .19 : key === 'water' ? .22 : key === 'metal' ? .38 : .88, metalness: key === 'glass' ? .28 : key === 'metal' ? .55 : key === 'water' ? .12 : 0 });
-    material.name = key; material.envMapIntensity = key === 'glass' ? .85 : key === 'water' ? .7 : .35;
+    const glass=key.startsWith('glass');
+    const material = new THREE.MeshStandardMaterial({ color, roughness: glass ? .24 : key === 'water' ? .22 : key === 'metal' ? .42 : key === 'roofFlat' ? .72 : .92, metalness: glass ? .32 : key === 'metal' ? .55 : key === 'water' ? .12 : 0 });
+    material.name = key; material.envMapIntensity = glass ? 1.1 : key === 'water' ? .7 : .28;
     return [key, material];
   })) as Record<MaterialName, THREE.MeshStandardMaterial>;
-  const geometries = { box: new THREE.BoxGeometry(1, 1, 1), sphere: new THREE.IcosahedronGeometry(1, 1), cylinder: new THREE.CylinderGeometry(1, 1, 1, 8) };
+  const geometries = { box: new THREE.BoxGeometry(1, 1, 1), sphere: new THREE.SphereGeometry(1, 10, 8), cylinder: new THREE.CylinderGeometry(1, 1, 1, 8) };
   const batches = new Map<string, THREE.Matrix4[]>();
   const dummy = new THREE.Object3D();
   let seed = 417;
@@ -67,41 +69,58 @@ export function buildCampus() {
   function block(cx: number, cy: number, w: number, d: number, floors = 4, rotation = 0, pitched = false, base = .2, facade: MaterialName = 'brick', trim: MaterialName = 'red') {
     const height = floors * 1.25;
     box(cx, cy, w + 2, d + 2, .38, 'stone', base, rotation);
-    box(cx, cy, w, d, height, facade, base + .35, rotation);
-    for (let f = 0; f < floors; f++) {
-      if(facade!=='residence')box(cx, cy, w + .55, d + .55, .10, 'stone', base + 1.25 * f + .45, rotation);
-      for (let j = 0; j < Math.floor(w / 6); j++) {
-        const dx = (j - (Math.floor(w / 6) - 1) / 2) * 6;
-        for (const sign of [-1, 1]) {
-          const [x, y] = at(cx, cy, dx, sign * (d / 2 + .12), rotation);
-          if(facade==='residence'&&(j+f)%3===0)box(x,y,5.5,.1,1.18,'residenceShade',base+.4+f*1.25,rotation);
-          box(x, y, 3.55, .48, .97, trim, base + .57 + f * 1.25, rotation);
-          const [gx, gy] = at(cx, cy, dx, sign * (d / 2 + .32), rotation);
-          box(gx, gy, 2.55, .12, .68, 'glass', base + .70 + f * 1.25, rotation);
-          const [mx,my] = at(cx,cy,dx,sign*(d/2+.41),rotation);
-          box(mx,my,.16,.14,.69,'frame',base+.70+f*1.25,rotation);
-          box(mx,my,2.65,.16,.045,'frame',base+1.16+f*1.25,rotation);
-          box(x,y,3.7,.9,.08,'stone',base+.55+f*1.25,rotation);
-        }
+    // The facade is assembled around real openings: glazing sits behind the piers and lintels.
+    // A recessed dark core closes the envelope without pretending to model interiors.
+    box(cx,cy,w-2.4,d-2.4,height,'interior',base+.35,rotation);
+    for(const side of [0,1,2,3]) {
+      const faceRotation=rotation+side*Math.PI/2,length=side%2?d:w,depth=side%2?w:d;
+      const center=at(cx,cy,0,depth/2-.5,faceRotation);
+      const columns=Math.max(1,Math.floor(length/6)),bay=length/columns,opening=Math.min(4.1,bay-1.3);
+      const panel=(u:number,out:number,width:number,thickness:number,h:number,mat:MaterialName,y:number)=>{
+        const p=at(center[0],center[1],u,out,faceRotation);box(p[0],p[1],width,thickness,h,mat,y,faceRotation);
+      };
+      for(let j=0;j<=columns;j++) {
+        const end=j===0||j===columns,pier=(bay-opening)*(end ? .5 : 1);
+        const u=-length/2+j*bay+(j===0?pier/2:j===columns?-pier/2:0);
+        panel(u,0,pier,1,height,facade,base+.35);
       }
-      for (let j = 0; j < Math.floor(d / 6); j++) {
-        const dy = (j - (Math.floor(d / 6) - 1) / 2) * 6;
-        for (const sign of [-1, 1]) {
-          const [x, y] = at(cx, cy, sign * (w / 2 + .12), dy, rotation);
-          box(x, y, .4, 3.1, .94, trim, base + .59 + f * 1.25, rotation);
-          const [gx, gy] = at(cx, cy, sign * (w / 2 + .3), dy, rotation);
-          box(gx, gy, .12, 2.4, .65, 'glass', base + .73 + f * 1.25, rotation);
-          const [mx,my]=at(cx,cy,sign*(w/2+.4),dy,rotation);
-          box(mx,my,.12,.14,.65,'frame',base+.73+f*1.25,rotation);
+      for(let f=0;f<floors;f++) {
+        const floorY=base+.35+f*1.25,windowY=floorY+.24;
+        panel(0,0,length,1,.24,facade,floorY);
+        panel(0,0,length,1,.13,facade,floorY+1.12);
+        if(facade!=='residence')panel(0,.18,length+.2,1.3,.055,'stone',floorY+.015);
+        for(let j=0;j<columns;j++) {
+          const u=-length/2+(j+.5)*bay;
+          const pane:MaterialName=(j*7+f*3+side)%7===0?'glassLight':(j+f*5+side)%6===0?'glassShade':'glass';
+          panel(u,-.22,opening,.12,.88,pane,windowY);
+          for(const sign of [-1,1])panel(u+sign*(opening/2-.09),.13,.18,.7,.88,trim,windowY);
+          panel(u,.13,opening,.7,.055,trim,windowY+.825);
+          panel(u,.13,opening,.7,.055,trim,windowY);
+          panel(u,-.10,.12,.13,.78,'frame',windowY+.05);
+          panel(u,-.10,opening-.25,.13,.035,'frame',windowY+.58);
+          panel(u,.34,opening+.45,1.45,.075,'stone',windowY-.04);
+          if(facade==='residence'&&(j+f)%3===0)panel(u,.51,bay-.08,.09,.2,'residenceShade',floorY+.01);
         }
       }
     }
-    box(cx, cy, w + 2.2, d + 2.2, .28, 'stone', base + height + .35, rotation);
-    box(cx, cy, w - 1, d - 1, .22, 'roof', base + height + .62, rotation);
-    if (pitched) hipRoof(cx, cy, w + 4, d + 4, height + base + .84, 1.6, rotation);
+    const roofY=base+height+.35;
+    box(cx,cy,w+.8,d+.8,.18,'stone',roofY,rotation);
+    box(cx,cy,w-1.7,d-1.7,.12,pitched?'roof':'roofFlat',roofY+.18,rotation);
+    if (pitched) hipRoof(cx, cy, w + 4, d + 4, roofY+.45, 1.6, rotation);
     else {
-      for(const sign of [-1,1]) {
-        const p=at(cx,cy,0,sign*(d/2-.45),rotation);box(p[0],p[1],w,1,.34,'stone',base+height+.7,rotation);
+      for(const side of [0,1,2,3]) {
+        const r=rotation+side*Math.PI/2,length=side%2?d:w,depth=side%2?w:d,p=at(cx,cy,0,depth/2-.35,r);
+        box(p[0],p[1],length,.7,.35,facade,roofY+.18,r);
+        box(p[0],p[1],length+.4,1.05,.07,'stone',roofY+.53,r);
+      }
+      // ponytail: schematic service details, not surveyed rooftop equipment locations.
+      if(w>=26&&d>=12&&floors>=4) {
+        const p=at(cx,cy,-w*.22,0,rotation);
+        box(p[0],p[1],4,3.5,.34,'stone',roofY+.3,rotation);
+        box(p[0],p[1],4.5,4,.08,'metal',roofY+.64,rotation);
+        const vent=at(cx,cy,w*.25,0,rotation);
+        box(vent[0],vent[1],2,2,.3,'frame',roofY+.3,rotation);
+        box(vent[0],vent[1],2.7,2.7,.07,'metal',roofY+.6,rotation);
       }
     }
   }
@@ -117,6 +136,39 @@ export function buildCampus() {
       const p=at(cx,cy,0,sign*(Math.min(w,d)/2),roofRotation);
       box(p[0],p[1],Math.max(w,d),.9,.16,'roof',elevation-.08,roofRotation);
     }
+  }
+  function roofThickness(surface:THREE.Mesh,depth:number,edgeMaterial:MaterialName='metal') {
+    const position=surface.geometry.getAttribute('position'),index=surface.geometry.getIndex()!;
+    const vertices:number[]=[],indices:number[]=[],edges=new Map<string,[number,number,number]>();
+    for(let i=0;i<position.count;i++)vertices.push(position.getX(i),position.getY(i)-depth,position.getZ(i));
+    for(let i=0;i<index.count;i+=3) {
+      const a=index.getX(i),b=index.getX(i+1),c=index.getX(i+2);indices.push(c,b,a);
+      for(const [u,v] of [[a,b],[b,c],[c,a]]) {
+        const key=`${Math.min(u,v)}:${Math.max(u,v)}`,edge=edges.get(key);
+        if(edge)edge[2]++;else edges.set(key,[u,v,1]);
+      }
+    }
+    for(const [a,b,count] of edges.values()) {
+      if(count!==1)continue;
+      const n=vertices.length/3;
+      for(const [vertex,offset] of [[a,0],[b,0],[a,-depth],[b,-depth]])vertices.push(position.getX(vertex),position.getY(vertex)+offset,position.getZ(vertex));
+      indices.push(n,n+2,n+1,n+1,n+2,n+3);
+    }
+    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.setIndex(indices);geometry.computeVertexNormals();
+    const shell=new THREE.Mesh(geometry,materials[edgeMaterial]);shell.name=`${surface.name}厚边与檐底`;
+    shell.castShadow=true;shell.receiveShadow=true;campus.add(shell);
+  }
+  function curtainWall(cx:number,cy:number,width:number,height:number,base:number,rotation=0) {
+    const columns=Math.max(2,Math.round(width/5)),rows=Math.max(1,Math.round(height/1.3)),bay=width/columns,storey=height/rows;
+    for(let col=0;col<columns;col++)for(let row=0;row<rows;row++) {
+      const p=at(cx,cy,-width/2+(col+.5)*bay,0,rotation);
+      const material:MaterialName=col%5===0?'glassShade':(col+row*2)%7===0?'glassLight':'glass';
+      box(p[0],p[1],bay-.12,.12,storey-.035,material,base+row*storey,rotation);
+    }
+    for(let col=0;col<=columns;col++) {
+      const p=at(cx,cy,-width/2+col*bay,.2,rotation);box(p[0],p[1],.16,.6,height,'frame',base,rotation);
+    }
+    for(let row=0;row<=rows;row++)box(cx,cy,width,.45,.045,'frame',base+row*storey,rotation);
   }
   function court(cx: number, cy: number, w: number, d: number, floors = 4, rotation = 0, wing = 10, trim:MaterialName='red') {
     box(cx, cy, w + 5, d + 5, .20, 'paving', .1, rotation);
@@ -269,6 +321,12 @@ export function buildCampus() {
   // West library: two-storey colonnade, paired horizontal fins, square glazed front and lifting eaves.
   box(674,851,81,88,.45,'stone',.15);box(674,851,64,73,4.1,'glass',.6);
   box(674,851,77,85,.5,'stone',4.65);box(674,851,67,75,10.7,'glass',5.15);
+  for(const side of [0,1,2,3]) {
+    const r=side*Math.PI/2,p=at(674,851,0,(side%2?67:75)/2+.08,r);
+    curtainWall(p[0],p[1],side%2?75:67,10.7,5.15,r);
+    const ground=at(674,851,0,(side%2?64:73)/2+.08,r);
+    curtainWall(ground[0],ground[1],side%2?73:64,4.1,.6,r);
+  }
   rail(674,851,77,84,4.95);
   for(let i=-4;i<=4;i++)for(const side of [-1,1]){
     box(674+i*8.5,851+side*41,1.7,1.7,4.1,'stone',.6);
@@ -287,7 +345,7 @@ export function buildCampus() {
   box(674,891.2,28,1.6,8.5,'frame',6);box(674,892.1,25.5,.25,7.9,'glass',6.3);
   for(let i=-2;i<=2;i++)box(674+i*5.1,892.35,.2,.15,7.9,'metal',6.3);
   for(let h=6.3;h<14.3;h+=1.32)box(674,892.35,25.5,.15,.075,'metal',h);
-  box(674,851,80,88,.26,'roof',16.1);
+  box(674,851,80,88,.26,'roofFlat',16.1);
   const eaveVertices:number[]=[],eaveIndices:number[]=[];
   for(let j=0;j<=16;j++)for(let i=0;i<=16;i++){
     const u=(i/16-.5)*2,v=(j/16-.5)*2,[x,z]=mapPosition(674+u*42,851+v*46);
@@ -295,8 +353,12 @@ export function buildCampus() {
     if(i<16&&j<16){const a=j*17+i;eaveIndices.push(a,a+17,a+1,a+1,a+17,a+18);}
   }
   const eaveGeo=new THREE.BufferGeometry();eaveGeo.setAttribute('position',new THREE.Float32BufferAttribute(eaveVertices,3));eaveGeo.setIndex(eaveIndices);eaveGeo.computeVertexNormals();
-  const eaves=new THREE.Mesh(eaveGeo,materials.roof);eaves.name='图书馆飞檐';eaves.castShadow=true;eaves.receiveShadow=true;campus.add(eaves);
-  box(674,851,47,55,.8,'stone',16.6);box(674,851,49,57,.14,'roof',17.4);
+  const eaves=new THREE.Mesh(eaveGeo,materials.roofFlat);eaves.name='图书馆飞檐';eaves.castShadow=true;eaves.receiveShadow=true;campus.add(eaves);roofThickness(eaves,.23,'stone');
+  box(674,851,47,55,.8,'stone',16.6);box(674,851,49,57,.14,'roofFlat',17.4);
+  for(const x of [-14,0,14]) {
+    box(674+x,851,7,10,.24,'frame',17.56);box(674+x,851,6.3,9.3,.09,'metal',17.8);
+    for(let louver=0;louver<6;louver++)box(674+x,847+louver*1.5,6,.26,.055,'frame',17.89);
+  }
   for(let i=0;i<7;i++)box(674,900-i*1.35,34,1.5,.09*(i+1),'stone',.12);
 
   function oval(cx:number,cy:number,w:number,h:number,rotation:number):Point[]{
@@ -304,8 +366,8 @@ export function buildCampus() {
     for(let i=0;i<=48;i++){const a=Math.PI+i/48*Math.PI;points.push(at(cx,cy,Math.cos(a)*r,-dy+Math.sin(a)*r,rotation));}
     for(let i=0;i<=48;i++){const a=i/48*Math.PI;points.push(at(cx,cy,Math.cos(a)*r,dy+Math.sin(a)*r,rotation));}return points;
   }
-  function field(cx:number,cy:number,w:number,h:number,rotation=0,surface:MaterialName='track'){
-    shape(oval(cx,cy,w+6,h+6,rotation),'paving',.17);shape(oval(cx,cy,w,h,rotation),surface,.19,surface==='trackBlue'?'东区蓝色跑道':'西区跑道（颜色待近照复核）');
+  function field(cx:number,cy:number,w:number,h:number,rotation=0,surface:MaterialName='trackPurple'){
+    shape(oval(cx,cy,w+6,h+6,rotation),'paving',.17);shape(oval(cx,cy,w,h,rotation),surface,.19,surface==='trackBlue'?'东区蓝色跑道':'西区紫色跑道');
     for(let lane=0;lane<=8;lane++){const ring=oval(cx,cy,w-lane*2.5,h-lane*2.5,rotation);line([...ring,ring[0]],.18,'white',.214,false);}
     shape(oval(cx,cy,w-20.5,h-20.5,rotation),'turf',.22);
     const fw=w-35,fh=h-62;
@@ -358,7 +420,15 @@ export function buildCampus() {
     if(i<12&&j<40){const a=j*13+i;sailIndices.push(a,a+13,a+1,a+1,a+13,a+14);}
   }
   const sailGeo=new THREE.BufferGeometry();sailGeo.setAttribute('position',new THREE.Float32BufferAttribute(sailVertices,3));sailGeo.setIndex(sailIndices);sailGeo.computeVertexNormals();
-  const sail=new THREE.Mesh(sailGeo,materials.metal);sail.name='西区文体中心银色风帆屋面';sail.castShadow=true;sail.receiveShadow=true;campus.add(sail);
+  const sail=new THREE.Mesh(sailGeo,materials.metal);sail.name='西区文体中心银色风帆屋面';sail.castShadow=true;sail.receiveShadow=true;campus.add(sail);roofThickness(sail,.3);
+  for(let rib=0;rib<=20;rib++) {
+    const u=rib/20*2-1;
+    for(let j=0;j<40;j++) {
+      const a=worldAt(482,351,u*50,j/40*126,sailHeight(j/40)+.6*(1-u*u)+.045);
+      const b=worldAt(482,351,u*50,(j+1)/40*126,sailHeight((j+1)/40)+.6*(1-u*u)+.045);
+      beam(a,b,.025,'metal');
+    }
+  }
   for(let i=0;i<40;i++){
     const t=(i+.5)/40,y=351+t*126,h=sailHeight(t);
     for(const side of [-1,1]){
@@ -381,7 +451,8 @@ export function buildCampus() {
     const outline=new THREE.Shape(contour.map(([x,y])=>{const [wx,wz]=mapPosition(x,y);return new THREE.Vector2(wx,-wz);}));
     const geo=new THREE.ExtrudeGeometry(outline,{depth:4.8,bevelEnabled:false});geo.rotateX(-Math.PI/2);
     const volume=new THREE.Mesh(geo,materials.glass);volume.position.y=.4;volume.castShadow=true;volume.receiveShadow=true;volume.name='文体中心弧形玻璃体量';campus.add(volume);
-    shape(contour,'roof',5.22);
+    shape(contour,'roofFlat',5.22);
+    line([...contour,contour[0]],1.2,'metal',5.25,false);
     for(let i=0;i<42;i++){
       const a=i/42*Math.PI*2;box(cx+Math.cos(a)*30.3,cy+Math.sin(a)*23.3,.75,2.2,5.2,'redBright',.3,-a);
     }
@@ -407,7 +478,7 @@ export function buildCampus() {
     if(j<spineProfile.length-1&&side===-1){const a=j*2;spineIndices.push(a,a+2,a+1,a+1,a+2,a+3);}
   }
   const spineGeo=new THREE.BufferGeometry();spineGeo.setAttribute('position',new THREE.Float32BufferAttribute(spineVertices,3));spineGeo.setIndex(spineIndices);spineGeo.computeVertexNormals();
-  const spine=new THREE.Mesh(spineGeo,materials.grass);spine.name='南雍楼中央山脊屋顶花园';spine.castShadow=true;spine.receiveShadow=true;campus.add(spine);
+  const spine=new THREE.Mesh(spineGeo,materials.grass);spine.name='南雍楼中央山脊屋顶花园';spine.castShadow=true;spine.receiveShadow=true;campus.add(spine);roofThickness(spine,.26,'stone');
   for(let j=0;j<spineProfile.length-1;j++) {
     const [ya,ha]=spineProfile[j],[yb,hb]=spineProfile[j+1];
     for(const side of [-1,1]) {

@@ -13,10 +13,10 @@ colors:
   selected: "#f0e9ed"
   overlay: "#fcfcfaf2"
   map-ground: "#edf0ea"
-  model-brick: "#949690"
+  model-brick: "#a4a7a3"
   model-red: "#963e37"
-  model-grass: "#7b8c53"
-  model-water: "#637e75"
+  model-grass: "#87966b"
+  model-water: "#527a7d"
 typography:
   headline:
     fontFamily: "'Campus Serif', 'Noto Serif SC', 'Songti SC', SimSun, serif"
@@ -123,7 +123,7 @@ At widths of at most 760px, the masthead/footer become 70px/30px and navigation 
 
 ## Elevation & Depth
 
-The model uses an extruded plinth, photo-referenced building forms, terrain meshes and clustered tree crowns under neutral daylight. The renderer adds a generated sky environment for reflections, localized shadow coverage for close scenes, restrained ambient occlusion on desktop close views, and procedural masonry, paving and roof detail. Orthographic projection preserves overview legibility. Soft UI shadows lift markers, controls, the drawer and the information popover; thin borders separate stationary surfaces.
+The model uses an extruded plinth, photo-referenced building forms, terrain meshes and rounded clustered tree crowns under directional daylight. Building facades use genuinely recessed glazing between masonry piers and spandrels, projecting sills, restrained red trim, four-sided parapets and coping. Slate-grey flat roofs have panel joints; pitched roofs retain a darker tiled finish. The renderer adds a generated sky environment for reflections, localized shadow coverage for close scenes, ambient occlusion on desktop overview and close views, and filtered surface relief for masonry, paving and roof detail. Orthographic projection preserves overview legibility. Soft UI shadows lift markers, controls, the drawer and the information popover; thin borders separate stationary surfaces.
 
 Scene travel lasts 1350ms with a quartic ease-out. Reduced-motion preferences make travel immediate and suppress CSS animation. Manual camera interaction interrupts travel.
 
@@ -148,4 +148,4 @@ Interface corners are gently rounded and compact. Markers combine a rectangular 
 - **Don't** present modeled heights, facades, vegetation or camera spans as surveyed measurements.
 - **Don't** imply indoor access, route guidance or precise real-world navigation.
 
-Horizontal layout is traced from the official August 2026 campus plan and informed by public architectural material. The blue east running track is verified against built photographs; the west track color remains explicitly unverified. Architectural proportions and unphotographed details are still approximate. The 北大楼 description explicitly notes the newer official map's 行政楼 label. See SOURCES.md for reference dates and the boundary between observed features and reconstruction.
+Horizontal layout is traced from the official August 2026 campus plan and informed by public architectural material. The blue east running track is verified against university photographs; the purple west track is verified against the user's supplied photograph and location identification. The user's second image guides the architectural visualization finish, not Suzhou's building shapes. Architectural proportions and unphotographed details are still approximate. The 北大楼 description explicitly notes the newer official map's 行政楼 label. See SOURCES.md for reference dates and the boundary between observed features and reconstruction.

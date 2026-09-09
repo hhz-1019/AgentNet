@@ -39,7 +39,7 @@ export default function Home() {
       <Popover><PopoverTrigger render={<Button variant="ghost" className="about-button" aria-label="地图说明" />}><Info size={17} /><span>地图说明</span></PopoverTrigger>
         <PopoverContent align="end" className="map-about"><PopoverTitle>关于这座校园</PopoverTitle>
           <p>依据南大官方校园平面图（2026 年 8 月）、建筑设计图与建成实景，细化建筑轮廓、立面和场地配色。</p>
-          <p>尚未取得完整竣工图，尺寸与未见立面仍为近似重建。东区蓝色跑道已对照实景；西区跑道颜色待近照确认。不用于测量或实地导航。</p>
+          <p>东区蓝色跑道与西区紫色跑道均已对照实景。尚未取得完整竣工图，尺寸、未见立面和部分屋顶细节仍为近似重建，不用于测量或实地导航。</p>
           <a href="https://zcc.nju.edu.cn/dzdt/szxqdt/index.html" target="_blank" rel="noreferrer">南京大学官方校区地图 <ExternalLink size={14} /></a>
           <a href="https://www.artsgroup.cn/zhonghengdongtai/shejiqushi/2023-12-29/558.html" target="_blank" rel="noreferrer">建筑设计资料 · 中衡设计 <ExternalLink size={14} /></a>
           <a href="https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20251205/i353895.html" target="_blank" rel="noreferrer">西区建成实景 · 南京大学 <ExternalLink size={14} /></a>

@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { Raycaster, Vector3 } from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { buildCampus } from '../lib/campus-model.ts';
 import { LOCATIONS, mapPosition } from '../lib/campus-data.ts';
@@ -23,11 +24,25 @@ model.traverse(object=>{
 const eastTrack=model.getObjectByName('东区蓝色跑道');
 assert(eastTrack?.isMesh,'The real east running track must exist as ground geometry');
 assert(eastTrack.material.color.b>eastTrack.material.color.r*3,'East track must be blue, not red');
+const westTrack=model.getObjectByName('西区紫色跑道');
+assert(westTrack?.isMesh,'The location-confirmed west track must exist');
+assert(westTrack.material.color.r>westTrack.material.color.g*1.5&&westTrack.material.color.b>westTrack.material.color.r*1.5,'West track must be purple and distinct from the blue east track');
+// Cast through one window pane and the adjacent pier on a north-west residential block.
+// The actual glass must sit behind the masonry, rather than be a sticker on a solid wall.
+model.updateMatrixWorld(true);
+const ray=new Raycaster(),probe=(px)=>{
+  const [x,z]=mapPosition(px,184.5);ray.set(new Vector3(x,1.09,z),new Vector3(0,0,-1));ray.far=2;
+  return ray.intersectObject(model,true)[0];
+};
+const pane=probe(493-99/2+7.5*(99/16)+.8),pier=probe(493);
+assert(pane?.object.material.name.startsWith('glass')&&pier?.object.material.name==='brick','A pane and its adjoining masonry must be separate visible surfaces');
+assert(pane.distance-pier.distance>.12,'Window glass must have measurable recess depth behind the facade');
 for(const name of ['图书馆飞檐','南雍楼中央山脊屋顶花园','西区文体中心银色风帆屋面']) {
   const mesh=model.getObjectByName(name);assert(mesh?.isMesh,`${name} must be a modeled architectural feature`);
   const normals=mesh.geometry.getAttribute('normal');
   let upwards=0;for(let i=0;i<normals.count;i++)upwards+=normals.getY(i);
   assert(upwards>0,`${name} must face upward and remain visible from the campus overview`);
+  assert(model.getObjectByName(`${name}厚边与檐底`)?.isMesh,`${name} must have a modeled edge and underside`);
 }
 assert(meshes>30&&instances>1000,'Campus must contain actual architectural and landscape geometry');
 const buffer=await new GLTFExporter().parseAsync(model,{binary:true,onlyVisible:true});
