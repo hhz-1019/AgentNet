@@ -133,7 +133,7 @@ Interface corners are gently rounded and compact. Markers combine a rectangular 
 
 ## Components
 
-- **Directory:** nine destinations—北大楼、图书馆、南雍楼、东区运动场、西区文体中心、东区生活组团、科创大厦、庄里山、九曲河畔. Hover adds a pale surface and reveals the arrow; selection uses pale plum with primary text and aria-current.
+- **Directory:** nine destinations—北大楼、图书馆、南雍楼、东区运动场、西区文体中心、仁园与勇园、科创大厦、庄里山、九曲河畔. Hover adds a pale surface and reveals the arrow; selection uses pale plum with primary text and aria-current.
 - **Markers:** real buttons projected from model coordinates. Overlapping or offscreen labels are hidden. Selected scenes display their own marker in plum.
 - **Camera controls:** drag to orbit, wheel or pinch to zoom, switch between oblique orthographic and top views, and reset. The focused canvas supports arrow keys, plus/minus and Home. Escape, the brand and return controls restore the overview.
 - **Scene navigation:** selection updates the URL hash and travels within the shared model. These are exterior viewpoints with orbit and zoom, not interior walkthroughs.
@@ -149,4 +149,4 @@ Interface corners are gently rounded and compact. Markers combine a rectangular 
 - **Don't** present modeled heights, facades, vegetation or camera spans as surveyed measurements.
 - **Don't** imply indoor access, route guidance or precise real-world navigation.
 
-Horizontal layout is traced from the official August 2026 campus plan and informed by public architectural material. The blue east running track is verified against university photographs; the purple west track is verified against the user's supplied photograph and location identification. The user's second image guides the architectural visualization finish, not Suzhou's building shapes. Architectural proportions and unphotographed details are still approximate. The 北大楼 description explicitly notes the newer official map's 行政楼 label. See SOURCES.md for reference dates and the boundary between observed features and reconstruction.
+Horizontal layout now follows the user's standard campus map supplied on 2026-09-09, including building outlines and courtyards, roads, water and hill boundaries. The blue east running track is verified against university photographs; the purple west track is verified against the user's supplied photograph and location identification. The user's architectural visualization image guides material finish, not Suzhou's building shapes. Heights, architectural proportions and unphotographed details remain approximate. The 北大楼 description follows the standard map's 北大楼建筑风貌群 label. See SOURCES.md for reference dates and the boundary between observed features and reconstruction.

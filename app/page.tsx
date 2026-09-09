@@ -42,7 +42,7 @@ export default function Home() {
       <Button variant="outline" className="companion-open" onClick={()=>setCompanionOpen(true)}><MessageCircle size={17}/><span>{world.view?.character?.name??'我的伙伴'}</span>{world.view?.connected&&<span className="companion-online" aria-label="Codex 在线"/>}</Button>
       <Popover><PopoverTrigger render={<Button variant="ghost" className="about-button" aria-label="地图说明" />}><Info size={17} /><span>地图说明</span></PopoverTrigger>
         <PopoverContent align="end" className="map-about"><PopoverTitle>关于这座校园</PopoverTitle>
-          <p>依据南大官方校园平面图（2026 年 8 月）、建筑设计图与建成实景，细化建筑轮廓、立面和场地配色。</p>
+          <p>平面布局依据苏州校区标准地图校正，保留建筑占地、道路、水系与庄里山的相对位置。立面与场地配色参考建筑设计资料和建成实景。</p>
           <p>东区蓝色跑道与西区紫色跑道均已对照实景。尚未取得完整竣工图，尺寸、未见立面和部分屋顶细节仍为近似重建，不用于测量或实地导航。</p>
           <a href="https://zcc.nju.edu.cn/dzdt/szxqdt/index.html" target="_blank" rel="noreferrer">南京大学官方校区地图 <ExternalLink size={14} /></a>
           <a href="https://www.artsgroup.cn/zhonghengdongtai/shejiqushi/2023-12-29/558.html" target="_blank" rel="noreferrer">建筑设计资料 · 中衡设计 <ExternalLink size={14} /></a>

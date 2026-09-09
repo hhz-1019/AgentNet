@@ -7,7 +7,7 @@
 - https://zcc.nju.edu.cn/dzdt/szxqdt/index.html
 - https://zcc.nju.edu.cn/DFS//file/2026/08/25/202608251532397481kq6nm.pdf
 
-Coordinates in `lib/campus-data.ts` and `lib/campus-model.ts` are traced from the official plan displayed at 2048 pixels wide. North is up; model +X is east and +Z is south. The numeric world scale is a presentation scale, not surveyed meters. Building footprints and landscape are simplified. Building heights, repeated windows, trees and close-scene furnishings are approximate artistic reconstruction.
+The user-supplied standard campus map received on 2026-09-09 takes precedence for horizontal layout. `scripts/trace-campus-plan.py` extracts building outlines and courtyards, roads, water and hill boundaries into `lib/campus-plan.json`, normalized to the existing 2048-pixel drawing frame. The original image remains a private reference input. Model +X is drawing-right and +Z is drawing-down; the numeric world scale is a presentation scale, not surveyed meters. Printed labels and simplified contours can affect traced edges. Building heights, repeated windows, trees and close-scene furnishings remain approximate artistic reconstruction. Map legend colors indicate building uses and are not facade materials.
 
 ## Building forms
 
@@ -21,7 +21,7 @@ https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20251205/i353895.html
 
 Reference photos were inspected to distinguish the library's horizontal fins and wide eaves, the North Building's central tower and grey-brick/red-window courtyard, and the sports centre's folded silver roof and angled red facade fins. These reference photos are not redistributed in the application.
 
-The latest plan labels the North Building as 行政楼. The familiar 北大楼 name is retained in the location directory with this distinction stated in its description. Dormitory cluster names are not assigned to individual buildings without additional confirmation.
+The supplied standard map labels the North Building ensemble 北大楼建筑风貌群. Its annotations identify 仁园 and 勇园 at the north end of the east campus and 知园 southeast of the east track. The directory now follows these labels; individual 甲、乙、丙 building names are not assigned to unverified towers.
 
 ## Typography
 
@@ -41,7 +41,7 @@ The following references were visually inspected in their original university/de
 | --- | --- |
 | [East campus photo album, 2023-12-22](https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20231222/i256558.html), 蒋松柳《操场一角》 | Blue east running track, white lane lines, green field, open goal frames; Nanyong's glazed sloping end, red accents and broad canopy |
 | [University's 2025 campus report](https://www.nju.edu.cn/info/3341/427561.htm) | Additional built photograph confirms the blue east track |
-| [ARTS Group built-project report](https://www.artsgroup.cn/zhonghengdongtai/shejiqushi/2023-12-29/558.html), images 4, 6, 22 and 23 | Pale residential facades; teaching courts and planted central spine; plan and section relationships. Seven courts are represented schematically; the reconstruction is not a dimensionally traced construction model. |
+| [ARTS Group built-project report](https://www.artsgroup.cn/zhonghengdongtai/shejiqushi/2023-12-29/558.html), images 4, 6, 22 and 23 | Pale residential facades, teaching courts and planted central spine; plans and sections inform the roof garden. The current footprint follows the supplied standard campus map; heights and architectural details remain approximate. |
 | [West campus photo album, photographed 2025-11-25](https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20251205/i353895.html), 陈瀚 photos 2, 4, 5, 8 and 11 | Suzhou North Building's gray masonry, roof and glazed tower; library's colonnade, paired horizontal fins, square glazing and lifting eaves; silver sports-centre ribs and curved red-screened culture volumes |
 
 The **east** running track is blue in the university photographs. The user subsequently supplied a location-confirmed photograph of the **west** running track and explicitly identified it as purple; the model now uses purple there. East court surfaces are blue-gray in the inspected distant photograph; detailed west basketball-court colors remain unverified. The west running-track correction does not imply a change to the separate basketball courts.

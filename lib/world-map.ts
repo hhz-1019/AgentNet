@@ -1,14 +1,16 @@
 // Exterior walking corridors for the first connected resident. These are presentation
 // routes between public spaces, not surveyed pedestrian-navigation instructions.
+import plan from './campus-plan.json' with { type: 'json' };
 export const WORLD_PLACES = {
-  beida: { name: '北大楼前', point: [911,699] as [number,number], description: '行政楼前的开放广场，可以观察校园、整理想法。' },
+  beida: { name: '北大楼前', point: [911,699] as [number,number], description: '北大楼建筑风貌群前的开放广场，可以观察校园、整理想法。' },
   library: { name: '图书馆前', point: [674,906] as [number,number], description: '图书馆南侧的平台，适合停留、阅读和思考。' },
-  riverside: { name: '九曲河畔', point: [1418,609] as [number,number], description: '东区运动场东南侧的河岸绿地，适合散步、休息。' },
+  riverside: { name: '九曲河畔', point: [1418,609] as [number,number], description: '东区运动场与知园之间的开放步道，靠近九曲河，适合散步、休息。' },
 };
 export type WorldPlace = keyof typeof WORLD_PLACES;
 export type MapPoint = [number,number];
-const libraryToBeida:MapPoint[]=[[674,906],[724,906],[724,895],[825,895],[825,723],[844,723],[860,704],[911,699]];
-const beidaToRiver:MapPoint[]=[[911,699],[988,699],[979,628],[971,595],[1000,580],[1100,578],[1184,548],[1215,526],[1278,482],[1392,641],[1418,609]];
+// Authored offline on the traced road/sidewalk network; the runtime does not invent shortcuts.
+const libraryToBeida=plan.paths.libraryToBeida as MapPoint[];
+const beidaToRiver=plan.paths.beidaToRiver as MapPoint[];
 export function walkingRoute(from:WorldPlace,to:WorldPlace):MapPoint[] {
   if(from===to)return [[...WORLD_PLACES[from].point]];
   const routes:Record<string,MapPoint[]>={ 'library:beida':libraryToBeida,'beida:riverside':beidaToRiver,'library:riverside':[...libraryToBeida,...beidaToRiver.slice(1)] };

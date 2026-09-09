@@ -1,5 +1,7 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MAP_SCALE as S, mapPosition } from './campus-data.ts';
+import plan from './campus-plan.json' with { type: 'json' };
 
 type Point = [number, number];
 type MaterialName = 'brick' | 'stone' | 'roof' | 'roofFlat' | 'glass' | 'glassLight' | 'glassShade' | 'interior' | 'red' | 'redBright' | 'paving' | 'grass' | 'road' | 'walk' | 'water' | 'track' | 'trackPurple' | 'trackBlue' | 'courtBlue' | 'turf' | 'turfLight' | 'white' | 'wood' | 'leaf' | 'leafLight' | 'leafDark' | 'metal' | 'frame' | 'residence' | 'residenceShade';
@@ -24,7 +26,8 @@ function inside(x: number, y: number, points: Point[]) {
 export function buildCampus() {
   const campus = new THREE.Group(); campus.name = '南京大学苏州校区';
   campus.userData = {
-    source: '南京大学资产管理处苏州校区平面图，2026-08-25；南京大学东区 2023 / 西区 2025 实景；中衡设计建成项目图纸；用户提供的西区紫色跑道照片',
+    source: '用户提供的苏州校区标准平面图（2026-09-09 收到）为平面布局基准；南京大学东区 2023 / 西区 2025 实景；中衡设计建成项目图纸；用户提供的西区紫色跑道照片',
+    planSha256: plan.sourceSha256,
     accuracy: 'Photo-referenced reconstruction, not a surveyed as-built twin. West track is purple per the user\'s location-confirmed photograph. Heights, unseen elevations and roof equipment remain approximate.',
     references: ['https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20251205/i353895.html','https://ltx.nju.edu.cn/yfsh/sy/jsnltzsyzpjj/20231222/i256558.html','https://www.artsgroup.cn/zhonghengdongtai/shejiqushi/2023-12-29/558.html'],
   };
@@ -36,6 +39,7 @@ export function buildCampus() {
   })) as Record<MaterialName, THREE.MeshStandardMaterial>;
   const geometries = { box: new THREE.BoxGeometry(1, 1, 1), sphere: new THREE.SphereGeometry(1, 10, 8), cylinder: new THREE.CylinderGeometry(1, 1, 1, 8) };
   const batches = new Map<string, THREE.Matrix4[]>();
+  const planMeshes=new Map<string,THREE.BufferGeometry[]>();
   const dummy = new THREE.Object3D();
   let seed = 417;
   const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -51,6 +55,58 @@ export function buildCampus() {
     const geometry = new THREE.ShapeGeometry(outline); geometry.rotateX(-Math.PI / 2);
     const mesh = new THREE.Mesh(geometry, materials[material]); mesh.position.y = elevation; mesh.receiveShadow = true; mesh.name = name; campus.add(mesh); return mesh;
   }
+  function planShape(rings:number[][][]) {
+    const paths=rings.map(ring=>ring.map(([px,py])=>{const [x,z]=mapPosition(px,py);return new THREE.Vector2(x,-z);}));
+    const outline=new THREE.Shape(paths[0]);outline.holes=paths.slice(1).map(p=>new THREE.Path(p));return outline;
+  }
+  function planSurface(rings:number[][][],material:MaterialName,elevation:number,name:string,thickness=0) {
+    const outline=planShape(rings);
+    const geometry=thickness?new THREE.ExtrudeGeometry(outline,{depth:thickness,bevelEnabled:false}):new THREE.ShapeGeometry(outline);
+    geometry.rotateX(-Math.PI/2);
+    geometry.translate(0,elevation,0);
+    const plain=geometry.index?geometry.toNonIndexed():geometry;if(plain!==geometry)geometry.dispose();
+    const key=`${material}:${thickness>0}`;
+    if(!planMeshes.has(key))planMeshes.set(key,[]);planMeshes.get(key)!.push(plain);
+  }
+  function inPlan(px:number,py:number,rings:number[][][]) {
+    return inside(px,py,rings[0] as Point[])&&!rings.slice(1).some(r=>inside(px,py,r as Point[]));
+  }
+  function planBuilding(building:typeof plan.buildings[number]) {
+    const {rings,cores,floors,id}=building,facade=building.facade as MaterialName,trim=building.trim as MaterialName;
+    const height=floors*1.25,base=.55,roofY=base+height;
+    planSurface(rings,'stone',.2,`${id}台基`,.35);
+    for(const core of cores)planSurface(core,'interior',base,`${id}内芯`,height);
+    // Geometry follows each exterior and courtyard edge. Recessed glazing, masonry
+    // piers and coping remain physical geometry, independent of the plan's legend colors.
+    for(const ring of rings)for(let i=0;i<ring.length;i++) {
+      const a=ring[i],b=ring[(i+1)%ring.length],length=Math.hypot(b[0]-a[0],b[1]-a[1]);
+      if(length<.15)continue;
+      const cx=(a[0]+b[0])/2,cy=(a[1]+b[1])/2,r=-Math.atan2(b[1]-a[1],b[0]-a[0])+Math.PI;
+      const panel=(u:number,out:number,width:number,depth:number,h:number,material:MaterialName,y:number)=>{const p=at(cx,cy,u,out,r);box(p[0],p[1],width,depth,h,material,y,r);};
+      if(length<3.5)panel(0,0,length,.85,height,facade,base);
+      else {
+        const columns=Math.max(1,Math.floor(length/6)),bay=length/columns,opening=Math.min(4.1,bay-1.25);
+        for(let j=0;j<=columns;j++) {
+          const pier=(bay-opening)*(j===0||j===columns ? .5 : 1),u=-length/2+j*bay+(j===0?pier/2:j===columns?-pier/2:0);
+          panel(u,0,pier,.85,height,facade,base);
+        }
+        for(let f=0;f<floors;f++) {
+          const y=base+f*1.25;
+          panel(0,0,length,.85,.24,facade,y);panel(0,0,length,.85,.13,facade,y+1.12);
+          for(let j=0;j<columns;j++) {
+            const u=-length/2+(j+.5)*bay;
+            panel(u,-.45,opening,.10,.88,(j+f)%5===0?'glassLight':'glass',y+.24);
+            for(const sign of [-1,1])panel(u+sign*(opening/2-.09),.1,.18,.55,.88,trim,y+.24);
+            panel(u,.1,opening,.55,.055,trim,y+.24);panel(u,.1,opening,.55,.055,trim,y+1.065);
+            panel(u,-.3,.12,.1,.78,'frame',y+.29);
+            panel(u,.32,opening+.3,1.1,.075,'stone',y+.20);
+          }
+        }
+      }
+      panel(0,0,length,.65,.32,facade,roofY+.16);panel(0,.03,length+.08,.9,.07,'stone',roofY+.48);
+    }
+    planSurface(rings,'roofFlat',roofY,`${id}屋面`,.16);
+  }
   function line(points: Point[], width: number, material: MaterialName, elevation = .12, smooth = true) {
     let path: THREE.Vector3[] = points.map(([px, py]) => { const [x, z] = mapPosition(px, py); return new THREE.Vector3(x, elevation, z); });
     if (smooth && path.length > 2) path = new THREE.CatmullRomCurve3(path, false, 'centripetal').getPoints(Math.max(16, points.length * 10));
@@ -64,7 +120,6 @@ export function buildCampus() {
     const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); geometry.setIndex(indices); geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(geometry, materials[material]); mesh.receiveShadow = true; campus.add(mesh);
   }
-  function road(points: Point[], width = 11) { line(points, width + 7, 'walk', .09); line(points, width, 'road', .115); }
   function at(cx: number, cy: number, dx: number, dy: number, rotation: number): Point { return [cx + dx * Math.cos(rotation) + dy * Math.sin(rotation), cy - dx * Math.sin(rotation) + dy * Math.cos(rotation)]; }
   function block(cx: number, cy: number, w: number, d: number, floors = 4, rotation = 0, pitched = false, base = .2, facade: MaterialName = 'brick', trim: MaterialName = 'red') {
     const height = floors * 1.25;
@@ -180,6 +235,7 @@ export function buildCampus() {
     for (const sign of [-1, 1]) { const p = at(cx, cy, sign * w / 5, 0, rotation); tree(p[0], p[1], 1.0, .34); }
   }
   function tree(px: number, py: number, size = 1, ground = .1) {
+    if(ground<.5&&(plan.buildings.some(b=>inPlan(px,py,b.rings))||plan.water.some(r=>inPlan(px,py,r))||plan.roads.some(r=>inPlan(px,py,r.surface))))return;
     const [x, z] = mapPosition(px, py); const h = (1.8 + rand() * .7) * size;
     instance('cylinder', 'wood', x, ground + h * .45, z, .12 * size, h * .9, .12 * size);
     const material: MaterialName = rand() < .3 ? 'leafLight' : rand() < .5 ? 'leafDark' : 'leaf';
@@ -207,52 +263,32 @@ export function buildCampus() {
   }
 
   // The presentation plinth follows the campus extent, including its bordering streets.
-  const boundary: Point[] = [[351,92],[450,63],[760,-12],[1045,-38],[1101,8],[1171,214],[1268,327],[1460,404],[1638,488],[1740,723],[1774,1054],[1650,1106],[975,1151],[535,1166],[357,1110],[330,968],[334,357]];
+  const boundary = plan.boundary as Point[];
   const outline = new THREE.Shape(boundary.map(([px, py]) => { const [x, z] = mapPosition(px, py); return new THREE.Vector2(x, -z); }));
   const plinthGeo = new THREE.ExtrudeGeometry(outline, { depth: 4, bevelEnabled: true, bevelSize: 1.8, bevelThickness: 1.4, bevelSegments: 3, steps: 1 }); plinthGeo.rotateX(-Math.PI / 2);
   const plinth = new THREE.Mesh(plinthGeo, new THREE.MeshStandardMaterial({ color: '#dfe4d7', roughness: .95 })); plinth.position.y = -5.4; plinth.receiveShadow = true; plinth.castShadow = true; plinth.name = '校园底座'; campus.add(plinth);
   shape(boundary, 'grass', -.02);
 
-  // Jiuqu River: eastern edge plus the northern tributary. Water is rendered as geometry, not a map image.
-  const river: Point[] = [[1025,-37],[1100,-22],[1140,51],[1163,152],[1214,231],[1230,286],[1303,327],[1390,378],[1450,421],[1510,435],[1560,417],[1589,365],[1625,308],[1673,359],[1714,390],[1778,397],[1778,470],[1685,466],[1633,451],[1587,478],[1554,524],[1561,556],[1642,612],[1686,685],[1721,797],[1757,929],[1780,1048],[1731,1059],[1703,965],[1664,816],[1610,705],[1516,624],[1434,585],[1397,550],[1373,491],[1314,459],[1282,376],[1209,328],[1183,256],[1129,196],[1104,103],[1081,36]];
-  shape(river, 'water', .025, '九曲河');
-  line([[1052,-12],[971,7],[920,48],[868,103],[833,166],[800,210],[679,217],[486,219],[342,240]], 25, 'water', .027);
-  line([[909,666],[839,731],[890,788],[927,875],[924,942],[901,973]], 51, 'water', .026);
-  line([[338,219],[329,445],[330,729],[344,987],[337,1140]], 26, 'water', .024);
+  // Rivers, campus lakes, real bridges, roads and junctions trace the supplied plan.
+  plan.water.forEach((rings,i)=>planSurface(rings,'water',.025,`标准图水系-${i+1}`));
+  plan.roads.forEach((r,i)=>{planSurface(r.edge,'walk',.085,`标准图路缘-${i+1}`);planSurface(r.surface,'road',.115,`标准图道路-${i+1}`);});
+  plan.buildings.forEach(planBuilding);
 
-  const roads: Point[][] = [
-    [[341,119],[542,87],[751,32],[944,-46]],
-    [[361,78],[374,263],[362,574],[372,887],[372,1100]],
-    [[356,1100],[654,1133],[992,1120],[1325,1091],[1739,1062]],
-    [[404,157],[553,132],[740,105],[819,98]],
-    [[404,157],[411,382],[408,554],[417,816],[419,1011],[449,1052],[670,1078],[852,1068],[902,1048]],
-    [[550,143],[550,323],[547,551],[549,725],[549,894],[560,1058]],
-    [[679,146],[678,307],[677,552]],
-    [[408,554],[602,555],[813,556],[865,550]],
-    [[417,722],[681,723],[844,723]],
-    [[420,895],[682,895],[873,895]],
-    [[673,711],[674,882],[673,1074]],
-    [[838,105],[820,251],[858,400],[888,520],[960,618],[987,702],[963,797],[969,936],[943,1028],[902,1048]],
-    [[911,107],[913,87],[966,48],[1039,23],[1086,44],[1117,154],[1161,252],[1213,328],[1284,482],[1373,658],[1427,735],[1433,865],[1487,926],[1530,1005],[1640,1011],[1705,984],[1665,825],[1627,705],[1514,657]],
-    [[1000,551],[1140,572],[1199,538],[1291,496]],
-    [[1212,319],[1311,457]],
-    [[1278,482],[1392,641],[1514,657]],
-    [[1452,698],[1541,679],[1613,714]],
-    [[1432,865],[1556,890],[1638,875]],
-    [[1482,929],[1483,980],[1530,1005]],
-  ];
-  roads.forEach((p, i) => road(p, i < 3 ? 17 : 8));
-  // A pair of quiet bridge connections and the main southern entry.
-  box(680,216,37,14,.8,'stone',.16); box(831,184,24,13,.7,'stone',.15,-.6);
-  box(676,1083,42,12,.5,'stone',.1); box(407,555,24,20,.25,'paving',.12);
-
-  const northHill: Point[] = [[864,121],[920,110],[1007,128],[1054,202],[1093,281],[1125,350],[1182,477],[1132,538],[1023,575],[950,547],[902,430],[863,355],[838,253],[841,183]];
-  const southHill: Point[] = [[1010,584],[1113,583],[1184,558],[1244,598],[1323,730],[1381,872],[1393,929],[1435,1006],[1472,1030],[1459,1064],[950,1093],[950,1024],[971,956],[984,887],[979,800],[1004,725],[1005,658],[980,613]];
   function hillHeight(px: number, py: number) {
     const peak = (x: number, y: number, sx: number, sy: number, h: number) => h * Math.exp(-((px - x) ** 2 / (2 * sx * sx) + (py - y) ** 2 / (2 * sy * sy)));
     return peak(944,220,53,95,25) + peak(1061,437,59,70,28) + peak(1164,806,89,126,37) + peak(1252,939,64,68,9);
   }
-  for (const border of [northHill, southHill]) {
+  function terrainHeight(px:number,py:number,border:Point[]) {
+    if(!inside(px,py,border))return .08;
+    let edge=Infinity;
+    for(let k=0;k<border.length;k++) {
+      const a=border[k],b=border[(k+1)%border.length],dx=b[0]-a[0],dy=b[1]-a[1];
+      const t=Math.max(0,Math.min(1,((px-a[0])*dx+(py-a[1])*dy)/(dx*dx+dy*dy)));
+      edge=Math.min(edge,Math.hypot(px-a[0]-t*dx,py-a[1]-t*dy));
+    }
+    return hillHeight(px,py)*Math.min(1,Math.max(0,edge-5)/18)+.08;
+  }
+  for (const border of plan.hills as Point[][]) {
     const minX = Math.min(...border.map(p => p[0])), maxX = Math.max(...border.map(p => p[0]));
     const minY = Math.min(...border.map(p => p[1])), maxY = Math.max(...border.map(p => p[1]));
     const vertices: number[] = [], colors: number[] = [], indices: number[] = [];
@@ -260,41 +296,26 @@ export function buildCampus() {
     const low = new THREE.Color('#7c8956'), high = new THREE.Color('#607645');
     for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
       const px = minX + (maxX - minX) * i / nx, py = minY + (maxY - minY) * j / ny;
-      const [x,z] = mapPosition(px,py); let h = hillHeight(px,py);
-      let edge = 1000;
-      for (let k=0; k<border.length; k++) {
-        const a=border[k], b=border[(k+1)%border.length], vx=b[0]-a[0], vy=b[1]-a[1];
-        const t=Math.max(0,Math.min(1,((px-a[0])*vx+(py-a[1])*vy)/(vx*vx+vy*vy)));
-        edge=Math.min(edge, Math.hypot(px-a[0]-t*vx,py-a[1]-t*vy));
-      }
-      h *= Math.min(1,edge/18); h += .08;
+      const [x,z] = mapPosition(px,py),h=terrainHeight(px,py,border);
       vertices.push(x,h,z); const color = low.clone().lerp(high,Math.min(1,h/40)); colors.push(color.r,color.g,color.b);
-      if(i<nx && j<ny && inside(px+(maxX-minX)/nx*.5,py+(maxY-minY)/ny*.5,border)) { const a=j*(nx+1)+i; indices.push(a,a+nx+1,a+1,a+1,a+nx+1,a+nx+2); }
+      if(i<nx&&j<ny&&[[0,0],[1,0],[0,1],[1,1]].every(([dx,dy])=>inside(px+(maxX-minX)/nx*dx,py+(maxY-minY)/ny*dy,border))) { const a=j*(nx+1)+i; indices.push(a,a+nx+1,a+1,a+1,a+nx+1,a+nx+2); }
     }
     const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setIndex(indices);g.computeVertexNormals();
     const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1})); m.receiveShadow=true;m.castShadow=true;m.name='庄里山山体';campus.add(m);
     for(let i=0;i<1250;i++) {
       const px=minX+rand()*(maxX-minX),py=minY+rand()*(maxY-minY);
       if(!inside(px,py,border)||hillHeight(px,py)<3)continue;
-      let edge=1000;
-      for(let k=0;k<border.length;k++){const a=border[k],b=border[(k+1)%border.length],vx=b[0]-a[0],vy=b[1]-a[1];const t=Math.max(0,Math.min(1,((px-a[0])*vx+(py-a[1])*vy)/(vx*vx+vy*vy)));edge=Math.min(edge,Math.hypot(px-a[0]-t*vx,py-a[1]-t*vy));}
-      tree(px,py,.8+rand()*.75,hillHeight(px,py)*Math.min(1,edge/18)+.08);
+      tree(px,py,.8+rand()*.75,terrainHeight(px,py,border));
     }
   }
-  // Thin walking paths rise with the terrain; no fictitious navigation routing is exposed.
-  for (const path of [[[956,1030],[997,928],[1035,868],[1085,835],[1117,772],[1160,734],[1220,780],[1260,889],[1325,974]],[[862,275],[905,327],[985,349],[1040,415],[1081,477],[1125,493]]] as Point[][]) {
-    const curve=new THREE.CatmullRomCurve3(path.map(([x,y])=>{const [wx,wz]=mapPosition(x,y);return new THREE.Vector3(wx,hillHeight(x,y)+.35,wz);}));
-    const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,120,.20,4,false),materials.walk);mesh.receiveShadow=true;campus.add(mesh);
+  // Mapped hill paths follow the same terrain surface, including its tapered edges.
+  for (const path of [[[997,903],[1033,869],[1091,843],[1120,769],[1181,741],[1244,775],[1286,849],[1278,921],[1223,986],[1157,1036],[1069,1030],[1015,980],[997,903]],[[1170,533],[1121,581],[1110,630],[1068,651],[1047,707],[1033,756],[1038,800],[1091,843]],[[863,275],[901,318],[944,343],[1009,291],[1040,304],[1074,352],[1087,402],[1123,449],[1141,493],[1074,496],[1026,499],[983,475],[930,384],[891,347]]] as Point[][]) {
+    const points=new THREE.CatmullRomCurve3(path.map(([x,y])=>new THREE.Vector3(x,0,y))).getPoints(160).map(p=>{
+      const border=(plan.hills as Point[][]).find(r=>inside(p.x,p.z,r)),h=border?terrainHeight(p.x,p.z,border):.08;
+      const [x,z]=mapPosition(p.x,p.z);return new THREE.Vector3(x,h+.23,z);
+    });
+    const mesh=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),240,.19,4,false),materials.walk);mesh.receiveShadow=true;campus.add(mesh);
   }
-
-  // West campus: research courtyards, teaching complex, living quarters.
-  for (const [x,y,w,d,f] of [[478,604,78,45,5],[478,674,78,48,5],[608,604,76,44,5],[609,674,78,48,5],[490,837,98,78,5],[523,962,146,92,5],[803,966,118,108,6]] ) court(x,y,w,d,f);
-  for (const [x,y,w,d,f] of [[493,168,99,25,7],[607,163,95,24,7],[720,167,59,27,7],[786,111,26,56,7],[749,256,97,20,7],[714,295,55,21,7],[810,315,37,28,7],[716,362,68,19,7],[719,410,56,49,7],[831,407,51,29,7],[831,475,75,25,7],[785,488,24,45,7],[725,512,43,46,3]]) block(x,y,w,d,f);
-  block(724,597,78,25,5); block(724,691,78,25,5); block(747,644,25,70,4);
-  const teachingArc:Point[]=[];for(let a=-1.1;a<1.15;a+=.1)teachingArc.push([811+28*Math.cos(a),644+35*Math.sin(a)]);line(teachingArc,12,'brick',7);
-  for(let a=-1.1;a<1.15;a+=.18)block(811+28*Math.cos(a),644+35*Math.sin(a),7,12,5,-a);
-  // Small public research terraces surrounding the library.
-  for(const [x,y,w,d] of [[588,804,48,25],[590,874,48,27],[760,823,70,27],[763,875,66,26],[912,954,20,77]])block(x,y,w,d,4);
 
   // North Building: the Suzhou building, not the ivy-covered Gulou original.
   box(911,651,137,113,.24,'paving',.1);
@@ -396,7 +417,7 @@ export function buildCampus() {
       const p=at(cx,cy,x*(w/2+9),y*h*.32,rotation);box(p[0],p[1],3,.8,.3,'frame',7.1,rotation);box(p[0],p[1]-.4,2.5,.15,.22,'white',7.13,rotation);
     }
   }
-  field(610,414,89,166);field(1336,562,92,159,.43,'trackBlue');
+  field(610,414,94,170);field(1338,562,90.5,173.5,.484,'trackBlue');
   function basketball(cx:number,cy:number,rot=0,surface:MaterialName='track'){
     box(cx,cy,25,43,.10,surface,.15,rot);
     const p=[[-10,-19],[10,-19],[10,19],[-10,19],[-10,-19]].map(([x,y])=>at(cx,cy,x,y,rot));line(p,.25,'white',.27,false);line([at(cx,cy,-10,0,rot),at(cx,cy,10,0,rot)],.25,'white',.275,false);
@@ -458,19 +479,10 @@ export function buildCampus() {
     }
   }
 
-  // East campus residential buildings follow the arc between hill and river.
-  for(const [x,y,w,d,rot,floors] of [[949,74,45,14,-.6,11],[985,48,45,14,-.32,11],[1028,36,47,17,0,10],[1075,74,18,55,.2,8],[1095,126,18,58,.23,8],[1036,87,45,15,0,7],[1046,118,46,16,0,7],[1059,158,47,18,0,6]]){
-    block(x,y,w,d,floors,rot,false,.2,'residence','stone');
-    const p=at(x,y,-w/2+4,d/2+.5,rot);box(p[0],p[1],4,.45,floors*1.25-.3,'glass',.65,rot);
-  }
+  // Building footprints above now retain the mapped Renyuan / Yongyuan orientation.
   for(const [x,y]of [[1003,117],[1020,145],[1070,178],[971,95]])tree(x,y,1.5);
-  block(1123,235,53,23,4,.48);block(1143,298,42,64,4,.47);
-  for(let i=0;i<4;i++){const p=at(1106,201,(i-1.5)*10,0,.4);box(p[0],p[1],8,28,3.5,'stone',.2,.4);}
-  // Nanyong: seven staggered courtyards and a planted sloping spine (ARTS built-project plan).
+  // Preserve Nanyong's photo-referenced planted spine above its newly traced footprint.
   const nRot=.46;
-  for(const [dx,dy] of [[-32,-46],[-32,0],[-32,46],[33,-66],[33,-22],[33,22],[33,66]]){
-    const p=at(1253,409,dx,dy,nRot);court(p[0],p[1],48,39,5,nRot,8,'redBright');
-  }
   const spineProfile=[[-86,2.0],[-60,5.8],[-36,6.6],[-12,3.2],[12,3.2],[34,7.5],[53,6.1],[73,2.0],[90,.5]];
   const spineVertices:number[]=[],spineIndices:number[]=[];
   for(let j=0;j<spineProfile.length;j++)for(const side of [-1,1]){
@@ -499,13 +511,6 @@ export function buildCampus() {
   for(let i=0;i<12;i++){const p=at(1253,409,0,86-i*1.2,nRot);box(p[0],p[1],18,1.25,.10*(i+1),'stone',.2,nRot);}
   for(const side of [-1,1]){const p=at(1253,409,side*21,78,nRot);box(p[0],p[1],14,10,1.7,'redBright',.3,nRot);}
   for(const side of [-1,1])for(let i=0;i<10;i++){const p=at(1253,409,side*69,(i-4.5)*12,nRot);tree(p[0],p[1],.9);}
-  // Zhiyuan living cluster, southeast of the running track.
-  block(1435,602,51,18,6,-.45,false,.2,'residence','stone');block(1467,631,46,20,6,-.45,false,.2,'residence','stone');block(1476,597,19,43,6,-.45,false,.2,'residence','stone');
-  // Science and innovation courts and their eastern curved research frontage.
-  for(const [dx,dy]of [[-44,-48],[46,-48],[-44,45],[46,45]])court(1532+dx,793+dy,55,57,dy<0?9:7,0,11,'redBright');
-  block(1532,785,144,13,3);box(1532,888,133,24,.3,'paving',.14);
-  const arc:Point[]=[];for(let i=0;i<=20;i++){const a=-.75+i/20*1.5;arc.push([1571+69*Math.cos(a),793+83*Math.sin(a)]);}line(arc,12,'brick',10.8);line(arc,12.5,'stone',11.1);
-  for(let i=0;i<14;i++){const a=-.72+i/13*1.44;block(1571+69*Math.cos(a),793+83*Math.sin(a),11,5,7,-a);}
   // International academic exchange centre, at the southeast edge.
   court(1576,955,84,65,4);block(1643,942,65,58,7);box(1643,942,73,63,.45,'stone',9.2);
   for(let i=0;i<7;i++)box(1643,942,68,60,.1,'roof',1.8+i*1.23);
@@ -521,6 +526,13 @@ export function buildCampus() {
   for(const [cx,cy] of [[910,658],[1252,409],[674,916],[1475,559],[1020,123]]){
     for(let i=0;i<4;i++){box(cx-18+i*12,cy+26,7,2,.5,'wood',.3);box(cx-18+i*12,cy+27,7,.5,.45,'wood',.8);}
     for(const side of [-1,1]){const [x,z]=mapPosition(cx+side*32,cy+15);instance('cylinder','roof',x,2.2,z,.08,4.4,.08);instance('sphere','white',x,4.5,z,.26,.16,.26);}
+  }
+  // Merge traced surfaces by material so the more faithful plan does not add hundreds
+  // of draw calls. Detailed window and wall elements already use shared instances.
+  for(const [key,parts] of planMeshes) {
+    const [material,solid]=key.split(':'),geometry=mergeGeometries(parts)!;
+    const mesh=new THREE.Mesh(geometry,materials[material as MaterialName]);mesh.name=`标准图构筑物-${material}-${solid}`;
+    mesh.castShadow=solid==='true';mesh.receiveShadow=true;campus.add(mesh);parts.forEach(p=>p.dispose());
   }
   for (const [key, transforms] of batches) {
     const [kind, mat] = key.split(':') as [keyof typeof geometries, MaterialName];

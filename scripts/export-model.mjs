@@ -27,15 +27,15 @@ assert(eastTrack.material.color.b>eastTrack.material.color.r*3,'East track must 
 const westTrack=model.getObjectByName('西区紫色跑道');
 assert(westTrack?.isMesh,'The location-confirmed west track must exist');
 assert(westTrack.material.color.r>westTrack.material.color.g*1.5&&westTrack.material.color.b>westTrack.material.color.r*1.5,'West track must be purple and distinct from the blue east track');
-// Cast through one window pane and the adjacent pier on a north-west residential block.
+// Cast through a pane and its neighboring pier on the standard map's teacher residence.
 // The actual glass must sit behind the masonry, rather than be a sticker on a solid wall.
 model.updateMatrixWorld(true);
 const ray=new Raycaster(),probe=(px)=>{
-  const [x,z]=mapPosition(px,184.5);ray.set(new Vector3(x,1.09,z),new Vector3(0,0,-1));ray.far=2;
+  const [x,z]=mapPosition(px,186);ray.set(new Vector3(x,1.09,z),new Vector3(0,0,-1));ray.far=2;
   return ray.intersectObject(model,true)[0];
 };
-const pane=probe(493-99/2+7.5*(99/16)+.8),pier=probe(493);
-assert(pane?.object.material.name.startsWith('glass')&&pier?.object.material.name==='brick','A pane and its adjoining masonry must be separate visible surfaces');
+const pane=probe(484.8),pier=probe(480.5);
+assert(pane?.object.material.name.startsWith('glass')&&pier?.object.material.name==='residence','A pane and its adjoining masonry must be separate visible surfaces');
 assert(pane.distance-pier.distance>.12,'Window glass must have measurable recess depth behind the facade');
 for(const name of ['图书馆飞檐','南雍楼中央山脊屋顶花园','西区文体中心银色风帆屋面']) {
   const mesh=model.getObjectByName(name);assert(mesh?.isMesh,`${name} must be a modeled architectural feature`);
