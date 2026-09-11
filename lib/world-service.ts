@@ -1,5 +1,6 @@
 import { Decision, type CharacterDecision } from './world-decision.ts';
 import { WORLD_PLACES, routeLength, walkingRoute } from './world-map.ts';
+import { PersonalMemoryInput, type MemoryImport } from './personal-memory.ts';
 import type { Character, Conversation, Neighbor, WorldEvent } from './world-types.ts';
 
 type Row={owner_id:string;id:string;state:string;revision:number;last_op:string;token_hash:string|null};
@@ -39,9 +40,9 @@ export class WorldService {
     const rows=await this.db.prepare(`SELECT ${conversationColumns} FROM campus_conversations WHERE (speaker_id=? OR recipient_id=?) AND seq>? ORDER BY seq ${unread?'ASC':'DESC'} LIMIT ?`).bind(actorId,actorId,after,limit).all<Conversation>();
     return unread?rows.results:rows.results.reverse();
   }
-  async create(ownerId:string,name:string,profile:string,socialEnabled=false){
+  async create(ownerId:string,name:string,profile='',socialEnabled=false,gender:Character['gender']='unspecified'){
     const id=crypto.randomUUID(),op=crypto.randomUUID(),now=this.clock(),character=initialCharacter(id,name,profile,now);
-    character.socialEnabled=socialEnabled;
+    character.socialEnabled=socialEnabled;character.gender=gender;character.personalMemory=null;
     await this.db.batch([
       this.db.prepare('INSERT INTO campus_characters (owner_id,id,state,revision,last_op) VALUES (?,?,?,1,?) ON CONFLICT(owner_id) DO NOTHING').bind(ownerId,id,JSON.stringify(character),op),
       this.db.prepare('INSERT INTO campus_events (id,actor_id,seq,at,kind,text,sources) SELECT ?,id,revision,?,?,?,? FROM campus_characters WHERE owner_id=? AND last_op=?').bind(crypto.randomUUID(),now,'arrival','进入校园，来到北大楼前。','[]',ownerId,op),
@@ -94,6 +95,18 @@ export class WorldService {
     throw new WorldError(409,'消息暂未送达，请重试。');
   }
   async pause(ownerId:string,paused:boolean){return this.change(ownerId,(c,e,_r,now)=>{c.paused=paused;c.lease=null;if(!paused)c.nextWake=now;e.push({kind:'connection',text:paused?'已暂停自主思考。已有行程会按计划完成。':'已恢复自主思考。'});});}
+  async personalMemory(ownerId:string,input:MemoryImport|null){
+    const memory=input===null?null:PersonalMemoryInput.parse(input);
+    return this.change(ownerId,(c,e,_r,now)=>{
+      if(memory&&c.personalMemory?.source===memory.source&&c.personalMemory.summary===memory.summary)return;
+      if(!memory&&!c.personalMemory&&!c.profile)return;
+      c.personalMemory=memory?{source:memory.source,summary:memory.summary,importedAt:now}:null;
+      c.profile='';c.lease=null;c.nextWake=now;c.retryAt=0;
+      // Keep the personal summary out of the event log. Clearing it also cancels
+      // a decision that was still being generated from the previous summary.
+      e.push({kind:'profile',text:memory?'已更新经你确认的个人记忆摘要。':'已移除个人摘要，后续判断不再提供这份资料。'});
+    });
+  }
   async participation(ownerId:string,enabled:boolean){return this.change(ownerId,(c,e,_r,now)=>{if(!!c.socialEnabled===enabled)return;c.socialEnabled=enabled;c.lease=null;c.nextWake=now;e.push({kind:'connection',text:enabled?'开始参与校园相遇。附近的角色可以看到名字、位置和当前活动。':'已退出校园相遇。其他角色不再看到你，也不能向你发起新交谈。'});});}
   async disconnect(ownerId:string){return this.change(ownerId,(c,e,r)=>{r.token_hash=null;c.lease=null;c.heartbeatAt=0;c.paused=true;e.push({kind:'connection',text:'已撤销 Codex 连接。角色经历与私聊仍保留。'});});}
   async pairing(token:string){
@@ -139,11 +152,11 @@ export class WorldService {
       if(c.paused||!due||c.retryAt>now||endsAt<=now||c.usage.calls>=12||(c.lease&&c.lease.until>now))return;
       // A stale history snapshot cannot acknowledge newer private messages.
       const observedSeq=Math.min(row.revision,cutoff);
-      c.lease={id:driverId+':'+crypto.randomUUID(),until:now+180000,observedSeq,observedSocialSeq:socialCutoff,nearbyIds:nearby.map(n=>n.id),sourceIds:[...known.filter(e=>e.seq<=observedSeq).map(e=>e.id),...conversations.map(e=>e.id)]};
+      c.lease={id:driverId+':'+crypto.randomUUID(),until:now+180000,observedSeq,observedSocialSeq:socialCutoff,nearbyIds:nearby.map(n=>n.id),sourceIds:[...known.filter(e=>e.seq<=observedSeq&&e.kind!=='profile').map(e=>e.id),...conversations.map(e=>e.id)]};
       c.usage.calls++;c.driverError='';acquired=true;
     });
     if(!acquired)return {ready:false,paused:c.paused,retryAfter:10,limited:c.usage.calls>=12};
-    return {ready:true,leaseId:c.lease!.id,serverNow:this.clock(),character:{id:c.id,name:c.name,profile:c.profile,place:c.place,moving:!!c.motion,destination:c.motion?.to??null,arrivalAt:c.motion?.endAt??null,activity:c.activity,intention:c.intention,energy:Math.round(c.energy),socialEnabled:!!c.socialEnabled},places:WORLD_PLACES,events:known.filter(e=>e.seq<=c.lease!.observedSeq),newMessages:unread.filter(e=>e.seq>c.lastReadSeq&&e.seq<=c.lease!.observedSeq),nearby:c.socialEnabled&&!c.motion?nearby:[],conversations,newConversations:pending.filter(e=>e.seq>(c.lastSocialSeq??0)&&e.seq<=c.lease!.observedSocialSeq!)};
+    return {ready:true,leaseId:c.lease!.id,serverNow:this.clock(),character:{id:c.id,name:c.name,gender:c.gender??'unspecified',profile:c.profile,personalMemory:c.personalMemory??null,place:c.place,moving:!!c.motion,destination:c.motion?.to??null,arrivalAt:c.motion?.endAt??null,activity:c.activity,intention:c.intention,energy:Math.round(c.energy),socialEnabled:!!c.socialEnabled},places:WORLD_PLACES,events:known.filter(e=>e.seq<=c.lease!.observedSeq),newMessages:unread.filter(e=>e.seq>c.lastReadSeq&&e.seq<=c.lease!.observedSeq),nearby:c.socialEnabled&&!c.motion?nearby:[],conversations,newConversations:pending.filter(e=>e.seq>(c.lastSocialSeq??0)&&e.seq<=c.lease!.observedSocialSeq!)};
   }
   async decide(ownerId:string,leaseId:string,input:unknown,usage:{inputTokens:number;outputTokens:number}){
     const decision=Decision.parse(input);

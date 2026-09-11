@@ -11,7 +11,7 @@ FILES = {
     'README.md': 'scripts/CONNECTOR_README.md',
 }
 package = {
-    'name': 'nju-campus-personal-connector', 'version': '0.2.0',
+    'name': 'nju-campus-personal-connector', 'version': '0.3.0',
     'private': True, 'type': 'module', 'engines': {'node': '>=24.0.0'},
     'scripts': {'start': 'node scripts/campus-driver.mjs --relay'},
     'dependencies': {'zod': '4.3.6'},

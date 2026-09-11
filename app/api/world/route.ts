@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { body,respond,service,user } from '@/lib/world-http';
 import { WorldError } from '@/lib/world-service';
+import { CharacterGender, PersonalMemoryInput } from '@/lib/personal-memory';
 export const dynamic='force-dynamic';
 const command=z.discriminatedUnion('op',[
-  z.object({op:z.literal('create'),name:z.string().trim().min(1).max(20),profile:z.string().trim().max(1000),socialEnabled:z.boolean().optional()}).strict(),
+  z.object({op:z.literal('create'),name:z.string().trim().min(1).max(20),gender:CharacterGender.optional(),profile:z.string().trim().max(1000).optional(),socialEnabled:z.boolean().optional()}).strict(),
+  z.object({op:z.literal('personal-memory'),memory:PersonalMemoryInput.nullable()}).strict(),
   z.object({op:z.literal('participation'),enabled:z.boolean()}).strict(),
   z.object({op:z.literal('message'),text:z.string().trim().min(1).max(1500),requestId:z.uuid()}).strict(),
   z.object({op:z.literal('pause'),paused:z.boolean()}).strict(),
@@ -13,7 +15,8 @@ const command=z.discriminatedUnion('op',[
 export async function GET(request:Request){return respond(async()=>{const account=user(request),world=service();try{return {...await world.view(account.id),account:account.account};}catch(e){if(e instanceof WorldError&&e.status===404)return {serverNow:Date.now(),account:account.account,character:null,events:[],connected:false,nearby:[],conversations:[]};throw e;}});}
 export async function POST(request:Request){return respond(async()=>{
   const account=user(request),c=command.parse(await body(request,true)),world=service();
-  if(c.op==='create')await world.create(account.id,c.name,c.profile,c.socialEnabled);
+  if(c.op==='create')await world.create(account.id,c.name,c.profile,c.socialEnabled,c.gender);
+  if(c.op==='personal-memory')await world.personalMemory(account.id,c.memory);
   if(c.op==='participation')await world.participation(account.id,c.enabled);
   if(c.op==='message')await world.message(account.id,c.text,c.requestId);
   if(c.op==='pause')await world.pause(account.id,c.paused);

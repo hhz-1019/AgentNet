@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFile,readdir } from 'node:fs/promises';
 import { WorldService,WorldError } from '../lib/world-service.ts';
 import { Decision } from '../lib/world-decision.ts';
+import { parseMemoryImport } from '../lib/personal-memory.ts';
 import { WORLD_PLACES,routePosition,walkingRoute } from '../lib/world-map.ts';
 
 // Exercise the production SQL against SQLite, including conditional event inserts.
@@ -127,3 +128,34 @@ await b.d.decide(b.owner,bo.leaseId,silent,zero);now+=91000;bo=await observe(b);
 await b.d.decide(b.owner,bo.leaseId,silent,zero);now+=91000;assert.equal((await observe(b)).ready,false);
 assert.equal((await human.view(stranger.owner)).conversations.length,0);
 console.log('PASS: independent drivers, opt-in visibility, co-location, private profiles/messages, targeted conversation, idempotent speech, stale-location rejection, witnessed memory, queued offline conversations, large inbox cursors and conversation cooldown.');
+
+// Personal context is explicit, private and separate from witnessed campus events.
+const imported={format:'campus-memory-v1',source:'chatgpt',summary:'PRIVATE-MEMORY: 对方曾明确表示喜欢在阅读后安静整理想法。'};
+assert.deepEqual(parseMemoryImport('```json\n'+JSON.stringify(imported)+'\n```'),imported);
+assert.throws(()=>parseMemoryImport(JSON.stringify({...imported,summary:''})));
+assert.throws(()=>parseMemoryImport(JSON.stringify({...imported,summary:'x'.repeat(3001)})));
+assert.throws(()=>parseMemoryImport(JSON.stringify({...imported,source:'automatic-oauth'})));
+assert.throws(()=>parseMemoryImport(JSON.stringify({...imported,ownerId:'someone-else'})));
+assert.throws(()=>parseMemoryImport('请看摘要：'+JSON.stringify(imported)));
+await human.create('minimal','只有昵称');
+let minimal=await human.view('minimal');assert.equal(minimal.character.profile,'');assert.equal(minimal.character.personalMemory,null);assert.equal(minimal.character.gender,'unspecified');
+await human.create('basic','基本信息','',false,'female');assert.equal((await human.view('basic')).character.gender,'female');
+now+=3600001;ao=await observe(a);assert(ao.ready);
+const previousConversations=(await human.view(a.owner)).conversations.length;
+await human.personalMemory(a.owner,imported);
+await assert.rejects(()=>a.d.decide(a.owner,ao.leaseId,silent,zero),e=>e.status===409,'Import cancels decisions based on stale personal context');
+av=await human.view(a.owner);assert.equal(av.character.personalMemory.summary,imported.summary);assert.equal(av.character.personalMemory.importedAt,now);assert.equal(av.character.profile,'');
+const profileEvents=av.events.filter(e=>e.kind==='profile');assert.equal(profileEvents.length,1);assert(!JSON.stringify(av.events).includes(imported.summary),'The personal summary is not copied into the event log');
+await human.personalMemory(a.owner,imported);assert.equal((await human.view(a.owner)).events.filter(e=>e.kind==='profile').length,1,'Retrying the same import is idempotent');
+ao=await observe(a);assert(ao.ready);assert.equal(ao.character.personalMemory.summary,imported.summary);
+assert(!JSON.stringify(await human.view(b.owner)).includes('PRIVATE-MEMORY'),'Other users cannot read the imported personal context');
+bo=await observe(b);assert(bo.ready);assert(!JSON.stringify(bo).includes('PRIVATE-MEMORY'),'Other drivers cannot read the imported personal context');
+await b.d.decide(b.owner,bo.leaseId,silent,zero);
+await assert.rejects(()=>a.d.decide(a.owner,ao.leaseId,{...silent,memory:'这份个人画像是校园经历。',sourceEventIds:[profileEvents[0].id]},zero),e=>e.status===422);
+await human.personalMemory(a.owner,null);
+await assert.rejects(()=>a.d.decide(a.owner,ao.leaseId,silent,zero),e=>e.status===409,'Removal cancels decisions using the removed summary');
+ao=await observe(a);assert(ao.ready);assert.equal(ao.character.personalMemory,null);assert.equal(ao.character.profile,'');assert(!JSON.stringify(ao).includes('PRIVATE-MEMORY'));
+av=await human.view(a.owner);assert.equal(av.conversations.length,previousConversations,'Updating personal context preserves actual social history');
+await human.personalMemory(a.owner,{...imported,source:'codex',summary:'另一份已确认的本地摘要。'});assert.equal((await human.view(a.owner)).character.personalMemory.source,'codex');
+assert.equal((await human.view('minimal')).character.personalMemory,null,'Memory changes are scoped to the owner');
+console.log('PASS: nickname-only onboarding, optional gender, strict memory import, provenance, private driver context, no fabricated campus evidence, idempotent updates, stale decision cancellation, removal and existing-history preservation.');

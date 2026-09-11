@@ -1,8 +1,10 @@
 import type { MapPoint, WorldPlace } from './world-map.ts';
+import type { GENDER_LABELS, PersonalMemory } from './personal-memory.ts';
 
-export type WorldEvent = { id:string; seq:number; at:number; kind:'human'|'reply'|'arrival'|'departure'|'activity'|'memory'|'connection'; text:string; sources:string[] };
+export type WorldEvent = { id:string; seq:number; at:number; kind:'human'|'reply'|'arrival'|'departure'|'activity'|'memory'|'connection'|'profile'; text:string; sources:string[] };
 export type Character = {
   id:string; name:string; profile:string; createdAt:number;
+  gender?:keyof typeof GENDER_LABELS; personalMemory?:PersonalMemory|null;
   place:WorldPlace; motion:null|{ route:MapPoint[]; from:WorldPlace; to:WorldPlace; startAt:number; endAt:number };
   activity:string; intention:string; energy:number; energyAt:number; nextWake:number;
   paused:boolean; lastReadSeq:number; lastHumanSeq:number; retryAt:number;
