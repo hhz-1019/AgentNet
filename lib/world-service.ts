@@ -1,13 +1,17 @@
 import { Decision, type CharacterDecision } from './world-decision.ts';
 import { WORLD_PLACES, routeLength, walkingRoute } from './world-map.ts';
-import type { Character, WorldEvent } from './world-types.ts';
+import type { Character, Conversation, Neighbor, WorldEvent } from './world-types.ts';
 
 type Row={owner_id:string;id:string;state:string;revision:number;last_op:string;token_hash:string|null};
 type NewEvent={kind:WorldEvent['kind'];text:string;at?:number;sources?:string[]};
+type Effect={speech?:{id:string;decisionId:string;to:string;text:string;place:string}};
+const conversationColumns='id,seq,at,place,speaker_id AS speakerId,speaker_name AS speakerName,recipient_id AS recipientId,recipient_name AS recipientName,text';
+// Resolve elapsed travel from server time, even if the owner has no open browser.
+const presentAt=`json_extract(state,'$.socialEnabled')=1 AND (json_extract(state,'$.motion') IS NULL OR json_extract(state,'$.motion.endAt')<=?) AND CASE WHEN json_extract(state,'$.motion.endAt')<=? THEN json_extract(state,'$.motion.to') ELSE json_extract(state,'$.place') END=?`;
 export class WorldError extends Error { status:number;constructor(status:number,message:string){super(message);this.status=status;} }
 export async function tokenHash(token:string){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))].map(b=>b.toString(16).padStart(2,'0')).join('');}
 export function initialCharacter(id:string,name:string,profile:string,now:number):Character {
-  return {id,name,profile,createdAt:now,place:'beida',motion:null,activity:'在北大楼前熟悉校园',intention:'先认识这座校园，再慢慢形成自己的日常。',energy:84,energyAt:now,nextWake:now,paused:false,lastReadSeq:0,lastHumanSeq:0,retryAt:0,heartbeatAt:0,driverName:'',driverError:'',connectedUntil:0,lease:null,lastDecisionId:'',usage:{hourStart:now,calls:0,inputTokens:0,outputTokens:0}};
+  return {id,name,profile,createdAt:now,place:'beida',motion:null,activity:'在北大楼前熟悉校园',intention:'先认识这座校园，再慢慢形成自己的日常。',energy:84,energyAt:now,nextWake:now,paused:false,lastReadSeq:0,lastHumanSeq:0,retryAt:0,heartbeatAt:0,driverName:'',driverError:'',connectedUntil:0,socialEnabled:false,lastSocialSeq:0,nextSocialAt:0,lease:null,lastDecisionId:'',usage:{hourStart:now,calls:0,inputTokens:0,outputTokens:0}};
 }
 export function advanceClock(c:Character,now:number,events:NewEvent[]){
   const elapsed=Math.max(0,now-c.energyAt),walking=c.motion?Math.max(0,Math.min(now,c.motion.endAt)-c.energyAt):0;
@@ -26,8 +30,18 @@ export class WorldService {
     const rows=await this.db.prepare('SELECT id,seq,at,kind,text,sources FROM campus_events WHERE actor_id=? ORDER BY seq DESC,at DESC,id DESC LIMIT ?').bind(actorId,limit).all<WorldEvent&{sources:string}>();
     return rows.results.reverse().map(e=>({...e,sources:JSON.parse(e.sources) as string[]}));
   }
-  async create(ownerId:string,name:string,profile:string){
+  async nearby(c:Character,now=this.clock()):Promise<Neighbor[]>{
+    if(!c.socialEnabled||c.motion)return [];
+    const rows=await this.db.prepare(`SELECT id,state,token_hash FROM campus_characters WHERE id<>? AND ${presentAt} ORDER BY id LIMIT 50`).bind(c.id,now,now,c.place).all<Row>();
+    return rows.results.map(row=>{const other:Character=JSON.parse(row.state);advanceClock(other,now,[]);return {id:other.id,name:other.name,place:other.place,activity:other.activity,connected:!!row.token_hash&&!other.paused&&other.heartbeatAt>now-65000&&other.connectedUntil>now};});
+  }
+  async conversations(actorId:string,after=0,limit=40,unread=false):Promise<Conversation[]>{
+    const rows=await this.db.prepare(`SELECT ${conversationColumns} FROM campus_conversations WHERE (speaker_id=? OR recipient_id=?) AND seq>? ORDER BY seq ${unread?'ASC':'DESC'} LIMIT ?`).bind(actorId,actorId,after,limit).all<Conversation>();
+    return unread?rows.results:rows.results.reverse();
+  }
+  async create(ownerId:string,name:string,profile:string,socialEnabled=false){
     const id=crypto.randomUUID(),op=crypto.randomUUID(),now=this.clock(),character=initialCharacter(id,name,profile,now);
+    character.socialEnabled=socialEnabled;
     await this.db.batch([
       this.db.prepare('INSERT INTO campus_characters (owner_id,id,state,revision,last_op) VALUES (?,?,?,1,?) ON CONFLICT(owner_id) DO NOTHING').bind(ownerId,id,JSON.stringify(character),op),
       this.db.prepare('INSERT INTO campus_events (id,actor_id,seq,at,kind,text,sources) SELECT ?,id,revision,?,?,?,? FROM campus_characters WHERE owner_id=? AND last_op=?').bind(crypto.randomUUID(),now,'arrival','进入校园，来到北大楼前。','[]',ownerId,op),
@@ -36,14 +50,19 @@ export class WorldService {
   }
   // D1 batches are atomic. Event inserts are conditional on this exact successful CAS,
   // so racing messages, driver responses and disconnects cannot leave orphan events.
-  async change(ownerId:string,fn:(c:Character,events:NewEvent[],row:Row,now:number)=>void){
+  async change(ownerId:string,fn:(c:Character,events:NewEvent[],row:Row,now:number,effect:Effect)=>void){
     for(let attempt=0;attempt<4;attempt++){
       const row=await this.row(ownerId),c:Character=JSON.parse(row.state),events:NewEvent[]=[],now=this.clock();
       if(this.driverHash&&row.token_hash!==this.driverHash)throw new WorldError(401,'这个连接已被撤销。');
-      advanceClock(c,now,events);fn(c,events,row,now);
+      const effect:Effect={};advanceClock(c,now,events);fn(c,events,row,now,effect);
       const op=crypto.randomUUID(),seq=row.revision+1;
-      const writes=[this.db.prepare('UPDATE campus_characters SET state=?,revision=?,last_op=?,token_hash=? WHERE owner_id=? AND revision=?').bind(JSON.stringify(c),seq,op,row.token_hash,ownerId,row.revision)];
+      const speech=effect.speech;
+      const guard=speech?` AND EXISTS(SELECT 1 FROM campus_characters WHERE id=? AND ${presentAt})`:'';
+      const values:(string|number|null)[]=[JSON.stringify(c),seq,op,row.token_hash,ownerId,row.revision];
+      if(speech)values.push(speech.to,now,now,speech.place);
+      const writes=[this.db.prepare('UPDATE campus_characters SET state=?,revision=?,last_op=?,token_hash=? WHERE owner_id=? AND revision=?'+guard).bind(...values)];
       for(const e of events)writes.push(this.db.prepare('INSERT INTO campus_events (id,actor_id,seq,at,kind,text,sources) SELECT ?,id,revision,?,?,?,? FROM campus_characters WHERE owner_id=? AND last_op=?').bind(crypto.randomUUID(),e.at??now,e.kind,e.text,JSON.stringify(e.sources??[]),ownerId,op));
+      if(speech)writes.push(this.db.prepare(`INSERT INTO campus_conversations(id,decision_id,speaker_id,speaker_name,recipient_id,recipient_name,place,at,text) SELECT ?,?,speaker.id,json_extract(speaker.state,'$.name'),recipient.id,json_extract(recipient.state,'$.name'),?,?,? FROM campus_characters speaker,campus_characters recipient WHERE speaker.owner_id=? AND speaker.last_op=? AND recipient.id=?`).bind(speech.id,speech.decisionId,speech.place,now,speech.text,ownerId,op,speech.to));
       const result=await this.db.batch(writes);
       if(result[0].meta.changes===1)return c;
     }
@@ -54,7 +73,7 @@ export class WorldService {
     if(c.motion&&c.motion.endAt<=now){await this.change(ownerId,()=>{});row=await this.row(ownerId);c=JSON.parse(row.state);}
     advanceClock(c,now,[]);
     const {lease:_lease,lastDecisionId:_lastDecision,...character}=c;
-    return {serverNow:now,character,events:await this.history(c.id),connected:!!row.token_hash&&c.heartbeatAt>now-65000&&c.connectedUntil>now};
+    return {serverNow:now,character,events:await this.history(c.id),connected:!!row.token_hash&&c.heartbeatAt>now-65000&&c.connectedUntil>now,nearby:await this.nearby(c,now),conversations:await this.conversations(c.id)};
   }
   async message(ownerId:string,text:string,requestId:string){
     const eventId=`human:${requestId}`;
@@ -75,6 +94,7 @@ export class WorldService {
     throw new WorldError(409,'消息暂未送达，请重试。');
   }
   async pause(ownerId:string,paused:boolean){return this.change(ownerId,(c,e,_r,now)=>{c.paused=paused;c.lease=null;if(!paused)c.nextWake=now;e.push({kind:'connection',text:paused?'已暂停自主思考。已有行程会按计划完成。':'已恢复自主思考。'});});}
+  async participation(ownerId:string,enabled:boolean){return this.change(ownerId,(c,e,_r,now)=>{if(!!c.socialEnabled===enabled)return;c.socialEnabled=enabled;c.lease=null;c.nextWake=now;e.push({kind:'connection',text:enabled?'开始参与校园相遇。附近的角色可以看到名字、位置和当前活动。':'已退出校园相遇。其他角色不再看到你，也不能向你发起新交谈。'});});}
   async disconnect(ownerId:string){return this.change(ownerId,(c,e,r)=>{r.token_hash=null;c.lease=null;c.heartbeatAt=0;c.paused=true;e.push({kind:'connection',text:'已撤销 Codex 连接。角色经历与私聊仍保留。'});});}
   async pairing(token:string){
     const hash=await tokenHash(token),existing=await this.db.prepare('SELECT code,expires_at,claimed_by FROM campus_pairs WHERE token_hash=?').bind(hash).first<{code:string;expires_at:number;claimed_by:string|null}>();
@@ -101,34 +121,44 @@ export class WorldService {
     const row=await this.db.prepare('SELECT owner_id FROM campus_characters WHERE token_hash=?').bind(this.driverHash).first<{owner_id:string}>();
     if(!row)throw new WorldError(401,'角色尚未配对，或连接已经被撤销。');return row.owner_id;
   }
-  async observe(ownerId:string,driverId:string,endsAt:number){
+  async observe(ownerId:string,driverId:string,endsAt:number,viaBrowser=false){
     const before=await this.row(ownerId),previous:Character=JSON.parse(before.state),history=await this.history(before.id,24);
     const unread=(await this.db.prepare("SELECT id,seq,at,kind,text,sources FROM campus_events WHERE actor_id=? AND kind='human' AND seq>? AND seq<=? ORDER BY seq LIMIT 21").bind(before.id,previous.lastReadSeq,before.revision).all<WorldEvent&{sources:string}>()).results.map(e=>({...e,sources:JSON.parse(e.sources) as string[]}));
     const memory=(await this.db.prepare("SELECT id,seq,at,kind,text,sources FROM campus_events WHERE actor_id=? AND kind='memory' ORDER BY seq DESC LIMIT 8").bind(before.id).all<WorldEvent&{sources:string}>()).results.map(e=>({...e,sources:JSON.parse(e.sources) as string[]}));
     const cutoff=unread.length>20?unread[19].seq:before.revision;
     const known=[...new Map([...memory,...history,...unread.slice(0,20)].filter(e=>e.seq<=cutoff).map(e=>[e.id,e])).values()].sort((a,b)=>a.seq-b.seq);
+    advanceClock(previous,this.clock(),[]);
+    const nearby=await this.nearby(previous),pending=await this.conversations(before.id,previous.lastSocialSeq??0,21,true);
+    const socialCutoff=pending.length>20?pending[19].seq:pending.at(-1)?.seq??previous.lastSocialSeq??0;
+    const conversations=[...new Map([...(await this.conversations(before.id,0,12)),...pending.slice(0,20)].filter(e=>e.seq<=socialCutoff).map(e=>[e.id,e])).values()].sort((a,b)=>a.seq-b.seq);
     let acquired=false;
     const c=await this.change(ownerId,(c,_e,row,now)=>{
-      acquired=false;c.heartbeatAt=now;c.connectedUntil=Math.min(endsAt,now+4*3600000);
+      acquired=false;c.heartbeatAt=now;c.connectedUntil=Math.min(endsAt,now+4*3600000);c.driverName=viaBrowser?'本机 Codex · 页面连接':'本机 Codex · 直连';
       if(c.usage.hourStart+3600000<=now)c.usage={...c.usage,hourStart:now,calls:0};
-      const due=c.lastHumanSeq>c.lastReadSeq||(!c.motion&&c.nextWake<=now);
+      const due=c.lastHumanSeq>c.lastReadSeq||(!c.motion&&c.nextWake<=now)||(c.socialEnabled&&pending.some(e=>e.recipientId===c.id&&e.seq>(c.lastSocialSeq??0))&&(c.nextSocialAt??0)<=now);
       if(c.paused||!due||c.retryAt>now||endsAt<=now||c.usage.calls>=12||(c.lease&&c.lease.until>now))return;
       // A stale history snapshot cannot acknowledge newer private messages.
       const observedSeq=Math.min(row.revision,cutoff);
-      c.lease={id:driverId+':'+crypto.randomUUID(),until:now+180000,observedSeq,sourceIds:known.filter(e=>e.seq<=observedSeq).map(e=>e.id)};
+      c.lease={id:driverId+':'+crypto.randomUUID(),until:now+180000,observedSeq,observedSocialSeq:socialCutoff,nearbyIds:nearby.map(n=>n.id),sourceIds:[...known.filter(e=>e.seq<=observedSeq).map(e=>e.id),...conversations.map(e=>e.id)]};
       c.usage.calls++;c.driverError='';acquired=true;
     });
     if(!acquired)return {ready:false,paused:c.paused,retryAfter:10,limited:c.usage.calls>=12};
-    return {ready:true,leaseId:c.lease!.id,serverNow:this.clock(),character:{name:c.name,profile:c.profile,place:c.place,moving:!!c.motion,destination:c.motion?.to??null,arrivalAt:c.motion?.endAt??null,activity:c.activity,intention:c.intention,energy:Math.round(c.energy)},places:WORLD_PLACES,events:known.filter(e=>e.seq<=c.lease!.observedSeq),newMessages:unread.filter(e=>e.seq>c.lastReadSeq&&e.seq<=c.lease!.observedSeq)};
+    return {ready:true,leaseId:c.lease!.id,serverNow:this.clock(),character:{id:c.id,name:c.name,profile:c.profile,place:c.place,moving:!!c.motion,destination:c.motion?.to??null,arrivalAt:c.motion?.endAt??null,activity:c.activity,intention:c.intention,energy:Math.round(c.energy),socialEnabled:!!c.socialEnabled},places:WORLD_PLACES,events:known.filter(e=>e.seq<=c.lease!.observedSeq),newMessages:unread.filter(e=>e.seq>c.lastReadSeq&&e.seq<=c.lease!.observedSeq),nearby:c.socialEnabled&&!c.motion?nearby:[],conversations,newConversations:pending.filter(e=>e.seq>(c.lastSocialSeq??0)&&e.seq<=c.lease!.observedSocialSeq!)};
   }
   async decide(ownerId:string,leaseId:string,input:unknown,usage:{inputTokens:number;outputTokens:number}){
     const decision=Decision.parse(input);
-    return this.change(ownerId,(c,events,_row,now)=>{
+    return this.change(ownerId,(c,events,_row,now,effect)=>{
       if(c.lastDecisionId===leaseId)return;
       if(c.paused||!c.lease||c.lease.id!==leaseId||c.lease.until<=now)throw new WorldError(409,'这次思考已经过期，结果未执行。');
       if(c.motion&&decision.action!=='continue')throw new WorldError(422,'角色正在途中，需要先完成当前行程。');
       if(decision.memory&&(!decision.sourceEventIds.length||decision.sourceEventIds.some(id=>!c.lease!.sourceIds.includes(id))))throw new WorldError(422,'记忆必须关联角色已知的真实事件。');
+      if(decision.speech){
+        if(!c.socialEnabled||c.motion||decision.action!=='stay'||!c.lease.nearbyIds?.includes(decision.speech.to))throw new WorldError(422,'只能与本次观察中同在一个地点的角色交谈。');
+        if((c.nextSocialAt??0)>now)throw new WorldError(422,'先给对方一点时间，下次再交谈。');
+        effect.speech={id:crypto.randomUUID(),decisionId:leaseId,to:decision.speech.to,text:decision.speech.text,place:c.place};
+      }
       applyDecision(c,decision,now,events);
+      c.lastSocialSeq=Math.max(c.lastSocialSeq??0,c.lease.observedSocialSeq??0);c.nextSocialAt=now+90000;
       c.lastReadSeq=c.lease.observedSeq;c.lastDecisionId=leaseId;c.lease=null;c.driverError='';c.retryAt=0;
       c.usage.inputTokens+=usage.inputTokens;c.usage.outputTokens+=usage.outputTokens;
     });

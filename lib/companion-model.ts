@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 // A compact, neutral campus resident; no real person's appearance is inferred.
-export function createCompanionModel(){
+export function createCompanionModel(color='#713f55'){
   const group=new THREE.Group();group.name='我的校园伙伴';
-  const coat=new THREE.MeshStandardMaterial({color:'#713f55',roughness:.85}),skin=new THREE.MeshStandardMaterial({color:'#d6b797',roughness:.9}),dark=new THREE.MeshStandardMaterial({color:'#303c3c',roughness:.92}),paper=new THREE.MeshStandardMaterial({color:'#d9e2d3',roughness:1});
+  const coat=new THREE.MeshStandardMaterial({color,roughness:.85}),skin=new THREE.MeshStandardMaterial({color:'#d6b797',roughness:.9}),dark=new THREE.MeshStandardMaterial({color:'#303c3c',roughness:.92}),paper=new THREE.MeshStandardMaterial({color:'#d9e2d3',roughness:1});
   const add=(geometry:THREE.BufferGeometry,material:THREE.Material,x:number,y:number,z:number,parent:THREE.Object3D=group)=>{const m=new THREE.Mesh(geometry,material);m.position.set(x,y,z);m.receiveShadow=true;parent.add(m);return m;};
   add(new THREE.CapsuleGeometry(.25,.38,4,10),coat,0,.96,0);
   add(new THREE.SphereGeometry(.23,12,10),skin,0,1.58,0);

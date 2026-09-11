@@ -39,7 +39,7 @@ export default function Home() {
         <span className="brand-name">南京大学 <span>苏州校区</span><small>NANJING UNIVERSITY · SUZHOU</small></span>
       </Button>
       <div className="header-center"><span className="view-indicator" />三维校园</div>
-      <Button variant="outline" className="companion-open" onClick={()=>setCompanionOpen(true)}><MessageCircle size={17}/><span>{world.view?.character?.name??'我的伙伴'}</span>{world.view?.connected&&<span className="companion-online" aria-label="Codex 在线"/>}</Button>
+      <Button variant="outline" className="companion-open" aria-label="打开我的校园伙伴" onClick={()=>setCompanionOpen(true)}><MessageCircle size={17}/><span>{world.view?.character?.name??'我的伙伴'}</span>{world.view?.connected&&<span className="companion-online" aria-label="Codex 在线"/>}</Button>
       <Popover><PopoverTrigger render={<Button variant="ghost" className="about-button" aria-label="地图说明" />}><Info size={17} /><span>地图说明</span></PopoverTrigger>
         <PopoverContent align="end" className="map-about"><PopoverTitle>关于这座校园</PopoverTitle>
           <p>平面布局依据苏州校区标准地图校正，保留建筑占地、道路、水系与庄里山的相对位置。立面与场地配色参考建筑设计资料和建成实景。</p>

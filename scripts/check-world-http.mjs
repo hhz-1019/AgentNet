@@ -23,4 +23,13 @@ result=await api('/api/world/driver',{op:'decide',leaseId:lease,decision:{action
 result=await api('/api/world',undefined,human);assert(result.data.events.some(e=>e.kind==='reply'&&e.text==='本地接口验证已收到。'));assert.equal(result.data.character.activity,'观察周围');
 assert.equal((await api('/api/world',{op:'disconnect'},human)).status,200);
 assert.equal((await api('/api/world/driver',{op:'status'},driver)).status,401);
+assert.equal((await api('/api/world',{op:'participation',enabled:true},human)).status,200);
+result=await api('/api/world',undefined,human);assert(Array.isArray(result.data.nearby));assert(Array.isArray(result.data.conversations));assert.equal(result.data.character.socialEnabled,true);
+assert.equal((await api('/api/world/relay',{token,command:{op:'pair'}})).status,401,'Browser relay requires an actual Sites identity');
+assert.equal((await api('/api/world/relay',{token,command:{op:'pair'}},{...human,Origin:'https://untrusted.example'})).status,403);
+assert.equal((await api('/api/world/relay',{token,command:{op:'move',destination:'beida'}},human)).status,400);
+result=await api('/api/world/relay',{token,command:{op:'pair'}},human);assert.equal(result.status,200,JSON.stringify(result.data));assert(result.data.paired);
+result=await api('/api/world/relay',{token,command:{op:'observe',driverId:randomUUID(),endsAt:Date.now()+3600000}},human);assert.equal(result.status,200);assert(result.data.ready);assert(Array.isArray(result.data.nearby));
+assert.equal((await api('/api/world',{op:'disconnect'},human)).status,200);
+assert.equal((await api('/api/world/relay',{token,command:{op:'status'}},human)).status,401,'A browser cannot silently revive a revoked driver');
 console.log('PASS: real local Worker/D1 routes, auth headers, CSRF, account creation, pairing, private message, decision persistence, human-action rejection and token revocation.');

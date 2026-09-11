@@ -23,3 +23,17 @@ export const pairs = sqliteTable('campus_pairs', {
   expiresAt: integer('expires_at').notNull(),
   claimedBy: text('claimed_by'),
 });
+
+// Only the two participants can read a conversation. Names are event-time snapshots.
+export const conversations = sqliteTable('campus_conversations', {
+  seq: integer('seq').primaryKey({autoIncrement:true}),
+  id: text('id').notNull().unique(),
+  decisionId: text('decision_id').notNull().unique(),
+  speakerId: text('speaker_id').notNull().references(() => characters.id),
+  speakerName: text('speaker_name').notNull(),
+  recipientId: text('recipient_id').notNull().references(() => characters.id),
+  recipientName: text('recipient_name').notNull(),
+  place: text('place').notNull(),
+  at: integer('at').notNull(),
+  text: text('text').notNull(),
+}, table => [index('campus_conversations_speaker_seq').on(table.speakerId, table.seq), index('campus_conversations_recipient_seq').on(table.recipientId, table.seq)]);

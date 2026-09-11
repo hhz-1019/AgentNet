@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type MutableRefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { MoveUpRight } from 'lucide-react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -17,20 +17,23 @@ import { WORLD_PLACES,routePosition } from '@/lib/world-map';
 import type { WorldView } from '@/lib/world-types';
 
 export type CampusControls = { zoom: (factor: number) => void; reset: () => void; focusCompanion:()=>void };
-type Props = { selected: LocationId | null; topView: boolean; controlsRef: MutableRefObject<CampusControls | null>; onSelect: (id: LocationId | null) => void; onReady: () => void; onError: (message: string) => void; companion:WorldView|null; onCompanionClick:()=>void };
+type Props = { selected: LocationId | null; topView: boolean; controlsRef: RefObject<CampusControls | null>; onSelect: (id: LocationId | null) => void; onReady: () => void; onError: (message: string) => void; companion:WorldView|null; onCompanionClick:()=>void };
 
 export default function CampusCanvas(props: Props) {
   const mount = useRef<HTMLDivElement>(null);
   const markers = useRef<(HTMLButtonElement | null)[]>([]);
   const companionMarker=useRef<HTMLButtonElement|null>(null);
-  const snapshotAt=useRef({view:props.companion,receivedAt:Date.now()});
-  if(snapshotAt.current.view!==props.companion)snapshotAt.current={view:props.companion,receivedAt:Date.now()};
-  const current = useRef(props); current.current = props;
+  const neighborMarkers=useRef(new Map<string,HTMLButtonElement>());
+  const snapshotAt=useRef({receivedAt:0});
+  useEffect(()=>{snapshotAt.current={receivedAt:Date.now()};},[props.companion]);
+  const current = useRef(props);
+  useEffect(()=>{current.current=props;},[props]);
   const travel = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!mount.current) return;
     const container = mount.current;
+    const controlsRef=current.current.controlsRef;
     let renderer: THREE.WebGLRenderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' }); }
     catch { current.current.onError('请开启浏览器的图形加速，或在支持 WebGL 的浏览器中打开。地点目录仍可查看。'); return; }
@@ -51,6 +54,8 @@ export default function CampusCanvas(props: Props) {
     orbit.screenSpacePanning = false; orbit.maxTargetRadius = 260;
     const model = buildCampus(); addCampusSurfaceDetail(model); scene.add(model);
     const resident=createCompanionModel();scene.add(resident.group);
+    const neighbors=new Map<string,ReturnType<typeof createCompanionModel>>();
+    function disposeNeighbor(id:string){const model=neighbors.get(id);if(!model)return;const materials=new Set<THREE.Material>();model.group.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m));}});materials.forEach(m=>m.dispose());scene.remove(model.group);neighbors.delete(id);}
     let lastCompanion:WorldView|null=null,focusCharacter=false;
     function companionPosition(){
       const view=current.current.companion,c=view?.character;if(!view||!c)return null;
@@ -142,6 +147,15 @@ export default function CampusCanvas(props: Props) {
         button.style.visibility=resident.group.visible&&projected.z>=-1&&projected.z<=1&&x>40&&x<width-40&&y>35&&y<height-50?'visible':'hidden';
         button.style.transform=`translate3d(${Math.round(x-button.offsetWidth/2)}px,${Math.round(y-button.offsetHeight)}px,0)`;
       }
+      const occupiedNeighbors:{x:number;y:number}[]=[];
+      neighbors.forEach((model,id)=>{
+        const button=neighborMarkers.current.get(id);if(!button)return;
+        projected.copy(model.group.position).add(new THREE.Vector3(0,2.2,0)).project(camera);
+        const x=(projected.x*.5+.5)*width,y=(-projected.y*.5+.5)*height;
+        const visible=camera.zoom>2&&model.group.visible&&projected.z>=-1&&projected.z<=1&&x>65&&x<width-65&&y>50&&y<height-60&&!occupiedNeighbors.some(p=>Math.abs(p.x-x)<110&&Math.abs(p.y-y)<36);
+        button.style.visibility=visible?'visible':'hidden';button.style.transform=`translate3d(${Math.round(x-button.offsetWidth/2)}px,${Math.round(y-button.offsetHeight)}px,0)`;
+        if(visible)occupiedNeighbors.push({x,y});
+      });
     }
     let first=true;
     function render(now:number) {
@@ -149,7 +163,17 @@ export default function CampusCanvas(props: Props) {
       let moving=false;
       const character=current.current.companion?.character,position=companionPosition();
       resident.group.visible=!!character;
-      if(lastCompanion!==current.current.companion){lastCompanion=current.current.companion;dirty=true;}
+      if(lastCompanion!==current.current.companion){
+        lastCompanion=current.current.companion;dirty=true;
+        const nearby=current.current.companion?.nearby??[],ids=new Set(nearby.map(n=>n.id));
+        for(const id of neighbors.keys())if(!ids.has(id))disposeNeighbor(id);
+        nearby.forEach(n=>{
+          let model=neighbors.get(n.id);if(!model){const palette=['#426d63','#5b657d','#856645','#687849'];model=createCompanionModel(palette[parseInt(n.id.slice(0,4),16)%palette.length]);model.group.name=n.name;neighbors.set(n.id,model);scene.add(model.group);}
+          // Stable offsets let people share a place without occupying one point.
+          const hash=parseInt(n.id.slice(0,6),16),angle=(hash%360)/180*Math.PI,radius=3+(hash%4)*1.5;
+          const [x,z]=mapPosition(...WORLD_PLACES[n.place].point);model.group.position.set(x+Math.cos(angle)*radius,.3,z+Math.sin(angle)*radius);model.group.rotation.y=-angle-Math.PI/2;model.group.visible=true;
+        });
+      }
       if(position&&character){
         const [x,z]=mapPosition(...position.p);resident.group.position.set(x,.3,z);
         if(character.motion&&position.moving){
@@ -190,7 +214,7 @@ export default function CampusCanvas(props: Props) {
     const contextLost=(event:Event)=>{event.preventDefault();current.current.onError('图形连接已中断。请重新加载页面，或关闭其他占用图形资源的页面。');};
     renderer.domElement.addEventListener('pointerdown',pointerDown);renderer.domElement.addEventListener('pointerup',pointerUp);renderer.domElement.addEventListener('keydown',keyDown);renderer.domElement.addEventListener('webglcontextlost',contextLost);
     return ()=>{
-      cancelAnimationFrame(frame);observer.disconnect();orbit.dispose();travel.current=null;current.current.controlsRef.current=null;
+      cancelAnimationFrame(frame);observer.disconnect();orbit.dispose();travel.current=null;controlsRef.current=null;
       renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointerup',pointerUp);renderer.domElement.removeEventListener('keydown',keyDown);renderer.domElement.removeEventListener('webglcontextlost',contextLost);
       const geometrySet=new Set<THREE.BufferGeometry>(),materialSet=new Set<THREE.Material>();
       scene.traverse(object=>{if(object instanceof THREE.Mesh){geometrySet.add(object.geometry);(Array.isArray(object.material)?object.material:[object.material]).forEach(m=>materialSet.add(m));}});
@@ -198,5 +222,5 @@ export default function CampusCanvas(props: Props) {
     };
   }, []);
   useEffect(()=>{travel.current?.();},[props.selected,props.topView]);
-  return <div ref={mount} className="campus-canvas"><div className="map-label-layer">{LOCATIONS.map((place,i)=><button key={place.id} ref={el=>{markers.current[i]=el;}} className="map-marker" aria-label={`进入${place.name}三维场景`} onClick={()=>props.onSelect(place.id)}><span className="map-marker-label">{place.name}<MoveUpRight size={12}/></span><span className="map-marker-stem"/><span className="map-marker-dot"/></button>)}<button ref={companionMarker} className="companion-map-marker" onClick={props.onCompanionClick} aria-label={`和${props.companion?.character?.name??'伙伴'}聊聊`}>{props.companion?.character?.name??'伙伴'}<MoveUpRight size={12}/></button></div></div>;
+  return <div ref={mount} className="campus-canvas"><div className="map-label-layer">{LOCATIONS.map((place,i)=><button key={place.id} ref={el=>{markers.current[i]=el;}} className="map-marker" aria-label={`进入${place.name}三维场景`} onClick={()=>props.onSelect(place.id)}><span className="map-marker-label">{place.name}<MoveUpRight size={12}/></span><span className="map-marker-stem"/><span className="map-marker-dot"/></button>)}<button ref={companionMarker} className="companion-map-marker" onClick={props.onCompanionClick} aria-label={`和${props.companion?.character?.name??'伙伴'}聊聊`}>{props.companion?.character?.name??'伙伴'}<MoveUpRight size={12}/></button>{props.companion?.nearby?.map(n=><button key={n.id} ref={el=>{if(el)neighborMarkers.current.set(n.id,el);else neighborMarkers.current.delete(n.id);}} className="companion-map-marker neighbor-map-marker" onClick={props.onCompanionClick} aria-label={`查看附近角色 ${n.name}`}>{n.name}</button>)}</div></div>;
 }
