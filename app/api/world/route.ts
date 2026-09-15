@@ -12,9 +12,9 @@ const command=z.discriminatedUnion('op',[
   z.object({op:z.literal('disconnect')}).strict(),
   z.object({op:z.literal('claim'),code:z.string().regex(/^[A-F0-9]{10}$/)}).strict(),
 ]);
-export async function GET(request:Request){return respond(async()=>{const account=user(request),world=service();try{return {...await world.view(account.id),account:account.account};}catch(e){if(e instanceof WorldError&&e.status===404)return {serverNow:Date.now(),account:account.account,character:null,events:[],connected:false,nearby:[],conversations:[]};throw e;}});}
+export async function GET(request:Request){return respond(async()=>{const world=service(),account=await user(request,world);try{return {...await world.view(account.id),account:account.account,authMode:account.authMode};}catch(e){if(e instanceof WorldError&&e.status===404)return {serverNow:Date.now(),account:account.account,authMode:account.authMode,character:null,events:[],connected:false,nearby:[],conversations:[]};throw e;}});}
 export async function POST(request:Request){return respond(async()=>{
-  const account=user(request),c=command.parse(await body(request,true)),world=service();
+  const world=service(),account=await user(request,world),c=command.parse(await body(request,true));
   if(c.op==='create')await world.create(account.id,c.name,c.profile,c.socialEnabled,c.gender);
   if(c.op==='personal-memory')await world.personalMemory(account.id,c.memory);
   if(c.op==='participation')await world.participation(account.id,c.enabled);
@@ -22,5 +22,5 @@ export async function POST(request:Request){return respond(async()=>{
   if(c.op==='pause')await world.pause(account.id,c.paused);
   if(c.op==='disconnect')await world.disconnect(account.id);
   if(c.op==='claim')await world.claim(account.id,c.code);
-  return {...await world.view(account.id),account:account.account};
+  return {...await world.view(account.id),account:account.account,authMode:account.authMode};
 });}

@@ -9,13 +9,13 @@ const envelope=z.object({token:z.string().regex(/^[a-f0-9]{64}$/),command:Driver
 // The browser uses its own Sites login; no owner bypass or ChatGPT credentials
 // are exported to another computer. The role token remains separately revocable.
 export async function POST(request:Request){return respond(async()=>{
-  const account=user(request),{token,command:c}=envelope.parse(await body(request,true)),world=service();
+  const world=service(),account=await user(request,world),{token,command:c}=envelope.parse(await body(request,true));
   await world.row(account.id);
   let owner:string|null=null;
   try{owner=await world.driverOwner(token);}catch(e){if(!(e instanceof WorldError&&e.status===401))throw e;}
   if(owner&&owner!==account.id)throw new WorldError(403,'这个连接属于另一个校园账号，请使用自己的连接程序。');
   if(c.op==='pair'){
-    if(!owner){const pairing=service();const pair=await pairing.pairing(token);await pairing.claim(account.id,pair.code);}
+    if(!owner){const pair=await world.pairing(token);await world.claim(account.id,pair.code);}
     return {paired:true};
   }
   if(!owner)throw new WorldError(401,'连接尚未配对或已撤销，请重新启动并连接。');

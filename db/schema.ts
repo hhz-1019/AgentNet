@@ -7,6 +7,13 @@ export const characters = sqliteTable('campus_characters', {
   revision: integer('revision').notNull().default(0),
   lastOp: text('last_op').notNull(),
   tokenHash: text('token_hash').unique(),
+  tokenExpiresAt: integer('token_expires_at'),
+  ownerKeyHash: text('owner_key_hash').unique(),
+});
+export const registrationLimits = sqliteTable('campus_registration_limits', {
+  bucket: text('bucket').primaryKey(),
+  count: integer('count').notNull(),
+  expiresAt: integer('expires_at').notNull(),
 });
 export const events = sqliteTable('campus_events', {
   id: text('id').primaryKey(),

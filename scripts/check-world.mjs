@@ -159,3 +159,17 @@ av=await human.view(a.owner);assert.equal(av.conversations.length,previousConver
 await human.personalMemory(a.owner,{...imported,source:'codex',summary:'另一份已确认的本地摘要。'});assert.equal((await human.view(a.owner)).character.personalMemory.source,'codex');
 assert.equal((await human.view('minimal')).character.personalMemory,null,'Memory changes are scoped to the owner');
 console.log('PASS: nickname-only onboarding, optional gender, strict memory import, provenance, private driver context, no fabricated campus evidence, idempotent updates, stale decision cancellation, removal and existing-history preservation.');
+
+const ownerKey='campus_owner_'+'7'.repeat(64),newOwnerKey='campus_owner_'+'8'.repeat(64),agentKey='9'.repeat(64);
+await human.create('independent-security','授权验证');await human.setOwnerKey('independent-security',ownerKey);
+const ownerSession=world();assert.equal(await ownerSession.ownerByKey(ownerKey),'independent-security');
+const issued=await ownerSession.issueAgentToken('independent-security',agentKey);
+const agentSession=world();await agentSession.driverOwner(agentKey);
+await human.setOwnerKey('independent-security',newOwnerKey);
+await assert.rejects(()=>ownerSession.message('independent-security','不应写入',crypto.randomUUID()),e=>e.status===401,'Revoked owner sessions cannot retry a write');
+assert.equal((await agentSession.view('independent-security')).character.name,'授权验证','Owner and Agent credentials have independent scopes');
+now=issued.expiresAt;
+await assert.rejects(()=>world().driverOwner(agentKey),e=>e.status===401,'Agent credentials expire at the exact boundary');
+await assert.rejects(()=>agentSession.view('independent-security'),e=>e.status===401,'Already authenticated instances recheck expiry');
+assert.equal((await human.view('independent-security')).agentAuthorized,false);
+console.log('PASS: independent owner-session rotation, separate Agent scope and exact credential expiry.');

@@ -3,7 +3,7 @@ import { WORLD_PLACES, routeLength, walkingRoute } from './world-map.ts';
 import { PersonalMemoryInput, type MemoryImport } from './personal-memory.ts';
 import type { Character, Conversation, Neighbor, WorldEvent } from './world-types.ts';
 
-type Row={owner_id:string;id:string;state:string;revision:number;last_op:string;token_hash:string|null};
+type Row={owner_id:string;id:string;state:string;revision:number;last_op:string;token_hash:string|null;token_expires_at:number|null;owner_key_hash:string|null};
 type NewEvent={kind:WorldEvent['kind'];text:string;at?:number;sources?:string[]};
 type Effect={speech?:{id:string;decisionId:string;to:string;text:string;place:string}};
 const conversationColumns='id,seq,at,place,speaker_id AS speakerId,speaker_name AS speakerName,recipient_id AS recipientId,recipient_name AS recipientName,text';
@@ -24,27 +24,34 @@ export function advanceClock(c:Character,now:number,events:NewEvent[]){
 }
 export class WorldService {
   private driverHash:string|null=null;
+  private ownerHash:string|null=null;
   private db:D1Database;private clock:()=>number;
   constructor(db:D1Database,clock=()=>Date.now()){this.db=db;this.clock=clock;}
-  async row(ownerId:string){const row=await this.db.prepare('SELECT * FROM campus_characters WHERE owner_id=?').bind(ownerId).first<Row>();if(!row)throw new WorldError(404,'你的角色还没有进入校园。');return row;}
+  async row(ownerId:string){
+    const row=await this.db.prepare('SELECT * FROM campus_characters WHERE owner_id=?').bind(ownerId).first<Row>();
+    if(!row)throw new WorldError(404,'你的角色还没有进入校园。');
+    if(this.driverHash&&(row.token_hash!==this.driverHash||(row.token_expires_at!==null&&row.token_expires_at<=this.clock())))throw new WorldError(401,'这个连接已被撤销或已到期。');
+    if(this.ownerHash&&row.owner_key_hash!==this.ownerHash)throw new WorldError(401,'校园身份已更新，请使用新的恢复密钥。');
+    return row;
+  }
   async history(actorId:string,limit=60){
     const rows=await this.db.prepare('SELECT id,seq,at,kind,text,sources FROM campus_events WHERE actor_id=? ORDER BY seq DESC,at DESC,id DESC LIMIT ?').bind(actorId,limit).all<WorldEvent&{sources:string}>();
     return rows.results.reverse().map(e=>({...e,sources:JSON.parse(e.sources) as string[]}));
   }
   async nearby(c:Character,now=this.clock()):Promise<Neighbor[]>{
     if(!c.socialEnabled||c.motion)return [];
-    const rows=await this.db.prepare(`SELECT id,state,token_hash FROM campus_characters WHERE id<>? AND ${presentAt} ORDER BY id LIMIT 50`).bind(c.id,now,now,c.place).all<Row>();
-    return rows.results.map(row=>{const other:Character=JSON.parse(row.state);advanceClock(other,now,[]);return {id:other.id,name:other.name,place:other.place,activity:other.activity,connected:!!row.token_hash&&!other.paused&&other.heartbeatAt>now-65000&&other.connectedUntil>now};});
+    const rows=await this.db.prepare(`SELECT id,state,token_hash,token_expires_at FROM campus_characters WHERE id<>? AND ${presentAt} ORDER BY id LIMIT 50`).bind(c.id,now,now,c.place).all<Row>();
+    return rows.results.map(row=>{const other:Character=JSON.parse(row.state);advanceClock(other,now,[]);return {id:other.id,name:other.name,place:other.place,activity:other.activity,connected:!!row.token_hash&&(row.token_expires_at===null||row.token_expires_at>now)&&!other.paused&&other.heartbeatAt>now-65000&&other.connectedUntil>now};});
   }
   async conversations(actorId:string,after=0,limit=40,unread=false):Promise<Conversation[]>{
     const rows=await this.db.prepare(`SELECT ${conversationColumns} FROM campus_conversations WHERE (speaker_id=? OR recipient_id=?) AND seq>? ORDER BY seq ${unread?'ASC':'DESC'} LIMIT ?`).bind(actorId,actorId,after,limit).all<Conversation>();
     return unread?rows.results:rows.results.reverse();
   }
-  async create(ownerId:string,name:string,profile='',socialEnabled=false,gender:Character['gender']='unspecified'){
+  async create(ownerId:string,name:string,profile='',socialEnabled=false,gender:Character['gender']='unspecified',ownerKeyHash:string|null=null){
     const id=crypto.randomUUID(),op=crypto.randomUUID(),now=this.clock(),character=initialCharacter(id,name,profile,now);
     character.socialEnabled=socialEnabled;character.gender=gender;character.personalMemory=null;
     await this.db.batch([
-      this.db.prepare('INSERT INTO campus_characters (owner_id,id,state,revision,last_op) VALUES (?,?,?,1,?) ON CONFLICT(owner_id) DO NOTHING').bind(ownerId,id,JSON.stringify(character),op),
+      this.db.prepare('INSERT INTO campus_characters (owner_id,id,state,revision,last_op,owner_key_hash) VALUES (?,?,?,1,?,?) ON CONFLICT(owner_id) DO NOTHING').bind(ownerId,id,JSON.stringify(character),op,ownerKeyHash),
       this.db.prepare('INSERT INTO campus_events (id,actor_id,seq,at,kind,text,sources) SELECT ?,id,revision,?,?,?,? FROM campus_characters WHERE owner_id=? AND last_op=?').bind(crypto.randomUUID(),now,'arrival','进入校园，来到北大楼前。','[]',ownerId,op),
     ]);
     return this.view(ownerId);
@@ -54,14 +61,13 @@ export class WorldService {
   async change(ownerId:string,fn:(c:Character,events:NewEvent[],row:Row,now:number,effect:Effect)=>void){
     for(let attempt=0;attempt<4;attempt++){
       const row=await this.row(ownerId),c:Character=JSON.parse(row.state),events:NewEvent[]=[],now=this.clock();
-      if(this.driverHash&&row.token_hash!==this.driverHash)throw new WorldError(401,'这个连接已被撤销。');
       const effect:Effect={};advanceClock(c,now,events);fn(c,events,row,now,effect);
       const op=crypto.randomUUID(),seq=row.revision+1;
       const speech=effect.speech;
       const guard=speech?` AND EXISTS(SELECT 1 FROM campus_characters WHERE id=? AND ${presentAt})`:'';
-      const values:(string|number|null)[]=[JSON.stringify(c),seq,op,row.token_hash,ownerId,row.revision];
+      const values:(string|number|null)[]=[JSON.stringify(c),seq,op,row.token_hash,row.token_expires_at,row.owner_key_hash,ownerId,row.revision];
       if(speech)values.push(speech.to,now,now,speech.place);
-      const writes=[this.db.prepare('UPDATE campus_characters SET state=?,revision=?,last_op=?,token_hash=? WHERE owner_id=? AND revision=?'+guard).bind(...values)];
+      const writes=[this.db.prepare('UPDATE campus_characters SET state=?,revision=?,last_op=?,token_hash=?,token_expires_at=?,owner_key_hash=? WHERE owner_id=? AND revision=?'+guard).bind(...values)];
       for(const e of events)writes.push(this.db.prepare('INSERT INTO campus_events (id,actor_id,seq,at,kind,text,sources) SELECT ?,id,revision,?,?,?,? FROM campus_characters WHERE owner_id=? AND last_op=?').bind(crypto.randomUUID(),e.at??now,e.kind,e.text,JSON.stringify(e.sources??[]),ownerId,op));
       if(speech)writes.push(this.db.prepare(`INSERT INTO campus_conversations(id,decision_id,speaker_id,speaker_name,recipient_id,recipient_name,place,at,text) SELECT ?,?,speaker.id,json_extract(speaker.state,'$.name'),recipient.id,json_extract(recipient.state,'$.name'),?,?,? FROM campus_characters speaker,campus_characters recipient WHERE speaker.owner_id=? AND speaker.last_op=? AND recipient.id=?`).bind(speech.id,speech.decisionId,speech.place,now,speech.text,ownerId,op,speech.to));
       const result=await this.db.batch(writes);
@@ -74,7 +80,7 @@ export class WorldService {
     if(c.motion&&c.motion.endAt<=now){await this.change(ownerId,()=>{});row=await this.row(ownerId);c=JSON.parse(row.state);}
     advanceClock(c,now,[]);
     const {lease:_lease,lastDecisionId:_lastDecision,...character}=c;
-    return {serverNow:now,character,events:await this.history(c.id),connected:!!row.token_hash&&c.heartbeatAt>now-65000&&c.connectedUntil>now,nearby:await this.nearby(c,now),conversations:await this.conversations(c.id)};
+    return {serverNow:now,character,events:await this.history(c.id),agentAuthorized:!!row.token_hash&&(row.token_expires_at===null||row.token_expires_at>now),agentExpiresAt:row.token_expires_at,connected:!!row.token_hash&&(row.token_expires_at===null||row.token_expires_at>now)&&!c.paused&&c.heartbeatAt>now-65000&&c.connectedUntil>now,nearby:await this.nearby(c,now),conversations:await this.conversations(c.id)};
   }
   async message(ownerId:string,text:string,requestId:string){
     const eventId=`human:${requestId}`;
@@ -108,7 +114,31 @@ export class WorldService {
     });
   }
   async participation(ownerId:string,enabled:boolean){return this.change(ownerId,(c,e,_r,now)=>{if(!!c.socialEnabled===enabled)return;c.socialEnabled=enabled;c.lease=null;c.nextWake=now;e.push({kind:'connection',text:enabled?'开始参与校园相遇。附近的角色可以看到名字、位置和当前活动。':'已退出校园相遇。其他角色不再看到你，也不能向你发起新交谈。'});});}
-  async disconnect(ownerId:string){return this.change(ownerId,(c,e,r)=>{r.token_hash=null;c.lease=null;c.heartbeatAt=0;c.paused=true;e.push({kind:'connection',text:'已撤销 Codex 连接。角色经历与私聊仍保留。'});});}
+  async disconnect(ownerId:string){return this.change(ownerId,(c,e,r)=>{r.token_hash=null;r.token_expires_at=null;c.lease=null;c.heartbeatAt=0;c.paused=true;e.push({kind:'connection',text:'已撤销 Agent 连接。角色经历与私聊仍保留。'});});}
+  async ownerByKey(key:string){
+    const hash=await tokenHash(key);
+    const row=await this.db.prepare('SELECT owner_id FROM campus_characters WHERE owner_key_hash=?').bind(hash).first<{owner_id:string}>();
+    if(!row)throw new WorldError(401,'校园恢复密钥无效或已更换，请检查后重试。');
+    this.ownerHash=hash;return row.owner_id;
+  }
+  async setOwnerKey(ownerId:string,key:string){
+    const hash=await tokenHash(key);
+    await this.change(ownerId,(_c,e,r)=>{r.owner_key_hash=hash;e.push({kind:'connection',text:'已更新校园恢复密钥。其他设备需使用新密钥恢复身份。'});});
+    this.ownerHash=hash;
+  }
+  async issueAgentToken(ownerId:string,token:string){
+    const hash=await tokenHash(token),expiresAt=this.clock()+90*86400000;
+    await this.change(ownerId,(c,e,r,_now)=>{r.token_hash=hash;r.token_expires_at=expiresAt;c.lease=null;c.heartbeatAt=0;c.connectedUntil=0;c.paused=false;c.nextWake=this.clock();c.retryAt=0;c.driverError='';c.driverName='外部 Agent';e.push({kind:'connection',text:'已生成新的 Agent 连接密钥，旧连接失效。角色经历继续保留。'});});
+    return {expiresAt};
+  }
+  async registrationLimit(address:string){
+    const now=this.clock(),hour=Math.floor(now/3600000),bucket=await tokenHash(address+':'+hour);
+    const results=await this.db.batch([
+      this.db.prepare('DELETE FROM campus_registration_limits WHERE expires_at<?').bind(now),
+      this.db.prepare('INSERT INTO campus_registration_limits(bucket,count,expires_at) VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET count=count+1 WHERE count<20').bind(bucket,(hour+1)*3600000),
+    ]);
+    if(results[1].meta.changes!==1)throw new WorldError(429,'本网络创建角色过于频繁，请稍后再试。已有角色可使用恢复密钥进入。');
+  }
   async pairing(token:string){
     const hash=await tokenHash(token),existing=await this.db.prepare('SELECT code,expires_at,claimed_by FROM campus_pairs WHERE token_hash=?').bind(hash).first<{code:string;expires_at:number;claimed_by:string|null}>();
     if(existing&&existing.expires_at>this.clock()&&!existing.claimed_by)return {code:existing.code,expiresAt:existing.expires_at};
@@ -123,18 +153,18 @@ export class WorldService {
     const row=await this.row(ownerId),now=this.clock(),op=crypto.randomUUID();
     const c:Character=JSON.parse(row.state);c.paused=false;c.lease=null;c.driverError='';c.driverName='本机 Codex';c.heartbeatAt=0;c.nextWake=now;
     const result=await this.db.batch([
-      this.db.prepare('UPDATE campus_characters SET token_hash=(SELECT token_hash FROM campus_pairs WHERE code=?),state=?,revision=revision+1,last_op=? WHERE owner_id=? AND revision=? AND EXISTS(SELECT 1 FROM campus_pairs WHERE code=? AND claimed_by IS NULL AND expires_at>?)').bind(code,JSON.stringify(c),op,ownerId,row.revision,code,now),
+      this.db.prepare('UPDATE campus_characters SET token_hash=(SELECT token_hash FROM campus_pairs WHERE code=?),token_expires_at=?,state=?,revision=revision+1,last_op=? WHERE owner_id=? AND revision=? AND EXISTS(SELECT 1 FROM campus_pairs WHERE code=? AND claimed_by IS NULL AND expires_at>?)').bind(code,now+90*86400000,JSON.stringify(c),op,ownerId,row.revision,code,now),
       this.db.prepare('UPDATE campus_pairs SET claimed_by=? WHERE code=? AND claimed_by IS NULL AND EXISTS(SELECT 1 FROM campus_characters WHERE owner_id=? AND last_op=?)').bind(ownerId,code,ownerId,op),
       this.db.prepare('INSERT INTO campus_events (id,actor_id,seq,at,kind,text,sources) SELECT ?,id,revision,?,?,?,? FROM campus_characters WHERE owner_id=? AND last_op=?').bind(crypto.randomUUID(),now,'connection','已将本机 Codex 与这个角色配对。','[]',ownerId,op),
     ]);
     if(result[0].meta.changes!==1)throw new WorldError(409,'连接码已失效或已被使用，请重新生成。');
   }
   async driverOwner(token:string){
-    this.driverHash=await tokenHash(token);
-    const row=await this.db.prepare('SELECT owner_id FROM campus_characters WHERE token_hash=?').bind(this.driverHash).first<{owner_id:string}>();
-    if(!row)throw new WorldError(401,'角色尚未配对，或连接已经被撤销。');return row.owner_id;
+    const hash=await tokenHash(token);
+    const row=await this.db.prepare('SELECT owner_id FROM campus_characters WHERE token_hash=? AND (token_expires_at IS NULL OR token_expires_at>?)').bind(hash,this.clock()).first<{owner_id:string}>();
+    if(!row)throw new WorldError(401,'角色尚未授权，或连接密钥已撤销、到期。');this.driverHash=hash;return row.owner_id;
   }
-  async observe(ownerId:string,driverId:string,endsAt:number,viaBrowser=false){
+  async observe(ownerId:string,driverId:string,endsAt:number,viaBrowser=false,clientName?:string){
     const before=await this.row(ownerId),previous:Character=JSON.parse(before.state),history=await this.history(before.id,24);
     const unread=(await this.db.prepare("SELECT id,seq,at,kind,text,sources FROM campus_events WHERE actor_id=? AND kind='human' AND seq>? AND seq<=? ORDER BY seq LIMIT 21").bind(before.id,previous.lastReadSeq,before.revision).all<WorldEvent&{sources:string}>()).results.map(e=>({...e,sources:JSON.parse(e.sources) as string[]}));
     const memory=(await this.db.prepare("SELECT id,seq,at,kind,text,sources FROM campus_events WHERE actor_id=? AND kind='memory' ORDER BY seq DESC LIMIT 8").bind(before.id).all<WorldEvent&{sources:string}>()).results.map(e=>({...e,sources:JSON.parse(e.sources) as string[]}));
@@ -146,7 +176,7 @@ export class WorldService {
     const conversations=[...new Map([...(await this.conversations(before.id,0,12)),...pending.slice(0,20)].filter(e=>e.seq<=socialCutoff).map(e=>[e.id,e])).values()].sort((a,b)=>a.seq-b.seq);
     let acquired=false;
     const c=await this.change(ownerId,(c,_e,row,now)=>{
-      acquired=false;c.heartbeatAt=now;c.connectedUntil=Math.min(endsAt,now+4*3600000);c.driverName=viaBrowser?'本机 Codex · 页面连接':'本机 Codex · 直连';
+      acquired=false;c.heartbeatAt=now;c.connectedUntil=Math.min(endsAt,now+4*3600000);c.driverName=clientName?clientName.trim().slice(0,60):(viaBrowser?'本机 Codex · 页面连接':'本机 Codex · 直连');
       if(c.usage.hourStart+3600000<=now)c.usage={...c.usage,hourStart:now,calls:0};
       const due=c.lastHumanSeq>c.lastReadSeq||(!c.motion&&c.nextWake<=now)||(c.socialEnabled&&pending.some(e=>e.recipientId===c.id&&e.seq>(c.lastSocialSeq??0))&&(c.nextSocialAt??0)<=now);
       if(c.paused||!due||c.retryAt>now||endsAt<=now||c.usage.calls>=12||(c.lease&&c.lease.until>now))return;

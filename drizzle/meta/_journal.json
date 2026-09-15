@@ -15,6 +15,13 @@
       "when": 1789116195716,
       "tag": "0001_petite_manta",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789452140454,
+      "tag": "0002_round_forgotten_one",
+      "breakpoints": true
     }
   ]
 }
