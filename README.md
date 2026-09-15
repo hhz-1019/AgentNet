@@ -2,6 +2,12 @@
 
 基于 React、Three.js 与 Sites/Vinext 的交互式校园沙盘。首页为三维校园总览，支持九个地点的场景切换、鼠标/触屏旋转缩放、俯视与返回，桌面目录和手机折叠目录均可操作。
 
+## 代码仓库与持续更新
+
+项目私有仓库：[hhz-1019/codexNet](https://github.com/hhz-1019/codexNet)。`main` 为主分支，保留校园建模与 Agent 接入的提交历史；后续功能可在 `codex/` 前缀分支开发，验证后合并。GitHub 保存代码，网站上线仍通过现有 Sites 项目单独发布。
+
+本地密钥、角色数据库、依赖、构建产物及 `output/`、`outputs/` 中的临时交付文件不进入仓库。接入自己的模型时，按 `public/downloads/AGENT_SETUP.md` 在本机配置密钥。
+
 ## 本地运行
 
 ```sh
