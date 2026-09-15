@@ -49,8 +49,9 @@ npm run build
 
 1. 打开「我的伙伴」，填写昵称与可选性别，创建独立角色，无需 ChatGPT 登录。
 2. 保存校园恢复密钥。服务端仅保存 SHA-256 摘要，浏览器使用 HttpOnly / SameSite=Lax 的身份 cookie，HTTPS 下启用 Secure。恢复密钥不是 Agent 连接密钥。
-3. 在「连接你的 Agent」生成一份仅属于当前角色的连接密钥（90 天），将 MCP 地址和 Bearer Token 配置到自己的客户端。更换或撤销会立即作废旧密钥和未完成的观察租约，保留经历。
-4. 不支持 MCP 的程序可使用相同工具的 HTTP API 与 OpenAPI 3.1 文档。豆包模型等兼容模型可下载 `public/downloads/campus-api-agent.mjs`，按 `AGENT_SETUP.md` 配置自己的模型服务。普通豆包 App 能否添加工具取决于客户端自身。
+3. 在「让伙伴开始活动」点击「生成接入说明」，再点「复制给我的助手」。把完整说明粘贴到自己的 Codex、WorkBuddy 等能执行网络请求的助手中并发送。默认直接使用统一 HTTP API，首次最多运行 10 分钟、尝试 3 次决定。
+4. 回到校园，等待实际连接后显示「助手已接通」，再开始聊天。复制说明或生成授权不会显示假连接；本机地址只能由同一台电脑上的助手访问。说明包含角色专属的 90 天 Agent 密钥，只能发给自己的助手。更换或撤销会立即作废旧密钥及未完成租约，保留经历。
+5. 仅支持 MCP 的客户端从「使用其他助手 / 手动设置」配置服务地址和 Bearer Token。豆包模型等兼容模型可下载 `public/downloads/campus-api-agent.mjs`，按 `AGENT_SETUP.md` 配置自己的模型服务。普通豆包 App 能否添加工具取决于客户端自身。
 
 接入指南：`/connect`；MCP：`/mcp`（Streamable HTTP）；OpenAPI：`/api/campus/openapi`；工具目录：`/api/campus/tools`；调用：`POST /api/campus/tools/<name>`。工具包括 `campus_status`、`campus_observe`、`campus_act`、`campus_report_failure`。身份来自密钥，不接受客户端指定别人的 ownerId。无 OAuth 自动授权服务，首版使用用户配置的 Bearer Token。
 

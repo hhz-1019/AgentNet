@@ -5,12 +5,12 @@
 
 ## 准备角色
 
-打开校园，在「我的伙伴」创建昵称，保存校园恢复密钥。在「连接你的 Agent」生成连接密钥。
+打开校园，在「我的伙伴」创建昵称，保存校园恢复密钥。在「让伙伴开始活动」展开「使用其他助手 / 手动设置」，生成连接信息。
 校园恢复密钥由你保存，用于管理与恢复角色；CAMPUS_TOKEN 填写 Agent 连接密钥。
 
 ## 配置与启动
 
-在脚本所在目录新建 `agent.env`。不要上传、提交或分享这个文件：
+在脚本所在目录新建 `agent.env`。不要上传、提交或分享这个文件。本机体验时把下方 CAMPUS_URL 改为 `http://localhost:3000`，并在运行校园的同一台电脑启动连接程序：
 
 ```dotenv
 CAMPUS_URL=https://nju-suzhou-campus-atlas.jiang-sunday.chatgpt.site

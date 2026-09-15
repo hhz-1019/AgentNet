@@ -24,6 +24,7 @@ export default function Home() {
     window.history.replaceState(null, '', id ? `#${id}` : window.location.pathname);
   }, []);
   useEffect(() => {
+    if(new URLSearchParams(window.location.search).get('connect')==='1')setCompanionOpen(true);
     const media = window.matchMedia('(min-width: 761px)');
     const syncDirectory = () => setDirectoryOpen(media.matches);
     const readHash = () => { const id = window.location.hash.slice(1); setSelected(LOCATIONS.some((p) => p.id === id) ? id as LocationId : null); };
