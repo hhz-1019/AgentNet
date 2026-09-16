@@ -11,6 +11,14 @@ const conversationColumns='id,seq,at,place,speaker_id AS speakerId,speaker_name 
 const presentAt=`json_extract(state,'$.socialEnabled')=1 AND (json_extract(state,'$.motion') IS NULL OR json_extract(state,'$.motion.endAt')<=?) AND CASE WHEN json_extract(state,'$.motion.endAt')<=? THEN json_extract(state,'$.motion.to') ELSE json_extract(state,'$.place') END=?`;
 export class WorldError extends Error { status:number;constructor(status:number,message:string){super(message);this.status=status;} }
 export async function tokenHash(token:string){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))].map(b=>b.toString(16).padStart(2,'0')).join('');}
+// Budgets reserve a decision before the client calls a model, including failed attempts.
+export function dailyBudget(c:Character,now:number){
+  const day=new Date(now+8*3600000).toISOString().slice(0,10);
+  const dailyLimit=c.budget?.dailyLimit??48;
+  if(c.budget?.day!==day)c.budget={dailyLimit,day,calls:0};
+  return c.budget!;
+}
+function nextBudgetDay(now:number){return (Math.floor((now+8*3600000)/86400000)+1)*86400000-8*3600000;}
 export function initialCharacter(id:string,name:string,profile:string,now:number):Character {
   return {id,name,profile,createdAt:now,place:'beida',motion:null,activity:'在北大楼前熟悉校园',intention:'先认识这座校园，再慢慢形成自己的日常。',energy:84,energyAt:now,nextWake:now,paused:false,lastReadSeq:0,lastHumanSeq:0,retryAt:0,heartbeatAt:0,driverName:'',driverError:'',connectedUntil:0,socialEnabled:false,lastSocialSeq:0,nextSocialAt:0,lease:null,lastDecisionId:'',usage:{hourStart:now,calls:0,inputTokens:0,outputTokens:0}};
 }
@@ -79,6 +87,7 @@ export class WorldService {
     let row=await this.row(ownerId),c:Character=JSON.parse(row.state);const now=this.clock();
     if(c.motion&&c.motion.endAt<=now){await this.change(ownerId,()=>{});row=await this.row(ownerId);c=JSON.parse(row.state);}
     advanceClock(c,now,[]);
+    dailyBudget(c,now);
     const {lease:_lease,lastDecisionId:_lastDecision,...character}=c;
     return {serverNow:now,character,events:await this.history(c.id),agentAuthorized:!!row.token_hash&&(row.token_expires_at===null||row.token_expires_at>now),agentExpiresAt:row.token_expires_at,connected:!!row.token_hash&&(row.token_expires_at===null||row.token_expires_at>now)&&!c.paused&&c.heartbeatAt>now-65000&&c.connectedUntil>now,nearby:await this.nearby(c,now),conversations:await this.conversations(c.id)};
   }
@@ -101,6 +110,35 @@ export class WorldService {
     throw new WorldError(409,'消息暂未送达，请重试。');
   }
   async pause(ownerId:string,paused:boolean){return this.change(ownerId,(c,e,_r,now)=>{c.paused=paused;c.lease=null;if(!paused)c.nextWake=now;e.push({kind:'connection',text:paused?'已暂停自主思考。已有行程会按计划完成。':'已恢复自主思考。'});});}
+  async setDailyLimit(ownerId:string,limit:number){
+    if(!Number.isInteger(limit)||limit<1||limit>144)throw new WorldError(400,'每日决策上限需为 1–144 次。');
+    return this.change(ownerId,(c,e,_r,now)=>{const budget=dailyBudget(c,now);if(budget.dailyLimit===limit)return;budget.dailyLimit=limit;if(budget.calls>=limit)c.lease=null;e.push({kind:'connection',text:`每日决策上限调整为 ${limit} 次，北京时间零点重置。`});});
+  }
+  async heartbeat(ownerId:string,clientName:string,leaseId?:string){
+    const c=await this.change(ownerId,(c,_e,_r,now)=>{c.heartbeatAt=now;c.connectedUntil=now+65000;c.driverName=clientName;dailyBudget(c,now);});
+    return {paused:c.paused,serverNow:this.clock(),budget:c.budget,leaseActive:!!leaseId&&c.lease?.id===leaseId&&c.lease.until>this.clock()};
+  }
+  async recall(ownerId:string,query:string,limit=8,leaseId?:string){
+    const row=await this.row(ownerId),c:Character=JSON.parse(row.state);
+    if(leaseId&&(c.paused||c.lease?.id!==leaseId||c.lease.until<=this.clock()))throw new WorldError(409,'观察已过期，请重新观察后再回忆。');
+    const terms=[...new Set([...new Intl.Segmenter('zh',{granularity:'word'}).segment(query.toLowerCase())].filter(s=>s.isWordLike&&s.segment.length>1).map(s=>s.segment))].slice(0,8);
+    if(!terms.length&&query.trim())terms.push(query.trim().toLowerCase());
+    // ponytail: owner-scoped keyword recall over stored history; add FTS only when measured history size warrants it.
+    const score=terms.length?terms.map(()=>'(CASE WHEN instr(lower(text),?)>0 THEN 1 ELSE 0 END)').join('+'):'1';
+    const found=await this.db.prepare(`SELECT *,${score} AS score FROM (
+      SELECT id,at,kind,text,sources FROM campus_events WHERE actor_id=? AND kind IN ('human','reply','arrival','departure','activity','memory')
+      UNION ALL SELECT id,at,'conversation' AS kind,speaker_name || ' 对 ' || recipient_name || '：' || text AS text,'[]' AS sources FROM campus_conversations WHERE speaker_id=? OR recipient_id=?
+    ) WHERE (${terms.length?terms.map(()=> 'instr(lower(text),?)>0').join(' OR '):'1'}) ORDER BY score DESC,at DESC,id DESC LIMIT ?`).bind(...terms,c.id,c.id,c.id,...terms,limit).all<{id:string;at:number;kind:string;text:string;sources:string;score:number}>();
+    const memories=found.results.map(({score:_score,sources,...entry})=>({...entry,sources:JSON.parse(sources) as string[]}));
+    if(leaseId)await this.change(ownerId,(c,_e,_r,now)=>{
+      if(c.paused||c.lease?.id!==leaseId||c.lease.until<=now)throw new WorldError(409,'观察已过期，回忆未加入本轮依据。');
+      const ids=[...new Set([...c.lease.sourceIds,...memories.map(m=>m.id)])];
+      if(ids.length>160)throw new WorldError(429,'本次观察已检索足够的经历，请先完成当前决定。');
+      c.lease.sourceIds=ids;
+    });
+    else await this.row(ownerId); // Recheck revocation after the read.
+    return {query,method:'keyword',memories};
+  }
   async personalMemory(ownerId:string,input:MemoryImport|null){
     const memory=input===null?null:PersonalMemoryInput.parse(input);
     return this.change(ownerId,(c,e,_r,now)=>{
@@ -177,15 +215,20 @@ export class WorldService {
     let acquired=false;
     const c=await this.change(ownerId,(c,_e,row,now)=>{
       acquired=false;c.heartbeatAt=now;c.connectedUntil=Math.min(endsAt,now+4*3600000);c.driverName=clientName?clientName.trim().slice(0,60):(viaBrowser?'本机 Codex · 页面连接':'本机 Codex · 直连');
+      const budget=dailyBudget(c,now);
       if(c.usage.hourStart+3600000<=now)c.usage={...c.usage,hourStart:now,calls:0};
       const due=c.lastHumanSeq>c.lastReadSeq||(!c.motion&&c.nextWake<=now)||(c.socialEnabled&&pending.some(e=>e.recipientId===c.id&&e.seq>(c.lastSocialSeq??0))&&(c.nextSocialAt??0)<=now);
-      if(c.paused||!due||c.retryAt>now||endsAt<=now||c.usage.calls>=12||(c.lease&&c.lease.until>now))return;
+      if(c.paused||!due||c.retryAt>now||endsAt<=now||c.usage.calls>=12||budget.calls>=budget.dailyLimit||(c.lease&&c.lease.until>now))return;
       // A stale history snapshot cannot acknowledge newer private messages.
       const observedSeq=Math.min(row.revision,cutoff);
       c.lease={id:driverId+':'+crypto.randomUUID(),until:now+180000,observedSeq,observedSocialSeq:socialCutoff,nearbyIds:nearby.map(n=>n.id),sourceIds:[...known.filter(e=>e.seq<=observedSeq&&e.kind!=='profile').map(e=>e.id),...conversations.map(e=>e.id)]};
-      c.usage.calls++;c.driverError='';acquired=true;
+      c.usage.calls++;budget.calls++;c.driverError='';acquired=true;
     });
-    if(!acquired)return {ready:false,paused:c.paused,retryAfter:10,limited:c.usage.calls>=12};
+    const dailyLimited=c.budget!.calls>=c.budget!.dailyLimit;
+    if(!acquired){
+      const now=this.clock(),resumeAt=dailyLimited?nextBudgetDay(now):c.usage.calls>=12?c.usage.hourStart+3600000:Math.max(now+10000,c.retryAt);
+      return {ready:false,paused:c.paused,retryAfter:Math.max(10,Math.ceil((resumeAt-now)/1000)),limited:dailyLimited||c.usage.calls>=12,limitReason:dailyLimited?'daily':c.usage.calls>=12?'hourly':null,budget:c.budget};
+    }
     return {ready:true,leaseId:c.lease!.id,serverNow:this.clock(),character:{id:c.id,name:c.name,gender:c.gender??'unspecified',profile:c.profile,personalMemory:c.personalMemory??null,place:c.place,moving:!!c.motion,destination:c.motion?.to??null,arrivalAt:c.motion?.endAt??null,activity:c.activity,intention:c.intention,energy:Math.round(c.energy),socialEnabled:!!c.socialEnabled},places:WORLD_PLACES,events:known.filter(e=>e.seq<=c.lease!.observedSeq),newMessages:unread.filter(e=>e.seq>c.lastReadSeq&&e.seq<=c.lease!.observedSeq),nearby:c.socialEnabled&&!c.motion?nearby:[],conversations,newConversations:pending.filter(e=>e.seq>(c.lastSocialSeq??0)&&e.seq<=c.lease!.observedSocialSeq!)};
   }
   async decide(ownerId:string,leaseId:string,input:unknown,usage:{inputTokens:number;outputTokens:number}){

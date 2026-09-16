@@ -1,4 +1,5 @@
 import { WorldError, type WorldService } from './world-service.ts';
+import { trustedSiteIdentity } from '@/lib/world-runtime';
 
 export const OWNER_COOKIE='campus_owner';
 export const OWNER_KEY=/^campus_owner_[a-f0-9]{64}$/;
@@ -13,7 +14,7 @@ export async function campusOwner(request:Request,world:WorldService){
   const name=cookieName(request),key=request.headers.get('cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith(name+'='))?.slice(name.length+1);
   if(key){if(key==='signed_out')throw new WorldError(401,'请先创建或恢复校园角色。');if(!OWNER_KEY.test(key))throw new WorldError(401,'校园身份已失效，请恢复身份。');return {id:await world.ownerByKey(key),account:'独立校园身份',authMode:'campus' as const};}
   // Existing Sites identities remain a migration path for their existing characters.
-  const id=request.headers.get('oai-authenticated-user-id');
+  const id=trustedSiteIdentity?request.headers.get('oai-authenticated-user-id'):null;
   if(id)return {id,account:request.headers.get('oai-authenticated-user-email')??'原有校园账号',authMode:'legacy' as const};
   throw new WorldError(401,'请先创建或恢复校园角色。');
 }

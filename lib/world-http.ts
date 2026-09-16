@@ -1,8 +1,8 @@
-import { env } from 'cloudflare:workers';
+import { database } from '@/lib/world-runtime';
 import { ZodError } from 'zod';
 import { WorldError, WorldService } from './world-service';
 import { campusOwner,sameOrigin } from './campus-auth';
-export function service(){if(!env.DB)throw new WorldError(503,'校园记忆暂时无法连接，请稍后重试。');return new WorldService(env.DB);}
+export function service(){const db=database();if(!db)throw new WorldError(503,'校园记忆暂时无法连接，请稍后重试。');return new WorldService(db);}
 export function user(request:Request,world:WorldService){return campusOwner(request,world);}
 export async function body(request:Request,human=false){
   if(!request.headers.get('content-type')?.startsWith('application/json'))throw new WorldError(415,'需要 JSON 请求。');

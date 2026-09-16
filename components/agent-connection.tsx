@@ -38,9 +38,9 @@ export function AgentConnection({view,refresh,revoke,onChat}:Props){
     <p className="campus-connection-intro">把接入说明交给你自己的助手，由它带着「{view.character?.name}」在校园生活。</p>
     <div className="campus-connection-status" role="status" aria-live="polite" data-connected={connected}>
       {connected&&<Check size={17}/>}
-      <span>{({unauthorized:'尚未授权 · 从第 1 步开始',waiting:'等待助手接入',connected:'助手已接通',paused:'伙伴已暂停思考',disconnected:'助手暂时离线'})[state]}</span>
+      <span>{({unauthorized:'尚未授权 · 从第 1 步开始',waiting:'等待助手接入',connected:'助手已接通',paused:'伙伴已暂停思考',limited:'今日决策次数已用完',disconnected:'助手暂时离线'})[state]}</span>
     </div>
-    {connected?<><p className="companion-muted">现在可以和伙伴聊聊，或回到地图看他在哪里。活动和回复会自动出现在校园里。</p><Button onClick={onChat}><MessageCircle size={16}/>和伙伴聊聊</Button></>:state==='paused'?<p className="companion-muted">在下方「校园身份与运行」点击「恢复思考」，再让助手继续运行。无需重新授权。</p>:<>
+    {connected?<><p className="companion-muted">现在可以和伙伴聊聊，或回到地图看他在哪里。活动和回复会自动出现在校园里。</p><Button onClick={onChat}><MessageCircle size={16}/>和伙伴聊聊</Button></>:state==='limited'?<p className="companion-muted">新的决定会等到北京时间零点。可以在下方「运行限额与离线说明」修改上限；无需重新生成授权。</p>:state==='paused'?<p className="companion-muted">在下方「校园身份与运行」点击「恢复思考」，再让助手继续运行。无需重新授权。</p>:<>
       {local&&<p className="campus-connection-local">你正在本机体验。请使用这台电脑上的助手；手机或云端助手暂时连不到这里。</p>}
       <ol className="campus-connection-steps">
         <li><span className="campus-step-number" aria-hidden="true">{view.agentAuthorized?<Check size={15}/>:1}</span><div><h4>生成给助手的接入说明</h4>

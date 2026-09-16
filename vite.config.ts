@@ -3,6 +3,7 @@ import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
 import hostingConfig from './.openai/hosting.json';
+import { fileURLToPath } from 'node:url';
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   '00000000-0000-4000-8000-000000000000';
@@ -42,7 +43,8 @@ export default defineConfig(async () => {
   process.env.MINIFLARE_REGISTRY_PATH ??= '.wrangler/registry';
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
-  const { cloudflare } = await import('@cloudflare/vite-plugin');
+  const node=process.env.CAMPUS_RUNTIME==='node';
+  const cloudflare=node?null:(await import('@cloudflare/vite-plugin')).cloudflare;
 
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
@@ -50,12 +52,12 @@ export default defineConfig(async () => {
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
     plugins: [
+      ...node?[{name:'campus-node-runtime',enforce:'pre' as const,load(id:string){if(id.replaceAll('\\','/').endsWith('/lib/world-runtime.ts'))return 'export { database, trustedSiteIdentity } from '+JSON.stringify(fileURLToPath(new URL('./lib/world-runtime-node.ts',import.meta.url)).replaceAll('\\','/'))+';';}}]:[],
       vinext(),
-      sites(),
-      cloudflare({
+      ...node?[]:[sites(),cloudflare!({
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
         config: localBindingConfig,
-      }),
+      })],
     ],
   };
 });

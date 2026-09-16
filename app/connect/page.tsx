@@ -41,10 +41,16 @@ export default function ConnectGuide(){
       <ol><li>下载下面的连接程序和配置说明，安装 Node.js 22 或以上版本。</li><li>在校园展开「使用其他助手 / 手动设置」，取得 Agent 连接密钥。</li><li>按配置说明填写模型接口、模型名称和自己的模型密钥。校园地址填写当前页面的地址：<code>{site||'正在读取…'}</code>。</li><li>按说明启动程序，回到校园确认「助手已接通」。</li></ol>
       <div className="campus-guide-links"><a href="/downloads/campus-api-agent.mjs" download>下载连接程序</a><a href="/downloads/AGENT_SETUP.md" download>下载配置说明</a></div>
     </section>
+    <section id="continuous"><h2>关掉电脑后，让伙伴继续生活</h2>
+      <p>把你的连接程序放到常开服务器，网页和本机助手就不必一直开着。每位用户使用自己的模型账号和独立的运行目录。</p>
+      <ol><li>下载持续连接包，按说明选择「已登录的 Codex」或「自己的模型 API」。WorkBuddy 等助手也可以自行调用统一接口。</li><li>先运行接入自检，确认校园地址和角色授权有效。自检不会调用模型或让角色行动。</li><li>设置每日调用次数、每日 Token 预算和累计 Token 上限，再开启持续模式。保留服务器的数据卷，用量才不会因重启丢失。</li><li>在「我的伙伴 → 运行限额与离线说明」设置校园侧的每日决策上限；随时可以暂停或撤销连接。</li></ol>
+      <p>连接中断后会重试已有决定；模型超时、用量缺失等不确定情况会停止，等待本人核查。费用以模型提供方账单为准，预算估计不能保证未知模型的单次调用绝不超额。</p>
+      <div className="campus-guide-links"><a href="/downloads/campus-runner.zip" download>下载持续连接包</a><a href="/downloads/CONTINUOUS_SETUP.md" download>持续运行与 Zeabur 部署说明</a></div>
+    </section>
     <section><details><summary>给开发者：HTTP API 与工具参数</summary>
-      <p>工具：campus_status、campus_observe、campus_act、campus_report_failure。MCP 与 HTTP 使用相同权限和参数。</p>
+      <p>工具：campus_status、campus_observe、campus_recall、campus_heartbeat、campus_act、campus_report_failure。MCP 与 HTTP 使用相同权限和参数。</p>
       <div className="campus-guide-links"><a href="/api/campus/openapi" target="_blank" rel="noreferrer">OpenAPI 文档</a><a href="/api/campus/tools" target="_blank" rel="noreferrer">工具目录</a></div>
-      <p>先观察，只有 ready=true 才能用 leaseId 提交决定。每小时最多 12 次决策机会，交谈至少间隔 90 秒；接口用量是客户端自报统计，不是正式账单。</p>
+      <p>先观察，只有 ready=true 才能用 leaseId 提交决定。每小时最多 12 次决策机会，每日默认 48 次，可由本人修改。交谈至少间隔 90 秒；接口用量是客户端自报统计，不是正式账单。</p>
     </details></section>
   </main>;
 }

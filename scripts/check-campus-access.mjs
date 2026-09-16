@@ -30,8 +30,8 @@ try{
   const a=await person('协议验证甲'),b=await person('协议验证乙');
   const retry=await api('/api/campus/account',{op:'create',name:'不可覆盖的昵称',recoveryKey:a.recoveryKey},{Origin:site});assert.equal(retry.data.characterId,a.id);
   assert.equal((await api('/api/world',undefined,a.headers)).data.character.name,a.name);
-  const openapi=await api('/api/campus/openapi');assert.equal(openapi.data.openapi,'3.1.0');assert.equal(Object.keys(openapi.data.paths).length,4);
-  const metadata=await api('/api/campus/tools');assert.equal(metadata.status,200);assert.equal(metadata.data.tools.length,4);assert(!JSON.stringify(metadata.data).includes(a.recoveryKey));
+  const openapi=await api('/api/campus/openapi');assert.equal(openapi.data.openapi,'3.1.0');assert.equal(Object.keys(openapi.data.paths).length,6);
+  const metadata=await api('/api/campus/tools');assert.equal(metadata.status,200);assert.equal(metadata.data.tools.length,6);assert(!JSON.stringify(metadata.data).includes(a.recoveryKey));
   assert.equal((await httpTool({token:a.recoveryKey},'campus_status')).status,401,'Owner secrets are not Agent credentials');
   assert.equal((await api('/api/campus/account',{op:'agent-token'},{Origin:site,Authorization:'Bearer '+a.token})).status,401,'Agent tokens cannot grant owner access');
   assert.equal((await api('/api/campus/tools/campus_status',{},a.headers)).status,401,'Browser cookies do not authorize Agent operations');
@@ -42,6 +42,11 @@ try{
   assert.equal((await rpc(ca,'campus_status')).data.character.id,a.id);assert.equal((await rpc(cb,'campus_status')).data.character.id,b.id);
   const privateText='只属于甲的私信 '+randomUUID();await api('/api/world',{op:'message',text:privateText,requestId:randomUUID()},a.headers);
   const observationA=await rpc(ca,'campus_observe',{clientName:'任意 MCP 客户端'});assert(observationA.data.ready);assert(observationA.data.nearby.some(n=>n.id===b.id));
+  const heartbeat=await httpTool(a,'campus_heartbeat',{clientName:'测试心跳',leaseId:observationA.data.leaseId});assert(heartbeat.data.leaseActive);assert.equal(heartbeat.data.budget.calls,1);
+  const recollection=await rpc(ca,'campus_recall',{query:privateText,leaseId:observationA.data.leaseId});assert(!recollection.error);assert(recollection.data.memories.some(e=>e.text===privateText));
+  assert(!(await httpTool(b,'campus_recall',{query:privateText})).data.memories.some(e=>e.text===privateText));
+  const browserRecall=await api('/api/world/recall?query='+encodeURIComponent(privateText),undefined,a.headers);assert.equal(browserRecall.status,200);assert(browserRecall.data.memories.some(e=>e.text===privateText));
+  assert.equal((await api('/api/world',{op:'budget',dailyLimit:6},a.headers)).data.character.budget.dailyLimit,6);
   assert.equal((await httpTool(a,'campus_observe',{})).data.ready,false,'MCP and HTTP share the same decision lease');
   const actionA={leaseId:observationA.data.leaseId,decision:{...stay,speech:{to:b.id,text:'你好，一起看看校园？'}}};
   assert.equal((await rpc(ca,'campus_act',actionA)).error,false);

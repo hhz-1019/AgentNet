@@ -12,6 +12,7 @@ export type Character = {
   socialEnabled?:boolean; lastSocialSeq?:number; nextSocialAt?:number;
   lease:null|{ id:string; until:number; observedSeq:number; sourceIds:string[]; observedSocialSeq?:number; nearbyIds?:string[] };
   lastDecisionId:string; usage:{ hourStart:number; calls:number; inputTokens:number; outputTokens:number };
+  budget?:{dailyLimit:number;day:string;calls:number};
 };
 export type Neighbor = { id:string; name:string; place:WorldPlace; activity:string; connected:boolean };
 export type Conversation = { id:string; seq:number; at:number; place:WorldPlace; speakerId:string; speakerName:string; recipientId:string; recipientName:string; text:string };

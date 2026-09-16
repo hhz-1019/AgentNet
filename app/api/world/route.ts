@@ -9,6 +9,7 @@ const command=z.discriminatedUnion('op',[
   z.object({op:z.literal('participation'),enabled:z.boolean()}).strict(),
   z.object({op:z.literal('message'),text:z.string().trim().min(1).max(1500),requestId:z.uuid()}).strict(),
   z.object({op:z.literal('pause'),paused:z.boolean()}).strict(),
+  z.object({op:z.literal('budget'),dailyLimit:z.number().int().min(1).max(144)}).strict(),
   z.object({op:z.literal('disconnect')}).strict(),
   z.object({op:z.literal('claim'),code:z.string().regex(/^[A-F0-9]{10}$/)}).strict(),
 ]);
@@ -20,6 +21,7 @@ export async function POST(request:Request){return respond(async()=>{
   if(c.op==='participation')await world.participation(account.id,c.enabled);
   if(c.op==='message')await world.message(account.id,c.text,c.requestId);
   if(c.op==='pause')await world.pause(account.id,c.paused);
+  if(c.op==='budget')await world.setDailyLimit(account.id,c.dailyLimit);
   if(c.op==='disconnect')await world.disconnect(account.id);
   if(c.op==='claim')await world.claim(account.id,c.code);
   return {...await world.view(account.id),account:account.account,authMode:account.authMode};
