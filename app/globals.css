@@ -15,11 +15,9 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-
 .masthead { height: 82px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 0 32px; border-bottom: 1px solid var(--border); background: var(--background); z-index: 20; }
 .brand { gap: 20px; padding: 0; height: auto; text-align: left; border-radius: 0; } .brand:hover { background: transparent; }
 .brand, .location-row, .back-link, .about-button, .mobile-directory-trigger, .view-toolbar button, .map-controls button { border-color: transparent; }
-.brand-mark { display: block; position: relative; color: var(--primary); font-family: Georgia, serif; font-weight: 500; font-size: 26px; letter-spacing: -.09em; padding-bottom: 11px; }
-.brand-mark > span:first-child { font-style: italic; padding-right: 1px; } .brand-year { font: 10px Georgia, serif; letter-spacing: .22em; position: absolute; bottom: 0; left: 3px; }
+.brand-mark { display: block; color: var(--primary); font-family: Georgia, serif; font-weight: 500; font-size: 26px; letter-spacing: -.03em; }
 .brand-divider { height: 32px; width: 1px; background: #d4d9d3; }
 .brand-name { font-family: var(--font-serif); font-size: 20px; font-weight: 600; letter-spacing: .06em; } .brand-name > span { font-weight: 400; margin-left: 9px; font-size: 17px; }
-.brand-name small { display: block; font-family: Helvetica, sans-serif; font-size: 10px; font-weight: 400; letter-spacing: .12em; color: var(--muted-foreground); margin-top: 5px; }
 .header-center { display: flex; gap: 9px; align-items: center; font-size: 14px; color: #58665e; position: absolute; left: 50%; transform: translateX(-50%); }
 .view-indicator { width: 5px; height: 5px; border-radius: 50%; background: #7c8b72; }
 .about-button { font-size: 14px; color: #626d66; gap: 8px; padding: 10px 4px 10px 12px; height: 40px; }
@@ -71,7 +69,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-
 @media (max-height: 800px) and (min-width: 761px) { .sidebar-heading { padding-top: 22px; padding-bottom: 22px; } .sidebar-symbol { margin-bottom: 12px; } .location-row { height: 44px; } .sidebar-footer { padding-block: 17px; } .has-selection .location-row { height: 38px; } }
 @media (max-width: 1000px) { .atlas-sidebar { width: 238px; } .sidebar-heading { padding-inline: 23px; } .sidebar-heading h1 { font-size: 24px; } .directory { padding-inline: 10px; } .header-center { display: none; } .location-row { gap: 9px; } .location-row-copy small { display: none; } .map-topline { left: 22px; right: 22px; } .model-caption { display: none; } }
 @media (max-width: 760px) {
-  .campus-app { min-height: 430px; } .masthead { height: 70px; padding: 0 18px; } .brand { gap: 13px; } .brand-mark { font-size: 23px; } .brand-divider { height: 29px; } .brand-name { font-size: 16px; } .brand-name > span { font-size: 14px; margin-left: 5px; } .brand-name small { font-size: 8px; letter-spacing: .06em; } .about-button { width: 32px; padding: 0; } .about-button > span { display: none; }
+  .campus-app { min-height: 430px; } .masthead { height: 70px; padding: 0 18px; } .brand { flex-direction: column; align-items: flex-start; gap: 2px; } .brand-mark { font-size: 23px; line-height: 1.15; } .brand-divider { display: none; } .brand-name { font-size: 12px; } .brand-name > span { font-size: 12px; margin-left: 5px; } .about-button { width: 32px; padding: 0; } .about-button > span { display: none; }
   .workspace { position: relative; } .atlas-sidebar { position: absolute; left: 14px; bottom: 52px; right: 14px; width: auto; max-height: 62%; border: 1px solid #dce2d8; border-radius: 10px; box-shadow: 0 12px 35px #344c3020; overflow: auto; }
   .sidebar-heading, .sidebar-footer, .directory-caption, .place-story { display: none; } .directory { padding: 0; } .mobile-directory-trigger { display: flex; height: 53px; width: 100%; justify-content: flex-start; gap: 12px; padding: 0 17px; font-size: 14px; } .mobile-directory-trigger > span { flex: 1; text-align: left; }
   .directory-list { padding: 0 9px 9px; height: var(--collapsible-panel-height) !important; overflow: hidden; } .directory-list[hidden], .directory-list[data-closed] { display: none !important; height: 0 !important; padding: 0; }

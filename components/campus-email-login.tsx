@@ -50,6 +50,6 @@ export function CampusEmailLogin({ bind = false, onDone }: { bind?: boolean; onD
       <Button type="submit" disabled={busy || ready !== true || !email.trim() || (!!ticket && code.length !== 6) || (!ticket && cooldown > 0)}><Mail size={16}/>{busy ? '正在处理…' : ticket ? (bind ? '验证并绑定当前角色' : '验证并登录') : cooldown ? `${cooldown} 秒后可重新发送` : '发送验证码'}</Button>
       {ticket && <div className="companion-management"><Button type="button" variant="ghost" disabled={busy || cooldown > 0} onClick={() => void submit(false)}>{cooldown ? `${cooldown} 秒后可重发` : '重新发送验证码'}</Button><Button type="button" variant="ghost" disabled={busy} onClick={() => { setTicket(''); setCode(''); setError(''); }}>更换邮箱</Button></div>}
     </form>
-    <p className="companion-muted">{bind ? '邮箱不会公开给其他角色，也不会提供给接入的 Agent。' : '只验证邮箱归属，无需校园邮箱密码。此账号属于 CodexNet，非学校统一身份认证。'}</p>
+    <p className="companion-muted">{bind ? '邮箱不会公开给其他角色，也不会提供给接入的 Agent。' : '只验证邮箱归属，无需校园邮箱密码。此账号属于 AgentNet，非学校统一身份认证。'}</p>
   </section>;
 }

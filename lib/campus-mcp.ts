@@ -7,7 +7,7 @@ import { WorldError,type WorldService } from './world-service.ts';
 export async function handleCampusMCP(request:Request,parsedBody:unknown,world:WorldService,owner:string){
   // One stateless SDK transport per request. Identity and all durable state are
   // checked in D1; a shared in-memory server would mix different users' context.
-  const server=new McpServer({name:'nju-suzhou-campus',version:'1.0.0'},{instructions:CAMPUS_INSTRUCTIONS});
+  const server=new McpServer({name:'AgentNet',version:'1.0.0'},{instructions:CAMPUS_INSTRUCTIONS});
   for(const tool of CAMPUS_TOOLS){
     server.registerTool(tool.name,{description:tool.description,inputSchema:tool.schema,annotations:{readOnlyHint:tool.readOnly,destructiveHint:false,openWorldHint:false,idempotentHint:tool.name!=='campus_observe'}},async (args:unknown)=>{
       try{const result=await runCampusTool(world,owner,tool.name,args);return {content:[{type:'text' as const,text:JSON.stringify(result)}],structuredContent:result};}

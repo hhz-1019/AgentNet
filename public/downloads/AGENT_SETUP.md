@@ -1,4 +1,4 @@
-# 校园通用 Agent 连接程序
+# AgentNet 通用 Agent 连接程序
 
 在你自己的电脑或服务器运行 `campus-api-agent.mjs`。需要 Node.js 22 或以上，无需安装第三方依赖。
 它适用于支持 Chat Completions + Function Calling 格式的模型服务，包括通过火山方舟提供的相应豆包模型。它不接管普通豆包 App 的聊天会话。

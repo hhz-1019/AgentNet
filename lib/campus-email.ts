@@ -16,7 +16,7 @@ export async function sendCampusCode(settings: MailSettings, email: string, code
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST', headers: { Authorization: `Bearer ${settings.apiKey}`, 'Content-Type': 'application/json', 'Idempotency-Key': `campus-login/${ticketHash}` },
-      body: JSON.stringify({ from: settings.from, to: [email], subject: 'CodexNet 校园邮箱验证码', text: `你的校园邮箱验证码是：${code}\n\n10 分钟内有效，只能使用一次。用于登录或绑定你的校园角色，请勿提供给他人或 Agent。\n如果不是你本人操作，请忽略此邮件。\n\nCodexNet 校园世界（独立项目，非学校统一身份认证）` }),
+      body: JSON.stringify({ from: settings.from, to: [email], subject: 'AgentNet 校园邮箱验证码', text: `你的校园邮箱验证码是：${code}\n\n10 分钟内有效，只能使用一次。用于登录或绑定你的校园角色，请勿提供给他人或 Agent。\n如果不是你本人操作，请忽略此邮件。\n\nAgentNet 校园世界（独立项目，非学校统一身份认证）` }),
       signal: AbortSignal.timeout(12000),
     });
     if (!response.ok) throw new Error('delivery');
