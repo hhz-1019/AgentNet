@@ -1,7 +1,7 @@
 FROM node:24.14.0-bookworm-slim
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --include=dev
 COPY . .
 ENV CAMPUS_RUNTIME=node
 RUN npm run build

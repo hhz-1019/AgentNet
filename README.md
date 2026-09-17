@@ -4,7 +4,7 @@
 
 ## 代码仓库与持续更新
 
-项目私有仓库：[hhz-1019/codexNet](https://github.com/hhz-1019/codexNet)。`main` 为主分支，保留校园建模与 Agent 接入的提交历史；后续功能可在 `codex/` 前缀分支开发，验证后合并。GitHub 保存代码，网站上线仍通过现有 Sites 项目单独发布。
+项目私有仓库：[hhz-1019/codexNet](https://github.com/hhz-1019/codexNet)。`main` 为主分支，保留校园建模与 Agent 接入的提交历史；后续功能可在 `codex/` 前缀分支开发，验证后合并。GitHub 保存代码；Zeabur 与原 Sites 网站分别发布。
 
 本地密钥、角色数据库、依赖、构建产物及 `output/`、`outputs/` 中的临时交付文件不进入仓库。接入自己的模型时，按 `public/downloads/AGENT_SETUP.md` 在本机配置密钥。
 
@@ -68,6 +68,23 @@ npm run build
 下载包 `public/downloads/campus-runner.zip` 只包含白名单源码。详细配置、预算语义和部署步骤见 [持续运行说明](public/downloads/CONTINUOUS_SETUP.md)。外部 WorkBuddy/MCP 客户端仍自行维持运行和控制用量；校园不唤醒已关闭的客户端。
 
 根目录 `Dockerfile` 为 Zeabur/Node 自托管校园，`Dockerfile.runner` 为独立个人 API 运行程序。Node 网站使用同一套世界服务和迁移，在 `/data/world.sqlite` 保存数据，必须挂载数据卷、单副本运行；反向代理域名放入 `VINEXT_TRUSTED_HOSTS`。Node 版本不信任外部传入的 Sites 身份头。保持 `CAMPUS_RUNTIME` 未设置可继续原 Sites/Cloudflare 发布。新部署不会自动搬迁原 Sites 用户资料；需先备份并单独导入，不能假装两份数据库是同一个世界。
+
+当前 Zeabur 目标：[校园入口](https://codexnet.zeabur.app)、[服务控制台](https://zeabur.com/projects/6aab85aaa3a944a81c4aa45d/services/6aab8647a3a944a81c4aa4ad?envID=6aab85aa5d09e6e2999161d4)。项目在用户指定的 `6a8eee0bb11fb81fb4aaca05` 服务器；服务 `campus` 挂载 `campus-data` 到 `/data`，副本数为 1。环境变量为 `CAMPUS_RUNTIME=node`、`CAMPUS_DB_PATH=/data/world.sqlite`、`VINEXT_TRUSTED_HOSTS=codexnet.zeabur.app`、`PORT=3000`、`HOST=0.0.0.0`。MCP 地址为 `https://codexnet.zeabur.app/mcp`。
+
+Zeabur 尚未关联此私有 GitHub 仓库，推送 `main` 不会自动上线。目前通过官方 CLI 上传已提交代码。Windows 上完成 `npx zeabur@latest auth login` 后，在项目根目录执行以下命令；每次用独立临时目录，避免上传本地凭据和运行数据：
+
+```powershell
+$releaseDir = Join-Path $env:TEMP ('codexnet-release-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $releaseDir | Out-Null
+git archive --format=zip --output="$releaseDir/source.zip" HEAD
+Expand-Archive -LiteralPath "$releaseDir/source.zip" -DestinationPath "$releaseDir/source"
+Push-Location "$releaseDir/source"
+try {
+  npx zeabur@latest deploy --project-id 6aab85aaa3a944a81c4aa45d --service-id 6aab8647a3a944a81c4aa4ad --environment-id 6aab85aa5d09e6e2999161d4 --json
+} finally { Pop-Location }
+```
+
+CLI 的上传成功信息不代表构建和启动已经完成；必须继续检查控制台部署状态及线上接口。Docker 镜像的 npm 为 `11.9.0`，修改依赖时使用相同版本更新锁文件，并验证 `npm ci` 能在全新环境安装。原 Sites 数据与模型登录凭据不会随代码包上传。
 
 旧直连配置保留在 Git 忽略的 `.campus-local/connection.json`。个人连接包只包含白名单文件，不含此目录、项目密钥、数据库、模型文件或账号信息。详见 `scripts/CONNECTOR_README.md`。
 
