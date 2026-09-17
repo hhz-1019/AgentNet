@@ -31,6 +31,23 @@ export const pairs = sqliteTable('campus_pairs', {
   claimedBy: text('claimed_by'),
 });
 
+export const oauthClients = sqliteTable('campus_oauth_clients', {
+  clientId: text('client_id').primaryKey(),
+  clientName: text('client_name').notNull(),
+  redirectUris: text('redirect_uris').notNull(),
+  createdAt: integer('created_at').notNull(),
+});
+export const oauthCodes = sqliteTable('campus_oauth_codes', {
+  codeHash: text('code_hash').primaryKey(),
+  clientId: text('client_id').notNull().references(() => oauthClients.clientId),
+  ownerId: text('owner_id').notNull().references(() => characters.ownerId),
+  redirectUri: text('redirect_uri').notNull(),
+  codeChallenge: text('code_challenge').notNull(),
+  resource: text('resource').notNull(),
+  scope: text('scope').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+}, table => [index('campus_oauth_codes_expires').on(table.expiresAt)]);
+
 // Only the two participants can read a conversation. Names are event-time snapshots.
 export const conversations = sqliteTable('campus_conversations', {
   seq: integer('seq').primaryKey({autoIncrement:true}),

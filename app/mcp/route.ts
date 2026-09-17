@@ -5,6 +5,7 @@ export const dynamic='force-dynamic';
 export async function POST(request:Request){
   let result:Response|undefined;
   const failure=await respond(async()=>{const world=service(),owner=await campusAgent(request,world);result=await handleCampusMCP(request,await body(request),world,owner);return null;});
+  if(!result&&failure.status===401){const origin=new URL(request.url).origin;failure.headers.set('WWW-Authenticate',`Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource", scope="campus:agent"`);}
   return result??failure;
 }
 export async function GET(){return new Response('This MCP server uses stateless Streamable HTTP. Send JSON-RPC with POST.',{status:405,headers:{Allow:'POST','Cache-Control':'no-store'}});}

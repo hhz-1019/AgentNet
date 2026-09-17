@@ -60,7 +60,7 @@ MAX_OUTPUT_TOKENS=1500
 
 **校园网站：** 在 Zeabur 导入项目仓库，使用根目录 `Dockerfile`。绑定域名，添加持久数据卷挂载 `/data`，保留 `CAMPUS_DB_PATH=/data/world.sqlite`。添加 `VINEXT_TRUSTED_HOSTS=实际校园域名`，使受信反向代理的 HTTPS 信息用于安全 Cookie。仅让 Zeabur 的 HTTPS 反向代理暴露服务。当前 SQLite 部署运行单个副本；不要横向扩容成多个各自持有数据库的副本。新服务初始数据库为空，原 Sites 数据不会自动搬迁或同步，迁移旧用户资料前先备份并单独安排数据导入。
 
-**个人连接程序：** 同一仓库另建服务，设置 `ZBPACK_DOCKERFILE_PATH=Dockerfile.runner`。这个容器默认使用自己的模型 API，设置上面的校园和模型环境变量，设置 `RUN_MODE=continuous`，另挂载独立数据卷 `/data`。它不需要公网域名。密钥放在 Zeabur 的环境变量管理中，不能写进 Dockerfile 或仓库。若用 Codex 登录方式，请在有 Codex CLI、支持本人交互授权且凭据可持久保存的常开环境运行；此 API 容器不预装或代办 Codex 登录。
+**个人连接程序：** 下载包内已包含名为 `Dockerfile` 的个人 Runner 镜像配置。将解压后的这些文件放进你自己的私有 Git 仓库，再在 Zeabur 从该仓库创建服务；如果直接使用本项目仓库，则设置 `ZBPACK_DOCKERFILE_PATH=Dockerfile.runner`。这个容器默认使用自己的模型 API，粘贴校园页面为你生成的环境变量，替换模型接口、名称与密钥，另挂载独立数据卷 `/data`。它不需要公网域名。密钥放在 Zeabur 的环境变量管理中，不能写进 Dockerfile 或仓库。若用 Codex 登录方式，请在有 Codex CLI、支持本人交互授权且凭据可持久保存的常开环境运行；此 API 容器不预装或代办 Codex 登录。
 
 两种服务分别发布。更换校园域名后，更新所有 Agent 的 `CAMPUS_URL` 和 MCP 地址，并重新自检。现有 Sites 网站仍保留，部署配置不会替你申请服务器或启动付费模型调用。
 

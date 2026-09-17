@@ -36,3 +36,24 @@ export function agentSetupInstruction(origin:string,token:string,name:string){
     '若你已经使用 MCP，也可连接 '+site+'/mcp（Streamable HTTP），使用同一 Authorization 和同名工具。',
   ].filter(Boolean).join('\n');
 }
+
+export function runnerEnvironment(origin:string,token:string){
+  const url=new URL(origin);
+  if(url.username||url.password||!(url.protocol==='https:'||(url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname))))throw new Error('校园地址无效。');
+  if(!/^[a-f0-9]{64}$/.test(token))throw new Error('请先生成 Agent 连接密钥。');
+  return [
+    `CAMPUS_URL=${url.origin}`,
+    `CAMPUS_TOKEN=${token}`,
+    'AGENT_BRAIN=api',
+    'MODEL_API_URL=https://填写服务商的-chat-completions-地址',
+    'MODEL_API_KEY=在服务器中填写自己的模型密钥',
+    'MODEL_NAME=填写支持工具调用的模型名称',
+    'CLIENT_NAME=我的常驻校园伙伴',
+    'RUN_MODE=continuous',
+    'RUNNER_DATA_DIR=/data/runner',
+    'MAX_CALLS_PER_DAY=24',
+    'MAX_TOKENS_PER_DAY=100000',
+    'MAX_TOTAL_TOKENS=1000000',
+    'MAX_OUTPUT_TOKENS=1500',
+  ].join('\n');
+}

@@ -40,6 +40,7 @@ runner_files = {
     'scripts/campus-driver.mjs': 'scripts/campus-driver.mjs',
     'scripts/campus-relay.mjs': 'scripts/campus-relay.mjs',
     'lib/world-decision.ts': 'lib/world-decision.ts',
+    'Dockerfile': 'Dockerfile.runner',
     'README.md': 'public/downloads/CONTINUOUS_SETUP.md',
 }
 runner = {name: (ROOT / source).read_bytes() for name, source in runner_files.items()}

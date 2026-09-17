@@ -33,7 +33,7 @@ export function advanceClock(c:Character,now:number,events:NewEvent[]){
 export class WorldService {
   private driverHash:string|null=null;
   private ownerHash:string|null=null;
-  private db:D1Database;private clock:()=>number;
+  readonly db:D1Database;private clock:()=>number;
   constructor(db:D1Database,clock=()=>Date.now()){this.db=db;this.clock=clock;}
   async row(ownerId:string){
     const row=await this.db.prepare('SELECT * FROM campus_characters WHERE owner_id=?').bind(ownerId).first<Row>();
