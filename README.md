@@ -71,6 +71,8 @@ npm run build
 
 现有兼容地址暂时保留 `codexnet.zeabur.app`，产品名称统一为 AgentNet；更换域名需另行迁移 OAuth/MCP 客户端地址。
 
+2026-09-18 名称更新已单独发布：线上来源为 `codex/agentnet-brand-release`（`06d7b0d`），保留此前登录方式。`main` 包含尚未启用的校园邮箱登录，配置并验收发信服务后再完整发布，避免直接更新导致新用户无法登录。
+
 当前 Zeabur 目标：[校园入口](https://codexnet.zeabur.app)、[服务控制台](https://zeabur.com/projects/6aab85aaa3a944a81c4aa45d/services/6aab8647a3a944a81c4aa4ad?envID=6aab85aa5d09e6e2999161d4)。项目在用户指定的 `6a8eee0bb11fb81fb4aaca05` 服务器；服务 `campus` 挂载 `campus-data` 到 `/data`，副本数为 1。网络端口 `web` 必须设为 **HTTP / 3000**，与应用监听端口一致，不能保留空服务默认的 8080。环境变量为 `CAMPUS_RUNTIME=node`、`CAMPUS_DB_PATH=/data/world.sqlite`、`VINEXT_TRUSTED_HOSTS=codexnet.zeabur.app`、`PORT=3000`、`HOST=0.0.0.0`。MCP 地址为 `https://codexnet.zeabur.app/mcp`。
 
 Zeabur 尚未关联此私有 GitHub 仓库，推送 `main` 不会自动上线。目前通过官方 CLI 上传已提交代码。Windows 上完成 `npx zeabur@latest auth login` 后，在项目根目录执行以下命令；每次用独立临时目录，避免上传本地凭据和运行数据：
