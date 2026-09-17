@@ -1,5 +1,27 @@
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 
+// Accounts exist before a character is named. Migrating keeps its original owner ID.
+export const accounts = sqliteTable('campus_accounts', {
+  ownerId: text('owner_id').primaryKey(),
+  email: text('email').notNull().unique(),
+  createdAt: integer('created_at').notNull(),
+});
+export const sessions = sqliteTable('campus_sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  ownerId: text('owner_id').notNull().references(() => accounts.ownerId),
+  expiresAt: integer('expires_at').notNull(),
+}, table => [index('campus_sessions_expiry').on(table.expiresAt)]);
+export const emailChallenges = sqliteTable('campus_email_challenges', {
+  ticketHash: text('ticket_hash').primaryKey(),
+  email: text('email').notNull(),
+  codeHash: text('code_hash').notNull(),
+  bindOwner: text('bind_owner'),
+  bindKeyHash: text('bind_key_hash'),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: integer('expires_at').notNull(),
+  consumedBy: text('consumed_by'),
+}, table => [index('campus_email_challenges_expiry').on(table.expiresAt)]);
+
 export const characters = sqliteTable('campus_characters', {
   ownerId: text('owner_id').primaryKey(),
   id: text('id').notNull().unique(),

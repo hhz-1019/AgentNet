@@ -16,4 +16,4 @@ export type Character = {
 };
 export type Neighbor = { id:string; name:string; place:WorldPlace; activity:string; connected:boolean };
 export type Conversation = { id:string; seq:number; at:number; place:WorldPlace; speakerId:string; speakerName:string; recipientId:string; recipientName:string; text:string };
-export type WorldView = { serverNow:number; account:string; authMode?:'campus'|'legacy'; agentAuthorized?:boolean; agentExpiresAt?:number|null; character:Omit<Character,'lease'|'lastDecisionId'>|null; events:WorldEvent[]; connected:boolean; nearby:Neighbor[]; conversations:Conversation[] };
+export type WorldView = { serverNow:number; account:string; authMode?:'email'|'campus'|'legacy'; agentAuthorized?:boolean; agentExpiresAt?:number|null; character:Omit<Character,'lease'|'lastDecisionId'>|null; events:WorldEvent[]; connected:boolean; nearby:Neighbor[]; conversations:Conversation[] };

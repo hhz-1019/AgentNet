@@ -155,7 +155,7 @@ export class WorldService {
   async disconnect(ownerId:string){return this.change(ownerId,(c,e,r)=>{r.token_hash=null;r.token_expires_at=null;c.lease=null;c.heartbeatAt=0;c.paused=true;e.push({kind:'connection',text:'已撤销 Agent 连接。角色经历与私聊仍保留。'});});}
   async ownerByKey(key:string){
     const hash=await tokenHash(key);
-    const row=await this.db.prepare('SELECT owner_id FROM campus_characters WHERE owner_key_hash=?').bind(hash).first<{owner_id:string}>();
+    const row=await this.db.prepare('SELECT owner_id FROM campus_characters WHERE owner_key_hash=? AND NOT EXISTS(SELECT 1 FROM campus_accounts WHERE campus_accounts.owner_id=campus_characters.owner_id)').bind(hash).first<{owner_id:string}>();
     if(!row)throw new WorldError(401,'校园恢复密钥无效或已更换，请检查后重试。');
     this.ownerHash=hash;return row.owner_id;
   }

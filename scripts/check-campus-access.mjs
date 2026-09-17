@@ -4,21 +4,21 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
+import { emailCookie } from './email-http-fixture.mjs';
 
 // Fixture writes are strictly local. No real accounts, model keys or production data.
-const site='http://localhost:3000',clients=[];
+const site=process.env.CAMPUS_TEST_URL??'http://127.0.0.1:3107',clients=[];
 async function api(path,data,headers={}){
   const r=await fetch(site+path,{method:data===undefined?'GET':'POST',headers:{...(data===undefined?{}:{'Content-Type':'application/json'}),...headers},body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(30000)});
   const result=r.headers.get('content-type')?.includes('application/json')?await r.json():await r.text();return {status:r.status,data:result,cookie:r.headers.get('set-cookie')?.split(';')[0],headers:r.headers};
 }
 async function person(name){
-  const recoveryKey='campus_owner_'+randomBytes(32).toString('hex');
-  const created=await api('/api/campus/account',{op:'create',name,socialEnabled:true,recoveryKey},{Origin:site});
-  assert.equal(created.status,200,JSON.stringify(created.data));assert(created.headers.get('set-cookie').includes('HttpOnly'));assert(created.headers.get('set-cookie').includes('SameSite=Lax'));
-  const headers={Origin:site,Cookie:created.cookie};
+  const email=randomUUID()+'@nju.edu.cn',cookie=await emailCookie(site,email);
+  const headers={Origin:site,Cookie:cookie};
+  const created=await api('/api/world',{op:'create',name,socialEnabled:true},headers);assert.equal(created.status,200);
   const issued=await api('/api/campus/account',{op:'agent-token'},headers);assert.equal(issued.status,200);
-  const view=await api('/api/world',undefined,headers);assert.equal(view.status,200);assert.equal(view.data.authMode,'campus');
-  return {name,recoveryKey,headers,id:view.data.character.id,token:issued.data.token};
+  const view=await api('/api/world',undefined,headers);assert.equal(view.status,200);assert.equal(view.data.authMode,'email');
+  return {name,email,recoveryKey:cookie.split('=')[1],headers,id:view.data.character.id,token:issued.data.token};
 }
 async function mcp(token,name){const client=new Client({name,version:'1.0'});const transport=new StreamableHTTPClientTransport(new URL(site+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token}}});await client.connect(transport);clients.push(client);return client;}
 const rpc=async(client,name,args={})=>{const r=await client.callTool({name,arguments:args});const text=r.content.find(c=>c.type==='text').text;let data;try{data=JSON.parse(text);}catch{data={error:text};}return {error:!!r.isError,data};};
@@ -28,7 +28,7 @@ const stay={action:'stay',destination:'beida',activity:'观察周围',intention:
 try{
   assert.equal((await api('/api/campus/account',{op:'create',name:'被拒绝',recoveryKey:'campus_owner_'+randomBytes(32).toString('hex')},{Origin:'https://foreign.example'})).status,403);
   const a=await person('协议验证甲'),b=await person('协议验证乙');
-  const retry=await api('/api/campus/account',{op:'create',name:'不可覆盖的昵称',recoveryKey:a.recoveryKey},{Origin:site});assert.equal(retry.data.characterId,a.id);
+  const retry=await api('/api/world',{op:'create',name:'不可覆盖的昵称'},a.headers);assert.equal(retry.data.character.id,a.id);
   assert.equal((await api('/api/world',undefined,a.headers)).data.character.name,a.name);
   const openapi=await api('/api/campus/openapi');assert.equal(openapi.data.openapi,'3.1.0');assert.equal(Object.keys(openapi.data.paths).length,6);
   const metadata=await api('/api/campus/tools');assert.equal(metadata.status,200);assert.equal(metadata.data.tools.length,6);assert(!JSON.stringify(metadata.data).includes(a.recoveryKey));
@@ -69,12 +69,8 @@ try{
   const motion=(await httpTool(a,'campus_status')).data.character.motion;assert.equal(motion.to,'library');assert(motion.endAt>motion.startAt);
   await api('/api/campus/account',{op:'signout'},a.headers);
   assert.equal((await httpTool(a,'campus_status')).status,200,'Closing the browser does not revoke the separate Agent');
-  const restored=await api('/api/campus/account',{op:'restore',recoveryKey:a.recoveryKey},{Origin:site});assert.equal(restored.data.characterId,a.id);
-  a.headers.Cookie=restored.cookie;
-  const changed=await api('/api/campus/account',{op:'recovery-key'},a.headers);assert.equal(changed.status,200);
-  assert.equal((await api('/api/world',undefined,a.headers)).status,401,'Old owner sessions stop working');
-  assert.equal((await api('/api/campus/account',{op:'restore',recoveryKey:a.recoveryKey},{Origin:site})).status,401);
-  a.headers.Cookie=changed.cookie;
+  assert.equal((await api('/api/world',undefined,a.headers)).status,401,'Signed-out sessions are revoked');
+  a.headers.Cookie=await emailCookie(site,a.email,Date.now()+61000);
   assert.equal((await api('/api/world',undefined,a.headers)).data.character.id,a.id);
   const c=await person('通用模型连接验证'),modelKey=randomBytes(32).toString('hex');let providerCalls=0;
   const provider=createServer(async(req,res)=>{
@@ -93,5 +89,5 @@ try{
   }finally{provider.closeAllConnections();await new Promise(resolve=>provider.close(resolve));await api('/api/world',{op:'disconnect'},c.headers);}
   await api('/api/world',{op:'disconnect'},a.headers);assert.equal((await httpTool(a,'campus_status')).status,401);
   await api('/api/world',{op:'disconnect'},b.headers);
-  console.log('PASS: independent browser identity/recovery, scoped Agent credentials, official MCP SDK handshake/list/call, two isolated clients, MCP-to-HTTP conversations, shared leases, private messages, idempotency, actual routes, immediate revocation and generic model adapter with a local Function Calling provider. No real model-provider account was used.');
+  console.log('PASS: email account identity/session revocation, scoped Agent credentials, official MCP SDK handshake/list/call, two isolated clients, MCP-to-HTTP conversations, shared leases, private messages, idempotency, actual routes, immediate revocation and generic model adapter with a local Function Calling provider. No real model-provider account was used.');
 }finally{await Promise.allSettled(clients.map(c=>c.close()));}

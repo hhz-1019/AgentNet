@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomBytes,createHash } from 'node:crypto';
+import { emailCookie } from './email-http-fixture.mjs';
 
 const base=(process.env.CAMPUS_TEST_URL??'http://127.0.0.1:3107').replace(/\/$/,'');
 const json=async(path,options={})=>{const response=await fetch(base+path,{redirect:'manual',...options});const data=await response.json();return {response,data};};
@@ -8,9 +9,9 @@ assert.equal(protectedMetadata.response.status,200);assert.equal(protectedMetada
 const authorizationMetadata=await json('/.well-known/oauth-authorization-server');
 assert.equal(authorizationMetadata.data.registration_endpoint,base+'/oauth/register');
 
-const recoveryKey='campus_owner_'+randomBytes(32).toString('hex');
-const created=await json('/api/campus/account',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({op:'create',name:'OAuth验证',gender:'unspecified',socialEnabled:false,recoveryKey})});
-assert.equal(created.response.status,200);const cookie=created.response.headers.get('set-cookie').split(';',1)[0];
+const cookie=await emailCookie(base);
+const created=await json('/api/world',{method:'POST',headers:{Cookie:cookie,Origin:base,'Content-Type':'application/json'},body:JSON.stringify({op:'create',name:'OAuth验证',gender:'unspecified',socialEnabled:false})});
+assert.equal(created.response.status,200);
 const registered=await json('/oauth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_name:'OAuth HTTP 验证',redirect_uris:['http://127.0.0.1:49152/callback'],token_endpoint_auth_method:'none'})});
 assert.equal(registered.response.status,201);assert(registered.data.client_id);
 

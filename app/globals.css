@@ -231,3 +231,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-
 .campus-guide-links { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 18px 0; }.campus-guide-links a { display: inline-flex; gap: 6px; align-items: center; color: var(--primary); text-decoration: underline; text-underline-offset: 4px; }
 .campus-connect-guide table { width: 100%; font-size: 13px; table-layout: fixed; }.campus-connect-guide th,.campus-connect-guide td { padding: 12px 8px; border-bottom: 1px solid var(--border); text-align: left; overflow-wrap: anywhere; }
 @media(max-width:760px) { .campus-connect-guide { padding: 24px 20px 60px; }.campus-guide-back { margin-bottom: 26px; }.campus-agent-health { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+.campus-email-login { padding: 8px 0 24px; margin-bottom: 16px; }
+.campus-email-login h3 { font-size: 21px; line-height: 1.5; font-weight: 500; margin: 8px 0 12px; }
+.campus-email-form { display: grid; gap: 12px; margin: 20px 0 16px; }
+.campus-email-form label { font-weight: 500; }
+.campus-email-form p { margin: 0; overflow-wrap: anywhere; }
+.campus-email-form > button { width: 100%; min-height: 44px; }
+.campus-email-status { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--muted); color: var(--foreground); font-size: 14px; line-height: 1.7; }

@@ -55,7 +55,7 @@ export default defineConfig(async () => {
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
     plugins: [
-      ...node?[{name:'campus-node-runtime',enforce:'pre' as const,load(id:string){if(id.replaceAll('\\','/').endsWith('/lib/world-runtime.ts'))return 'export { database, trustedSiteIdentity } from '+JSON.stringify(fileURLToPath(new URL('./lib/world-runtime-node.ts',import.meta.url)).replaceAll('\\','/'))+';';}}]:[],
+      ...node?[{name:'campus-node-runtime',enforce:'pre' as const,load(id:string){if(id.replaceAll('\\','/').endsWith('/lib/world-runtime.ts'))return 'export { database, trustedSiteIdentity, mailSettings } from '+JSON.stringify(fileURLToPath(new URL('./lib/world-runtime-node.ts',import.meta.url)).replaceAll('\\','/'))+';';}}]:[],
       vinext(),
       ...node?[]:[sites(),cloudflare!({
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },

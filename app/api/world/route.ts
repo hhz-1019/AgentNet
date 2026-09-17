@@ -16,7 +16,7 @@ const command=z.discriminatedUnion('op',[
 export async function GET(request:Request){return respond(async()=>{const world=service(),account=await user(request,world);try{return {...await world.view(account.id),account:account.account,authMode:account.authMode};}catch(e){if(e instanceof WorldError&&e.status===404)return {serverNow:Date.now(),account:account.account,authMode:account.authMode,character:null,events:[],connected:false,nearby:[],conversations:[]};throw e;}});}
 export async function POST(request:Request){return respond(async()=>{
   const world=service(),account=await user(request,world),c=command.parse(await body(request,true));
-  if(c.op==='create')await world.create(account.id,c.name,c.profile,c.socialEnabled,c.gender);
+  if(c.op==='create'){if(account.authMode!=='email')throw new WorldError(403,'请先使用校园邮箱登录。');await world.create(account.id,c.name,c.profile,c.socialEnabled,c.gender);}
   if(c.op==='personal-memory')await world.personalMemory(account.id,c.memory);
   if(c.op==='participation')await world.participation(account.id,c.enabled);
   if(c.op==='message')await world.message(account.id,c.text,c.requestId);

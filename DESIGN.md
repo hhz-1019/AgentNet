@@ -18,6 +18,11 @@ colors:
   model-grass: "#87966b"
   model-water: "#527a7d"
 typography:
+  section-title:
+    fontFamily: "'PingFang SC', 'Microsoft YaHei', sans-serif"
+    fontSize: "21px"
+    fontWeight: 500
+    lineHeight: 1.5
   headline:
     fontFamily: "'Campus Serif', 'Noto Serif SC', 'Songti SC', SimSun, serif"
     fontSize: "26px"

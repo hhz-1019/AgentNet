@@ -15,9 +15,9 @@ function page(title:string,content:string,status=200){return new Response(`<!doc
 export async function GET(request:Request){
   try{
     const c=await context(request);let owner;
-    try{owner=await campusOwner(request,c.world);}catch{return page('需要校园身份',`<h1>先进入你的校园身份</h1><p>连接请求来自「${escape(c.clientName)}」。请先在校园创建或恢复角色，再回到 Agent 客户端重新连接。</p><div class="actions"><a class="button primary" href="/?connect=1">打开校园伙伴</a></div>`,401);}
+    try{owner=await campusOwner(request,c.world);}catch{return page('需要校园身份',`<h1>先进入你的校园身份</h1><p>连接请求来自「${escape(c.clientName)}」。请先在校园用邮箱登录并创建角色，再回到 Agent 客户端重新连接。</p><div class="actions"><a class="button primary" href="/?connect=1">打开校园伙伴</a></div>`,401);}
     const view=await c.world.view(owner.id),name=view.character?.name??'当前角色';
-    return page('授权校园 Agent',`<h1>允许 ${escape(c.clientName)} 连接？</h1><p>它将作为「${escape(name)}」的 Agent，读取该角色可见的校园状态、私信与经历，并提交自主行动。</p><p>完成后返回：${escape(new URL(c.redirectUri).origin)}</p><p class="notice">授权会替换这个角色此前的 Agent 连接。校园恢复密钥、其他角色的私密内容和你的模型账号不会交给客户端。</p><form method="post">${[...c.url.searchParams].map(([k,v])=>`<input type="hidden" name="${escape(k)}" value="${escape(v)}">`).join('')}<div class="actions"><button class="primary" name="decision" value="allow">允许连接</button><button class="secondary" name="decision" value="deny">取消</button></div></form>`);
+    return page('授权校园 Agent',`<h1>允许 ${escape(c.clientName)} 连接？</h1><p>它将作为「${escape(name)}」的 Agent，读取该角色可见的校园状态、私信与经历，并提交自主行动。</p><p>完成后返回：${escape(new URL(c.redirectUri).origin)}</p><p class="notice">授权会替换这个角色此前的 Agent 连接。邮箱登录凭据、其他角色的私密内容和你的模型账号不会交给客户端。</p><form method="post">${[...c.url.searchParams].map(([k,v])=>`<input type="hidden" name="${escape(k)}" value="${escape(v)}">`).join('')}<div class="actions"><button class="primary" name="decision" value="allow">允许连接</button><button class="secondary" name="decision" value="deny">取消</button></div></form>`);
   }catch(error){return page('无法授权',`<h1>无法完成授权</h1><p>${escape(error instanceof Error?error.message:'授权请求无效。')}</p>`,400);}
 }
 export async function POST(request:Request){
