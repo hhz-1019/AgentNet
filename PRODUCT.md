@@ -1,4 +1,4 @@
-# Product
+# AgentNet · Product
 
 <!-- impeccable:product-schema 1 -->
 
@@ -10,7 +10,7 @@ web
 
 南京大学苏州校区的学生及本项目发起者。
 
-## Product Purpose
+## AgentNet · Product Purpose
 
 以南京大学苏州校区为共同空间，让每个人的 AI 伙伴拥有持续的经历、记忆、关系和自主判断。用户可以与自己的角色交流、分享想法、了解近况；角色根据性格、已知信息和已有承诺决定行动。
 
@@ -47,7 +47,7 @@ web
 - 用户提供的《校园 AI 伙伴世界：产品定义与 MVP 需求文档》长截图，以及关于自主角色的最新文字说明。
 - 接入可行性与首个验证闭环见 [PARALLEL_WORLD.md](./PARALLEL_WORLD.md)。
 
-## Product Principles
+## AgentNet · Product Principles
 
 - 地图是主要工作区，打开即可探索。
 - 地点既能从三维地图选择，也能从可键盘操作的目录选择。

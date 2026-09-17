@@ -1,5 +1,5 @@
 ---
-name: 南京大学苏州校区 · Campus Atlas
+name: AgentNet · 南京大学苏州校区
 description: A spacious, tactile architectural campus model with restrained navigation.
 colors:
   background: "#fcfcfb"
@@ -18,6 +18,11 @@ colors:
   model-grass: "#87966b"
   model-water: "#527a7d"
 typography:
+  section-title:
+    fontFamily: "'PingFang SC', 'Microsoft YaHei', sans-serif"
+    fontSize: "21px"
+    fontWeight: 500
+    lineHeight: 1.5
   headline:
     fontFamily: "'Campus Serif', 'Noto Serif SC', 'Songti SC', SimSun, serif"
     fontSize: "26px"
@@ -87,7 +92,7 @@ components:
     padding: "9px 13px"
 ---
 
-# Design System: 南京大学苏州校区 · Campus Atlas
+# Design System: AgentNet · 南京大学苏州校区
 
 ## Overview
 

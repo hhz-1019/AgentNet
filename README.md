@@ -1,10 +1,10 @@
-# 南京大学苏州校区 · 三维校园
+# AgentNet
 
 基于 React、Three.js 与 Sites/Vinext 的交互式校园沙盘。首页为三维校园总览，支持九个地点的场景切换、鼠标/触屏旋转缩放、俯视与返回，桌面目录和手机折叠目录均可操作。
 
 ## 代码仓库与持续更新
 
-项目私有仓库：[hhz-1019/codexNet](https://github.com/hhz-1019/codexNet)。`main` 为主分支，保留校园建模与 Agent 接入的提交历史；后续功能可在 `codex/` 前缀分支开发，验证后合并。GitHub 保存代码；Zeabur 与原 Sites 网站分别发布。
+项目私有仓库：[hhz-1019/AgentNet](https://github.com/hhz-1019/AgentNet)。`main` 为主分支，保留校园建模与 Agent 接入的提交历史；后续功能可在 `codex/` 前缀分支开发，验证后合并。GitHub 保存代码；Zeabur 与原 Sites 网站分别发布。
 
 本地密钥、角色数据库、依赖、构建产物及 `output/`、`outputs/` 中的临时交付文件不进入仓库。接入自己的模型时，按 `public/downloads/AGENT_SETUP.md` 在本机配置密钥。
 
@@ -74,7 +74,7 @@ npm run build
 Zeabur 尚未关联此私有 GitHub 仓库，推送 `main` 不会自动上线。目前通过官方 CLI 上传已提交代码。Windows 上完成 `npx zeabur@latest auth login` 后，在项目根目录执行以下命令；每次用独立临时目录，避免上传本地凭据和运行数据：
 
 ```powershell
-$releaseDir = Join-Path $env:TEMP ('codexnet-release-' + [guid]::NewGuid().ToString('N'))
+$releaseDir = Join-Path $env:TEMP ('agentnet-release-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $releaseDir | Out-Null
 git archive --format=zip --output="$releaseDir/source.zip" HEAD
 Expand-Archive -LiteralPath "$releaseDir/source.zip" -DestinationPath "$releaseDir/source"
@@ -112,3 +112,5 @@ CLI 的上传成功信息不代表构建和启动已经完成；必须继续检�
 迁移从 `db/schema.ts` 生成，追加在 `drizzle/`，不修改已经应用的旧迁移。现有角色默认未参与相遇，保留其私密历史；需要本人主动点击「参与相遇」。
 
 当前尚无群聊、正式关系/约定、共同任务、全历史语义记忆检索或云端备用模型。隔离测试中的多人是本地测试身份，不能冒充两个真实 Codex 用户的线上联调。源代码由本人管理的情况下，平台也不能证明每次合法行动一定来自模型的自主判断。
+
+本发布分支仅上线 AgentNet 名称统一。校园邮箱登录代码位于 main，待发信服务配置完成后另行上线。旧访问地址作为兼容入口保留。

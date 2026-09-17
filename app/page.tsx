@@ -35,14 +35,14 @@ export default function Home() {
   return <main className="campus-app">
     <a className="skip-link" href="#locations">跳到地点目录</a>
     <header className="masthead">
-      <Button variant="ghost" className="brand" onClick={() => select(null)} aria-label="南京大学苏州校区，返回总图">
-        <span className="brand-mark">N<span>J</span>U<span className="brand-year">1902</span></span><span className="brand-divider" />
-        <span className="brand-name">南京大学 <span>苏州校区</span><small>NANJING UNIVERSITY · SUZHOU</small></span>
+      <Button variant="ghost" className="brand" onClick={() => select(null)} aria-label="AgentNet，返回校园总图">
+        <span className="brand-mark">AgentNet</span><span className="brand-divider" />
+        <span className="brand-name">南京大学 <span>苏州校区</span></span>
       </Button>
       <div className="header-center"><span className="view-indicator" />三维校园</div>
       <Button variant="outline" className="companion-open" aria-label="打开我的校园伙伴" onClick={()=>setCompanionOpen(true)}><MessageCircle size={17}/><span>{world.view?.character?.name??'我的伙伴'}</span>{world.view?.connected&&<span className="companion-online" aria-label="Agent 在线"/>}</Button>
       <Popover><PopoverTrigger render={<Button variant="ghost" className="about-button" aria-label="地图说明" />}><Info size={17} /><span>地图说明</span></PopoverTrigger>
-        <PopoverContent align="end" className="map-about"><PopoverTitle>关于这座校园</PopoverTitle>
+        <PopoverContent align="end" className="map-about"><PopoverTitle>AgentNet · 关于这座校园</PopoverTitle>
           <p>平面布局依据苏州校区标准地图校正，保留建筑占地、道路、水系与庄里山的相对位置。立面与场地配色参考建筑设计资料和建成实景。</p>
           <p>东区蓝色跑道与西区紫色跑道均已对照实景。尚未取得完整竣工图，尺寸、未见立面和部分屋顶细节仍为近似重建，不用于测量或实地导航。</p>
           <a href="https://zcc.nju.edu.cn/dzdt/szxqdt/index.html" target="_blank" rel="noreferrer">南京大学官方校区地图 <ExternalLink size={14} /></a>
@@ -75,7 +75,7 @@ export default function Home() {
       </aside>
       <section className={`map-stage ${location ? 'scene-mode' : ''}`} aria-label={location ? `${location.name}三维场景` : '苏州校区三维地图'}>
         <CampusCanvas selected={selected} topView={topView} controlsRef={controls} onSelect={select} onReady={() => setReady(true)} onError={setError} companion={world.view} onCompanionClick={()=>setCompanionOpen(true)} />
-        <div className="map-topline"><div className="map-breadcrumb"><span>苏州校区</span><span className="breadcrumb-slash">/</span><strong>{location ? location.name : '全景地图'}</strong></div><span className="model-caption">CAMPUS ATLAS</span></div>
+        <div className="map-topline"><div className="map-breadcrumb"><span>苏州校区</span><span className="breadcrumb-slash">/</span><strong>{location ? location.name : '全景地图'}</strong></div><span className="model-caption">AgentNet</span></div>
         {!ready && !error && <div className="loading-state" role="status"><span className="loading-orbit" /><p>正在展开校园</p><small>山、水与建筑，即将呈现</small></div>}
         {error && <div className="canvas-error" role="alert"><Mountain size={36} strokeWidth={1} /><h2>三维视图暂时无法打开</h2><p>{error}</p><Button onClick={() => window.location.reload()}>重新加载</Button><a href="https://zcc.nju.edu.cn/dzdt/szxqdt/index.html" target="_blank" rel="noreferrer">查看官方校园地图 <ExternalLink size={14} /></a></div>}
         <div className="view-toolbar" aria-label="视角控制"><Button variant="ghost" className={!topView ? 'active-view' : ''} onClick={() => setTopView(false)} disabled={!ready} aria-pressed={!topView}><Layers2 size={16} />立体</Button><Button variant="ghost" className={topView ? 'active-view' : ''} onClick={() => setTopView(true)} disabled={!ready} aria-pressed={topView}><ArrowDownLeft size={16} />俯视</Button></div>
@@ -85,7 +85,7 @@ export default function Home() {
         {location && <Button className="floating-return" onClick={() => select(null)}><ArrowLeft size={16} />返回全景地图</Button>}
       </section>
     </div>
-    <footer className="page-footer"><span>南京大学苏州校区</span><span className="footer-location">中国 · 苏州高新区</span><span>诚朴雄伟 · 励学敦行 <ArrowRight size={12} /></span></footer>
+    <footer className="page-footer"><span>AgentNet · 南京大学苏州校区</span><span className="footer-location">中国 · 苏州高新区</span><span>诚朴雄伟 · 励学敦行 <ArrowRight size={12} /></span></footer>
     <CompanionPanel world={world} open={companionOpen} onOpenChange={setCompanionOpen} onLocate={()=>controls.current?.focusCompanion()}/>
     <div className="sr-only" aria-live="polite">{location ? `已进入${location.name}三维场景。${location.description}` : '当前为苏州校区全景地图。'}</div>
   </main>;
