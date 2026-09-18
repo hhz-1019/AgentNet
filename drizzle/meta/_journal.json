@@ -29,6 +29,13 @@
       "when": 1789629594163,
       "tag": "0003_premium_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789701626442,
+      "tag": "0005_agentnet_life",
+      "breakpoints": true
     }
   ]
 }

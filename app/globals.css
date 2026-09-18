@@ -138,6 +138,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-
 .campus-neighbors article p,.campus-neighbor-status { font-size: 12px; line-height: 1.8; color: var(--muted-foreground); }
 .campus-neighbor-status { white-space: nowrap; }
 .campus-conversations-title { margin-top: 30px; font: 500 20px var(--font-serif); }
+.campus-daily-plan { margin-bottom: 26px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+.campus-daily-plan h3 { font: 500 20px var(--font-serif); }
+.campus-daily-plan ol { list-style: none; margin: 14px 0; padding: 0; }
+.campus-daily-plan li,.campus-relationships article { padding: 12px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.campus-daily-plan li > div { display: flex; justify-content: space-between; gap: 12px; color: var(--primary); font-size: 13px; }
+.campus-daily-plan time { font-variant-numeric: tabular-nums; }
+.campus-daily-plan li > p,.campus-relationships p { margin-top: 6px; font-size: 14px; line-height: 1.85; }
+.campus-relationships p { color: var(--muted-foreground); font-size: 13px; }
+.campus-relationships h4 { font-weight: 500; }
 .companion-life h4 { margin-top: 10px; font-size: 14px; color: var(--primary); }.companion-life h4 span { color: var(--muted-foreground); font-weight: 400; }
 .campus-local-connection { margin: 22px 0; padding-block: 20px; border-block: 1px solid var(--border); }
 .campus-local-connection h3 { font: 500 20px var(--font-serif); }.campus-local-connection > p,.campus-connect-invite p { font-size: 13px; line-height: 1.85; color: var(--muted-foreground); margin-top: 10px; }

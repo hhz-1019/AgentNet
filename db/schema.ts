@@ -57,7 +57,8 @@ export const conversations = sqliteTable('campus_conversations', {
   speakerName: text('speaker_name').notNull(),
   recipientId: text('recipient_id').notNull().references(() => characters.id),
   recipientName: text('recipient_name').notNull(),
+  kind: text('kind').notNull().default('message'),
   place: text('place').notNull(),
   at: integer('at').notNull(),
   text: text('text').notNull(),
-}, table => [index('campus_conversations_speaker_seq').on(table.speakerId, table.seq), index('campus_conversations_recipient_seq').on(table.recipientId, table.seq)]);
+}, table => [index('campus_conversations_speaker_seq').on(table.speakerId, table.seq), index('campus_conversations_recipient_seq').on(table.recipientId, table.seq),index('campus_conversations_pair').on(table.speakerId,table.recipientId,table.seq)]);

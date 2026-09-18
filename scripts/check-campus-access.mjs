@@ -30,8 +30,8 @@ try{
   const a=await person('协议验证甲'),b=await person('协议验证乙');
   const retry=await api('/api/campus/account',{op:'create',name:'不可覆盖的昵称',recoveryKey:a.recoveryKey},{Origin:site});assert.equal(retry.data.characterId,a.id);
   assert.equal((await api('/api/world',undefined,a.headers)).data.character.name,a.name);
-  const openapi=await api('/api/campus/openapi');assert.equal(openapi.data.openapi,'3.1.0');assert.equal(Object.keys(openapi.data.paths).length,6);
-  const metadata=await api('/api/campus/tools');assert.equal(metadata.status,200);assert.equal(metadata.data.tools.length,6);assert(!JSON.stringify(metadata.data).includes(a.recoveryKey));
+  const openapi=await api('/api/campus/openapi');assert.equal(openapi.data.openapi,'3.1.0');assert.equal(Object.keys(openapi.data.paths).length,7);
+  const metadata=await api('/api/campus/tools');assert.equal(metadata.status,200);assert.equal(metadata.data.tools.length,7);assert(!JSON.stringify(metadata.data).includes(a.recoveryKey));
   assert.equal((await httpTool({token:a.recoveryKey},'campus_status')).status,401,'Owner secrets are not Agent credentials');
   assert.equal((await api('/api/campus/account',{op:'agent-token'},{Origin:site,Authorization:'Bearer '+a.token})).status,401,'Agent tokens cannot grant owner access');
   assert.equal((await api('/api/campus/tools/campus_status',{},a.headers)).status,401,'Browser cookies do not authorize Agent operations');
@@ -40,6 +40,9 @@ try{
   const ca=await mcp(a.token,'Independent MCP Client A'),cb=await mcp(b.token,'Independent MCP Client B');
   const listed=await ca.listTools();assert.deepEqual(listed.tools.map(t=>t.name).sort(),metadata.data.tools.map(t=>t.name).sort());
   assert.equal((await rpc(ca,'campus_status')).data.character.id,a.id);assert.equal((await rpc(cb,'campus_status')).data.character.id,b.id);
+  const waiting=await rpc(ca,'campus_wait',{timeoutSeconds:0});assert(!waiting.error);assert(waiting.data.ready);
+  const httpWaiting=await httpTool(b,'campus_wait',{timeoutSeconds:0});assert.equal(httpWaiting.status,200);assert(httpWaiting.data.ready);
+  assert.equal((await rpc(ca,'campus_status')).data.character.budget.calls,0,'MCP event waiting does not consume decision budget');
   const privateText='只属于甲的私信 '+randomUUID();await api('/api/world',{op:'message',text:privateText,requestId:randomUUID()},a.headers);
   const observationA=await rpc(ca,'campus_observe',{clientName:'任意 MCP 客户端'});assert(observationA.data.ready);assert(observationA.data.nearby.some(n=>n.id===b.id));
   const heartbeat=await httpTool(a,'campus_heartbeat',{clientName:'测试心跳',leaseId:observationA.data.leaseId});assert(heartbeat.data.leaseActive);assert.equal(heartbeat.data.budget.calls,1);

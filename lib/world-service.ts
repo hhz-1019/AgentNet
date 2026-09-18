@@ -2,11 +2,13 @@ import { Decision, type CharacterDecision } from './world-decision.ts';
 import { WORLD_PLACES, routeLength, walkingRoute } from './world-map.ts';
 import { PersonalMemoryInput, type MemoryImport } from './personal-memory.ts';
 import type { Character, Conversation, Neighbor, WorldEvent } from './world-types.ts';
+import { campusDay,dialogueState,updateDayPlan } from './world-life.ts';
+import type { Relationship } from './world-types.ts';
 
 type Row={owner_id:string;id:string;state:string;revision:number;last_op:string;token_hash:string|null;token_expires_at:number|null;owner_key_hash:string|null};
 type NewEvent={kind:WorldEvent['kind'];text:string;at?:number;sources?:string[]};
-type Effect={speech?:{id:string;decisionId:string;to:string;text:string;place:string}};
-const conversationColumns='id,seq,at,place,speaker_id AS speakerId,speaker_name AS speakerName,recipient_id AS recipientId,recipient_name AS recipientName,text';
+type Effect={speech?:{id:string;decisionId:string;to:string;text:string;place:string;kind:string;after:number}};
+const conversationColumns='id,seq,at,place,speaker_id AS speakerId,speaker_name AS speakerName,recipient_id AS recipientId,recipient_name AS recipientName,text,kind';
 // Resolve elapsed travel from server time, even if the owner has no open browser.
 const presentAt=`json_extract(state,'$.socialEnabled')=1 AND (json_extract(state,'$.motion') IS NULL OR json_extract(state,'$.motion.endAt')<=?) AND CASE WHEN json_extract(state,'$.motion.endAt')<=? THEN json_extract(state,'$.motion.to') ELSE json_extract(state,'$.place') END=?`;
 export class WorldError extends Error { status:number;constructor(status:number,message:string){super(message);this.status=status;} }
@@ -55,6 +57,42 @@ export class WorldService {
     const rows=await this.db.prepare(`SELECT ${conversationColumns} FROM campus_conversations WHERE (speaker_id=? OR recipient_id=?) AND seq>? ORDER BY seq ${unread?'ASC':'DESC'} LIMIT ?`).bind(actorId,actorId,after,limit).all<Conversation>();
     return unread?rows.results:rows.results.reverse();
   }
+  async pairHistory(actor:string,other:string){
+    return (await this.db.prepare(`SELECT ${conversationColumns} FROM campus_conversations WHERE (speaker_id=? AND recipient_id=?) OR (speaker_id=? AND recipient_id=?) ORDER BY seq DESC LIMIT 8`).bind(actor,other,other,actor).all<Conversation>()).results;
+  }
+  async relationships(actor:string):Promise<Relationship[]>{
+    // Descriptive facts only: reciprocal speech is not proof of friendship or trust.
+    const rows=await this.db.prepare(`SELECT peer AS id,SUM(sent) AS sent,SUM(received) AS received,MIN(at) AS firstAt,MAX(at) AS lastAt FROM (
+      SELECT recipient_id AS peer,1 AS sent,0 AS received,at FROM campus_conversations WHERE speaker_id=? AND kind='message'
+      UNION ALL SELECT speaker_id AS peer,0 AS sent,1 AS received,at FROM campus_conversations WHERE recipient_id=? AND kind='message'
+    ) GROUP BY peer ORDER BY lastAt DESC,peer LIMIT 24`).bind(actor,actor).all<Omit<Relationship,'name'>>();
+    return Promise.all(rows.results.map(async row=>{const peer=await this.db.prepare('SELECT state FROM campus_characters WHERE id=?').bind(row.id).first<{state:string}>();return {...row,name:peer?(JSON.parse(peer.state) as Character).name:'曾交谈的角色'};}));
+  }
+  async socialContext(c:Character){
+    const relationships=await this.relationships(c.id);
+    const dialogues=await Promise.all(relationships.map(async peer=>dialogueState(c.id,peer.id,await this.pairHistory(c.id,peer.id),this.clock())));
+    return {relationships,dialogues};
+  }
+  async waitForEvents(ownerId:string,clientName:string,timeoutSeconds=25,signal?:AbortSignal){
+    await this.heartbeat(ownerId,clientName);
+    const deadline=Date.now()+timeoutSeconds*1000;
+    // ponytail: bounded database polling works across restarts/processes; use a durable broker only when measured load warrants it.
+    while(true){
+      const row=await this.row(ownerId),c:Character=JSON.parse(row.state),now=this.clock();
+      advanceClock(c,now,[]);const budget=dailyBudget(c,now);
+      const incoming=await this.db.prepare('SELECT seq FROM campus_conversations WHERE recipient_id=? AND seq>? ORDER BY seq LIMIT 1').bind(c.id,c.lastSocialSeq??0).first<{seq:number}>();
+      const reasons=[...(c.lastHumanSeq>c.lastReadSeq?['human_message']:[]),...(!c.motion&&c.nextWake<=now?['scheduled']:[]),...(c.socialEnabled&&incoming&&(c.nextSocialAt??0)<=now?['conversation']:[])];
+      const hourlyLimited=c.usage.calls>=12&&c.usage.hourStart+3600000>now,dailyLimited=budget.calls>=budget.dailyLimit;
+      const blockedUntil=Math.max(c.retryAt,c.lease?.until??0,hourlyLimited?c.usage.hourStart+3600000:0,dailyLimited?nextBudgetDay(now):0);
+      const ready=!c.paused&&reasons.length>0&&blockedUntil<=now;
+      if(ready||c.paused||dailyLimited||hourlyLimited||Date.now()>=deadline||signal?.aborted){
+        await this.row(ownerId); // A revoked long poll cannot return a successful result.
+        return {ready,paused:c.paused,limited:dailyLimited||hourlyLimited,reasons:ready?reasons:[],serverNow:now,
+          acknowledged:{events:c.lastReadSeq,conversations:c.lastSocialSeq??0},retryAfter:Math.max(1,Math.ceil((blockedUntil-now)/1000)),budget};
+      }
+      await new Promise<void>(resolve=>{const done=()=>{clearTimeout(timer);signal?.removeEventListener('abort',done);resolve();};const timer=setTimeout(done,Math.min(2000,Math.max(0,deadline-Date.now())));signal?.addEventListener('abort',done,{once:true});if(signal?.aborted)done();});
+    }
+  }
   async create(ownerId:string,name:string,profile='',socialEnabled=false,gender:Character['gender']='unspecified',ownerKeyHash:string|null=null){
     const id=crypto.randomUUID(),op=crypto.randomUUID(),now=this.clock(),character=initialCharacter(id,name,profile,now);
     character.socialEnabled=socialEnabled;character.gender=gender;character.personalMemory=null;
@@ -72,12 +110,12 @@ export class WorldService {
       const effect:Effect={};advanceClock(c,now,events);fn(c,events,row,now,effect);
       const op=crypto.randomUUID(),seq=row.revision+1;
       const speech=effect.speech;
-      const guard=speech?` AND EXISTS(SELECT 1 FROM campus_characters WHERE id=? AND ${presentAt})`:'';
+      const guard=speech?` AND EXISTS(SELECT 1 FROM campus_characters WHERE id=? AND ${presentAt}) AND NOT EXISTS(SELECT 1 FROM campus_conversations WHERE ((speaker_id=? AND recipient_id=?) OR (speaker_id=? AND recipient_id=?)) AND seq>?)`:'';
       const values:(string|number|null)[]=[JSON.stringify(c),seq,op,row.token_hash,row.token_expires_at,row.owner_key_hash,ownerId,row.revision];
-      if(speech)values.push(speech.to,now,now,speech.place);
+      if(speech)values.push(speech.to,now,now,speech.place,c.id,speech.to,speech.to,c.id,speech.after);
       const writes=[this.db.prepare('UPDATE campus_characters SET state=?,revision=?,last_op=?,token_hash=?,token_expires_at=?,owner_key_hash=? WHERE owner_id=? AND revision=?'+guard).bind(...values)];
       for(const e of events)writes.push(this.db.prepare('INSERT INTO campus_events (id,actor_id,seq,at,kind,text,sources) SELECT ?,id,revision,?,?,?,? FROM campus_characters WHERE owner_id=? AND last_op=?').bind(crypto.randomUUID(),e.at??now,e.kind,e.text,JSON.stringify(e.sources??[]),ownerId,op));
-      if(speech)writes.push(this.db.prepare(`INSERT INTO campus_conversations(id,decision_id,speaker_id,speaker_name,recipient_id,recipient_name,place,at,text) SELECT ?,?,speaker.id,json_extract(speaker.state,'$.name'),recipient.id,json_extract(recipient.state,'$.name'),?,?,? FROM campus_characters speaker,campus_characters recipient WHERE speaker.owner_id=? AND speaker.last_op=? AND recipient.id=?`).bind(speech.id,speech.decisionId,speech.place,now,speech.text,ownerId,op,speech.to));
+      if(speech)writes.push(this.db.prepare(`INSERT INTO campus_conversations(id,decision_id,speaker_id,speaker_name,recipient_id,recipient_name,place,at,text,kind) SELECT ?,?,speaker.id,json_extract(speaker.state,'$.name'),recipient.id,json_extract(recipient.state,'$.name'),?,?,?,? FROM campus_characters speaker,campus_characters recipient WHERE speaker.owner_id=? AND speaker.last_op=? AND recipient.id=?`).bind(speech.id,speech.decisionId,speech.place,now,speech.text,speech.kind,ownerId,op,speech.to));
       const result=await this.db.batch(writes);
       if(result[0].meta.changes===1)return c;
     }
@@ -89,7 +127,8 @@ export class WorldService {
     advanceClock(c,now,[]);
     dailyBudget(c,now);
     const {lease:_lease,lastDecisionId:_lastDecision,...character}=c;
-    return {serverNow:now,character,events:await this.history(c.id),agentAuthorized:!!row.token_hash&&(row.token_expires_at===null||row.token_expires_at>now),agentExpiresAt:row.token_expires_at,connected:!!row.token_hash&&(row.token_expires_at===null||row.token_expires_at>now)&&!c.paused&&c.heartbeatAt>now-65000&&c.connectedUntil>now,nearby:await this.nearby(c,now),conversations:await this.conversations(c.id)};
+    const result={serverNow:now,character,events:await this.history(c.id),agentAuthorized:!!row.token_hash&&(row.token_expires_at===null||row.token_expires_at>now),agentExpiresAt:row.token_expires_at,connected:!!row.token_hash&&(row.token_expires_at===null||row.token_expires_at>now)&&!c.paused&&c.heartbeatAt>now-65000&&c.connectedUntil>now,nearby:await this.nearby(c,now),conversations:await this.conversations(c.id),...await this.socialContext(c)};
+    await this.row(ownerId);return result;
   }
   async message(ownerId:string,text:string,requestId:string){
     const eventId=`human:${requestId}`;
@@ -124,11 +163,11 @@ export class WorldService {
     const terms=[...new Set([...new Intl.Segmenter('zh',{granularity:'word'}).segment(query.toLowerCase())].filter(s=>s.isWordLike&&s.segment.length>1).map(s=>s.segment))].slice(0,8);
     if(!terms.length&&query.trim())terms.push(query.trim().toLowerCase());
     // ponytail: owner-scoped keyword recall over stored history; add FTS only when measured history size warrants it.
-    const score=terms.length?terms.map(()=>'(CASE WHEN instr(lower(text),?)>0 THEN 1 ELSE 0 END)').join('+'):'1';
-    const found=await this.db.prepare(`SELECT *,${score} AS score FROM (
+    const relevance=terms.length?terms.map(()=>'(CASE WHEN instr(lower(text),?)>0 THEN 1 ELSE 0 END)').join('+'):'0';
+    const found=await this.db.prepare(`SELECT *,(${relevance})*4 + CASE kind WHEN 'memory' THEN 3 WHEN 'human' THEN 2 WHEN 'conversation' THEN 2 ELSE 1 END + 1.0/(1+MAX(0,?-at)/86400000.0) AS score FROM (
       SELECT id,at,kind,text,sources FROM campus_events WHERE actor_id=? AND kind IN ('human','reply','arrival','departure','activity','memory')
       UNION ALL SELECT id,at,'conversation' AS kind,speaker_name || ' 对 ' || recipient_name || '：' || text AS text,'[]' AS sources FROM campus_conversations WHERE speaker_id=? OR recipient_id=?
-    ) WHERE (${terms.length?terms.map(()=> 'instr(lower(text),?)>0').join(' OR '):'1'}) ORDER BY score DESC,at DESC,id DESC LIMIT ?`).bind(...terms,c.id,c.id,c.id,...terms,limit).all<{id:string;at:number;kind:string;text:string;sources:string;score:number}>();
+    ) WHERE (${terms.length?terms.map(()=> 'instr(lower(text),?)>0').join(' OR '):'1'}) ORDER BY ${terms.length?'score DESC,':''}at DESC,id DESC LIMIT ?`).bind(...terms,this.clock(),c.id,c.id,c.id,...terms,limit).all<{id:string;at:number;kind:string;text:string;sources:string;score:number}>();
     const memories=found.results.map(({score:_score,sources,...entry})=>({...entry,sources:JSON.parse(sources) as string[]}));
     if(leaseId)await this.change(ownerId,(c,_e,_r,now)=>{
       if(c.paused||c.lease?.id!==leaseId||c.lease.until<=now)throw new WorldError(409,'观察已过期，回忆未加入本轮依据。');
@@ -137,7 +176,7 @@ export class WorldService {
       c.lease.sourceIds=ids;
     });
     else await this.row(ownerId); // Recheck revocation after the read.
-    return {query,method:'keyword',memories};
+    return {query,method:terms.length?'keyword-recency-importance':'recent',ranking:'关键词相关性优先，结合记录类型的重要性与时间；不是语义向量检索，也不代表记忆真实性评分。',memories};
   }
   async personalMemory(ownerId:string,input:MemoryImport|null){
     const memory=input===null?null:PersonalMemoryInput.parse(input);
@@ -221,7 +260,7 @@ export class WorldService {
       if(c.paused||!due||c.retryAt>now||endsAt<=now||c.usage.calls>=12||budget.calls>=budget.dailyLimit||(c.lease&&c.lease.until>now))return;
       // A stale history snapshot cannot acknowledge newer private messages.
       const observedSeq=Math.min(row.revision,cutoff);
-      c.lease={id:driverId+':'+crypto.randomUUID(),until:now+180000,observedSeq,observedSocialSeq:socialCutoff,nearbyIds:nearby.map(n=>n.id),sourceIds:[...known.filter(e=>e.seq<=observedSeq&&e.kind!=='profile').map(e=>e.id),...conversations.map(e=>e.id)]};
+      c.lease={id:driverId+':'+crypto.randomUUID(),until:now+180000,observedSeq,observedSocialSeq:socialCutoff,nearbyIds:nearby.map(n=>n.id),sourceIds:[...known.filter(e=>e.seq<=observedSeq&&e.kind!=='profile'&&e.kind!=='plan').map(e=>e.id),...conversations.map(e=>e.id)]};
       c.usage.calls++;budget.calls++;c.driverError='';acquired=true;
     });
     const dailyLimited=c.budget!.calls>=c.budget!.dailyLimit;
@@ -229,10 +268,11 @@ export class WorldService {
       const now=this.clock(),resumeAt=dailyLimited?nextBudgetDay(now):c.usage.calls>=12?c.usage.hourStart+3600000:Math.max(now+10000,c.retryAt);
       return {ready:false,paused:c.paused,retryAfter:Math.max(10,Math.ceil((resumeAt-now)/1000)),limited:dailyLimited||c.usage.calls>=12,limitReason:dailyLimited?'daily':c.usage.calls>=12?'hourly':null,budget:c.budget};
     }
-    return {ready:true,leaseId:c.lease!.id,serverNow:this.clock(),character:{id:c.id,name:c.name,gender:c.gender??'unspecified',profile:c.profile,personalMemory:c.personalMemory??null,place:c.place,moving:!!c.motion,destination:c.motion?.to??null,arrivalAt:c.motion?.endAt??null,activity:c.activity,intention:c.intention,energy:Math.round(c.energy),socialEnabled:!!c.socialEnabled},places:WORLD_PLACES,events:known.filter(e=>e.seq<=c.lease!.observedSeq),newMessages:unread.filter(e=>e.seq>c.lastReadSeq&&e.seq<=c.lease!.observedSeq),nearby:c.socialEnabled&&!c.motion?nearby:[],conversations,newConversations:pending.filter(e=>e.seq>(c.lastSocialSeq??0)&&e.seq<=c.lease!.observedSocialSeq!)};
+    return {ready:true,leaseId:c.lease!.id,serverNow:this.clock(),dayPlan:c.dayPlan??null,planningNeeded:c.dayPlan?.day!==campusDay(this.clock()),...await this.socialContext(c),character:{id:c.id,name:c.name,gender:c.gender??'unspecified',profile:c.profile,personalMemory:c.personalMemory??null,place:c.place,moving:!!c.motion,destination:c.motion?.to??null,arrivalAt:c.motion?.endAt??null,activity:c.activity,intention:c.intention,energy:Math.round(c.energy),socialEnabled:!!c.socialEnabled},places:WORLD_PLACES,events:known.filter(e=>e.seq<=c.lease!.observedSeq),newMessages:unread.filter(e=>e.seq>c.lastReadSeq&&e.seq<=c.lease!.observedSeq),nearby:c.socialEnabled&&!c.motion?nearby:[],conversations,newConversations:pending.filter(e=>e.seq>(c.lastSocialSeq??0)&&e.seq<=c.lease!.observedSocialSeq!)};
   }
   async decide(ownerId:string,leaseId:string,input:unknown,usage:{inputTokens:number;outputTokens:number}){
     const decision=Decision.parse(input);
+    const actor=await this.row(ownerId),pair=decision.speech?await this.pairHistory(actor.id,decision.speech.to):[];
     return this.change(ownerId,(c,events,_row,now,effect)=>{
       if(c.lastDecisionId===leaseId)return;
       if(c.paused||!c.lease||c.lease.id!==leaseId||c.lease.until<=now)throw new WorldError(409,'这次思考已经过期，结果未执行。');
@@ -241,9 +281,13 @@ export class WorldService {
       if(decision.speech){
         if(!c.socialEnabled||c.motion||decision.action!=='stay'||!c.lease.nearbyIds?.includes(decision.speech.to))throw new WorldError(422,'只能与本次观察中同在一个地点的角色交谈。');
         if((c.nextSocialAt??0)>now)throw new WorldError(422,'先给对方一点时间，下次再交谈。');
-        effect.speech={id:crypto.randomUUID(),decisionId:leaseId,to:decision.speech.to,text:decision.speech.text,place:c.place};
+        const dialogue=dialogueState(c.id,decision.speech.to,pair,now);
+        if(decision.speech.kind==='end'?!dialogue.canEnd:!dialogue.canSpeak)throw new WorldError(422,'这段交谈正在等待对方或已经结束，请先继续自己的日常。');
+        effect.speech={id:crypto.randomUUID(),decisionId:leaseId,to:decision.speech.to,text:decision.speech.text,place:c.place,kind:decision.speech.kind,after:pair[0]?.seq??0};
       }
+      try{const update=updateDayPlan(c,decision,now);if(update)events.push({kind:'plan',text:update});}catch(e){throw new WorldError(422,(e as Error).message);}
       applyDecision(c,decision,now,events);
+      if(!c.motion&&c.dayPlan?.day===campusDay(now)){const next=c.dayPlan.items.find(item=>item.status==='pending'&&item.notBefore>now);if(next)c.nextWake=Math.min(c.nextWake,next.notBefore);}
       c.lastSocialSeq=Math.max(c.lastSocialSeq??0,c.lease.observedSocialSeq??0);c.nextSocialAt=now+90000;
       c.lastReadSeq=c.lease.observedSeq;c.lastDecisionId=leaseId;c.lease=null;c.driverError='';c.retryAt=0;
       c.usage.inputTokens+=usage.inputTokens;c.usage.outputTokens+=usage.outputTokens;
