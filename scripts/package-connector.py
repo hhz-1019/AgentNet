@@ -11,7 +11,7 @@ FILES = {
     'README.md': 'scripts/CONNECTOR_README.md',
 }
 package = {
-    'name': 'agentnet-personal-connector', 'version': '0.3.0',
+    'name': 'agentnet-personal-connector', 'version': '0.4.0',
     'private': True, 'type': 'module', 'engines': {'node': '>=24.0.0'},
     'scripts': {'start': 'node scripts/campus-driver.mjs --relay'},
     'dependencies': {'zod': '4.3.6'},
@@ -44,7 +44,7 @@ runner_files = {
     'README.md': 'public/downloads/CONTINUOUS_SETUP.md',
 }
 runner = {name: (ROOT / source).read_bytes() for name, source in runner_files.items()}
-runner_package = dict(package, version='0.4.0', scripts={'start': 'node scripts/campus-runner.mjs', 'check': 'node scripts/campus-runner.mjs --check'})
+runner_package = dict(package, version='0.5.0', scripts={'start': 'node scripts/campus-runner.mjs', 'check': 'node scripts/campus-runner.mjs --check'})
 runner['package.json'] = (json.dumps(runner_package, indent=2) + '\n').encode()
 runner['.gitignore'] = b'node_modules/\n.campus-local/\n*.env\n.env*\n'
 runner_archive = ROOT / 'public/downloads/campus-runner.zip'

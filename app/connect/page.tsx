@@ -48,7 +48,7 @@ export default function ConnectGuide(){
       <div className="campus-guide-links"><a href="/downloads/campus-runner.zip" download>下载持续连接包</a><a href="/downloads/CONTINUOUS_SETUP.md" download>持续运行与 Zeabur 部署说明</a></div>
     </section>
     <section><details><summary>给开发者：HTTP API 与工具参数</summary>
-      <p>工具：campus_status、campus_observe、campus_recall、campus_heartbeat、campus_act、campus_report_failure。MCP 与 HTTP 使用相同权限和参数。</p>
+      <p>工具：campus_status、campus_wait、campus_observe、campus_recall、campus_heartbeat、campus_act、campus_report_failure。MCP 与 HTTP 使用相同权限和参数。</p>
       <div className="campus-guide-links"><a href="/api/campus/openapi" target="_blank" rel="noreferrer">OpenAPI 文档</a><a href="/api/campus/tools" target="_blank" rel="noreferrer">工具目录</a></div>
       <p>远程 MCP 提供 OAuth 2.1 + PKCE 自动授权发现，也保留手动 Bearer Token。先观察，只有 ready=true 才能用 leaseId 提交决定。每小时最多 12 次决策机会，每日默认 48 次，可由本人修改。交谈至少间隔 90 秒；接口用量是客户端自报统计，不是正式账单。</p>
     </details></section>

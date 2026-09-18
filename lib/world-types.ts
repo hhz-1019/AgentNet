@@ -1,7 +1,10 @@
 import type { MapPoint, WorldPlace } from './world-map.ts';
 import type { GENDER_LABELS, PersonalMemory } from './personal-memory.ts';
 
-export type WorldEvent = { id:string; seq:number; at:number; kind:'human'|'reply'|'arrival'|'departure'|'activity'|'memory'|'connection'|'profile'; text:string; sources:string[] };
+export type WorldEvent = { id:string; seq:number; at:number; kind:'human'|'reply'|'arrival'|'departure'|'activity'|'memory'|'connection'|'profile'|'plan'; text:string; sources:string[] };
+export type DayPlan = {day:string;updatedAt:number;items:{place:WorldPlace;activity:string;notBefore:number;intention:string;status:'pending'|'completed'|'skipped'}[]};
+export type Relationship = {id:string;name:string;sent:number;received:number;firstAt:number;lastAt:number};
+export type Dialogue = {withId:string;status:'waiting'|'active'|'ended'|'expired';turns:number;canSpeak:boolean;canEnd:boolean;resumeAt:number;sourceIds:string[]};
 export type Character = {
   id:string; name:string; profile:string; createdAt:number;
   gender?:keyof typeof GENDER_LABELS; personalMemory?:PersonalMemory|null;
@@ -13,7 +16,8 @@ export type Character = {
   lease:null|{ id:string; until:number; observedSeq:number; sourceIds:string[]; observedSocialSeq?:number; nearbyIds?:string[] };
   lastDecisionId:string; usage:{ hourStart:number; calls:number; inputTokens:number; outputTokens:number };
   budget?:{dailyLimit:number;day:string;calls:number};
+  dayPlan?:DayPlan|null;
 };
 export type Neighbor = { id:string; name:string; place:WorldPlace; activity:string; connected:boolean };
-export type Conversation = { id:string; seq:number; at:number; place:WorldPlace; speakerId:string; speakerName:string; recipientId:string; recipientName:string; text:string };
-export type WorldView = { serverNow:number; account:string; authMode?:'email'|'campus'|'legacy'; agentAuthorized?:boolean; agentExpiresAt?:number|null; character:Omit<Character,'lease'|'lastDecisionId'>|null; events:WorldEvent[]; connected:boolean; nearby:Neighbor[]; conversations:Conversation[] };
+export type Conversation = { id:string; seq:number; at:number; place:WorldPlace; speakerId:string; speakerName:string; recipientId:string; recipientName:string; text:string;kind?:'message'|'end' };
+export type WorldView = { serverNow:number; account:string; authMode?:'email'|'campus'|'legacy'; agentAuthorized?:boolean; agentExpiresAt?:number|null; character:Omit<Character,'lease'|'lastDecisionId'>|null; events:WorldEvent[]; connected:boolean; nearby:Neighbor[]; conversations:Conversation[];relationships?:Relationship[];dialogues?:Dialogue[] };

@@ -23,7 +23,7 @@ async function json(url,options={}){
   if(!r.headers.get('content-type')?.includes('application/json'))throw new Error('接口未返回 JSON，请检查域名访问限制。');return r.json();
 }
 export async function run(config,{check=false,resume=false,signal=new AbortController().signal,log=console.log}={}){
-  const call=(name,args={})=>json(config.site+'/api/campus/tools/'+name,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.token},body:JSON.stringify(args),signal:AbortSignal.any([signal,AbortSignal.timeout(20000)])});
+  const call=(name,args={})=>json(config.site+'/api/campus/tools/'+name,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.token},body:JSON.stringify(args),signal:AbortSignal.any([signal,AbortSignal.timeout(name==='campus_wait'?35000:20000)])});
   const catalog=await json(config.site+'/api/campus/tools'),status=await call('campus_status');
   for(const name of ['campus_observe','campus_act','campus_recall','campus_heartbeat'])if(!catalog.tools?.some(t=>t.name===name))throw new Error('校园版本缺少 '+name+'，请先更新校园。');
   if(!status.character?.id)throw new Error('没有找到已授权角色。');
@@ -32,6 +32,7 @@ export async function run(config,{check=false,resume=false,signal=new AbortContr
   if(resume)ledger.resume();
   const parameters=structuredClone(catalog.tools.find(t=>t.name==='campus_act').inputSchema);delete parameters.$schema;delete parameters.properties.usage;
   const deadline=config.continuous?Infinity:Date.now()+config.minutes*60000;
+  const eventWaiting=catalog.tools.some(t=>t.name==='campus_wait');
   const wait=async seconds=>{await sleep(Math.min(60,Math.max(1,seconds))*1000,undefined,{signal}).catch(e=>{if(!signal.aborted)throw e;});};
   const keepLock=setInterval(()=>{try{ledger.save();}catch{log('运行锁失效，请停止并检查是否有另一个实例。');}},25000);
   let activeLease=null;
@@ -49,6 +50,13 @@ export async function run(config,{check=false,resume=false,signal=new AbortContr
         if(!config.continuous||ledger.state.totalTokens>=config.limits.totalTokens){log('已达运行预算，停止模型调用。');break;}await wait(60);continue;
       }
       let observation;
+      if(eventWaiting){
+        let wake;
+        try{wake=await call('campus_wait',{clientName:config.clientName,timeoutSeconds:Math.min(25,Math.max(0,Math.floor((deadline-Date.now())/1000)))});}
+        catch(e){if(signal.aborted)break;if(e.status&&e.status<500&&e.status!==429)throw e;await wait(30);continue;}
+        if(signal.aborted||Date.now()>=deadline)break;
+        if(!wake.ready){if(wake.paused&&!config.continuous)break;if(wake.paused||wake.limited||wake.retryAfter>1)await wait(wake.retryAfter>1?wake.retryAfter:30);continue;}
+      }
       try{observation=await call('campus_observe',{clientName:config.clientName,runForSeconds:config.continuous?300:Math.max(60,Math.ceil((deadline-Date.now())/1000))});}
       catch(e){if(e.status&&e.status<500&&e.status!==429)throw e;await wait(30);continue;}
       if(!observation.ready){if(observation.paused&&!config.continuous)break;await wait(observation.retryAfter??30);continue;}
@@ -83,7 +91,7 @@ export async function run(config,{check=false,resume=false,signal=new AbortContr
         const action={leaseId:activeLease,decision:result.decision,usage:result.usage};
         ledger.settle(result.usage,action);
         if(!result.decision||modelSignal.aborted||ledger.state.halt){ledger.complete();await call('campus_report_failure',{leaseId:activeLease,message:'本轮未返回有效决定或已停止，角色不执行新行动。'}).catch(()=>{});}
-      }catch(e){
+      }catch{
         // A timeout, process crash or lost provider response cannot prove zero spend.
         ledger.halt('本轮模型调用未能确认完成，保留预留用量并停止。核对后用 --resume 继续。');
         await call('campus_report_failure',{leaseId:activeLease,message:'模型调用中断，连接程序等待本人核查。'}).catch(()=>{});
