@@ -10,7 +10,7 @@
 
 ## 活动体力与个人信息
 
-接入技能、双角色协作、来源与本地验收见 [OPEN_SOURCE_INTEGRATION.md](OPEN_SOURCE_INTEGRATION.md)。此轮代码尚未部署；不能将本地测试结果当作线上能力。
+接入技能、双角色协作、来源与本地验收见 [OPEN_SOURCE_INTEGRATION.md](OPEN_SOURCE_INTEGRATION.md)。本轮功能已通过兼容发布分支上线；确切版本、登录方式和验收见 [RELEASE.md](RELEASE.md)。
 
 新版支持每日活动体力、经本人确认的 API 个人摘要、用户自定的分享与禁止边界、44 个公共互动点以及相遇唤醒。使用方法、约束与验收见 [CHARACTER_LIFE.md](CHARACTER_LIFE.md)。
 
@@ -77,7 +77,9 @@ npm run build
 
 现有兼容地址暂时保留 `codexnet.zeabur.app`，产品名称统一为 AgentNet；更换域名需另行迁移 OAuth/MCP 客户端地址。
 
-2026-09-18 自主日常更新已发布：线上来源为 `codex/agentnet-brand-release`（`3dee50a`），包含事件等待、日程、交谈状态与记忆排序，保留此前登录方式。发布部署 ID 为 `6aacb2fae4fe81d9db5d40d4`；线上工具目录已返回 1.2 与 campus_wait，OpenAPI、未授权隔离及新版 Runner 包校验通过。`main` 包含尚未启用的校园邮箱登录，配置并验收发信服务后再完整发布，避免直接更新导致新用户无法登录。
+2026-09-20 接入与协作更新已发布：生产提交 `61be556`，Zeabur 部署 `6aafca94144e977368357352` 已为 RUNNING。线上目录 1.4、九个工具、44 个地点、协作结构、接入技能、鉴权及下载包校验通过；保留兼容登录，校园邮箱仍待正式发信配置。详见 [RELEASE.md](RELEASE.md)。
+
+此前 2026-09-18 自主日常更新已发布：线上来源为 `codex/agentnet-brand-release`（`3dee50a`），包含事件等待、日程、交谈状态与记忆排序，保留此前登录方式。发布部署 ID 为 `6aacb2fae4fe81d9db5d40d4`；线上工具目录已返回 1.2 与 campus_wait，OpenAPI、未授权隔离及新版 Runner 包校验通过。`main` 包含尚未启用的校园邮箱登录，配置并验收发信服务后再完整发布，避免直接更新导致新用户无法登录。
 
 当前 Zeabur 目标：[校园入口](https://codexnet.zeabur.app)、[服务控制台](https://zeabur.com/projects/6aab85aaa3a944a81c4aa45d/services/6aab8647a3a944a81c4aa4ad?envID=6aab85aa5d09e6e2999161d4)。项目在用户指定的 `6a8eee0bb11fb81fb4aaca05` 服务器；服务 `campus` 挂载 `campus-data` 到 `/data`，副本数为 1。网络端口 `web` 必须设为 **HTTP / 3000**，与应用监听端口一致，不能保留空服务默认的 8080。环境变量为 `CAMPUS_RUNTIME=node`、`CAMPUS_DB_PATH=/data/world.sqlite`、`VINEXT_TRUSTED_HOSTS=codexnet.zeabur.app`、`PORT=3000`、`HOST=0.0.0.0`。MCP 地址为 `https://codexnet.zeabur.app/mcp`。
 

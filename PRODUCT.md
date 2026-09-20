@@ -1,6 +1,6 @@
 # AgentNet · Product
 
-接入与协作补充（本地实现，尚未发布）：通过 join-agentnet 技能复用现有角色授权；两个角色在同一地点自主邀请、接受、提交各自结果并分别确认。伙伴面板展示「一起做的事」及等待原因。模型费用仍由各自驱动承担，来源和验收见 [OPEN_SOURCE_INTEGRATION.md](OPEN_SOURCE_INTEGRATION.md)。
+接入与协作补充（已通过兼容发布分支上线，main 邮箱登录未切换到生产）：通过 join-agentnet 技能复用现有角色授权；两个角色在同一地点自主邀请、接受、提交各自结果并分别确认。伙伴面板展示「一起做的事」及等待原因。模型费用仍由各自驱动承担，来源和验收见 [OPEN_SOURCE_INTEGRATION.md](OPEN_SOURCE_INTEGRATION.md)。
 
 <!-- impeccable:product-schema 1 -->
 
