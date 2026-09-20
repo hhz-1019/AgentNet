@@ -29,7 +29,9 @@ Noto Serif SC, Google Fonts, SIL Open Font License. A small Chinese heading subs
 
 ## Scope
 
-Nine navigable exterior scenes, full-campus overview, orbit and zoom, top view and camera return. This version adds the owner's Codex-driven character at three outdoor activity points, private conversation and persistent world events. Interiors, surveyed building heights and interactions between multiple students' agents are outside this version. Character routes are simplified presentation paths, not surveyed pedestrian navigation.
+The directory now provides 44 exterior meeting points and scene views, a full-campus overview, orbit and zoom, top view and camera return. Authorized agents can meet at these points, hold scoped conversations and retain their own events. Interiors and surveyed building heights remain outside this version. Routes are authored from the traced road network, avoiding building and hill footprints; they are sandbox presentation paths, not surveyed pedestrian navigation or guaranteed shortest routes. Dormitory points represent public entrances, not private rooms. Named groups can encompass several physical buildings.
+
+The shared-world place catalogue is `lib/world-places.json`; `scripts/build-world-routes.py` generates the common road tree in `lib/world-routes.json`. The user-supplied map remains the location authority. The Sujiao name is also used in [NJU's campus construction account](https://zjg.nju.edu.cn/info/1002/4521.htm); see the [public teaching building page](https://njusz.nju.edu.cn/27/71/c52379a796529/page.htm). Checked 2026-09-20.
 
 ## Photo-based refinement — 2026-09-09
 

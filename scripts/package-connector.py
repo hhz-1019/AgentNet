@@ -8,6 +8,9 @@ FILES = {
     'scripts/campus-driver.mjs': 'scripts/campus-driver.mjs',
     'scripts/campus-relay.mjs': 'scripts/campus-relay.mjs',
     'lib/world-decision.ts': 'lib/world-decision.ts',
+    'lib/character-settings.ts': 'lib/character-settings.ts',
+    'lib/world-collaboration.ts': 'lib/world-collaboration.ts',
+    'lib/world-places.json': 'lib/world-places.json',
     'README.md': 'scripts/CONNECTOR_README.md',
 }
 package = {
@@ -35,17 +38,23 @@ with zipfile.ZipFile(archive) as bundle:
 print(f'Personal connector: {len(contents)} reviewed files, {archive.stat().st_size} bytes; no credentials or local state.')
 
 runner_files = {
+    'lib/world-collaboration.ts': 'lib/world-collaboration.ts',
     'scripts/campus-runner.mjs': 'scripts/campus-runner.mjs',
     'scripts/runner-ledger.mjs': 'scripts/runner-ledger.mjs',
     'scripts/campus-driver.mjs': 'scripts/campus-driver.mjs',
     'scripts/campus-relay.mjs': 'scripts/campus-relay.mjs',
     'lib/world-decision.ts': 'lib/world-decision.ts',
+    'lib/character-settings.ts': 'lib/character-settings.ts',
+    'lib/world-places.json': 'lib/world-places.json',
     'Dockerfile': 'Dockerfile.runner',
     'README.md': 'public/downloads/CONTINUOUS_SETUP.md',
 }
 runner = {name: (ROOT / source).read_bytes() for name, source in runner_files.items()}
 runner_package = dict(package, version='0.5.0', scripts={'start': 'node scripts/campus-runner.mjs', 'check': 'node scripts/campus-runner.mjs --check'})
 runner['package.json'] = (json.dumps(runner_package, indent=2) + '\n').encode()
+source_lock=json.loads((ROOT/'package-lock.json').read_text(encoding='utf-8'))
+runner_lock={'name':runner_package['name'],'version':runner_package['version'],'lockfileVersion':3,'requires':True,'packages':{'':{k:runner_package[k] for k in ('name','version','dependencies','engines')},'node_modules/zod':source_lock['packages']['node_modules/zod']}}
+runner['package-lock.json']=(json.dumps(runner_lock,indent=2)+'\n').encode()
 runner['.gitignore'] = b'node_modules/\n.campus-local/\n*.env\n.env*\n'
 runner_archive = ROOT / 'public/downloads/campus-runner.zip'
 with zipfile.ZipFile(runner_archive, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Compass, ExternalLink, Focus, Info, Layers2, MapPin, MessageCircle, Minus, Mountain, MoveUpRight, Plus, RotateCcw, Trees, Waves } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { LOCATIONS, type LocationId } from '@/lib/campus-data';
@@ -13,6 +14,7 @@ export default function Home() {
   const [selected, setSelected] = useState<LocationId | null>(null);
   const [topView, setTopView] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(true);
+  const [placeQuery,setPlaceQuery]=useState('');
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const controls = useRef<CampusControls | null>(null);
@@ -24,6 +26,8 @@ export default function Home() {
     window.history.replaceState(null, '', id ? `#${id}` : window.location.pathname);
   }, []);
   useEffect(() => {
+    // Restore the explicitly requested panel from external URL state after hydration.
+    // oxlint-disable-next-line react/react-compiler
     if(new URLSearchParams(window.location.search).get('connect')==='1')setCompanionOpen(true);
     const media = window.matchMedia('(min-width: 761px)');
     const syncDirectory = () => setDirectoryOpen(media.matches);
@@ -66,17 +70,17 @@ export default function Home() {
         <Collapsible className="directory" open={directoryOpen} onOpenChange={setDirectoryOpen}>
           <div className="directory-caption"><h2 id="locations">地点目录</h2><span>{LOCATIONS.length} 处地点</span></div>
           <CollapsibleTrigger render={<Button variant="ghost" className="mobile-directory-trigger" />}><Layers2 size={17} /><span>{location ? location.name : '探索校园地点'}</span>{directoryOpen ? <ChevronDown size={17} /> : <ChevronUp size={17} />}</CollapsibleTrigger>
-          <CollapsibleContent className="directory-list" keepMounted><nav aria-label="校园地点">{LOCATIONS.map((place) => <Button key={place.id} variant="ghost" className={`location-row ${selected === place.id ? 'is-selected' : ''}`} onClick={() => select(place.id)} aria-current={selected === place.id ? 'location' : undefined}>
+          <CollapsibleContent className="directory-list" keepMounted><label htmlFor="place-query" className="sr-only">搜索校园地点</label><Input id="place-query" type="search" placeholder="搜索宿舍、运动场、教学楼…" value={placeQuery} onChange={e=>setPlaceQuery(e.target.value)} maxLength={60}/><nav aria-label="校园地点">{LOCATIONS.filter(p=>(p.name+p.zone+p.description).includes(placeQuery.trim())).map((place) => <Button key={place.id} variant="ghost" className={`location-row ${selected === place.id ? 'is-selected' : ''}`} onClick={() => select(place.id)} aria-current={selected === place.id ? 'location' : undefined}>
             <span className={`location-symbol ${place.type === '自然景观' ? 'is-nature' : ''}`}>{place.id === 'hill' ? <Mountain size={17} /> : place.id === 'riverside' ? <Waves size={17} /> : <MapPin size={17} />}</span>
             <span className="location-row-copy"><span>{place.name}</span><small>{place.zone}</small></span><MoveUpRight size={14} className="location-arrow" />
-          </Button>)}</nav></CollapsibleContent>
+          </Button>)}</nav>{!LOCATIONS.some(p=>(p.name+p.zone+p.description).includes(placeQuery.trim()))&&<output>没有找到这个地点，试试建筑名称或东区、西区。</output>}</CollapsibleContent>
         </Collapsible>
         <div className="sidebar-footer"><Trees size={18} strokeWidth={1.4} /><p>依山而建，向水而生。<span>庄里山 · 九曲河</span></p></div>
       </aside>
       <section className={`map-stage ${location ? 'scene-mode' : ''}`} aria-label={location ? `${location.name}三维场景` : '苏州校区三维地图'}>
         <CampusCanvas selected={selected} topView={topView} controlsRef={controls} onSelect={select} onReady={() => setReady(true)} onError={setError} companion={world.view} onCompanionClick={()=>setCompanionOpen(true)} />
         <div className="map-topline"><div className="map-breadcrumb"><span>苏州校区</span><span className="breadcrumb-slash">/</span><strong>{location ? location.name : '全景地图'}</strong></div><span className="model-caption">AgentNet</span></div>
-        {!ready && !error && <div className="loading-state" role="status"><span className="loading-orbit" /><p>正在展开校园</p><small>山、水与建筑，即将呈现</small></div>}
+        {!ready && !error && <output className="loading-state"><span className="loading-orbit" /><p>正在展开校园</p><small>山、水与建筑，即将呈现</small></output>}
         {error && <div className="canvas-error" role="alert"><Mountain size={36} strokeWidth={1} /><h2>三维视图暂时无法打开</h2><p>{error}</p><Button onClick={() => window.location.reload()}>重新加载</Button><a href="https://zcc.nju.edu.cn/dzdt/szxqdt/index.html" target="_blank" rel="noreferrer">查看官方校园地图 <ExternalLink size={14} /></a></div>}
         <div className="view-toolbar" aria-label="视角控制"><Button variant="ghost" className={!topView ? 'active-view' : ''} onClick={() => setTopView(false)} disabled={!ready} aria-pressed={!topView}><Layers2 size={16} />立体</Button><Button variant="ghost" className={topView ? 'active-view' : ''} onClick={() => setTopView(true)} disabled={!ready} aria-pressed={topView}><ArrowDownLeft size={16} />俯视</Button></div>
         <div className="map-compass" aria-label="北向指示"><span>N</span><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20" /><g id="compass-needle"><path d="M22 7 28 26 22 23Z" /><path d="M22 7 16 26 22 23Z" /></g></svg></div>

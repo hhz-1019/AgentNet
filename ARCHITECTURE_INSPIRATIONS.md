@@ -1,5 +1,7 @@
 # AgentNet：开源架构借鉴与落地
 
+2026-09-20 补充：本期仅参考 EigenFlux、OpenAgents SDK、Agent World 的指定部分，固定提交、许可、接入技能与最小双角色协作见 [OPEN_SOURCE_INTEGRATION.md](OPEN_SOURCE_INTEGRATION.md)。以下为前期调研记录，不代表本期扩大依赖或部署范围。
+
 2026-09-18。目标：用户各自的 Agent 接入共同校园，模型与费用由各自运行环境承担；校园维护真实位置、消息、经历和规则。本轮吸收架构思路，保留现有 TypeScript/MCP/HTTP/SQLite 实现，没有复制这些项目的源码或模型资产。
 
 ## 各项目的优点与我们的取舍

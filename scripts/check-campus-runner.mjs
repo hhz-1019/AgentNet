@@ -12,7 +12,7 @@ const directory=await mkdtemp(path.join(tmpdir(),'campus-runner-')),db=sqliteSto
 const token='c'.repeat(64),modelKey='LOCAL-PROVIDER-ONLY';
 const world=()=>new WorldService(db);await world().create('runner','本地运行验证');await world().issueAgentToken('runner',token);
 await world().message('runner','请回想之前的校园生活。',crypto.randomUUID());
-let modelCalls=0,dropResponse=true,missingUsage=false;
+let modelCalls=0,dropResponse=true,missingUsage=false,budgetHeartbeat;
 const serve=async handler=>{const s=createServer(handler);await new Promise(r=>s.listen(0,'127.0.0.1',r));return s;};
 const campus=await serve(async(req,res)=>{
   try{
@@ -20,6 +20,7 @@ const campus=await serve(async(req,res)=>{
     if(req.method==='GET'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(toolCatalog()));return;}
     assert.equal(req.headers.authorization,'Bearer '+token);let raw='';for await(const chunk of req)raw+=chunk;
     assert(!raw.includes(modelKey));const w=world(),owner=await w.driverOwner(token),value=await runCampusTool(w,owner,name,JSON.parse(raw));
+    if(name==='campus_heartbeat'&&JSON.parse(raw).mode==='model_budget')setTimeout(()=>budgetHeartbeat?.abort(),20);
     if(name==='campus_act'&&dropResponse){dropResponse=false;res.writeHead(503);res.end('simulated lost response after commit');return;}
     res.setHeader('Content-Type','application/json');res.end(JSON.stringify(value));
   }catch(e){res.writeHead(e.status??500,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'test request failed'}));}
@@ -42,6 +43,19 @@ try{
   await run(config,{log});assert.equal(modelCalls,1,'Restart does not clear the call budget');
   await world().message('runner','第二次真实输入',crypto.randomUUID());missingUsage=true;
   const unknown=configuration({...env,RUNNER_DATA_DIR:path.join(directory,'unknown')});await run(unknown,{log});assert.equal(modelCalls,2);await run(unknown,{log});assert.equal(modelCalls,2,'Missing provider usage leaves a persistent stop');
+  // Continuous mode recovers a lost accepted-action response in the same process.
+  await world().message('runner','测试持续连接自动恢复',crypto.randomUUID());missingUsage=false;dropResponse=true;
+  await world().change('runner',c=>{c.retryAt=0;}); // End the previous fixture's deliberate failure backoff.
+  const continuous=configuration({...env,RUN_MODE:'continuous',RUNNER_DATA_DIR:path.join(directory,'continuous')});
+  const abort=new AbortController(),watchdog=setTimeout(()=>abort.abort(),15000);
+  try{await run(continuous,{signal:abort.signal,log:m=>{log(m);if(m==='已提交保存的决定。')abort.abort();}});}finally{clearTimeout(watchdog);}
+  assert.equal(modelCalls,3,'Automatic submission retry does not repeat the model call');
+  assert(logs.some(m=>m.includes('行动提交暂时中断')),'Transient submission failure automatically recovers');
+  assert.equal((await world().view('runner')).events.filter(e=>e.kind==='reply').length,2);
+  budgetHeartbeat=new AbortController();const budgetTimeout=setTimeout(()=>budgetHeartbeat.abort(),10000);
+  try{await run(continuous,{signal:budgetHeartbeat.signal,log});}finally{clearTimeout(budgetTimeout);}
+  assert.equal((await world().view('runner')).character.driverMode,'model_budget','A waiting runner remains visibly online without model calls');
+  assert.equal(modelCalls,3);
   await world().disconnect('runner');await assert.rejects(()=>run(config,{check:true,log}),e=>e.status===401);
   assert(!logs.join('').includes(modelKey));assert(!logs.join('').includes(token));
   console.log('PASS: real HTTP runner with a local provider, read-only preflight, history context, isolated credentials, model-response accounting, committed action recovery, no double model call/action, restart budget, missing usage stop and revocation. No paid models used.');

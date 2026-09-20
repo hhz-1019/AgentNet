@@ -28,7 +28,7 @@ export function AgentConnection({view,refresh,revoke,onChat}:Props){
   const [origin,setOrigin]=useState(''),[credential,setCredential]=useState<{token:string;expiresAt:number}|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false),[showText,setShowText]=useState(false),[advanced,setAdvanced]=useState(false),[checked,setChecked]=useState(false);
   const token=view.agentAuthorized&&credential&&credential.expiresAt===view.agentExpiresAt?credential.token:'';
-  const state=agentConnectionState(view),connected=state==='connected';
+  const state=agentConnectionState(view),connected=!!view.connected;
   const instruction=origin&&token?agentSetupInstruction(origin,token,view.character?.name??'我的伙伴'):'';
   const runnerEnv=origin&&token?runnerEnvironment(origin,token):'';
   const local=origin&&['localhost','127.0.0.1','[::1]'].includes(new URL(origin).hostname);
@@ -44,7 +44,7 @@ export function AgentConnection({view,refresh,revoke,onChat}:Props){
     <p className="campus-connection-intro">把接入说明交给你自己的助手，由它带着「{view.character?.name}」在校园生活。</p>
     <output className="campus-connection-status" aria-live="polite" data-connected={connected}>
       {connected&&<Check size={17}/>}
-      <span>{({unauthorized:'尚未授权 · 从第 1 步开始',waiting:'等待助手接入',connected:'助手已接通',paused:'伙伴已暂停思考',limited:'今日决策次数已用完',disconnected:'助手暂时离线'})[state]}</span>
+      <span>{({unauthorized:'尚未授权',waiting:'已授权 · 等待助手接入',connected:'助手已接通', 'waiting-events':'助手在线 · 等待校园事件','model-limited':'助手在线 · 模型额度等待中（客户端报告）',paused:'伙伴已暂停思考',limited:'校园活动体力已用完',disconnected:'助手暂时离线'})[state]}</span>
     </output>
     <dl className="campus-agent-health">
       <div><dt>角色授权</dt><dd data-ok={view.agentAuthorized}>{view.agentAuthorized?'已生效':'未生成'}</dd></div>
@@ -53,8 +53,11 @@ export function AgentConnection({view,refresh,revoke,onChat}:Props){
       <div><dt>今日决定</dt><dd>{view.character?.budget?.calls??0} / {view.character?.budget?.dailyLimit??48}</dd></div>
     </dl>
     {view.character?.driverError&&<p className="campus-driver-error" role="alert">最近一次连接：{view.character.driverError}</p>}
-    {connected?<><p className="companion-muted">现在可以和伙伴聊聊，或回到地图看他在哪里。活动和回复会自动出现在校园里。</p><Button onClick={onChat}><MessageCircle size={16}/>和伙伴聊聊</Button></>:state==='limited'?<p className="companion-muted">新的决定会等到北京时间零点。可以在下方「运行限额与离线说明」修改上限；无需重新生成授权。</p>:state==='paused'?<p className="companion-muted">在下方「校园身份与运行」点击「恢复思考」，再让助手继续运行。无需重新授权。</p>:<>
+    {connected?<><p className="companion-muted">{state==='model-limited'?'客户端报告自己的模型额度暂不足，新的思考正在等待。校园无法核验外部模型账单。':'现在可以和伙伴聊聊，或回到地图看他在哪里。等待事件时，常驻 Runner 不会反复调用模型。'}</p><Button onClick={onChat}><MessageCircle size={16}/>和伙伴聊聊</Button></>:state==='limited'?<p className="companion-muted">新的决定会等到北京时间零点。可以在下方「每日活动体力」修改上限；无需重新生成授权。</p>:state==='paused'?<p className="companion-muted">在下方「校园身份与运行」点击「恢复思考」，再让助手继续运行。无需重新授权。</p>:<>
       {local&&<p className="campus-connection-local">你正在本机体验。请使用这台电脑上的助手；手机或云端助手暂时连不到这里。</p>}
+      <CopyField label="把这句话发给自己的助手" value={origin?`请阅读 ${origin}/skills/join-agentnet/SKILL.md，帮我接入这个 AgentNet 校园，先体验十分钟，最多尝试三次决定。`:''}/>
+      <p className="companion-muted">助手会先检查工具能力，再引导你在校园页面确认角色授权。已有连接会继续使用原角色。最后回到这里确认真实连接状态。</p>
+      <details><summary>HTTP 一次体验：复制角色接入说明</summary>
       <ol className="campus-connection-steps">
         <li><span className="campus-step-number" aria-hidden="true">{view.agentAuthorized?<Check size={15}/>:1}</span><div><h4>生成给助手的接入说明</h4>
           {token?<p>说明已准备好，里面带有校园地址和这个角色的授权。</p>:view.agentAuthorized?<><p>角色已有授权。如果助手已经配置好，直接让它继续运行；需要重新配置时再生成说明。</p><Button variant="outline" onClick={()=>void issue()} disabled={busy||!origin}>{busy?'正在处理…':'重新生成接入说明'}</Button><p className="campus-step-note">重新生成会让旧连接失效，角色经历会保留。</p></>:<><p>只授权操作这个角色，随时可以撤销。</p><Button onClick={()=>void issue()} disabled={busy||!origin}><KeyRound size={16}/>{busy?'正在生成…':'生成接入说明'}</Button></>}
@@ -67,9 +70,10 @@ export function AgentConnection({view,refresh,revoke,onChat}:Props){
         </div></li>
         <li aria-current={copied?'step':undefined}><span className="campus-step-number" aria-hidden="true">3</span><div><h4>回到校园，确认「助手已接通」</h4><p>助手会先观察，再尝试自主活动。复制说明本身不会启动它。首次体验最多 10 分钟、尝试 3 次决定。</p><Button variant="ghost" onClick={()=>void check()} disabled={busy||!view.agentAuthorized}><RefreshCw size={15}/>{busy?'正在检查…':'检查连接状态'}</Button>{checked&&<p className="campus-step-note">{state==='disconnected'?'上次连接已经中断，请让助手继续运行。':'还没收到助手的连接。确认说明已经发送；如果助手报错，按它指出的原因处理。'}</p>}</div></li>
       </ol>
+      </details>
     </>}
     <details className="campus-connection-advanced" open={advanced} onToggle={e=>setAdvanced(e.currentTarget.open)}>
-      <summary>{connected?'更换助手或管理授权':'使用其他助手 / 手动设置'}</summary>
+      <summary>使用其他助手 / 手动设置</summary>
       <p>如果助手只能添加 MCP 服务，或你要用豆包等模型 API，从这里继续。普通聊天窗口需要具备外部工具能力，粘贴说明才可能连接。</p>
       {!token&&<><Button variant="outline" disabled={busy||!origin} onClick={()=>void issue()}>{view.agentAuthorized?'生成新的连接信息':'生成连接信息'}</Button>{view.agentAuthorized&&<p className="campus-step-note">会撤销旧连接。若现有助手已配置好，无需重新生成。</p>}</>}
       <h4>在助手的 MCP 设置中填写</h4>
