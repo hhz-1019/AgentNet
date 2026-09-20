@@ -1,10 +1,10 @@
 'use client';
-import { useEffect,useState } from 'react';
-import { Check,Cloud,Copy,KeyRound,Link2,MessageCircle,RefreshCw } from 'lucide-react';
+import { useEffect,useId,useState } from 'react';
+import { Check,Cloud,Copy,Eye,EyeOff,KeyRound,Link2,MessageCircle,RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { agentConnectionState,agentSetupInstruction,runnerEnvironment } from '@/lib/agent-onboarding';
+import { CONNECTION_LABELS,agentConnectionState,agentSetupInstruction,runnerEnvironment } from '@/lib/agent-onboarding';
 import type { WorldView } from '@/lib/world-types';
 
 export async function campusAccount(command:unknown){
@@ -13,9 +13,9 @@ export async function campusAccount(command:unknown){
   const data=await response.json() as {error?:string;token?:string;recoveryKey?:string;expiresAt?:number};if(!response.ok)throw new Error(data.error??'暂时无法完成，请重试。');return data;
 }
 export function CopyField({label,value,secret=false}:{label:string;value:string;secret?:boolean}){
-  const [notice,setNotice]=useState('');
+  const id=useId(),[notice,setNotice]=useState(''),[revealed,setRevealed]=useState(false);
   async function copy(){try{await navigator.clipboard.writeText(value);setNotice('已复制');}catch{setNotice('复制失败，请选中内容手动复制。');}}
-  return <div className="campus-copy-field"><label>{label}<span><Input aria-label={label} type={secret?'password':'text'} value={value} readOnly autoComplete="off" spellCheck={false}/><Button variant="outline" onClick={()=>void copy()} disabled={!value} aria-label={'复制'+label}><Copy size={14}/></Button></span></label>{notice&&<output aria-live="polite">{notice}</output>}</div>;
+  return <div className="campus-copy-field"><label htmlFor={id}>{label}</label><div className="campus-copy-controls"><Input id={id} type={secret&&!revealed?'password':'text'} value={value} readOnly autoComplete="off" spellCheck={false} onFocus={e=>e.currentTarget.select()}/>{secret&&<Button variant="outline" onClick={()=>setRevealed(!revealed)} aria-label={(revealed?'隐藏':'显示')+label}>{revealed?<EyeOff size={14}/>:<Eye size={14}/>}</Button>}<Button variant="outline" onClick={()=>void copy()} disabled={!value} aria-label={'复制'+label}><Copy size={14}/></Button></div>{notice&&<output aria-live="polite">{notice}{secret&&notice.startsWith('复制失败')?' 可点击眼睛按钮显示内容。':''}</output>}</div>;
 }
 function CopyBlock({label,value}:{label:string;value:string}){
   const [notice,setNotice]=useState('');
@@ -23,10 +23,11 @@ function CopyBlock({label,value}:{label:string;value:string}){
   return <div className="campus-copy-block"><p>{label}</p><Textarea aria-label={label} readOnly value={value} onFocus={e=>e.currentTarget.select()}/><Button variant="outline" onClick={()=>void copy()} disabled={!value}><Copy size={14}/>复制全部变量</Button>{notice&&<output aria-live="polite">{notice}</output>}</div>;
 }
 
-type Props={view:WorldView;refresh:()=>Promise<unknown>;revoke:()=>Promise<unknown>;onChat:()=>void};
-export function AgentConnection({view,refresh,revoke,onChat}:Props){
+type Props={view:WorldView;refresh:()=>Promise<unknown>;revoke:()=>Promise<unknown>;onChat:()=>void;onResume:()=>Promise<unknown>;onBudget:()=>void};
+export function AgentConnection({view,refresh,revoke,onChat,onResume,onBudget}:Props){
   const [origin,setOrigin]=useState(''),[credential,setCredential]=useState<{token:string;expiresAt:number}|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false),[showText,setShowText]=useState(false),[advanced,setAdvanced]=useState(false),[checked,setChecked]=useState(false);
+  const [confirmReplace,setConfirmReplace]=useState(false);
   const token=view.agentAuthorized&&credential&&credential.expiresAt===view.agentExpiresAt?credential.token:'';
   const state=agentConnectionState(view),connected=!!view.connected;
   const instruction=origin&&token?agentSetupInstruction(origin,token,view.character?.name??'我的伙伴'):'';
@@ -35,16 +36,18 @@ export function AgentConnection({view,refresh,revoke,onChat}:Props){
   // The browser origin is external state and is intentionally read after hydration.
   // oxlint-disable-next-line react/react-compiler
   useEffect(()=>{setOrigin(window.location.origin);},[]);
-  async function issue(){setBusy(true);setError('');setCopied(false);setShowText(false);try{const data=await campusAccount({op:'agent-token'});if(!data.token||!data.expiresAt)throw new Error('接入说明未生成，请重试。');setCredential({token:data.token,expiresAt:data.expiresAt});await refresh();}catch(e){setError(e instanceof Error?e.message:'无法生成，请重试。');}finally{setBusy(false);}}
+  useEffect(()=>{if(confirmReplace)document.querySelector<HTMLButtonElement>('.campus-replace-confirm button')?.focus();},[confirmReplace]);
+  async function issue(confirmed=false){if(view.agentAuthorized&&!confirmed){setConfirmReplace(true);return;}setConfirmReplace(false);setBusy(true);setError('');setCopied(false);setShowText(false);try{const data=await campusAccount({op:'agent-token'});if(!data.token||!data.expiresAt)throw new Error('接入说明未生成，请重试。');setCredential({token:data.token,expiresAt:data.expiresAt});await refresh();}catch(e){setError(e instanceof Error?e.message:'无法生成，请重试。');}finally{setBusy(false);}}
   async function copy(){try{await navigator.clipboard.writeText(instruction);setCopied(true);setShowText(false);setError('');}catch{setShowText(true);setError('浏览器未能复制，请选中下方完整说明，手动复制给你的助手。');}}
   async function disconnect(){setBusy(true);setError('');try{await revoke();setCredential(null);setChecked(false);}catch(e){setError(e instanceof Error?e.message:'无法撤销，请重试。');}finally{setBusy(false);}}
-  async function check(){setBusy(true);setError('');try{await refresh();setChecked(true);}catch{setError('暂时无法检查连接，请稍后重试。');}finally{setBusy(false);}}
+  async function check(){setBusy(true);setError('');setChecked(false);try{await refresh();setChecked(true);}catch{setError('校园暂时无法连接，无法判断助手状态。已有设置仍保留，请稍后重新检查。');}finally{setBusy(false);}}
+  async function resume(){setBusy(true);setError('');try{await onResume();}catch(e){setError(e instanceof Error?e.message:'恢复失败，请重试。');}finally{setBusy(false);}}
   return <section className="campus-agent-connection" aria-labelledby="agent-connect-title">
     <div className="campus-connection-heading"><Link2 size={19}/><h3 id="agent-connect-title">让伙伴开始活动</h3></div>
     <p className="campus-connection-intro">把接入说明交给你自己的助手，由它带着「{view.character?.name}」在校园生活。</p>
     <output className="campus-connection-status" aria-live="polite" data-connected={connected}>
       {connected&&<Check size={17}/>}
-      <span>{({unauthorized:'尚未授权',waiting:'已授权 · 等待助手接入',connected:'助手已接通', 'waiting-events':'助手在线 · 等待校园事件','model-limited':'助手在线 · 模型额度等待中（客户端报告）',paused:'伙伴已暂停思考',limited:'校园活动体力已用完',disconnected:'助手暂时离线'})[state]}</span>
+      <span>{CONNECTION_LABELS[state]}</span>
     </output>
     <dl className="campus-agent-health">
       <div><dt>角色授权</dt><dd data-ok={view.agentAuthorized}>{view.agentAuthorized?'已生效':'未生成'}</dd></div>
@@ -53,7 +56,7 @@ export function AgentConnection({view,refresh,revoke,onChat}:Props){
       <div><dt>今日决定</dt><dd>{view.character?.budget?.calls??0} / {view.character?.budget?.dailyLimit??48}</dd></div>
     </dl>
     {view.character?.driverError&&<p className="campus-driver-error" role="alert">最近一次连接：{view.character.driverError}</p>}
-    {connected?<><p className="companion-muted">{state==='model-limited'?'客户端报告自己的模型额度暂不足，新的思考正在等待。校园无法核验外部模型账单。':'现在可以和伙伴聊聊，或回到地图看他在哪里。等待事件时，常驻 Runner 不会反复调用模型。'}</p><Button onClick={onChat}><MessageCircle size={16}/>和伙伴聊聊</Button></>:state==='limited'?<p className="companion-muted">新的决定会等到北京时间零点。可以在下方「每日活动体力」修改上限；无需重新生成授权。</p>:state==='paused'?<p className="companion-muted">在下方「校园身份与运行」点击「恢复思考」，再让助手继续运行。无需重新授权。</p>:<>
+    {state==='paused'?<div><p className="companion-muted">消息会保存，恢复思考且助手在线后才能回应。无需重新授权。</p><Button disabled={busy} onClick={()=>void resume()}>恢复思考</Button></div>:state==='limited'?<div><p className="companion-muted">今天的活动体力已用完，消息仍会保存。北京时间零点补充，也可以调整上限；无需重新授权。</p><Button variant="outline" onClick={onBudget}>调整活动体力</Button></div>:connected?<><p className="companion-muted">{state==='model-limited'?'客户端报告模型额度暂不足，新的思考正在等待。消息会保存；请在自己的运行程序中检查模型额度。':'现在可以和伙伴聊聊，或回到地图看他在哪里。等待事件时，常驻 Runner 不会反复调用模型。'}</p><Button onClick={onChat}><MessageCircle size={16}/>和伙伴聊聊</Button></>:<>
       {local&&<p className="campus-connection-local">你正在本机体验。请使用这台电脑上的助手；手机或云端助手暂时连不到这里。</p>}
       <CopyField label="把这句话发给自己的助手" value={origin?`请阅读 ${origin}/skills/join-agentnet/SKILL.md，帮我接入这个 AgentNet 校园，先体验十分钟，最多尝试三次决定。`:''}/>
       <p className="companion-muted">助手会先检查工具能力，再引导你在校园页面确认角色授权。已有连接会继续使用原角色。最后回到这里确认真实连接状态。</p>
@@ -68,7 +71,7 @@ export function AgentConnection({view,refresh,revoke,onChat}:Props){
           {token&&<p className="campus-step-note">说明含本角色的连接密钥，只发给你自己的助手。</p>}
           {showText&&<div className="campus-instruction-fallback"><p>完整接入说明</p><Textarea aria-label="完整接入说明" readOnly value={instruction} onFocus={e=>e.currentTarget.select()}/></div>}
         </div></li>
-        <li aria-current={copied?'step':undefined}><span className="campus-step-number" aria-hidden="true">3</span><div><h4>回到校园，确认「助手已接通」</h4><p>助手会先观察，再尝试自主活动。复制说明本身不会启动它。首次体验最多 10 分钟、尝试 3 次决定。</p><Button variant="ghost" onClick={()=>void check()} disabled={busy||!view.agentAuthorized}><RefreshCw size={15}/>{busy?'正在检查…':'检查连接状态'}</Button>{checked&&<p className="campus-step-note">{state==='disconnected'?'上次连接已经中断，请让助手继续运行。':'还没收到助手的连接。确认说明已经发送；如果助手报错，按它指出的原因处理。'}</p>}</div></li>
+        <li aria-current={copied?'step':undefined}><span className="campus-step-number" aria-hidden="true">3</span><div><h4>回到校园，确认「助手已接通」</h4><p>助手会先观察，再尝试自主活动。复制说明本身不会启动它。首次体验最多 10 分钟、尝试 3 次决定。</p><Button variant="ghost" onClick={()=>void check()} disabled={busy||!view.agentAuthorized}><RefreshCw size={15}/>{busy?'正在检查…':'检查连接状态'}</Button>{checked&&!connected&&<p className="campus-step-note">{state==='disconnected'?'上次连接已经中断，请让助手继续运行。':'还没收到助手的连接。确认说明已经发送；如果助手报错，按它指出的原因处理。'}</p>}</div></li>
       </ol>
       </details>
     </>}
@@ -85,6 +88,7 @@ export function AgentConnection({view,refresh,revoke,onChat}:Props){
       <div className="campus-runner-setup"><h4><Cloud size={16}/>关闭网页后继续活动</h4><p>先生成连接信息，再把个人 Runner 放到自己的常开服务器。模型密钥只填在你的服务器，校园不会收到。</p>{runnerEnv?<><CopyBlock label="服务器环境变量" value={runnerEnv}/><div className="campus-runner-actions"><a href="/downloads/campus-runner.zip" download>下载常驻 Runner</a><a href="/connect#continuous" target="_blank" rel="noreferrer">查看部署与停机规则</a></div><p className="campus-step-note">上线前先执行 <code>node --env-file=agent.env scripts/campus-runner.mjs --check</code>；自检不会调用模型。配置中的三项模型信息仍需替换。</p></>:<p>点击上方「生成连接信息」后，这里会生成当前角色的服务器配置。</p>}</div>
       {view.agentAuthorized&&<>{view.agentExpiresAt&&<p>授权有效期至 {new Date(view.agentExpiresAt).toLocaleDateString('zh-CN')}。</p>}<Button variant="ghost" disabled={busy} onClick={()=>void disconnect()}>撤销助手授权</Button></>}
     </details>
+    {confirmReplace&&<div className="campus-replace-confirm" role="alert"><p>更换后，当前助手的旧密钥立即失效。需要把新说明重新交给它；仅检查状态无需更换。</p><Button disabled={busy} onClick={()=>void issue(true)}>确认更换并使旧密钥失效</Button><Button variant="ghost" onClick={()=>setConfirmReplace(false)}>保留现有连接</Button></div>}
     <a className="campus-connection-help" href="/connect" target="_blank" rel="noreferrer">第一次使用？查看操作步骤与常见问题</a>
     {error&&<p className="companion-error" role="alert">{error}</p>}
   </section>;

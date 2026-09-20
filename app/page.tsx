@@ -23,7 +23,7 @@ export default function Home() {
   const location = LOCATIONS.find((place) => place.id === selected);
   const select = useCallback((id: LocationId | null) => {
     setSelected(id); setTopView(false); setDirectoryOpen(window.innerWidth > 760);
-    window.history.replaceState(null, '', id ? `#${id}` : window.location.pathname);
+    const url=new URL(window.location.href);url.hash=id??'';window.history.replaceState(null,'',url);
   }, []);
   useEffect(() => {
     // Restore the explicitly requested panel from external URL state after hydration.
@@ -32,7 +32,7 @@ export default function Home() {
     const media = window.matchMedia('(min-width: 761px)');
     const syncDirectory = () => setDirectoryOpen(media.matches);
     const readHash = () => { const id = window.location.hash.slice(1); setSelected(LOCATIONS.some((p) => p.id === id) ? id as LocationId : null); };
-    const keydown = (event: KeyboardEvent) => { if (event.key === 'Escape') select(null); };
+    const keydown = (event: KeyboardEvent) => { if (event.key === 'Escape'&&!event.defaultPrevented&&!document.querySelector('[role="dialog"], [role="listbox"], [data-slot="popover-content"]')&&!(event.target instanceof Element&&event.target.closest('input,textarea,select'))) select(null); };
     readHash(); syncDirectory(); media.addEventListener('change', syncDirectory); window.addEventListener('hashchange', readHash); window.addEventListener('keydown', keydown);
     return () => { media.removeEventListener('change', syncDirectory); window.removeEventListener('hashchange', readHash); window.removeEventListener('keydown', keydown); };
   }, [select]);
@@ -44,7 +44,7 @@ export default function Home() {
         <span className="brand-name">南京大学 <span>苏州校区</span></span>
       </Button>
       <div className="header-center"><span className="view-indicator" />三维校园</div>
-      <Button variant="outline" className="companion-open" aria-label="打开我的校园伙伴" onClick={()=>setCompanionOpen(true)}><MessageCircle size={17}/><span>{world.view?.character?.name??'我的伙伴'}</span>{world.view?.connected&&<span className="companion-online" aria-label="Agent 在线"/>}</Button>
+      <Button variant="outline" className="companion-open" aria-label="打开我的校园伙伴" onClick={()=>setCompanionOpen(true)}><MessageCircle size={17}/><span>{world.view?.character?'我的伙伴':'创建伙伴'}</span>{world.view?.connected&&<span className="companion-online" aria-label="Agent 在线"/>}</Button>
       <Popover><PopoverTrigger render={<Button variant="ghost" className="about-button" aria-label="地图说明" />}><Info size={17} /><span>地图说明</span></PopoverTrigger>
         <PopoverContent align="end" className="map-about"><PopoverTitle>AgentNet · 关于这座校园</PopoverTitle>
           <p>平面布局依据苏州校区标准地图校正，保留建筑占地、道路、水系与庄里山的相对位置。立面与场地配色参考建筑设计资料和建成实景。</p>

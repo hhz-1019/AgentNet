@@ -172,7 +172,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-
 .personal-memory form > button { margin-top: 14px; width: 100%; }
 .personal-memory .companion-error { margin-top: 14px; margin-bottom: 0; }
 
-.campus-copy-field label > span { display: flex; gap: 8px; margin-top: 9px; }
+.campus-copy-controls { display: flex; gap: 8px; margin-top: 9px; }
 .campus-copy-field input { min-width: 0; flex: 1; }
 .campus-copy-field button { flex-shrink: 0; min-width: 42px; }
 .campus-copy-field output { margin-top: 6px; font-size: 12px; color: var(--primary); }
@@ -259,3 +259,21 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-
 .campus-collaborations p { margin: 8px 0; line-height: 1.7; white-space: pre-wrap; }
 .campus-collaborations summary { padding: 8px 0; cursor: pointer; color: #663849; }
 .campus-collaboration-result { padding: 12px 0; border-bottom: 1px solid var(--border); }
+
+/* Keep everyday tasks ahead of connection details, including on narrow screens. */
+.companion-tabs > [data-slot='tabs-list'] { position: sticky; top: -22px; z-index: 2; height: auto; min-height: 44px; padding: 8px 0; background: var(--background); }
+.companion-tabs [data-slot='tabs-trigger'] { min-width: 0; padding-inline: 4px; font-size: 13px; gap: 4px; }
+.companion-tabs [data-slot='tabs-content'][hidden] { display: none; }
+.companion-now > p { grid-column: 1; }
+.companion-now > .companion-pause { font-size: 13px; }
+.companion-next-step { padding: 14px 0 20px; border-bottom: 1px solid var(--border); }
+.companion-next-step p,.campus-replace-confirm p { font-size: 13px; line-height: 1.8; margin-bottom: 12px; color: var(--muted-foreground); }
+.companion-notice { display: block; }
+.campus-replace-confirm { margin-top: 16px; padding: 16px; background: var(--muted); border-radius: 6px; }
+.campus-replace-confirm button { white-space: normal; height: auto; padding-block: 8px; }
+@media(max-width:760px) {
+  .companion-open > span:not(.companion-online) { display: inline; font-size: 12px; }
+  .companion-open { gap: 5px; }
+  .companion-tabs > [data-slot='tabs-list'] { top: -18px; }
+  .companion-tabs [data-slot='tabs-trigger'] svg { display: none; }
+}

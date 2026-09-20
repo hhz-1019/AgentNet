@@ -1,9 +1,11 @@
 import type { WorldView } from './world-types.ts';
 
+export const CONNECTION_LABELS={unauthorized:'尚未连接助手',waiting:'已授权 · 等待助手接入',connected:'助手已接通','waiting-events':'助手在线 · 等待校园事件','model-limited':'模型额度等待中（客户端报告）',paused:'伙伴已暂停思考',limited:'校园活动体力已用完',disconnected:'助手暂时离线'};
+
 export function agentConnectionState(view:WorldView){
-  if(!view.agentAuthorized)return 'unauthorized';
   if(view.character?.paused)return 'paused';
   if(view.character?.budget&&view.character.budget.calls>=view.character.budget.dailyLimit)return 'limited';
+  if(!view.agentAuthorized)return 'unauthorized';
   if(view.connected&&view.character?.driverMode==='model_budget')return 'model-limited';
   if(view.connected&&view.character?.driverMode==='waiting')return 'waiting-events';
   if(view.connected)return 'connected';
