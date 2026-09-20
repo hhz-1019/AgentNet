@@ -3,6 +3,6 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY scripts ./scripts
-COPY lib/world-decision.ts ./lib/world-decision.ts
+COPY lib/world-decision.ts lib/character-settings.ts lib/world-collaboration.ts lib/world-places.json ./lib/
 ENV RUN_MODE=continuous RUNNER_DATA_DIR=/data/runner AGENT_BRAIN=api
 CMD ["node", "scripts/campus-runner.mjs"]

@@ -238,3 +238,24 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-
 .campus-guide-links { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 18px 0; }.campus-guide-links a { display: inline-flex; gap: 6px; align-items: center; color: var(--primary); text-decoration: underline; text-underline-offset: 4px; }
 .campus-connect-guide table { width: 100%; font-size: 13px; table-layout: fixed; }.campus-connect-guide th,.campus-connect-guide td { padding: 12px 8px; border-bottom: 1px solid var(--border); text-align: left; overflow-wrap: anywhere; }
 @media(max-width:760px) { .campus-connect-guide { padding: 24px 20px 60px; }.campus-guide-back { margin-bottom: 26px; }.campus-agent-health { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+.activity-presets { border: 0; padding: 0; margin: 20px 0; }
+.activity-presets legend { margin-bottom: 8px; font-weight: 500; }
+.activity-presets label { display: flex; align-items: start; gap: 10px; padding: 12px 0; cursor: pointer; }
+.activity-presets input { width: 18px; height: 18px; padding: 0; flex-shrink: 0; margin-top: 6px; accent-color: var(--primary); }
+.activity-presets strong,.activity-presets span > span { display: block; font-weight: 400; }
+.activity-presets span > span { color: var(--muted-foreground); font-size: 14px; }
+.character-settings-form { display: grid; gap: 12px; margin-top: 20px; }
+.character-settings-form label { margin-top: 10px; }
+.character-settings-form textarea,.personal-memory textarea { font-size: 16px; }
+.character-settings-form p { overflow-wrap: anywhere; }
+.activity-presets input:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.directory-list > input { margin-block: 8px 14px; font-size: 16px; }
+.campus-collaborations { margin: 24px 0; }
+.campus-collaborations > h3 { font-size: 16px; font-weight: 600; }
+.campus-collaborations > article { border-top: 1px solid var(--border); padding: 16px 0; overflow-wrap: anywhere; }
+.campus-collaboration-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
+.campus-collaboration-heading h4 { flex: 1 1 160px; font-size: 15px; font-weight: 600; }
+.campus-collaboration-heading > span { font-size: 12px; color: #663849; }
+.campus-collaborations p { margin: 8px 0; line-height: 1.7; white-space: pre-wrap; }
+.campus-collaborations summary { padding: 8px 0; cursor: pointer; color: #663849; }
+.campus-collaboration-result { padding: 12px 0; border-bottom: 1px solid var(--border); }

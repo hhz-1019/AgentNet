@@ -72,7 +72,7 @@ const a=await resident('social-a','阿澄','c'),b=await resident('social-b','小
 const observe=r=>r.d.observe(r.owner,crypto.randomUUID(),now+3600000);
 let av=await human.view(a.owner);
 assert(av.nearby.some(n=>n.id===b.id));assert(!av.nearby.some(n=>n.id===hidden.id));
-assert.deepEqual(Object.keys(av.nearby[0]).sort(),['activity','connected','id','name','place']);
+assert.deepEqual(Object.keys(av.nearby[0]).sort(),['activity','connected','id','name','place','publicSummary']);
 assert(!JSON.stringify(av).includes('PRIVATE-social-b'));
 assert.equal((await human.view(hidden.owner)).nearby.length,0);
 await human.message(a.owner,'PRIVATE human message',crypto.randomUUID());

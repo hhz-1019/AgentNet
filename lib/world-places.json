@@ -1,0 +1,398 @@
+{
+  "beida": {
+    "name": "北大楼前",
+    "point": [
+      911,
+      699
+    ],
+    "zone": "西区",
+    "description": "北大楼建筑风貌群前的广场，适合观察校园和交流。"
+  },
+  "library": {
+    "name": "图书馆前",
+    "point": [
+      674,
+      906
+    ],
+    "zone": "西区",
+    "description": "图书馆南侧平台，适合阅读、整理想法和安静交流。"
+  },
+  "riverside": {
+    "name": "九曲河畔",
+    "point": [
+      1418,
+      609
+    ],
+    "zone": "东区",
+    "description": "运动场与知园附近的滨水步道，适合散步、休息和观察自然。"
+  },
+  "sujiao": {
+    "name": "苏教楼（公共教学楼）",
+    "point": [
+      749,
+      717
+    ],
+    "zone": "西区",
+    "description": "西区公共教学楼外的公共空间，适合学习交流和讨论课程。"
+  },
+  "nanyong": {
+    "name": "南雍楼",
+    "point": [
+      1229,
+      489
+    ],
+    "zone": "东区",
+    "description": "东区教学组团外的步道，适合交流学习经历。"
+  },
+  "stadium": {
+    "name": "东区运动场",
+    "point": [
+      1333,
+      651
+    ],
+    "zone": "东区",
+    "description": "蓝色跑道运动场旁，适合关注运动、观赛和结伴交流。"
+  },
+  "west-stadium": {
+    "name": "西区运动场",
+    "point": [
+      611,
+      551
+    ],
+    "zone": "西区",
+    "description": "紫色跑道运动场南侧，适合运动爱好者相遇。"
+  },
+  "sports": {
+    "name": "西区文体中心",
+    "point": [
+      535,
+      426
+    ],
+    "zone": "西区",
+    "description": "体育中心外的公共通道，适合运动和文体话题。"
+  },
+  "pool": {
+    "name": "游泳馆",
+    "point": [
+      489,
+      550
+    ],
+    "zone": "西区",
+    "description": "游泳馆入口附近，可讨论运动与校园生活。"
+  },
+  "student-center": {
+    "name": "大学生活动中心",
+    "point": [
+      535,
+      303
+    ],
+    "zone": "西区",
+    "description": "学生活动中心外的公共空间，适合兴趣交流和认识新伙伴。"
+  },
+  "west-courts": {
+    "name": "西区球场",
+    "point": [
+      575,
+      235
+    ],
+    "zone": "西区",
+    "description": "西区北部球场旁，适合球类运动话题。"
+  },
+  "east-courts": {
+    "name": "东区球场",
+    "point": [
+      1407,
+      717
+    ],
+    "zone": "东区",
+    "description": "东区运动场南侧球场旁的公共空间。"
+  },
+  "dorms": {
+    "name": "仁园与勇园",
+    "point": [
+      1040,
+      178
+    ],
+    "zone": "东区",
+    "description": "东区北部生活组团的公共道路，适合生活交流与休息；不进入他人寝室。"
+  },
+  "renyuan": {
+    "name": "仁园宿舍区",
+    "point": [
+      1105,
+      175
+    ],
+    "zone": "东区",
+    "description": "仁园公共入口，适合分享日常，不代表任何用户的真实住址。"
+  },
+  "yongyuan": {
+    "name": "勇园宿舍区",
+    "point": [
+      977,
+      111
+    ],
+    "zone": "东区",
+    "description": "勇园公共入口，适合生活交流，不进入私人寝室。"
+  },
+  "zhiyuan": {
+    "name": "知园宿舍区",
+    "point": [
+      1468,
+      669
+    ],
+    "zone": "东区",
+    "description": "东区运动场东南侧的知园公共入口，适合生活交流。"
+  },
+  "bachelor1": {
+    "name": "本科生书院1",
+    "point": [
+      770,
+      434
+    ],
+    "zone": "西区",
+    "description": "本科生书院1组团外的公共道路，适合日常交流。"
+  },
+  "bachelor2": {
+    "name": "本科生书院2",
+    "point": [
+      791,
+      522
+    ],
+    "zone": "西区",
+    "description": "本科生书院2组团公共空间，适合交流学习与生活。"
+  },
+  "master": {
+    "name": "硕士生书院",
+    "point": [
+      767,
+      321
+    ],
+    "zone": "西区",
+    "description": "硕士生生活组团入口，适合科研与生活话题。"
+  },
+  "doctoral": {
+    "name": "博士生书院",
+    "point": [
+      722,
+      192
+    ],
+    "zone": "西区",
+    "description": "博士生书院外的公共道路，适合科研交流。"
+  },
+  "faculty-dorm": {
+    "name": "教师公寓",
+    "point": [
+      485,
+      202
+    ],
+    "zone": "西区",
+    "description": "教师公寓公共入口，不进入私人住所。"
+  },
+  "living-center": {
+    "name": "学生生活综合体一期",
+    "point": [
+      828,
+      360
+    ],
+    "zone": "西区",
+    "description": "西区学生生活服务区域旁的步道。"
+  },
+  "living-center2": {
+    "name": "学生生活综合体二期",
+    "point": [
+      594,
+      202
+    ],
+    "zone": "西区",
+    "description": "西区北部学生生活服务组团。"
+  },
+  "canteen1": {
+    "name": "一食堂",
+    "point": [
+      851,
+      894
+    ],
+    "zone": "西区",
+    "description": "标准地图标注的一食堂入口附近，适合餐饮与日常话题。"
+  },
+  "canteen2": {
+    "name": "二食堂",
+    "point": [
+      723,
+      551
+    ],
+    "zone": "西区",
+    "description": "标准地图标注的二食堂入口附近，适合生活交流。"
+  },
+  "yuanhe": {
+    "name": "元和楼",
+    "point": [
+      1138,
+      212
+    ],
+    "zone": "东区",
+    "description": "东区北部餐饮生活服务建筑旁。"
+  },
+  "wenzheng": {
+    "name": "文正楼",
+    "point": [
+      1175,
+      238
+    ],
+    "zone": "东区",
+    "description": "东区行政服务建筑外的公共道路。"
+  },
+  "tianshu": {
+    "name": "天枢楼",
+    "point": [
+      1209,
+      289
+    ],
+    "zone": "东区",
+    "description": "东区行政服务组团外，可观察校园生活。"
+  },
+  "innovation": {
+    "name": "科创大厦",
+    "point": [
+      1523,
+      893
+    ],
+    "zone": "东区",
+    "description": "东区科研组团南侧公共空间，适合科技与研究交流。"
+  },
+  "research1": {
+    "name": "科研综合体1",
+    "point": [
+      485,
+      721
+    ],
+    "zone": "西区",
+    "description": "人工智能与信息技术组团外，适合计算机与技术话题。"
+  },
+  "research2": {
+    "name": "科研综合体2",
+    "point": [
+      618,
+      721
+    ],
+    "zone": "西区",
+    "description": "地球系统与未来环境组团外，适合环境与科学话题。"
+  },
+  "research3": {
+    "name": "科研综合体3",
+    "point": [
+      805,
+      1075
+    ],
+    "zone": "西区",
+    "description": "功能材料与智能制造组团外的公共道路。"
+  },
+  "research4": {
+    "name": "科研综合体4",
+    "point": [
+      531,
+      897
+    ],
+    "zone": "西区",
+    "description": "西区南部科研组团的公共通道。"
+  },
+  "biomed": {
+    "name": "生化医药与健康工程组团",
+    "point": [
+      540,
+      1064
+    ],
+    "zone": "西区",
+    "description": "西南部科研组团外，适合科学交流。"
+  },
+  "public-research": {
+    "name": "公共科研组团",
+    "point": [
+      749,
+      797
+    ],
+    "zone": "西区",
+    "description": "图书馆周边公共科研空间外的步道。"
+  },
+  "auditorium": {
+    "name": "大礼堂",
+    "point": [
+      952,
+      798
+    ],
+    "zone": "西区",
+    "description": "北大楼南侧大礼堂外的公共空间，适合文化话题。"
+  },
+  "conference": {
+    "name": "国际学术交流中心",
+    "point": [
+      1589,
+      1007
+    ],
+    "zone": "东区",
+    "description": "东区南端学术交流中心外，适合学术话题。"
+  },
+  "operations": {
+    "name": "后勤服务综合体",
+    "point": [
+      671,
+      287
+    ],
+    "zone": "西区",
+    "description": "西区北部后勤服务区域旁的公共道路。"
+  },
+  "hill": {
+    "name": "庄里山步道入口",
+    "point": [
+      1026,
+      591
+    ],
+    "zone": "校园中部",
+    "description": "庄里山脚步道入口，适合观察山景和安静思考；本期不模拟登山。"
+  },
+  "west-gate": {
+    "name": "西区西主入口",
+    "point": [
+      413,
+      564
+    ],
+    "zone": "西区",
+    "description": "西区主入口内侧，适合观察来往与初次相遇。"
+  },
+  "west-south-gate": {
+    "name": "西区南主入口",
+    "point": [
+      672,
+      1062
+    ],
+    "zone": "西区",
+    "description": "太湖大道一侧的西区南入口内侧。"
+  },
+  "west-north-gate": {
+    "name": "西区北入口",
+    "point": [
+      678,
+      130
+    ],
+    "zone": "西区",
+    "description": "昆仑山路一侧的西区北入口内侧。"
+  },
+  "east-gate": {
+    "name": "东区东入口",
+    "point": [
+      1221,
+      296
+    ],
+    "zone": "东区",
+    "description": "普陀山路一侧的东区入口内侧。"
+  },
+  "east-south-gate": {
+    "name": "东区南入口",
+    "point": [
+      1647,
+      1010
+    ],
+    "zone": "东区",
+    "description": "东区南端校园入口内侧。"
+  }
+}

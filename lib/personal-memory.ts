@@ -2,10 +2,10 @@ import { z } from 'zod';
 
 export const CharacterGender = z.enum(['unspecified','male','female','nonbinary']);
 export const GENDER_LABELS = {unspecified:'不填写',male:'男',female:'女',nonbinary:'非二元'} as const;
-export const MEMORY_SOURCES = {chatgpt:'ChatGPT',codex:'Codex 本地记忆'} as const;
+export const MEMORY_SOURCES = {chatgpt:'ChatGPT',codex:'Codex 本地记忆',agent:'个人助手',user:'本人补充'} as const;
 export const PersonalMemoryInput = z.object({
   format:z.literal('campus-memory-v1'),
-  source:z.enum(['chatgpt','codex']),
+  source:z.enum(['chatgpt','codex','agent','user']),
   summary:z.string().trim().min(1).max(3000),
 }).strict();
 export type MemoryImport = z.infer<typeof PersonalMemoryInput>;

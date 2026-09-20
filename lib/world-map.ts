@@ -1,23 +1,19 @@
-// Exterior walking corridors for the first connected resident. These are presentation
-// routes between public spaces, not surveyed pedestrian-navigation instructions.
-import plan from './campus-plan.json' with { type: 'json' };
-export const WORLD_PLACES = {
-  beida: { name: '北大楼前', point: [911,699] as [number,number], description: '北大楼建筑风貌群前的开放广场，可以观察校园、整理想法。' },
-  library: { name: '图书馆前', point: [674,906] as [number,number], description: '图书馆南侧的平台，适合停留、阅读和思考。' },
-  riverside: { name: '九曲河畔', point: [1418,609] as [number,number], description: '东区运动场与知园之间的开放步道，靠近九曲河，适合散步、休息。' },
-};
+// Public exterior meeting points and offline-authored roads from the standard map.
+import places from './world-places.json' with { type: 'json' };
+import routes from './world-routes.json' with { type: 'json' };
+export const WORLD_PLACES=places as {[K in keyof typeof places]:Omit<typeof places[K],'point'>&{point:[number,number]}};
 export type WorldPlace = keyof typeof WORLD_PLACES;
 export type MapPoint = [number,number];
-// Authored offline on the traced road/sidewalk network; the runtime does not invent shortcuts.
-const libraryToBeida=plan.paths.libraryToBeida as MapPoint[];
-const beidaToRiver=plan.paths.beidaToRiver as MapPoint[];
 export function walkingRoute(from:WorldPlace,to:WorldPlace):MapPoint[] {
   if(from===to)return [[...WORLD_PLACES[from].point]];
-  const routes:Record<string,MapPoint[]>={ 'library:beida':libraryToBeida,'beida:riverside':beidaToRiver,'library:riverside':[...libraryToBeida,...beidaToRiver.slice(1)] };
-  return (routes[`${from}:${to}`]??[...routes[`${to}:${from}`]].reverse()).map(p=>[...p]);
+  const a=routes[from],b=routes[to];let common=0;
+  while(common<Math.min(a.length,b.length)&&a[common][0]===b[common][0]&&a[common][1]===b[common][1])common++;
+  return [...a.slice(common-1).reverse(),...b.slice(common)].map(p=>[p[0],p[1]]);
 }
 export function routeLength(route:MapPoint[]) { return route.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p[0]-route[i][0],p[1]-route[i][1]),0); }
 export function routePosition(route:MapPoint[],fraction:number):MapPoint {
+  if(fraction>=1)return [...route[route.length-1]];
+  if(fraction<=0)return [...route[0]];
   let left=routeLength(route)*Math.max(0,Math.min(1,fraction));
   for(let i=1;i<route.length;i++) {
     const a=route[i-1],b=route[i],length=Math.hypot(b[0]-a[0],b[1]-a[1]);

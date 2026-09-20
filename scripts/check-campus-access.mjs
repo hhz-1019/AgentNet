@@ -6,7 +6,8 @@ import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 
 // Fixture writes are strictly local. No real accounts, model keys or production data.
-const site='http://localhost:3000',clients=[];
+const site=process.env.CAMPUS_TEST_URL??'http://localhost:3000',clients=[];
+assert(['localhost','127.0.0.1'].includes(new URL(site).hostname));
 async function api(path,data,headers={}){
   const r=await fetch(site+path,{method:data===undefined?'GET':'POST',headers:{...(data===undefined?{}:{'Content-Type':'application/json'}),...headers},body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(30000)});
   const result=r.headers.get('content-type')?.includes('application/json')?await r.json():await r.text();return {status:r.status,data:result,cookie:r.headers.get('set-cookie')?.split(';')[0],headers:r.headers};
@@ -30,8 +31,8 @@ try{
   const a=await person('协议验证甲'),b=await person('协议验证乙');
   const retry=await api('/api/campus/account',{op:'create',name:'不可覆盖的昵称',recoveryKey:a.recoveryKey},{Origin:site});assert.equal(retry.data.characterId,a.id);
   assert.equal((await api('/api/world',undefined,a.headers)).data.character.name,a.name);
-  const openapi=await api('/api/campus/openapi');assert.equal(openapi.data.openapi,'3.1.0');assert.equal(Object.keys(openapi.data.paths).length,7);
-  const metadata=await api('/api/campus/tools');assert.equal(metadata.status,200);assert.equal(metadata.data.tools.length,7);assert(!JSON.stringify(metadata.data).includes(a.recoveryKey));
+  const openapi=await api('/api/campus/openapi');assert.equal(openapi.data.openapi,'3.1.0');assert.equal(Object.keys(openapi.data.paths).length,9);
+  const metadata=await api('/api/campus/tools');assert.equal(metadata.status,200);assert.equal(metadata.data.tools.length,9);assert(!JSON.stringify(metadata.data).includes(a.recoveryKey));
   assert.equal((await httpTool({token:a.recoveryKey},'campus_status')).status,401,'Owner secrets are not Agent credentials');
   assert.equal((await api('/api/campus/account',{op:'agent-token'},{Origin:site,Authorization:'Bearer '+a.token})).status,401,'Agent tokens cannot grant owner access');
   assert.equal((await api('/api/campus/tools/campus_status',{},a.headers)).status,401,'Browser cookies do not authorize Agent operations');
@@ -40,6 +41,19 @@ try{
   const ca=await mcp(a.token,'Independent MCP Client A'),cb=await mcp(b.token,'Independent MCP Client B');
   const listed=await ca.listTools();assert.deepEqual(listed.tools.map(t=>t.name).sort(),metadata.data.tools.map(t=>t.name).sort());
   assert.equal((await rpc(ca,'campus_status')).data.character.id,a.id);assert.equal((await rpc(cb,'campus_status')).data.character.id,b.id);
+  const proposal={requestId:randomUUID(),summary:'HTTP_MCP_PRIVATE 喜欢篮球和阅读',sourceLabel:'本地测试助手'};
+  assert(!(await rpc(ca,'campus_propose_context',proposal)).error);
+  assert.equal((await httpTool(a,'campus_personal_context')).data.personalMemory,null);
+  assert(!(JSON.stringify((await rpc(cb,'campus_personal_context')).data).includes('HTTP_MCP_PRIVATE')));
+  assert.equal((await api('/api/world',{op:'resolve-context',requestId:proposal.requestId,accept:true},{Origin:site,Authorization:'Bearer '+a.token})).status,401,'Agent cannot approve its own context');
+  assert.equal((await api('/api/world',{op:'resolve-context',requestId:proposal.requestId,accept:true},a.headers)).status,200);
+  assert.equal((await rpc(ca,'campus_personal_context')).data.personalMemory.summary,proposal.summary);
+  const privacy={publicSummary:'喜欢篮球',blockedTopics:'不分享宿舍',blockedTerms:['HTTP_MCP_PRIVATE']};
+  assert.equal((await api('/api/world',{op:'privacy',privacy},a.headers)).status,200);
+  assert.deepEqual((await rpc(ca,'campus_personal_context')).data.privacy,privacy);
+  assert.equal((await api('/api/world',{op:'budget',dailyLimit:0},a.headers)).status,200);
+  assert.equal((await rpc(ca,'campus_wait',{timeoutSeconds:0})).data.ready,false);
+  await api('/api/world',{op:'budget',dailyLimit:48},a.headers);
   const waiting=await rpc(ca,'campus_wait',{timeoutSeconds:0});assert(!waiting.error);assert(waiting.data.ready);
   const httpWaiting=await httpTool(b,'campus_wait',{timeoutSeconds:0});assert.equal(httpWaiting.status,200);assert(httpWaiting.data.ready);
   assert.equal((await rpc(ca,'campus_status')).data.character.budget.calls,0,'MCP event waiting does not consume decision budget');

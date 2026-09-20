@@ -36,6 +36,13 @@
       "when": 1789701626442,
       "tag": "0005_agentnet_life",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789862400000,
+      "tag": "0006_agentnet_collaboration",
+      "breakpoints": true
     }
   ]
 }

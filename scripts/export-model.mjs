@@ -11,7 +11,8 @@ globalThis.FileReader = class {
   readAsDataURL(blob) { blob.arrayBuffer().then(result => { this.result=`data:${blob.type};base64,${Buffer.from(result).toString('base64')}`; this.onloadend?.(); }); }
 };
 const model=buildCampus();
-assert.equal(new Set(LOCATIONS.map(p=>p.id)).size,9);
+assert.equal(new Set(LOCATIONS.map(p=>p.id)).size,LOCATIONS.length);
+assert(LOCATIONS.some(p=>p.id==='sujiao')&&LOCATIONS.some(p=>p.id==='west-stadium'),'Teaching and sports meeting points must be navigable');
 assert(mapPosition(LOCATIONS[1].x,LOCATIONS[1].y)[0]<mapPosition(LOCATIONS[7].x,LOCATIONS[7].y)[0],'Library must be west of Zhuangli Hill');
 let meshes=0,instances=0;
 model.traverse(object=>{

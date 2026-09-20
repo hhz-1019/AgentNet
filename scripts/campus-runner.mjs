@@ -24,7 +24,9 @@ async function json(url,options={}){
 }
 export async function run(config,{check=false,resume=false,signal=new AbortController().signal,log=console.log}={}){
   const call=(name,args={})=>json(config.site+'/api/campus/tools/'+name,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.token},body:JSON.stringify(args),signal:AbortSignal.any([signal,AbortSignal.timeout(name==='campus_wait'?35000:20000)])});
-  const catalog=await json(config.site+'/api/campus/tools'),status=await call('campus_status');
+  const retryable=e=>!signal.aborted&&(!e.status||e.status>=500||e.status===429);
+  const startup=async task=>{let delay=1;while(true){try{return await task();}catch(e){if(check||!config.continuous||!retryable(e))throw e;log('校园暂时不可达，等待重连；未调用模型。');await sleep(delay*1000,undefined,{signal});delay=Math.min(60,delay*2);}}};
+  const catalog=await startup(()=>json(config.site+'/api/campus/tools',{signal:AbortSignal.any([signal,AbortSignal.timeout(20000)])})),status=await startup(()=>call('campus_status'));
   for(const name of ['campus_observe','campus_act','campus_recall','campus_heartbeat'])if(!catalog.tools?.some(t=>t.name===name))throw new Error('校园版本缺少 '+name+'，请先更新校园。');
   if(!status.character?.id)throw new Error('没有找到已授权角色。');
   if(check){log('接入自检通过：校园可达、角色授权有效、所需接口齐全。没有调用模型或执行行动。');return;}
@@ -35,19 +37,20 @@ export async function run(config,{check=false,resume=false,signal=new AbortContr
   const eventWaiting=catalog.tools.some(t=>t.name==='campus_wait');
   const wait=async seconds=>{await sleep(Math.min(60,Math.max(1,seconds))*1000,undefined,{signal}).catch(e=>{if(!signal.aborted)throw e;});};
   const keepLock=setInterval(()=>{try{ledger.save();}catch{log('运行锁失效，请停止并检查是否有另一个实例。');}},25000);
-  let activeLease=null;
+  let activeLease=null,budgetWaitDay=null,submitDelay=1;
   try{
     log(config.continuous?'持续连接已启动；达到预算后等待，不再调用模型。':'开始一次有时限的校园体验。');
     while(!signal.aborted&&Date.now()<deadline){
       ledger.rotate();ledger.save();
       if(ledger.state.halt){log(ledger.state.halt);break;}
+      if(budgetWaitDay===ledger.state.day){await startup(()=>call('campus_heartbeat',{clientName:config.clientName,mode:'model_budget'}));await wait(30);continue;}
       if(ledger.state.pending?.phase==='decided'){
-        try{await call('campus_act',ledger.state.pending.action);ledger.complete();log('已提交保存的决定。');}
-        catch(e){if([400,409,422].includes(e.status)){await call('campus_report_failure',{leaseId:ledger.state.pending.leaseId,message:'保存的决定已失效，等待下一次观察。'}).catch(()=>{});ledger.complete();}else throw e;}
+        try{await call('campus_act',ledger.state.pending.action);ledger.complete();submitDelay=1;log('已提交保存的决定。');}
+        catch(e){if([400,409,422].includes(e.status)){await call('campus_report_failure',{leaseId:ledger.state.pending.leaseId,message:'保存的决定已失效，等待下一次观察。'}).catch(()=>{});ledger.complete();}else if(config.continuous&&retryable(e)){log('行动提交暂时中断，将重试保存的决定，不重复调用模型。');await wait(submitDelay);submitDelay=Math.min(60,submitDelay*2);}else throw e;}
         continue;
       }
       if(ledger.state.calls>=config.limits.calls||ledger.state.tokens>=config.limits.tokens||ledger.state.totalTokens>=config.limits.totalTokens){
-        if(!config.continuous||ledger.state.totalTokens>=config.limits.totalTokens){log('已达运行预算，停止模型调用。');break;}await wait(60);continue;
+        if(!config.continuous||ledger.state.totalTokens>=config.limits.totalTokens){log('已达运行预算，停止模型调用。');break;}await startup(()=>call('campus_heartbeat',{clientName:config.clientName,mode:'model_budget'}));await wait(30);continue;
       }
       let observation;
       if(eventWaiting){
@@ -69,7 +72,8 @@ export async function run(config,{check=false,resume=false,signal=new AbortContr
       const reservation=config.brain==='api'?Buffer.byteLength(JSON.stringify(request),'utf8')+config.outputTokens+2048:config.codexReserve;
       if(!ledger.reserve(activeLease,reservation,config.limits)){
         await call('campus_report_failure',{leaseId:activeLease,message:'剩余预算不足以预留一次完整决策，本轮未调用模型。'});activeLease=null;
-        log('剩余预算不足以预留下一次调用，已停止。');break;
+        if(config.continuous&&reservation<=config.limits.tokens&&ledger.state.totalTokens+reservation<=config.limits.totalTokens){budgetWaitDay=ledger.state.day;log('今日剩余 Token 不足，等下一天补充；不再领取新的决定。');continue;}
+        log('预算不足以预留一次调用，已停止；请核对 Token 上限。');break;
       }
       const abort=new AbortController(),modelSignal=AbortSignal.any([signal,abort.signal,AbortSignal.timeout(150000)]);
       const heartbeat=setInterval(()=>{void call('campus_heartbeat',{clientName:config.clientName,leaseId:activeLease}).then(v=>{if(v.paused||!v.leaseActive)abort.abort();}).catch(()=>abort.abort());},25000);
