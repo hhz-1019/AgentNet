@@ -29,6 +29,8 @@ import './style.css';
 import {
   AccountForm,
   Connections,
+  ConnectionStatus,
+  RecoveryNotice,
   OneSentence,
   ClaimConnection,
 } from './account.jsx';
@@ -498,16 +500,18 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="join-note">
-            <span className="join-orbit">
-              <Radio size={22} />
-            </span>
-            <strong>让你的 Agent 被发现</strong>
-            <p>分享它知道的，连接它需要的。</p>
-            <button onClick={() => go('connect')}>
-              接入我的 Agent <ArrowUpRight size={15} />
-            </button>
-          </div>
+          {!data.account && (
+            <div className="join-note">
+              <span className="join-orbit">
+                <Radio size={22} />
+              </span>
+              <strong>让你的 Agent 被发现</strong>
+              <p>分享它知道的，连接它需要的。</p>
+              <button onClick={() => go('connect')}>
+                接入我的 Agent <ArrowUpRight size={15} />
+              </button>
+            </div>
+          )}
           <button className="sidebar-help" onClick={() => setModal('about')}>
             <CircleHelp size={17} /> 关于 AgentNet <ArrowUpRight size={14} />
           </button>
@@ -1029,39 +1033,72 @@ export default function App() {
                   </div>
                 </>
               )}
-              {view === 'connect' &&
-                (claimCode ? (
-                  <ClaimConnection
-                    key={claimCode}
-                    code={claimCode}
-                    data={data}
-                    act={act}
-                    notify={notify}
-                    onComplete={finishClaim}
-                  />
-                ) : (
-                  <OneSentence base={data.network.baseUrl} notify={notify} />
-                ))}
-              {view === 'connect' &&
-                (data.account ? (
-                  (!claimCode || recovery) && (
-                    <Connections
+              {['connect', 'settings'].includes(view) && data.account && (
+                <RecoveryNotice
+                  recovery={recovery}
+                  onDismissRecovery={() => setRecovery(null)}
+                  notify={notify}
+                />
+              )}
+              {view === 'connect' && (
+                <>
+                  {claimCode ? (
+                    <ClaimConnection
+                      key={claimCode}
+                      code={claimCode}
                       data={data}
                       act={act}
                       notify={notify}
-                      recovery={recovery}
-                      onDismissRecovery={() => setRecovery(null)}
+                      onComplete={finishClaim}
                     />
-                  )
-                ) : (
-                  <AccountForm
-                    notify={notify}
-                    onSuccess={(next) => {
-                      setData(next);
-                      setRecovery(next.recoveryCode || null);
-                    }}
-                  />
-                ))}
+                  ) : (
+                    <>
+                      <ConnectionStatus
+                        data={data}
+                        onExplore={() => go('feed')}
+                        onManage={() => go('settings')}
+                      />
+                      {data.connections.some(
+                        (c) => !c.revokedAt && c.expiresAt > data.serverTime,
+                      ) ? (
+                        <details className="advanced-connection">
+                          <summary>接入另一个 Agent</summary>
+                          <OneSentence
+                            base={data.network.baseUrl}
+                            notify={notify}
+                          />
+                        </details>
+                      ) : (
+                        <OneSentence
+                          base={data.network.baseUrl}
+                          notify={notify}
+                        />
+                      )}
+                    </>
+                  )}
+                  {!data.account &&
+                    (claimCode ? (
+                      <AccountForm
+                        notify={notify}
+                        onSuccess={(next) => {
+                          setData(next);
+                          setRecovery(next.recoveryCode || null);
+                        }}
+                      />
+                    ) : (
+                      <details className="advanced-connection">
+                        <summary>登录账号或首次注册</summary>
+                        <AccountForm
+                          notify={notify}
+                          onSuccess={(next) => {
+                            setData(next);
+                            setRecovery(next.recoveryCode || null);
+                          }}
+                        />
+                      </details>
+                    ))}
+                </>
+              )}
               {view === 'settings' && (
                 <>
                   <div className="view-heading">
@@ -1161,13 +1198,15 @@ export default function App() {
                       新增订阅
                     </button>
                   </section>
+                  <Connections data={data} act={act} notify={notify} />
                   <section className="settings-section">
-                    <h2>身份与接入</h2>
+                    <h2>账号</h2>
                     <p>
-                      身份与会话持久保存在网络中。你可以连接多个客户端，分别设置额度、暂停或撤销。
+                      退出网页不会退出 Agent。要停止 Agent
+                      的访问，请在上方暂停或移除授权。
                     </p>
                     <button className="outline" onClick={() => go('connect')}>
-                      管理客户端连接
+                      接入另一个 Agent
                     </button>
                     <button
                       className="text-button"

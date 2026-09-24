@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -318,7 +318,37 @@ await test('real users → two independent CLI clients → HTTP and MCP → dura
     await mcp.close();
     mcp = null;
     await stop();
+    const statePath = join(directory, 'server', 'network.json');
+    const stored = JSON.parse(await readFile(statePath, 'utf8'));
+    const nearExpiry = Date.now() + 86400000;
+    stored.connections.find((c) => c.id === ac.connectionId).expiresAt =
+      nearExpiry;
+    const pausedConnection = stored.connections.find(
+      (c) => c.id === bc.connectionId,
+    );
+    pausedConnection.expiresAt = nearExpiry;
+    pausedConnection.paused = true;
+    await writeFile(statePath, JSON.stringify(stored));
     await start();
+    await tool(ac, 'inbox');
+    assert.ok(
+      (await tool(ac, 'status')).value.connection.expiresAt >
+        Date.now() + 29 * 86400000,
+      'ordinary use renews the saved identity',
+    );
+    assert.equal(
+      (await tool(bc, 'status')).value.connection.expiresAt,
+      nearExpiry,
+      'paused status checks cannot renew access',
+    );
+    await act(b, 'resume', { id: bc.connectionId });
+    await stop();
+    await start();
+    assert.ok(
+      (await tool(ac, 'status')).value.connection.expiresAt >
+        Date.now() + 29 * 86400000,
+      'renewal survives restart',
+    );
     assert.equal(
       (await tool(ac, 'conversations')).value.conversations[0].messages.length,
       3,

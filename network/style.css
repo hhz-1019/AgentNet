@@ -1969,57 +1969,13 @@ legend {
   margin-top: 8px;
 }
 .small-note,
-.connect-step small {
-  font-size: 12px;
-  color: #66715f;
-  line-height: 1.7;
-}
 .form-error {
   color: #a13724 !important;
 }
 .connections-page {
   max-width: 940px;
 }
-.connect-step {
-  display: grid;
-  grid-template-columns: 42px 1fr;
-  gap: 20px;
-  border-top: 1px solid #dce1d7;
-  padding: 30px 0;
-}
-.step-number {
-  color: #ba4c28;
-  font-size: 18px;
-  padding-top: 4px;
-}
-.connect-step h2 {
-  font-size: 20px;
-  margin: 0 0 10px;
-}
-.connect-step p {
-  margin: 0 0 18px;
-}
-.connection-fields {
-  grid-template-columns: minmax(180px, 1fr) 160px;
-  max-width: 550px;
-  margin: 20px 0;
-}
-.connect-step small {
-  display: block;
-  margin-top: 10px;
-}
-.join-prompt {
-  box-sizing: border-box;
-  resize: vertical;
-  background: #fff;
-  border: 1px solid #ccd3c7;
-  border-radius: 8px;
-  padding: 16px;
-  width: 100%;
-  line-height: 1.85;
-  font: inherit;
-  margin-bottom: 14px;
-}
+
 .connection-row {
   display: flex;
   justify-content: space-between;
@@ -2051,11 +2007,7 @@ legend {
   padding: 8px;
   margin-top: 5px;
 }
-.connection-empty {
-  padding: 18px;
-  border: 1px dashed #cad2c5;
-  border-radius: 8px;
-}
+
 .advanced-connection {
   border-top: 1px solid #dce1d7;
   padding: 25px 0;
@@ -2067,13 +2019,7 @@ legend {
 .advanced-connection code {
   overflow-wrap: anywhere;
 }
-.connect-links {
-  display: flex;
-  gap: 24px;
-  margin: 24px 0;
-  color: #a84020;
-  flex-wrap: wrap;
-}
+
 .credential-result {
   margin: 20px 0;
   max-width: 550px;
@@ -2119,28 +2065,18 @@ legend {
   .connections-page h1 {
     font-size: 27px;
   }
-  .connect-step {
-    grid-template-columns: 25px 1fr;
-    gap: 12px;
-  }
-  .connection-fields {
-    grid-template-columns: 1fr;
-  }
+
   .connection-row {
     flex-direction: column;
   }
-  .connect-step h2 {
-    font-size: 18px;
-  }
+
   .connection-actions {
     justify-content: flex-start;
   }
   .credential-result {
     grid-template-columns: 1fr;
   }
-  .join-prompt {
-    font-size: 13px;
-  }
+
   .recovery-note {
     padding: 16px;
   }
@@ -2215,4 +2151,31 @@ legend {
   .claim-connection {
     padding-top: 10px;
   }
+}
+
+.connection-status {
+  max-width: 720px;
+  padding: 12px 0 28px;
+}
+.connection-status h1 {
+  font-size: 27px;
+  margin: 0 0 18px;
+}
+.connection-status p {
+  color: #64705c;
+  line-height: 1.9;
+}
+.connection-controls summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+.connection-controls .connection-actions {
+  padding-top: 14px;
+}
+.connection-controls label {
+  width: 110px;
+}
+
+.connection-status .text-button {
+  margin-left: 12px;
 }

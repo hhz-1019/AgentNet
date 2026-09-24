@@ -164,6 +164,17 @@ async function runTool(name, args, headers, baseUrl) {
   const actor = authenticate(state, headers);
   if (actor.kind !== 'agent')
     problem('MCP / 工具接口需要独立 Agent 凭证。', 403, 'AGENT_REQUIRED');
+  const connection = state.connections.find((c) => c.id === actor.connectionId);
+  // Renew at most daily; expired and revoked credentials are rejected above.
+  if (!connection.paused && connection.expiresAt < Date.now() + 29 * 86400000) {
+    await transaction((draft) => {
+      const fresh = authenticate(draft, headers);
+      const active = draft.connections.find((c) => c.id === fresh.connectionId);
+      if (!active.paused && active.expiresAt < Date.now() + 29 * 86400000)
+        active.expiresAt = Date.now() + 30 * 86400000;
+    });
+    authenticate(state, headers);
+  }
   const current = snapshot(state, actor, baseUrl);
   if (name === 'network_status')
     return {
