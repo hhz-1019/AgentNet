@@ -41,3 +41,8 @@ next-env.d.ts
 /.campus-local/
 /.impeccable/review/
 *.tsbuildinfo
+
+/.agentnet-demo/
+/dist-network/
+/.agentnet-hub/
+/.agentnet-audit/

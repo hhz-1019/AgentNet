@@ -11,3 +11,6 @@ work
 .vinext
 .codex
 *.sqlite*
+.agentnet-*
+.impeccable
+dist-network

@@ -1,376 +1,375 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-08T19:14:24Z",
-  "title": "Design System: 南京大学苏州校区 · Campus Atlas",
+  "generatedAt": "2026-09-24T06:59:02.791099+00:00",
+  "title": "Design System: AgentNet",
   "extensions": {
     "colorMeta": {
-      "background": {
-        "role": "neutral",
-        "displayName": "Porcelain",
-        "tonalRamp": [
-          "oklch(15% 0.001 106.4)",
-          "oklch(26% 0.001 106.4)",
-          "oklch(38% 0.001 106.4)",
-          "oklch(49% 0.001 106.4)",
-          "oklch(61% 0.001 106.4)",
-          "oklch(72% 0.001 106.4)",
-          "oklch(84% 0.001 106.4)",
-          "oklch(95% 0.001 106.4)"
-        ]
-      },
-      "foreground": {
-        "role": "neutral",
-        "displayName": "Charcoal Green",
-        "tonalRamp": [
-          "oklch(15% 0.017 178.2)",
-          "oklch(26% 0.017 178.2)",
-          "oklch(38% 0.017 178.2)",
-          "oklch(49% 0.017 178.2)",
-          "oklch(61% 0.017 178.2)",
-          "oklch(72% 0.017 178.2)",
-          "oklch(84% 0.017 178.2)",
-          "oklch(95% 0.017 178.2)"
-        ]
-      },
       "primary": {
         "role": "primary",
-        "displayName": "Academic Plum",
+        "displayName": "Primary",
         "tonalRamp": [
-          "oklch(15% 0.069 357)",
-          "oklch(26% 0.069 357)",
-          "oklch(38% 0.069 357)",
-          "oklch(49% 0.069 357)",
-          "oklch(61% 0.069 357)",
-          "oklch(72% 0.069 357)",
-          "oklch(84% 0.069 357)",
-          "oklch(95% 0.069 357)"
+          "oklch(15% 0.15084 38.03)",
+          "oklch(26% 0.15084 38.03)",
+          "oklch(38% 0.15084 38.03)",
+          "oklch(49% 0.15084 38.03)",
+          "oklch(61% 0.15084 38.03)",
+          "oklch(72% 0.15084 38.03)",
+          "oklch(84% 0.15084 38.03)",
+          "oklch(95% 0.15084 38.03)"
         ]
       },
-      "primary-foreground": {
-        "role": "neutral",
-        "displayName": "White",
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Primary Hover",
         "tonalRamp": [
-          "oklch(15% 0 0)",
-          "oklch(26% 0 0)",
-          "oklch(38% 0 0)",
-          "oklch(49% 0 0)",
-          "oklch(61% 0 0)",
-          "oklch(72% 0 0)",
-          "oklch(84% 0 0)",
-          "oklch(95% 0 0)"
+          "oklch(15% 0.15167 37.21)",
+          "oklch(26% 0.15167 37.21)",
+          "oklch(38% 0.15167 37.21)",
+          "oklch(49% 0.15167 37.21)",
+          "oklch(61% 0.15167 37.21)",
+          "oklch(72% 0.15167 37.21)",
+          "oklch(84% 0.15167 37.21)",
+          "oklch(95% 0.15167 37.21)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "tonalRamp": [
+          "oklch(15% 0.00538 117.92)",
+          "oklch(26% 0.00538 117.92)",
+          "oklch(38% 0.00538 117.92)",
+          "oklch(49% 0.00538 117.92)",
+          "oklch(61% 0.00538 117.92)",
+          "oklch(72% 0.00538 117.92)",
+          "oklch(84% 0.00538 117.92)",
+          "oklch(95% 0.00538 117.92)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15% 0.01296 140.46)",
+          "oklch(26% 0.01296 140.46)",
+          "oklch(38% 0.01296 140.46)",
+          "oklch(49% 0.01296 140.46)",
+          "oklch(61% 0.01296 140.46)",
+          "oklch(72% 0.01296 140.46)",
+          "oklch(84% 0.01296 140.46)",
+          "oklch(95% 0.01296 140.46)"
         ]
       },
       "muted": {
         "role": "neutral",
-        "displayName": "Pale Green Grey",
+        "displayName": "Muted",
         "tonalRamp": [
-          "oklch(15% 0.004 134.8)",
-          "oklch(26% 0.004 134.8)",
-          "oklch(38% 0.004 134.8)",
-          "oklch(49% 0.004 134.8)",
-          "oklch(61% 0.004 134.8)",
-          "oklch(72% 0.004 134.8)",
-          "oklch(84% 0.004 134.8)",
-          "oklch(95% 0.004 134.8)"
+          "oklch(15% 0.03382 132.86)",
+          "oklch(26% 0.03382 132.86)",
+          "oklch(38% 0.03382 132.86)",
+          "oklch(49% 0.03382 132.86)",
+          "oklch(61% 0.03382 132.86)",
+          "oklch(72% 0.03382 132.86)",
+          "oklch(84% 0.03382 132.86)",
+          "oklch(95% 0.03382 132.86)"
         ]
       },
-      "muted-foreground": {
+      "line": {
         "role": "neutral",
-        "displayName": "Supporting Green Grey",
+        "displayName": "Line",
         "tonalRamp": [
-          "oklch(15% 0.022 152.4)",
-          "oklch(26% 0.022 152.4)",
-          "oklch(38% 0.022 152.4)",
-          "oklch(49% 0.022 152.4)",
-          "oklch(61% 0.022 152.4)",
-          "oklch(72% 0.022 152.4)",
-          "oklch(84% 0.022 152.4)",
-          "oklch(95% 0.022 152.4)"
+          "oklch(15% 0.01245 121.71)",
+          "oklch(26% 0.01245 121.71)",
+          "oklch(38% 0.01245 121.71)",
+          "oklch(49% 0.01245 121.71)",
+          "oklch(61% 0.01245 121.71)",
+          "oklch(72% 0.01245 121.71)",
+          "oklch(84% 0.01245 121.71)",
+          "oklch(95% 0.01245 121.71)"
         ]
       },
-      "border": {
-        "role": "neutral",
-        "displayName": "Quiet Divider",
-        "tonalRamp": [
-          "oklch(15% 0.008 139.4)",
-          "oklch(26% 0.008 139.4)",
-          "oklch(38% 0.008 139.4)",
-          "oklch(49% 0.008 139.4)",
-          "oklch(61% 0.008 139.4)",
-          "oklch(72% 0.008 139.4)",
-          "oklch(84% 0.008 139.4)",
-          "oklch(95% 0.008 139.4)"
-        ]
-      },
-      "ring": {
-        "role": "primary",
-        "displayName": "Plum Focus",
-        "tonalRamp": [
-          "oklch(15% 0.071 355.6)",
-          "oklch(26% 0.071 355.6)",
-          "oklch(38% 0.071 355.6)",
-          "oklch(49% 0.071 355.6)",
-          "oklch(61% 0.071 355.6)",
-          "oklch(72% 0.071 355.6)",
-          "oklch(84% 0.071 355.6)",
-          "oklch(95% 0.071 355.6)"
-        ]
-      },
-      "selected": {
-        "role": "primary",
-        "displayName": "Pale Plum Selection",
-        "tonalRamp": [
-          "oklch(15% 0.009 341.8)",
-          "oklch(26% 0.009 341.8)",
-          "oklch(38% 0.009 341.8)",
-          "oklch(49% 0.009 341.8)",
-          "oklch(61% 0.009 341.8)",
-          "oklch(72% 0.009 341.8)",
-          "oklch(84% 0.009 341.8)",
-          "oklch(95% 0.009 341.8)"
-        ]
-      },
-      "overlay": {
-        "role": "neutral",
-        "displayName": "Translucent Porcelain",
-        "tonalRamp": [
-          "oklch(15% 0.003 106.4)",
-          "oklch(26% 0.003 106.4)",
-          "oklch(38% 0.003 106.4)",
-          "oklch(49% 0.003 106.4)",
-          "oklch(61% 0.003 106.4)",
-          "oklch(72% 0.003 106.4)",
-          "oklch(84% 0.003 106.4)",
-          "oklch(95% 0.003 106.4)"
-        ]
-      },
-      "map-ground": {
-        "role": "neutral",
-        "displayName": "Model Backdrop",
-        "tonalRamp": [
-          "oklch(15% 0.009 128.6)",
-          "oklch(26% 0.009 128.6)",
-          "oklch(38% 0.009 128.6)",
-          "oklch(49% 0.009 128.6)",
-          "oklch(61% 0.009 128.6)",
-          "oklch(72% 0.009 128.6)",
-          "oklch(84% 0.009 128.6)",
-          "oklch(95% 0.009 128.6)"
-        ]
-      },
-      "model-brick": {
-        "role": "neutral",
-        "displayName": "Grey Masonry",
-        "tonalRamp": [
-          "oklch(15% 0.011 158.7)",
-          "oklch(26% 0.011 158.7)",
-          "oklch(38% 0.011 158.7)",
-          "oklch(49% 0.011 158.7)",
-          "oklch(61% 0.011 158.7)",
-          "oklch(72% 0.011 158.7)",
-          "oklch(84% 0.011 158.7)",
-          "oklch(95% 0.011 158.7)"
-        ]
-      },
-      "model-red": {
+      "sage": {
         "role": "secondary",
-        "displayName": "Dark Red Architectural Detail",
+        "displayName": "Sage",
         "tonalRamp": [
-          "oklch(15% 0.098 20)",
-          "oklch(26% 0.098 20)",
-          "oklch(38% 0.098 20)",
-          "oklch(49% 0.098 20)",
-          "oklch(61% 0.098 20)",
-          "oklch(72% 0.098 20)",
-          "oklch(84% 0.098 20)",
-          "oklch(95% 0.098 20)"
+          "oklch(15% 0.01234 121.70)",
+          "oklch(26% 0.01234 121.70)",
+          "oklch(38% 0.01234 121.70)",
+          "oklch(49% 0.01234 121.70)",
+          "oklch(61% 0.01234 121.70)",
+          "oklch(72% 0.01234 121.70)",
+          "oklch(84% 0.01234 121.70)",
+          "oklch(95% 0.01234 121.70)"
         ]
       },
-      "model-grass": {
-        "role": "secondary",
-        "displayName": "Model Grass",
+      "charcoal": {
+        "role": "neutral",
+        "displayName": "Charcoal",
         "tonalRamp": [
-          "oklch(15% 0.058 124.5)",
-          "oklch(26% 0.058 124.5)",
-          "oklch(38% 0.058 124.5)",
-          "oklch(49% 0.058 124.5)",
-          "oklch(61% 0.058 124.5)",
-          "oklch(72% 0.058 124.5)",
-          "oklch(84% 0.058 124.5)",
-          "oklch(95% 0.058 124.5)"
+          "oklch(15% 0.00731 145.32)",
+          "oklch(26% 0.00731 145.32)",
+          "oklch(38% 0.00731 145.32)",
+          "oklch(49% 0.00731 145.32)",
+          "oklch(61% 0.00731 145.32)",
+          "oklch(72% 0.00731 145.32)",
+          "oklch(84% 0.00731 145.32)",
+          "oklch(95% 0.00731 145.32)"
         ]
       },
-      "model-water": {
-        "role": "secondary",
-        "displayName": "Muted River Water",
+      "white": {
+        "role": "neutral",
+        "displayName": "White",
         "tonalRamp": [
-          "oklch(15% 0.039 188)",
-          "oklch(26% 0.039 188)",
-          "oklch(38% 0.039 188)",
-          "oklch(49% 0.039 188)",
-          "oklch(61% 0.039 188)",
-          "oklch(72% 0.039 188)",
-          "oklch(84% 0.039 188)",
-          "oklch(95% 0.039 188)"
+          "oklch(15% 0.00000 89.88)",
+          "oklch(26% 0.00000 89.88)",
+          "oklch(38% 0.00000 89.88)",
+          "oklch(49% 0.00000 89.88)",
+          "oklch(61% 0.00000 89.88)",
+          "oklch(72% 0.00000 89.88)",
+          "oklch(84% 0.00000 89.88)",
+          "oklch(95% 0.00000 89.88)"
+        ]
+      },
+      "panel": {
+        "role": "secondary",
+        "displayName": "Panel",
+        "tonalRamp": [
+          "oklch(15% 0.01230 121.70)",
+          "oklch(26% 0.01230 121.70)",
+          "oklch(38% 0.01230 121.70)",
+          "oklch(49% 0.01230 121.70)",
+          "oklch(61% 0.01230 121.70)",
+          "oklch(72% 0.01230 121.70)",
+          "oklch(84% 0.01230 121.70)",
+          "oklch(95% 0.01230 121.70)"
+        ]
+      },
+      "nav-active": {
+        "role": "neutral",
+        "displayName": "Nav Active",
+        "tonalRamp": [
+          "oklch(15% 0.02838 133.04)",
+          "oklch(26% 0.02838 133.04)",
+          "oklch(38% 0.02838 133.04)",
+          "oklch(49% 0.02838 133.04)",
+          "oklch(61% 0.02838 133.04)",
+          "oklch(72% 0.02838 133.04)",
+          "oklch(84% 0.02838 133.04)",
+          "oklch(95% 0.02838 133.04)"
+        ]
+      },
+      "nav-text": {
+        "role": "neutral",
+        "displayName": "Nav Text",
+        "tonalRamp": [
+          "oklch(15% 0.02570 129.97)",
+          "oklch(26% 0.02570 129.97)",
+          "oklch(38% 0.02570 129.97)",
+          "oklch(49% 0.02570 129.97)",
+          "oklch(61% 0.02570 129.97)",
+          "oklch(72% 0.02570 129.97)",
+          "oklch(84% 0.02570 129.97)",
+          "oklch(95% 0.02570 129.97)"
+        ]
+      },
+      "demand-bg": {
+        "role": "secondary",
+        "displayName": "Demand Bg",
+        "tonalRamp": [
+          "oklch(15% 0.02045 62.86)",
+          "oklch(26% 0.02045 62.86)",
+          "oklch(38% 0.02045 62.86)",
+          "oklch(49% 0.02045 62.86)",
+          "oklch(61% 0.02045 62.86)",
+          "oklch(72% 0.02045 62.86)",
+          "oklch(84% 0.02045 62.86)",
+          "oklch(95% 0.02045 62.86)"
+        ]
+      },
+      "demand-text": {
+        "role": "secondary",
+        "displayName": "Demand Text",
+        "tonalRamp": [
+          "oklch(15% 0.09585 56.26)",
+          "oklch(26% 0.09585 56.26)",
+          "oklch(38% 0.09585 56.26)",
+          "oklch(49% 0.09585 56.26)",
+          "oklch(61% 0.09585 56.26)",
+          "oklch(72% 0.09585 56.26)",
+          "oklch(84% 0.09585 56.26)",
+          "oklch(95% 0.09585 56.26)"
         ]
       }
     },
     "typographyMeta": {
-      "headline": {
-        "displayName": "Campus Heading",
-        "purpose": "Serif overview headings; selected desktop scene titles increase to 31px."
+      "display": {
+        "displayName": "Intro display",
+        "purpose": "Main network premise; responsive sizes are recorded in DESIGN.md."
       },
       "body": {
-        "displayName": "Scene Description",
-        "purpose": "Chinese descriptions with generous line spacing."
-      },
-      "label": {
-        "displayName": "Supporting Label",
-        "purpose": "Directory zones, control labels and map annotations."
+        "displayName": "Signal reading text",
+        "purpose": "Chinese signal content with generous line height and a 73ch maximum."
       }
     },
     "shadows": [
       {
-        "name": "marker",
-        "value": "0 5px 16px #243e2415",
-        "purpose": "Lift projected labels."
+        "name": "dialog",
+        "value": "0 20px 80px #15200c30",
+        "purpose": "Modal separation."
       },
       {
-        "name": "controls",
-        "value": "0 7px 22px #344b3515",
-        "purpose": "Lift zoom and reset controls."
+        "name": "toast",
+        "value": "0 8px 25px #1d291930",
+        "purpose": "Temporary feedback."
       },
       {
-        "name": "return",
-        "value": "0 8px 24px #4c283d25",
-        "purpose": "Emphasize scene return."
-      },
-      {
-        "name": "drawer",
-        "value": "0 12px 35px #344c3020",
-        "purpose": "Separate phone navigation from canvas."
-      },
-      {
-        "name": "popover",
-        "value": "0 14px 50px #23372820",
-        "purpose": "Separate map information."
+        "name": "search-focus",
+        "value": "0 0 0 2px #e5e9dd",
+        "purpose": "Search focus-within halo."
       }
     ],
     "motion": [
       {
-        "name": "label-state",
-        "value": "180ms ease",
-        "purpose": "Directory and marker state transitions."
+        "name": "interactive-state",
+        "value": "background 0.16s, color 0.16s, border-color 0.16s",
+        "purpose": "Buttons and links."
       },
       {
-        "name": "camera-travel",
-        "value": "1350ms; ease = 1 - (1 - t)^4",
-        "purpose": "Travel between overview and scene viewpoints."
+        "name": "mobile-navigation",
+        "value": "transform 0.2s",
+        "purpose": "Slideout navigation."
       },
       {
-        "name": "orbit-damping",
-        "value": "0.08",
-        "purpose": "Damped manual movement."
-      },
-      {
-        "name": "loading-orbit",
-        "value": "1600ms linear infinite",
-        "purpose": "Loading indicator."
-      },
-      {
-        "name": "reduced-motion",
-        "value": "Immediate camera travel; CSS durations 0.01ms",
-        "purpose": "Honor prefers-reduced-motion."
+        "name": "orbit",
+        "value": "orbit 30s linear infinite",
+        "purpose": "SVG own-agent orbit; disabled by reduced motion."
       }
     ],
     "breakpoints": [
       {
-        "name": "camera-narrow-max-exclusive",
-        "value": "600px"
-      },
-      {
-        "name": "phone-max",
-        "value": "760px"
-      },
-      {
-        "name": "compact-max",
-        "value": "1000px"
-      },
-      {
         "name": "wide-min",
-        "value": "1600px"
+        "value": "1550px"
       },
       {
-        "name": "short-desktop-max-height",
-        "value": "800px"
+        "name": "compact-desktop-max",
+        "value": "1200px"
+      },
+      {
+        "name": "rail-collapse-max",
+        "value": "1020px"
+      },
+      {
+        "name": "mobile-max",
+        "value": "760px"
       }
     ]
   },
   "components": [
     {
-      "name": "Scene Return",
+      "name": "Primary button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Plum action returning to the overview.",
-      "html": "<button class=\"ds ds-return\">← 返回全景地图</button>",
-      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-return{height:42px;padding:0 18px;border:1px solid transparent;border-radius:6px;background:var(--primary,#663849);color:#fff;font-size:13px;box-shadow:0 8px 24px #4c283d25}.ds-return:hover{background:color-mix(in oklab,var(--primary,#663849) 80%,transparent)}.ds-return:disabled{opacity:.5;pointer-events:none}"
+      "description": "Main broadcast action.",
+      "html": "<button class=\"ds-primary\">发布广播</button>",
+      "css": ".ds-primary{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;border:0;background:var(--orange,#ba4c28);color:#fff;padding:11px 17px;border-radius:5px;font-size:14px;font-weight:550;min-height:39px}.ds-primary:hover{background:#b84927}.ds-primary:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}.ds-primary:disabled{opacity:.5;cursor:wait}@media(prefers-reduced-motion:reduce){.ds-primary{transition:none;animation:none}}"
     },
     {
-      "name": "Scene Reset",
+      "name": "Outline button",
       "kind": "button",
       "refersTo": "button-outline",
-      "description": "Outlined scene camera reset.",
-      "html": "<button class=\"ds ds-reset\">重置场景视角</button>",
-      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-reset{height:36px;padding:0 10px;border:1px solid #dce2da;border-radius:8px;background:transparent;color:#60725f;font-size:12px}.ds-reset:hover{background:var(--muted,#f0f2ef);color:var(--foreground,#273330)}"
+      "description": "Secondary management action.",
+      "html": "<button class=\"ds-outline\">管理订阅</button>",
+      "css": ".ds-outline{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;border:1px solid #d4d9ce;background:transparent;color:var(--ink,#252a24);border-radius:5px;padding:10px 14px;font-size:12px;font-weight:550}.ds-outline:hover{background:#e9eee2;color:#2d3828;border-color:#a9b39d}.ds-outline:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-outline{transition:none;animation:none}}"
     },
     {
-      "name": "Map Control",
+      "name": "Icon button",
       "kind": "button",
-      "refersTo": "button-ghost",
-      "description": "Compact zoom/reset control.",
-      "html": "<button class=\"ds ds-control\" aria-label=\"放大地图\">＋</button>",
-      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-control{width:35px;height:35px;padding:0;border:1px solid transparent;border-radius:5px;background:#fcfcfaf2;color:#50644f;font-size:20px}.ds-control:hover{background:var(--muted,#f0f2ef)}.ds-control:disabled{opacity:.5;pointer-events:none}"
+      "refersTo": "button-icon",
+      "description": "Compact close control.",
+      "html": "<button class=\"ds-icon\" aria-label=\"关闭\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button>",
+      "css": ".ds-icon{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;display:inline-flex;border:0;background:transparent;color:var(--ink,#252a24);padding:7px;border-radius:4px}.ds-icon:hover{background:#edf0e8;color:var(--orange,#ba4c28)}.ds-icon:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-icon{transition:none;animation:none}}"
     },
     {
-      "name": "Location Directory",
+      "name": "Text button",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Inline rust action.",
+      "html": "<button class=\"ds-text\">探索网络</button>",
+      "css": ".ds-text{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;border:0;background:none;color:var(--orange,#ba4c28);padding:0;font-size:12px}.ds-text:hover{color:var(--orange,#ba4c28)}.ds-text:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-text{transition:none;animation:none}}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labeled form field.",
+      "html": "<label class=\"ds-label\">广播标题<input class=\"ds-input\" placeholder=\"你希望连接什么？\"></label>",
+      "css": ".ds-label{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:flex;flex-direction:column;gap:9px;font-size:12px;color:var(--ink,#252a24)}.ds-input{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;border:1px solid #d7dece;background:#fff;border-radius:5px;padding:11px 12px;font-size:12px;line-height:1.8;color:var(--ink,#252a24);caret-color:var(--orange,#ba4c28)}.ds-input::placeholder{color:#64705c}.ds-input:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-label,.ds-input{transition:none;animation:none}}"
+    },
+    {
+      "name": "Navigation",
       "kind": "nav",
-      "refersTo": "location-row",
-      "description": "Destination rows with zone labels and plum selection.",
-      "html": "<nav class=\"ds-directory\" aria-label=\"校园地点\"><button class=\"ds ds-location\" aria-current=\"location\"><span>北大楼</span><small>西区</small></button><button class=\"ds ds-location\"><span>图书馆</span><small>西区</small></button></nav>",
-      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-directory{display:flex;flex-direction:column;gap:4px;width:244px}.ds-location{display:flex;align-items:center;justify-content:space-between;height:51px;padding:0 12px;border:1px solid transparent;border-radius:6px;background:transparent;color:#415048;font-size:14px;transition:background .18s,color .18s}.ds-location small{color:var(--muted-foreground,#5e6b61);font-size:12px}.ds-location:hover{background:#f0f2ee}.ds-location[aria-current=location]{background:#f0e9ed;color:var(--primary,#663849)}"
+      "refersTo": "navigation-item",
+      "description": "Charcoal navigation with selected context.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-active\" aria-current=\"page\">信号广场</button><button>网络探索</button></nav>",
+      "css": ".ds-nav{background:var(--dark,#191c19);padding:19px;display:flex;flex-direction:column;gap:6px}.ds-nav button{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;text-align:left;border:0;background:none;color:#b0b9a8;padding:13px 15px;min-height:46px;border-radius:5px;font-size:13px}.ds-nav button:hover{background:#252b22;color:#f1f4e9}.ds-nav .ds-active{background:#30392a;color:#e6efdc}.ds-nav button:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-active,.ds-nav{transition:none;animation:none}}"
     },
     {
-      "name": "Projected Map Marker",
+      "name": "Demand badge",
+      "kind": "chip",
+      "refersTo": "demand-chip",
+      "description": "Noninteractive broadcast category.",
+      "html": "<span class=\"ds-chip\">需求</span>",
+      "css": ".ds-chip{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:inline-block;background:#f5e8dd;color:#9c6236;border-radius:3px;padding:2px 6px;font-size:9px;line-height:1.8;white-space:nowrap}@media(prefers-reduced-motion:reduce){.ds-chip{transition:none;animation:none}}"
+    },
+    {
+      "name": "Network panel",
+      "kind": "card",
+      "refersTo": "network-panel",
+      "description": "Flat supporting network container.",
+      "html": "<section class=\"ds-panel\"><h2>网络概览</h2><p>示例网络 · 连接表示共享领域</p></section>",
+      "css": ".ds-panel{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;border:1px solid #dce2d3;background:#f1f4eb;border-radius:7px;overflow:hidden;color:var(--ink,#252a24)}.ds-panel h2{font-size:12px;font-weight:600;padding:17px 17px 0;margin:0}.ds-panel p{font-size:10px;color:#6c7b60;padding:11px 10px 13px;text-align:center;margin:0}@media(prefers-reduced-motion:reduce){.ds-panel{transition:none;animation:none}}"
+    },
+    {
+      "name": "Signal row",
       "kind": "custom",
-      "refersTo": "map-marker",
-      "description": "Clickable label, stem and dot; plum for hover or selection.",
-      "html": "<button class=\"ds ds-marker\" aria-label=\"进入南雍楼三维场景\"><span class=\"ds-label\">南雍楼 ↗</span><span class=\"ds-stem\"></span><span class=\"ds-dot\"></span></button>",
-      "css": ".ds:focus-visible{outline:2px solid var(--ring,#855366);outline-offset:4px}.ds{cursor:pointer;font-family:'PingFang SC','Microsoft YaHei',sans-serif}@media(prefers-reduced-motion:reduce){.ds{transition-duration:.01ms}}.ds-marker{display:inline-flex;flex-direction:column;align-items:center;padding:0;border:0;background:transparent;color:#435443}.ds-label{padding:9px 13px;border:1px solid #d1dace;border-radius:5px;background:#fcfcfaf2;font-size:12px;box-shadow:0 5px 16px #243e2415;transition:color .18s,background .18s}.ds-stem{height:18px;width:1px;background:#82907a}.ds-dot{width:5px;height:5px;border-radius:50%;background:#69805f;outline:3px solid #f0f4e9a0}.ds-marker:hover .ds-label,.ds-marker:focus-visible .ds-label,.ds-marker[data-selected] .ds-label{background:var(--primary,#663849);border-color:var(--primary,#663849);color:#fff}"
+      "refersTo": "signal-row",
+      "description": "Editorial title, body, and provenance.",
+      "html": "<article class=\"ds-signal\"><button class=\"ds-signal-title\">寻找多 Agent 协作研究伙伴</button><p>关注能力发现、协作成本和任务成功率。</p><span>示例广播 · AI 与研究</span></article>",
+      "css": ".ds-signal{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;padding:25px 0;border-bottom:1px solid var(--line,#e2e5dc);color:var(--ink,#252a24)}.ds-signal-title{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;padding:0;border:0;background:none;color:inherit;font-size:15px;font-weight:550;line-height:1.65;letter-spacing:.1px;text-align:left}.ds-signal-title:hover{color:var(--orange,#ba4c28)}.ds-signal-title:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}.ds-signal p{font-size:13px;line-height:1.95;color:#626b5c;margin:9px 0 19px;max-width:73ch}.ds-signal>span{font-size:10px;color:#68735f}@media(prefers-reduced-motion:reduce){.ds-signal,.ds-signal-title{transition:none;animation:none}}"
     }
   ],
   "narrative": {
-    "northStar": "Architectural exhibition model",
-    "overview": "The user-pinned direction is simple, spacious and tactile. An orthographic campus model supplies the material character; porcelain interface surfaces and quiet academic typography frame exploration. Runtime React/Three.js was chosen for this build without establishing a permanent workflow preference.",
+    "northStar": "The Quiet Network Observatory",
+    "overview": "A quiet network observatory with an editorial signal stream. Charcoal navigation anchors a warm off-white reading field; restrained rust identifies actions and sage supports secondary context. Chinese text has generous line height, while compact metadata keeps the network readable.\n\nThis record describes the current network/ application, extracted from network/style.css and representative network/main.jsx components. It replaces the legacy campus visual record; the historical campus code is not the source for new screens. The confirmed direction is recorded in .impeccable/network-direction.md.",
     "keyCharacteristics": [
-      "A continuous architectural model with nine exterior viewpoints.",
-      "Grey masonry, dark red details, wooded terrain and muted water.",
-      "Compact navigation with readable labels and restrained plum selection."
+      "Persistent dark navigation with a light reading surface.",
+      "Flat, divider-led signal rows and restrained bordered panels.",
+      "Rust actions, sage context, and original SVG network geometry.",
+      "Visible provenance and demo status alongside actionable content."
     ],
     "rules": [
       {
-        "name": "The Stable Label Rule",
-        "body": "Keep the model caption and modeling note on opaque porcelain backings in close scenes.",
+        "name": "The Action Accent Rule",
+        "body": "Use rust for action and emphasis; keep supporting network context subdued.",
         "section": "colors"
+      },
+      {
+        "name": "The Flat Reading Rule",
+        "body": "Keep reading surfaces flat; use depth for temporary overlays and input focus.",
+        "section": "elevation"
       }
     ],
     "dos": [
-      "Preserve the spacious model-first composition and concise navigation.",
-      "Retain the east/west, hill and river relationships.",
-      "Keep source and approximation language visible."
+      "Do extend the network/ tokens and Chinese/system font fallbacks.",
+      "Do preserve readable signal text, metadata hierarchy, and visible keyboard focus.",
+      "Do keep example status, matching reasons, and conversation origin legible.",
+      "Do collapse the supporting rail before compressing the reading column."
     ],
     "donts": [
-      "Don't present modeled heights, facades, vegetation or camera spans as surveyed measurements.",
-      "Don't imply indoor access, route guidance or precise navigation."
+      "Don't reuse the legacy campus palette, type system, or world interface for new network screens.",
+      "Don't turn every signal row into a raised card.",
+      "Don't use simulated network activity as a visual claim of real external traffic.",
+      "Don't keep decorative motion running when reduced motion is requested."
     ]
   }
 }
