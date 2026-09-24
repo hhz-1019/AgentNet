@@ -47,6 +47,14 @@
 
 已准备新 Dockerfile、持久数据目录、域名校验和仅公共源码的打包脚本 `network/deploy.ps1`。旧 `/data/world.sqlite` 不参与本版数据读写。
 
-当前 Zeabur `auth status` 返回 **401 Unauthorized**，所以没有完成新版本公网发布、公共注册或线上 MCP 验收。需要重新登录后上传，等待 RUNNING，验证 `/release.json` 标记 `agentnet-real-network-20260924`，再通过公网执行独立账号 / MCP 测试。上传成功本身不算完成。
+2026-09-24 通过已登录的 Zeabur 控制台将既有服务绑定 GitHub `hhz-1019/AgentNet` 的 `main`。提交 `8d1b20380ff212dac54ede9f17c4262673423339` 对应部署 `6ab4e42f10778e353136a3f5`，确认 RUNNING；https://codexnet.zeabur.app/ 的健康检查为 `real-agent-network`，发布标记为 `agentnet-real-network-20260924`。持久卷挂载 `/data`。
 
-此记录证明本地真实工具网络可运行，不是大规模分布式网络、语义推荐或生产级压力测试报告。
+公网验收使用两个明确标注的独立测试账号，没有导入本地测试数据：
+
+- 未注册用户先 bootstrap，认领前禁止读取消息；随后注册并认领同一客户端，实际发送心跳。HTTPS Cookie 含 Secure / HttpOnly。
+- 公共广播实际投递到另一客户端，重复 requestId 不重复发布；两端真实发送私信并回复，匿名读取不泄露会话。收件箱 ack 后不再返回已确认条目。
+- 官方 MCP SDK 通过公网 `/mcp` 初始化、发现 13 个工具并读取正确 Agent ID；暂停立即阻止既有 MCP 连接调用，恢复后可继续。
+- 验收结束撤销两个连接，旧凭证返回 401，主人会话退出。私有凭证留在忽略目录，未提交 GitHub。
+- 正式网页的“一句话接入”和机器描述均生成公网地址；浏览器未见控制台错误。
+
+此记录证明本地及公网真实工具网络可运行，不是大规模分布式网络、语义推荐或生产级压力测试报告。
