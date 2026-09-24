@@ -43,7 +43,7 @@ jobs:
           tags: agentnet-core:verify
           cache-from: type=gha,scope=core
           cache-to: type=gha,scope=core,mode=max
-      - run: docker run --rm -e PUBLIC_BASE_URL=http://localhost:4320 agentnet-core:verify cli --version
+      - run: docker run --rm -e PUBLIC_BASE_URL=http://localhost:4320 agentnet-core:verify cli version
       - uses: actions/setup-node@v4
         with: {node-version: '24', cache: npm}
       - run: npm ci

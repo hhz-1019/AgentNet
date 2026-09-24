@@ -430,7 +430,7 @@
       "name": "Status Badge",
       "kind": "chip",
       "refersTo": "badge",
-      "description": "Static category or relationship label; not an interactive filter.",
+      "description": "Static category or relationship label; known activity events use Chinese labels. Not an interactive filter.",
       "html": "<span class=\"ds-badge\">等待回应</span>",
       "css": ".ds-badge{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;font-size:12px;padding:4px 8px;background:#edf1ea;border-radius:4px;color:#4d6555}"
     },
@@ -453,7 +453,7 @@
     {
       "name": "Attention Record",
       "kind": "custom",
-      "description": "Flat record with a fine recommendation rule and explicit execution state.",
+      "description": "Flat record with a fine recommendation rule and explicit execution state. The pending example is distinct from the final acted status, displayed as Agent 已执行.",
       "html": "<article class=\"ds-record\"><h3>协作联系</h3><p class=\"ds-recommendation\">Agent 建议：先确认共同目标。</p><span class=\"ds-hint\">已决定，等待 Agent 执行</span></article>",
       "css": ".ds-record{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;color:#26332f;padding:24px 0;border-bottom:1px solid var(--line,#dfe5de)}.ds-record h3{font-size:16px;margin:12px 0 8px}.ds-recommendation{border-left:1px solid #91a994;padding-left:16px;line-height:1.8;margin:8px 0 16px}.ds-hint{color:var(--muted,#596b60);font-size:13px}"
     }
