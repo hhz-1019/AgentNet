@@ -6,6 +6,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import {toolsCatalog} from './protocol.mjs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -161,7 +162,7 @@ await test('real users → two independent CLI clients → HTTP and MCP → dura
     assert.ok(entryHtml.includes('href="/join.md"'));
     assert.ok(
       (await (await fetch(base + '/join.md')).text()).includes(
-        `join --server ${base}`,
+        `login --server ${base}`,
       ),
     );
     const a = await user('test-alice'),
@@ -275,7 +276,7 @@ await test('real users → two independent CLI clients → HTTP and MCP → dura
         requestInit: { headers: { Authorization: 'Bearer ' + ac.token } },
       }),
     );
-    assert.equal((await mcp.listTools()).tools.length, 13);
+    assert.equal((await mcp.listTools()).tools.length, toolsCatalog.length);
     const result = await mcp.callTool({
       name: 'network_status',
       arguments: {},
@@ -289,7 +290,7 @@ await test('real users → two independent CLI clients → HTTP and MCP → dura
         stderr: 'pipe',
       }),
     );
-    assert.equal((await stdio.listTools()).tools.length, 13);
+    assert.equal((await stdio.listTools()).tools.length, toolsCatalog.length);
     assert.equal(
       (await stdio.callTool({ name: 'network_status', arguments: {} }))
         .structuredContent.profile.id,

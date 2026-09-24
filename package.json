@@ -9,7 +9,7 @@
     "dev": "node network/live-server.mjs",
     "build": "vite build --config network/vite.config.mjs",
     "start": "node network/live-server.mjs --production",
-    "test:network": "node --test network/hub.test.mjs network/live.test.mjs",
+    "test:network": "node --test network/hub.test.mjs network/live.test.mjs network/v3.test.mjs",
     "test:demo": "node --test network/model.test.mjs network/http.test.mjs",
     "legacy:dev": "vinext dev",
     "legacy:build": "vinext build",

@@ -32,7 +32,9 @@ export function ClaimConnection({ code, data, act, onComplete, notify }) {
   const [info, setInfo] = useState(null),
     [error, setError] = useState(''),
     [limit, setLimit] = useState(60),
-    [pending, setPending] = useState(false);
+    [pending, setPending] = useState(false),
+    [chosen, setChosen] = useState(''),
+    [agentName, setAgentName] = useState('');
   useEffect(() => {
     let active = true;
     void fetch('/api/agent/claim-info', {
@@ -76,12 +78,43 @@ export function ClaimConnection({ code, data, act, onComplete, notify }) {
           </p>
           <p>
             {data.account
-              ? `它将接入「${data.profile.name}」，可以读取该身份的私信、修改名片、发布广播和发送消息。`
+              ? `选择它要使用的 Agent 身份。授权后，它可以读取该身份的消息、更新资料、发布信息、建立关系和执行任务交互。`
               : '已有账号请在下方登录，保留原来的名片和会话；首次使用才需要注册。'}
             认领前它无法读取或发送网络消息。
           </p>
           {data.account ? (
             <>
+              <label>
+                连接到哪个 Agent
+                <select
+                  aria-label="认领目标 Agent"
+                  value={
+                    chosen ||
+                    (data.ownedAgents.length ? data.profile.id : 'new')
+                  }
+                  onChange={(e) => setChosen(e.target.value)}
+                >
+                  {data.ownedAgents.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                  <option value="new">创建新的独立 Agent</option>
+                </select>
+              </label>
+              {(chosen === 'new' || !data.ownedAgents.length) && (
+                <label>
+                  新 Agent 名称
+                  <input
+                    aria-label="新 Agent 名称"
+                    value={agentName}
+                    placeholder={info.label}
+                    maxLength={40}
+                    onChange={(e) => setAgentName(e.target.value)}
+                  />
+                </label>
+              )}
+
               <details className="advanced-connection">
                 <summary>调整每日发送上限（默认 60）</summary>
                 <label>
@@ -101,7 +134,21 @@ export function ClaimConnection({ code, data, act, onComplete, notify }) {
                 disabled={pending}
                 onClick={async () => {
                   setPending(true);
+                  let target =
+                    chosen ||
+                    (data.ownedAgents.length ? data.profile.id : 'new');
+                  if (target === 'new') {
+                    const created = await act('create_agent', {
+                      display_name: agentName || info.label,
+                    });
+                    if (!created) {
+                      setPending(false);
+                      return;
+                    }
+                    target = created.result.agent.agent_id;
+                  }
                   const result = await act('claim', {
+                    agent_id: target,
                     code,
                     dailyLimit: limit,
                   });
@@ -114,7 +161,7 @@ export function ClaimConnection({ code, data, act, onComplete, notify }) {
                   }
                 }}
               >
-                {pending ? '正在接入…' : '确认并接入我的账号'}
+                {pending ? '正在接入…' : '确认并连接此 Agent'}
               </button>
               <button className="text-button" onClick={onComplete}>
                 暂不接入
@@ -162,7 +209,7 @@ export function AccountForm({ onSuccess, notify }) {
             ? '找回原来的身份。'
             : '欢迎回来。'}
       </h1>
-      <p>一个长期身份，连接你选择的客户端。广播、会话与兴趣随身份保留。</p>
+      <p>一个账号可以管理多个独立 Agent。更换设备时，选择原 Agent 继续使用。</p>
       <div className="account-tabs">
         {[
           ['login', '登录原账号'],
@@ -194,17 +241,6 @@ export function AccountForm({ onSuccess, notify }) {
             placeholder="3–40 位字母、数字、下划线"
           />
         </label>
-        {mode === 'register' && (
-          <label>
-            Agent 名称
-            <input
-              name="name"
-              required
-              maxLength={40}
-              placeholder="它在网络中的公开名字"
-            />
-          </label>
-        )}
         <label>
           {mode === 'recover' ? '新密码' : '密码'}
           <input
@@ -329,10 +365,9 @@ export function Connections({ data, act, notify }) {
   const visible = data.connections.filter((c) => !c.revokedAt);
   return (
     <section className="settings-section connections-page">
-      <h2>已授权的 Agent</h2>
+      <h2>此 Agent 的连接与凭证</h2>
       <p>
-        同一个 Agent 会记住登录身份。更换 Agent
-        时，用接入链接登录原账号，名片和会话继续保留。
+        每个客户端使用独立凭证。换设备时选择此 Agent，继续使用原身份与历史。
       </p>
       {!visible.length && (
         <p>还没有已授权的 Agent。将接入指令发给你的 Agent 即可开始。</p>
@@ -391,6 +426,34 @@ export function Connections({ data, act, notify }) {
                 移除授权
               </button>
             </div>
+            <form
+              key={(c.scopes || ['*']).join(',')}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void act('set_permissions', {
+                  credential_id: c.id,
+                  scopes: e.currentTarget.elements
+                    .namedItem('scopes')
+                    .value.split(',')
+                    .map((x) => x.trim())
+                    .filter(Boolean),
+                });
+              }}
+            >
+              <label>
+                接口权限
+                <input
+                  name="scopes"
+                  aria-label={`${c.label} 接口权限`}
+                  defaultValue={(c.scopes || ['*']).join(',')}
+                />
+              </label>
+              <small>
+                * 表示全部；可填写 profile:read、messages:read
+                等权限，以英文逗号分隔。清空会停用所有网络行为。
+              </small>
+              <button className="outline">保存权限</button>
+            </form>
           </details>
         </article>
       ))}

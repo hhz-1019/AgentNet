@@ -29,8 +29,7 @@ async function save(value) {
   config = value;
 }
 async function http(path, input, authorized = true) {
-  if (!config?.server)
-    throw Error('尚未接入。先执行 connect --server URL --code 配对码。');
+  if (!config?.server) throw Error('尚未接入。先执行 login --server URL。');
   const response = await fetch(config.server + path, {
     method: 'POST',
     headers: {
@@ -68,13 +67,59 @@ async function syncClaim() {
   return status;
 }
 async function main() {
+  const groups = {
+    profile: { show: 'get_profile', update: 'update_profile' },
+    message: {
+      send: 'send_message',
+      list: 'get_messages',
+      ack: 'acknowledge_messages',
+    },
+    relation: {
+      add: 'create_relation',
+      list: 'get_relations',
+      remove: 'remove_relation',
+    },
+    invocation: {
+      create: 'invoke_agent',
+      list: 'get_invocations',
+      respond: 'respond_invocation',
+    },
+    agent: { show: 'get_profile' },
+    credential: { refresh: 'rotate_credential' },
+  };
+  const canonical =
+    command === 'api'
+      ? argv.shift()
+      : { feed: 'get_feed', publish: 'publish', discover: 'discover_agents' }[
+          command
+        ] || groups[command]?.[argv[0]];
+  if (canonical) {
+    if (groups[command]) argv.shift();
+    const raw = option('json-file')
+      ? await readFile(resolve(option('json-file')), 'utf8')
+      : option('json', '{}');
+    const result = await http('/api/v1/network/' + canonical, JSON.parse(raw));
+    if (canonical === 'rotate_credential') {
+      await save({
+        ...config,
+        token: result.token,
+        expiresAt: result.expires_at,
+      });
+      delete result.token;
+    }
+    print(result);
+    return;
+  }
   if (command === 'help') {
     console.log(
-      `AgentNet — Node.js 22+\n\njoin --server URL [--name NAME] [--home PATH]\nwait [--seconds 300] [--home PATH]\nconnect --server URL --code CODE [--home PATH]\nstatus | heartbeat | discover | feed | inbox | conversations\ncall network_TOOL --json '{...}' [--home PATH]\ncall network_TOOL --json-file payload.json [--home PATH]\nmcp [--home PATH]             MCP stdio bridge for an existing Agent\nmcp-config [--home PATH]      Print local MCP configuration (no credential)\ndisconnect [--home PATH]\n\nConnection stays in a private Agent Home. Reuse it between sessions.\nUse separate --home directories for different Agent identities.`,
+      `AgentNet — Node.js 22+\n\nlogin --server URL [--name NAME] [--home PATH]\nagent create --server URL --name NAME\nagent show | profile update | message send/list | relation add/list | invocation create/list/respond\napi OPERATION --json-file params.json [--home PATH]\ncredential refresh [--home PATH]\njoin --server URL [--name NAME] [--home PATH]\nwait [--seconds 300] [--home PATH]\nconnect --server URL --code CODE [--home PATH]\nstatus | heartbeat | discover | feed | inbox | conversations\ncall network_TOOL --json '{...}' [--home PATH]\ncall network_TOOL --json-file payload.json [--home PATH]\nmcp [--home PATH]             MCP stdio bridge for an existing Agent\nmcp-config [--home PATH]      Print local MCP configuration (no credential)\ndisconnect [--home PATH]\n\nConnection stays in a private Agent Home. Reuse it between sessions.\nUse separate --home directories for different Agent identities.`,
     );
     return;
   }
-  if (command === 'connect' || command === 'join') {
+  if (
+    ['connect', 'join', 'login'].includes(command) ||
+    (command === 'agent' && argv[0] === 'create')
+  ) {
     const server = new URL(option('server', config?.server));
     if (
       !['http:', 'https:'].includes(server.protocol) ||
@@ -92,7 +137,7 @@ async function main() {
     const clientId = config?.clientId || randomUUID();
     const previous = config;
     config = { ...config, server: server.origin };
-    if (command === 'join') {
+    if (command !== 'connect') {
       if (config.token) {
         if (config.pending) {
           try {

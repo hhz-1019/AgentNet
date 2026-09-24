@@ -35,7 +35,7 @@ const safeEqual = (a, b) =>
   a.length === b.length &&
   timingSafeEqual(Buffer.from(a), Buffer.from(b));
 export const emptyHub = () => ({
-  version: 2,
+  version: 3,
   users: [],
   sessions: [],
   agents: [],
@@ -48,6 +48,9 @@ export const emptyHub = () => ({
   deliveries: [],
   events: [],
   receipts: [],
+  relations: [],
+  invocations: [],
+  activityLogs: [],
   sequence: 0,
 });
 export function authenticate(state, headers, { optional = false } = {}) {
@@ -83,10 +86,16 @@ export function authenticate(state, headers, { optional = false } = {}) {
     );
   if (session) {
     const user = state.users.find((u) => u.id === session.userId);
+    const selected = headers['x-agent-id'];
+    if (
+      selected &&
+      !state.agents.some((a) => a.id === selected && a.ownerId === user.id)
+    )
+      problem('Agent 不属于此账号。', 403, 'NOT_OWNER');
     return {
       kind: 'owner',
       userId: user.id,
-      agentId: user.agentId,
+      agentId: selected || session.agentId || user.defaultAgentId || null,
       sessionId: session.id,
       csrf: session.csrf,
     };
@@ -105,7 +114,7 @@ function writable(state, actor) {
     if (c.paused) problem('主人已暂停此连接。', 403, 'CONNECTION_PAUSED');
   }
 }
-function addEvent(state, agentId, message) {
+export function addEvent(state, agentId, message) {
   state.events.unshift({
     id: randomUUID(),
     agentId,
@@ -114,7 +123,7 @@ function addEvent(state, agentId, message) {
   });
   state.events = state.events.slice(0, 2000);
 }
-function deliver(state, agentId, kind, itemId) {
+export function deliver(state, agentId, kind, itemId) {
   state.deliveries.push({
     sequence: ++state.sequence,
     agentId,
@@ -140,9 +149,10 @@ function connectionView(c) {
       c.lastSeenAt > Date.now() - 90000,
     dailyLimit: c.dailyLimit,
     usage: c.usage,
+    scopes: c.scopes || ['*'],
   };
 }
-function publicAgent(state, a) {
+export function publicAgent(state, a) {
   const connections = state.connections
     .filter((c) => c.agentId === a.id)
     .map(connectionView);
@@ -183,7 +193,7 @@ export function snapshot(state, actor, baseUrl) {
         }))
     : [];
   return {
-    version: 2,
+    version: 3,
     serverTime: Date.now(),
     account:
       actor?.kind === 'owner'
@@ -193,6 +203,12 @@ export function snapshot(state, actor, baseUrl) {
           }
         : null,
     csrf: actor?.kind === 'owner' ? actor.csrf : null,
+    ownedAgents:
+      actor?.kind === 'owner'
+        ? state.agents
+            .filter((a) => a.ownerId === actor.userId)
+            .map((a) => publicAgent(state, a))
+        : [],
     profile,
     agents: state.agents
       .filter((a) => a.id !== actor?.agentId)
@@ -254,7 +270,7 @@ function newSession(state, user) {
     actor: {
       kind: 'owner',
       userId: user.id,
-      agentId: user.agentId,
+      agentId: user.defaultAgentId || null,
       sessionId: session.id,
       csrf: session.csrf,
     },
@@ -271,36 +287,23 @@ export async function accountAction(state, action, payload) {
       problem('这个用户名已被使用。', 409, 'USERNAME_TAKEN');
     const salt = secret();
     const recoveryCode = secret();
-    const agentId = randomUUID();
     const user = {
       id: randomUUID(),
       username,
       salt,
       passwordHash: (await scrypt(password, salt, 64)).toString('hex'),
       recoveryHash: hash(recoveryCode),
-      agentId,
+      defaultAgentId: null,
       createdAt: Date.now(),
     };
     state.users.push(user);
-    const name = text(payload.name || `${username} Agent`, 'Agent 名称', 40);
-    state.agents.push({
-      id: agentId,
-      ownerId: user.id,
-      name,
-      role: '独立 Agent',
-      initials: name.slice(0, 2).toUpperCase(),
-      topic: topics.includes(payload.topic) ? payload.topic : topics[0],
-      bio: '尚未填写公开简介。',
-      keywords: [],
-      color: '#687b62',
-      kind: 'agent',
-      createdAt: Date.now(),
-    });
-    addEvent(
-      state,
-      agentId,
-      '身份已创建。接入客户端并发送首次心跳后，网络才会显示在线。',
-    );
+    // Compatibility: callers may explicitly request their first Agent during signup.
+    if (payload.name)
+      createAgent(
+        state,
+        { kind: 'owner', userId: user.id },
+        { display_name: payload.name },
+      );
     return { ...newSession(state, user), recoveryCode };
   }
   const user = state.users.find((u) => u.username === username);
@@ -319,13 +322,17 @@ export async function accountAction(state, action, payload) {
     const recoveryCode = secret();
     user.recoveryHash = hash(recoveryCode);
     state.sessions = state.sessions.filter((s) => s.userId !== user.id);
-    for (const c of state.connections.filter((c) => c.agentId === user.agentId))
+    for (const c of state.connections.filter((c) =>
+      state.agents.some((a) => a.id === c.agentId && a.ownerId === user.id),
+    ))
       c.revokedAt = Date.now();
-    for (const p of state.pairings.filter((p) => p.agentId === user.agentId))
+    for (const p of state.pairings.filter((p) =>
+      state.agents.some((a) => a.id === p.agentId && a.ownerId === user.id),
+    ))
       p.expiresAt = 0;
     addEvent(
       state,
-      user.agentId,
+      user.defaultAgentId,
       '账号已恢复，历史数据保留，旧会话和客户端连接已撤销。',
     );
     return { ...newSession(state, user), recoveryCode };
@@ -465,12 +472,13 @@ export function claimStatus(state, headers) {
   const p = (state.onboarding || []).find((p) =>
     safeEqual(p.tokenHash, hash(token)),
   );
-  if (!p) problem('客户端凭证无效。', 401, 'INVALID_TOKEN');
+  if (!p || p.connectionId)
+    problem('客户端凭证无效或已刷新。', 401, 'INVALID_TOKEN');
   if (p.expiresAt <= Date.now())
     problem('接入链接已过期，请重新运行 join。', 410, 'CLAIM_EXPIRED');
   return { pending: true, expiresAt: p.expiresAt, pollAfterSeconds: 5 };
 }
-function quota(state, actor) {
+export function quota(state, actor) {
   if (actor.kind !== 'agent') return;
   const c = state.connections.find((c) => c.id === actor.connectionId);
   const day = new Date().toISOString().slice(0, 10);
@@ -483,7 +491,7 @@ function quota(state, actor) {
     );
   c.usage.actions++;
 }
-function withReceipt(state, actor, action, payload, operation) {
+export function withReceipt(state, actor, action, payload, operation) {
   const requestId = payload.requestId;
   if (
     requestId !== undefined &&
@@ -514,8 +522,17 @@ function withReceipt(state, actor, action, payload, operation) {
 }
 export function networkAction(state, actor, action, payload) {
   writable(state, actor);
+  if (actor.kind === 'owner' && ['publish', 'chat'].includes(action))
+    problem(
+      '网络通信仅允许 Agent 凭证，网页只负责管理与观察。',
+      403,
+      'AGENT_REQUIRED',
+    );
   const agent = state.agents.find((a) => a.id === actor.agentId);
   const now = Date.now();
+  if (!agent) problem('请先创建或选择 Agent。', 409, 'AGENT_REQUIRED');
+  if (actor.kind === 'owner' && agent.ownerId !== actor.userId)
+    problem('无权管理此 Agent。', 403, 'NOT_OWNER');
   if (action === 'claim') {
     owner(actor);
     const p = pendingClaim(state, payload.code);
@@ -613,7 +630,9 @@ export function networkAction(state, actor, action, payload) {
     return withReceipt(state, actor, action, payload, () => {
       if (
         !topics.includes(payload.topic) ||
-        !['发现', '需求', '能力', '机会'].includes(payload.type)
+        !['发现', '需求', '能力', '机会', '状态', '任务', '资源'].includes(
+          payload.type,
+        )
       )
         problem('请选择有效领域与广播类型。');
       const signal = {
@@ -704,6 +723,7 @@ export function networkAction(state, actor, action, payload) {
           createdAt: now,
           sequence: state.sequence + 1,
           signalId: payload.signalId || null,
+          status: 'delivered',
           via: actor.kind,
         };
         c.messages.push(message);
@@ -818,6 +838,11 @@ export function agentInbox(state, actor, since) {
     .filter((d) => d.agentId === actor.agentId && d.sequence > cursor)
     .slice(0, 50)
     .map((d) => {
+      if (d.kind === 'invocation')
+        return {
+          ...d,
+          invocation: state.invocations.find((i) => i.id === d.itemId),
+        };
       if (d.kind === 'broadcast')
         return {
           ...d,
@@ -859,4 +884,35 @@ export function disconnect(state, actor) {
   const agent = state.agents.find((a) => a.id === actor.agentId);
   if (agent.lease?.connectionId === c.id) delete agent.lease;
   return { online: false };
+}
+
+export function createAgent(state, actor, payload) {
+  owner(actor);
+  if (state.agents.filter((a) => a.ownerId === actor.userId).length >= 50)
+    problem('每个账号最多 50 个 Agent。');
+  const name = text(payload.display_name || payload.name, 'Agent 名称', 40);
+  const agent = {
+    id: randomUUID(),
+    ownerId: actor.userId,
+    name,
+    bio: payload.description
+      ? text(payload.description, '公开简介', 600)
+      : '尚未填写公开简介。',
+    role: '独立 Agent',
+    initials: name.slice(0, 2).toUpperCase(),
+    topic: topics[0],
+    keywords: [],
+    capabilities: [],
+    metadata: {},
+    needs: [],
+    currentTask: '',
+    color: '#687b62',
+    kind: 'agent',
+    createdAt: Date.now(),
+  };
+  state.agents.push(agent);
+  const user = state.users.find((u) => u.id === actor.userId);
+  if (!user.defaultAgentId) user.defaultAgentId = agent.id;
+  addEvent(state, agent.id, 'Agent 身份已创建。');
+  return agent;
 }

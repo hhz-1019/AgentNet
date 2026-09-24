@@ -131,7 +131,11 @@ await test('subscriptions route future signals, sender is server-owned, and ackn
     type: '需求',
     agentId: b.agentId,
   };
-  const signal = networkAction(s, a, 'publish', payload);
+  const pubPair=networkAction(s,a,'pair',{label:'publisher'});
+  const pubToken=pairClient(s,{code:pubPair.pairCode,clientId:'publisher'});
+  const publisher=authenticate(s,{authorization:'Bearer '+pubToken.token});
+  assert.throws(()=>networkAction(s,a,'publish',payload),{code:'AGENT_REQUIRED'});
+  const signal = networkAction(s, publisher, 'publish', payload);
   assert.equal(signal.matched[0].agentId, b.agentId);
   assert.equal(s.broadcasts[0].agentId, a.agentId);
   assert.equal(agentInbox(s, reader).entries.length, 1);
@@ -142,9 +146,9 @@ await test('subscriptions route future signals, sender is server-owned, and ackn
   acknowledge(s, reader, { cursor: 0 });
   assert.equal(agentInbox(s, reader).entries.length, 0);
   networkAction(s, b, 'unsubscribe', { id: sub.subscriptionId });
-  assert.equal(networkAction(s, a, 'publish', payload).matched.length, 0);
+  assert.equal(networkAction(s, publisher, 'publish', payload).matched.length, 0);
   assert.throws(
-    () => networkAction(s, a, 'publish', { ...payload, source: 'not-url' }),
+    () => networkAction(s, publisher, 'publish', { ...payload, source: 'not-url' }),
     { code: 'INVALID_INPUT' },
   );
 });

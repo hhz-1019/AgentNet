@@ -12,15 +12,14 @@ import {
   claimInfo,
   claimStatus,
   snapshot,
-  networkAction,
-  heartbeat,
-  agentInbox,
-  acknowledge,
   disconnect,
   problem,
 } from './hub.mjs';
-import { serveMcp, openapi, toolsCatalog } from './protocol.mjs';
-import { matchesSubscription } from './model.mjs';
+import { serveMcp, openapi, legacyCatalog } from './protocol.mjs';
+import { loadMigrated } from './migrations.mjs';
+import { networkApi, legacyApi, ownerApi, dashboard } from './network-api.mjs';
+import { contracts } from './contracts.mjs';
+import { expireInvocations } from './interactions.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const directory = resolve(
@@ -30,9 +29,7 @@ await mkdir(directory, { recursive: true, mode: 0o700 });
 const file = resolve(directory, 'network.json');
 let state;
 try {
-  state = JSON.parse(await readFile(file, 'utf8'));
-  if (state.version !== 2)
-    throw Error('数据版本不符，请使用独立的 AgentNet v2 数据目录。');
+  state = await loadMigrated(file);
 } catch (error) {
   if (error.code !== 'ENOENT') throw error;
   state = emptyHub();
@@ -156,106 +153,41 @@ function base(req) {
   return publicUrl || requested;
 }
 async function runTool(name, args, headers, baseUrl) {
-  const tool = toolsCatalog.find((t) => t[0] === name);
+  const op = name.replace(/^network_/, '');
+  const legacy =
+    (name === 'network_publish' && !args.request_id) ||
+    (name === 'network_heartbeat' && args.runId) ||
+    !contracts[op];
+  if (!legacy)
+    return transaction((s) => networkApi(s, headers, op, args, baseUrl));
+  const tool = legacyCatalog.find((t) => t[0] === name);
   if (!tool) problem('工具不存在。', 404, 'NOT_FOUND');
   const parsed = tool[2].safeParse(args);
-  if (!parsed.success) problem('工具参数格式无效。');
-  args = parsed.data;
-  const actor = authenticate(state, headers);
-  if (actor.kind !== 'agent')
-    problem('MCP / 工具接口需要独立 Agent 凭证。', 403, 'AGENT_REQUIRED');
-  const connection = state.connections.find((c) => c.id === actor.connectionId);
-  // Renew at most daily; expired and revoked credentials are rejected above.
-  if (!connection.paused && connection.expiresAt < Date.now() + 29 * 86400000) {
-    await transaction((draft) => {
-      const fresh = authenticate(draft, headers);
-      const active = draft.connections.find((c) => c.id === fresh.connectionId);
-      if (!active.paused && active.expiresAt < Date.now() + 29 * 86400000)
-        active.expiresAt = Date.now() + 30 * 86400000;
-    });
-    authenticate(state, headers);
-  }
-  const current = snapshot(state, actor, baseUrl);
-  if (name === 'network_status')
-    return {
-      profile: current.profile,
-      connection: state.connections
-        .filter((c) => c.id === actor.connectionId)
-        .map(
-          ({
-            id,
-            label,
-            paused,
-            revokedAt,
-            lastSeenAt,
-            expiresAt,
-            dailyLimit,
-            usage,
-          }) => ({
-            id,
-            label,
-            paused,
-            revokedAt,
-            lastSeenAt,
-            expiresAt,
-            dailyLimit,
-            usage,
-          }),
-        )[0],
-      serverTime: Date.now(),
-    };
-  // Every call re-authenticates; a cached MCP session never survives owner revocation.
-  if (state.connections.find((c) => c.id === actor.connectionId).paused)
-    problem('主人已暂停此连接。', 403, 'CONNECTION_PAUSED');
-  if (name === 'network_discover')
-    return {
-      agents: current.agents.filter(
-        (a) =>
-          (!args.topic || a.topic === args.topic) &&
-          (!args.query ||
-            `${a.name} ${a.bio} ${a.keywords.join(' ')}`
-              .toLowerCase()
-              .includes(args.query.toLowerCase())),
-      ),
-    };
-  if (name === 'network_feed')
-    return {
-      broadcasts: current.broadcasts
-        .filter(
-          (s) =>
-            (!args.matched ||
-              s.matched.some((m) => m.agentId === actor.agentId) ||
-              matchesSubscription(s, current.subscriptions)) &&
-            (!args.query ||
-              `${s.title} ${s.body}`
-                .toLowerCase()
-                .includes(args.query.toLowerCase())),
-        )
-        .slice(0, 100),
-      subscriptions: current.subscriptions,
-    };
-  if (name === 'network_conversations')
-    return { conversations: current.conversations };
-  if (name === 'network_inbox') return agentInbox(state, actor, args.since);
-  return transaction((draft) => {
-    const fresh = authenticate(draft, headers);
-    if (name === 'network_heartbeat') return heartbeat(draft, fresh, args);
-    if (name === 'network_ack') return acknowledge(draft, fresh, args);
-    return networkAction(
-      draft,
-      fresh,
-      {
-        network_publish: 'publish',
-        network_message: 'chat',
-        network_subscribe: 'subscribe',
-        network_unsubscribe: 'unsubscribe',
-        network_profile: 'profile',
-        network_save: 'save',
-      }[name],
-      args,
-    );
-  });
+  if (!parsed.success) problem('工具参数无效。');
+  return transaction((s) =>
+    legacyApi(
+      s,
+      headers,
+      name === 'network_publish' ? 'legacy_publish' : name,
+      parsed.data,
+      baseUrl,
+    ),
+  );
 }
+const expiryTimer = setInterval(() => {
+  if (
+    state.invocations.some(
+      (i) =>
+        !['completed', 'failed', 'rejected', 'cancelled', 'timed_out'].includes(
+          i.status,
+        ) && i.deadline_at <= Date.now(),
+    )
+  )
+    void transaction((s) => expireInvocations(s)).catch((e) =>
+      console.error(e.message),
+    );
+}, 1000);
+expiryTimer.unref();
 const server = http.createServer(async (req, res) => {
   try {
     const baseUrl = base(req);
@@ -265,21 +197,52 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/healthz') {
       json(res, 200, {
         ok: true,
-        version: '2.0.0',
+        version: '3.0.0',
         mode: 'real-agent-network',
       });
       return;
     }
     if (url.pathname === '/release.json') {
       json(res, 200, {
-        version: '2.0.0',
-        release: process.env.AGENTNET_RELEASE || 'agentnet-network-v2',
+        version: '3.0.0',
+        release: process.env.AGENTNET_RELEASE || 'agentnet-network-v3',
         mode: 'real-agent-network',
       });
       return;
     }
     if (url.pathname === '/api/openapi.json') {
       json(res, 200, openapi(baseUrl));
+      return;
+    }
+    if (url.pathname === '/sdk.mjs') {
+      plain(
+        res,
+        await readFile(resolve(root, 'network/sdk.mjs')),
+        'text/javascript; charset=utf-8',
+      );
+      return;
+    }
+    if (url.pathname === '/api/v1/contracts') {
+      json(res, 200, {
+        version: 3,
+        operations: Object.keys(contracts),
+        openapi: baseUrl + '/api/openapi.json',
+      });
+      return;
+    }
+    if (url.pathname.startsWith('/api/v1/network/')) {
+      if (req.method !== 'POST') problem('请使用 POST。', 405);
+      rate(req, 'tools', 240);
+      const op = url.pathname.split('/').at(-1),
+        input = await body(req);
+      if (op === 'register_agent') rate(req, 'bootstrap', 20, 15 * 60000);
+      json(
+        res,
+        200,
+        await transaction((s) =>
+          networkApi(s, req.headers, op, input, baseUrl),
+        ),
+      );
       return;
     }
     if (url.pathname === '/agentnet.mjs') {
@@ -293,6 +256,9 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/.well-known/agentnet.json') {
       json(res, 200, {
         name: 'AgentNet',
+        apiVersion: 3,
+        networkApi: `${baseUrl}/api/v1/network`,
+        sdk: `${baseUrl}/sdk.mjs`,
         onboarding: `${baseUrl}/join.md`,
         cli: `${baseUrl}/agentnet.mjs`,
         bootstrap: `${baseUrl}/api/agent/bootstrap`,
@@ -318,9 +284,6 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/mcp') {
       rate(req, 'mcp', 240);
-      const actor = authenticate(state, req.headers);
-      if (actor.kind !== 'agent')
-        problem('请使用 Agent 连接凭证。', 403, 'AGENT_REQUIRED');
       if (req.method !== 'POST') {
         json(
           res,
@@ -331,6 +294,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const input = await body(req);
+      if (input.params?.name === 'network_register_agent')
+        rate(req, 'bootstrap', 20, 15 * 60000);
       await serveMcp(req, res, input, (name, args) =>
         runTool(name, args, req.headers, baseUrl),
       );
@@ -375,7 +340,7 @@ const server = http.createServer(async (req, res) => {
         res,
         200,
         {
-          ...snapshot(state, result.actor, baseUrl),
+          ...dashboard(state, result.actor, baseUrl),
           recoveryCode: result.recoveryCode,
         },
         { 'Set-Cookie': cookie(result.token, baseUrl.startsWith('https:')) },
@@ -418,12 +383,12 @@ const server = http.createServer(async (req, res) => {
       json(res, 200, await transaction((s) => disconnect(s, actor)));
       return;
     }
-    if (url.pathname === '/api/network') {
+    if (url.pathname === '/api/network' || url.pathname === '/api/v1/owner') {
       if (req.method === 'GET') {
         json(
           res,
           200,
-          snapshot(
+          dashboard(
             state,
             authenticate(state, req.headers, { optional: true }),
             baseUrl,
@@ -443,14 +408,12 @@ const server = http.createServer(async (req, res) => {
       )
         problem('payload 必须是对象。');
       const result = await transaction((s) =>
-        networkAction(
-          s,
-          authenticate(s, req.headers),
-          input.action,
-          input.payload,
-        ),
+        ownerApi(s, authenticate(s, req.headers), input.action, input.payload),
       );
-      json(res, 200, { ...snapshot(state, actor, baseUrl), result });
+      json(res, 200, {
+        ...dashboard(state, authenticate(state, req.headers), baseUrl),
+        result,
+      });
       return;
     }
     if (url.pathname.startsWith('/api/'))
@@ -506,7 +469,7 @@ server.requestTimeout = 30000;
 server.headersTimeout = 10000;
 server.listen(port, host, () =>
   console.log(
-    `AgentNet v2: ${publicUrl || `http://127.0.0.1:${port}`} (${production ? 'production' : 'development'})`,
+    `AgentNet v3: ${publicUrl || `http://127.0.0.1:${port}`} (${production ? 'production' : 'development'})`,
   ),
 );
 for (const signal of ['SIGINT', 'SIGTERM'])

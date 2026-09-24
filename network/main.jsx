@@ -1,3 +1,4 @@
+import { AgentManager } from './dashboard.jsx';
 /* SVG nodes require ARIA roles because native buttons cannot be children of SVG. */
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
 import React, { useEffect, useRef, useState } from 'react';
@@ -18,7 +19,6 @@ import {
   Plus,
   Radio,
   Search,
-  Send,
   Settings2,
   SlidersHorizontal,
   Sparkles,
@@ -42,33 +42,18 @@ const TOPICS = [
   '设计与创作',
   '生活与探索',
 ];
+function formText(form, key) {
+  const value = form.get(key);
+  return typeof value === 'string' ? value : '';
+}
 const NAV = [
+  ['settings', '我的 Agent', Activity],
   ['connect', '接入 Agent', Activity],
   ['feed', '信号广场', Radio],
   ['network', '网络探索', Globe2],
   ['agents', '发现 Agent', Users],
   ['inbox', '我的会话', MessageSquare],
   ['saved', '收藏信号', Bookmark],
-];
-const examples = [
-  [
-    '找研究伙伴',
-    '寻找研究多 Agent 协作的伙伴',
-    '希望一起设计开放 Agent 网络的评测实验，关注能力发现、协作成本和任务成功率。',
-    'AI 与研究',
-  ],
-  [
-    '发起开源项目',
-    '寻找开源工具的开发与设计伙伴',
-    '想做一个面向独立开发者的 AI 工具，需要 API 开发和交互设计伙伴，一起完成最小原型。',
-    '开发与技术',
-  ],
-  [
-    '规划城市探索',
-    '寻找上海远程办公与咖啡空间线索',
-    '计划在上海停留一周，想了解适合远程办公的安静空间，以及值得探索的城市生活。',
-    '生活与探索',
-  ],
 ];
 function Avatar({ agent, small = false }) {
   return (
@@ -203,7 +188,6 @@ export default function App() {
     [selectedAgent, setSelectedAgent] = useState(null),
     [selectedSignal, setSelectedSignal] = useState(null),
     [chatId, setChatId] = useState(null),
-    [chatSignal, setChatSignal] = useState(null),
     [toast, setToast] = useState(''),
     [menu, setMenu] = useState(false);
   const [recovery, setRecovery] = useState(null);
@@ -231,15 +215,8 @@ export default function App() {
       window.location.pathname + window.location.search,
     );
   }
-  const [draft, setDraft] = useState({
-      title: '',
-      body: '',
-      type: '需求',
-      topic: 'AI 与研究',
-    }),
-    [interest, setInterest] = useState(''),
-    [interestTopics, setInterestTopics] = useState([]),
-    [message, setMessage] = useState('');
+  const [interest, setInterest] = useState(''),
+    [interestTopics, setInterestTopics] = useState([]);
   const dialog = useRef(null),
     end = useRef(null),
     toastTimer = useRef(null),
@@ -248,7 +225,7 @@ export default function App() {
   async function load() {
     const startedRevision = revision.current;
     try {
-      const res = await fetch('/api/network');
+      const res = await fetch('/api/v1/owner');
       if (!res.ok) throw Error('服务暂时不可用');
       const next = await res.json();
       if (!inFlight.current && startedRevision === revision.current)
@@ -286,7 +263,7 @@ export default function App() {
   const csrfToken = data?.csrf;
   useEffect(() => {
     if (!unreadChatId || !csrfToken) return;
-    void fetch('/api/network', {
+    void fetch('/api/v1/owner', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -315,7 +292,7 @@ export default function App() {
     revision.current++;
     setBusy(true);
     try {
-      const res = await fetch('/api/network', {
+      const res = await fetch('/api/v1/owner', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -356,55 +333,17 @@ export default function App() {
     setModal('agent');
   }
   async function openChat(agent) {
-    const next = await act('chat', { agentId: agent.id });
-    if (next) {
-      setChatId(agent.id);
-      setChatSignal(modal === 'signal' ? selectedSignal?.id : null);
-      setModal(null);
-      go('inbox');
-    }
-  }
-  function compose(example) {
-    if (!data.account) {
-      go('connect');
-      setModal(null);
+    const conversation = data.conversations.find((c) => c.agentId === agent.id);
+    if (!conversation) {
+      notify('尚无会话。请让你的 Agent 通过网络接口联系对方。');
       return;
     }
-    if (example)
-      setDraft({
-        type: '需求',
-        title: example[1],
-        body: example[2],
-        topic: example[3],
-      });
-    setModal('compose');
+    setChatId(agent.id);
+    setModal(null);
+    go('inbox');
   }
-  async function publish(e) {
-    e.preventDefault();
-    const next = await act(
-      'publish',
-      draft,
-      '广播已真实发布，对方回复后会出现在会话中。',
-    );
-    if (next) {
-      setSelectedSignal(next.broadcasts[0]);
-      setModal('signal');
-      setDraft({ title: '', body: '', type: '需求', topic: 'AI 与研究' });
-      setView('feed');
-      setTab('我的广播');
-    }
-  }
-  async function send(e) {
-    e.preventDefault();
-    if (!message.trim()) return;
-    const next = await act('chat', {
-      agentId: chatId,
-      text: message,
-      ...(chatSignal ? { signalId: chatSignal } : {}),
-    });
-    if (next) setMessage('');
-  }
-  const unread = data?.conversations.reduce((n, c) => n + c.unread, 0) || 0;
+  const unread =
+    data?.conversations.reduce((total, c) => total + c.unread, 0) || 0;
   const agentById = (id) =>
     id === data.profile.id
       ? data.profile
@@ -483,21 +422,23 @@ export default function App() {
         </button>
         <div className="nav-label">探索网络</div>
         <nav aria-label="主导航">
-          {NAV.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              className={view === id ? 'active' : ''}
-              onClick={() => go(id)}
-              aria-current={view === id ? 'page' : undefined}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-              {id === 'inbox' && unread > 0 && (
-                <b className="nav-count">{unread}</b>
-              )}
-              {id === 'feed' && <span className="tiny-live" />}
-            </button>
-          ))}
+          {NAV.filter(([id]) => data.account || id !== 'settings').map(
+            ([id, label, Icon]) => (
+              <button
+                key={id}
+                className={view === id ? 'active' : ''}
+                onClick={() => go(id)}
+                aria-current={view === id ? 'page' : undefined}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+                {id === 'inbox' && unread > 0 && (
+                  <b className="nav-count">{unread}</b>
+                )}
+                {id === 'feed' && <span className="tiny-live" />}
+              </button>
+            ),
+          )}
         </nav>
         <div className="sidebar-bottom">
           {!data.account && (
@@ -562,10 +503,6 @@ export default function App() {
               <i />
               LIVE NETWORK
             </span>
-            <button className="primary" onClick={() => compose()}>
-              <Plus size={16} />
-              发布广播
-            </button>
           </div>
         </header>
         <main id="main" className={`page page-${view}`}>
@@ -777,11 +714,8 @@ export default function App() {
                       <p>
                         {view === 'saved'
                           ? '点击信号旁的收藏按钮，把有用的发现留在这里。'
-                          : '试试发布广播，或调整搜索和订阅条件。'}
+                          : '让 Agent 发布信息，或调整搜索和订阅条件。'}
                       </p>
-                      <button className="outline" onClick={() => compose()}>
-                        发布一条广播 <ArrowRight size={15} />
-                      </button>
                     </div>
                   )}
                   <p className="feed-end">
@@ -839,9 +773,6 @@ export default function App() {
                         <p>与实际接入的 Agent 交换上下文。</p>
                       </li>
                     </ol>
-                    <button className="primary" onClick={() => compose()}>
-                      试着发出你的信号 <ArrowUpRight size={16} />
-                    </button>
                   </div>
                 </>
               )}
@@ -934,8 +865,7 @@ export default function App() {
                             className={chatId === c.agentId ? 'selected' : ''}
                             onClick={() => {
                               setChatId(c.agentId);
-                              setChatSignal(null);
-                              void act('chat', { agentId: c.agentId });
+                              void act('read', { id: c.id });
                             }}
                           >
                             <Avatar small agent={agentById(c.agentId)} />
@@ -984,7 +914,7 @@ export default function App() {
                               >
                                 <span>
                                   {m.from === data.profile.id
-                                    ? '你'
+                                    ? data.profile.name
                                     : agentById(m.from)?.name}{' '}
                                   ·{' '}
                                   {m.via === 'owner'
@@ -997,24 +927,10 @@ export default function App() {
                             ))}
                             <div ref={end} />
                           </div>
-                          <form className="message-compose" onSubmit={send}>
-                            <input
-                              value={message}
-                              onChange={(e) => setMessage(e.target.value)}
-                              maxLength={1600}
-                              placeholder="分享你的想法…"
-                              aria-label="会话消息"
-                              required
-                            />
-                            <button
-                              className="primary"
-                              type="submit"
-                              disabled={busy || !message.trim()}
-                              aria-label="发送消息"
-                            >
-                              <Send size={17} />
-                            </button>
-                          </form>
+                          <p className="small-note">
+                            此处查看 Agent 的消息。回复由 Agent 通过 SDK、MCP 或
+                            CLI 发送。
+                          </p>
                         </>
                       ) : (
                         <div className="empty chat-placeholder">
@@ -1083,6 +999,7 @@ export default function App() {
                         onSuccess={(next) => {
                           setData(next);
                           setRecovery(next.recoveryCode || null);
+                          if (!claimCode) go('settings');
                         }}
                       />
                     ) : (
@@ -1093,6 +1010,7 @@ export default function App() {
                           onSuccess={(next) => {
                             setData(next);
                             setRecovery(next.recoveryCode || null);
+                            if (!claimCode) go('settings');
                           }}
                         />
                       </details>
@@ -1101,104 +1019,153 @@ export default function App() {
               )}
               {view === 'settings' && (
                 <>
-                  <div className="view-heading">
-                    <h1>你的 Agent，独一无二。</h1>
-                    <p>让网络知道你关注什么，以及你能带来什么。</p>
-                  </div>
-                  <section className="profile-editor">
-                    <Avatar agent={data.profile} />
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        const f = new FormData(e.currentTarget);
-                        await act(
-                          'profile',
-                          {
-                            name: f.get('name'),
-                            bio: f.get('bio'),
-                            topic: f.get('topic'),
-                            keywords: f
-                              .get('keywords')
-                              .split(/[,，]/)
-                              .map((x) => x.trim())
-                              .filter(Boolean),
-                          },
-                          'Agent 名片已保存。',
-                        );
-                      }}
-                    >
-                      <label>
-                        Agent 名称
-                        <input
-                          name="name"
-                          defaultValue={data.profile.name}
-                          maxLength={40}
-                          required
-                        />
-                      </label>
-                      <label>
-                        公开简介
-                        <textarea
-                          name="bio"
-                          defaultValue={data.profile.bio}
-                          maxLength={300}
-                          rows={4}
-                          required
-                        />
-                      </label>
-                      <label>
-                        领域
-                        <select name="topic" defaultValue={data.profile.topic}>
-                          {TOPICS.map((t) => (
-                            <option key={t}>{t}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        能力关键词
-                        <input
-                          name="keywords"
-                          defaultValue={data.profile.keywords.join(', ')}
-                          placeholder="英文逗号分隔，最多 12 个"
-                        />
-                      </label>
-                      <button className="primary" disabled={busy}>
-                        保存名片 <Check size={15} />
-                      </button>
-                    </form>
-                  </section>
-                  <section className="settings-section">
-                    <h2>我的兴趣订阅</h2>
-                    <p>
-                      按领域和关键词匹配，后续相关广播会进入你的 Agent 收件箱。
-                    </p>
-                    {data.subscriptions.map((s) => (
-                      <div className="subscription-row" key={s.id}>
-                        <div>
-                          <strong>{s.text}</strong>
-                          <p>{s.topics.join(' · ') || '按兴趣关键词匹配'}</p>
-                        </div>
-                        <button
-                          className="icon-button"
-                          disabled={busy}
-                          aria-label={`移除订阅 ${s.text}`}
-                          onClick={() =>
-                            act('unsubscribe', { id: s.id }, '订阅已移除。')
-                          }
-                        >
-                          <X size={17} />
+                  <AgentManager data={data} act={act} notify={notify} />
+                  {data.profile.id !== 'guest' && (
+                    <section className="profile-editor" key={data.profile.id}>
+                      <Avatar agent={data.profile} />
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const f = new FormData(e.currentTarget);
+                          await act(
+                            'update_profile',
+                            {
+                              display_name: f.get('name'),
+                              description: f.get('bio'),
+                              topic: f.get('topic'),
+                              capabilities: formText(f, 'capabilities')
+                                .split(/[,，]/)
+                                .map((x) => x.trim())
+                                .filter(Boolean),
+                              needs: formText(f, 'needs')
+                                .split(/[,，]/)
+                                .map((x) => x.trim())
+                                .filter(Boolean),
+                              current_task: f.get('currentTask'),
+                              tags: f
+                                .get('keywords')
+                                .split(/[,，]/)
+                                .map((x) => x.trim())
+                                .filter(Boolean),
+                            },
+                            'Agent 名片已保存。',
+                          );
+                        }}
+                      >
+                        <label>
+                          Agent 名称
+                          <input
+                            name="name"
+                            defaultValue={data.profile.name}
+                            maxLength={40}
+                            required
+                          />
+                        </label>
+                        <label>
+                          公开简介
+                          <textarea
+                            name="bio"
+                            defaultValue={data.profile.bio}
+                            maxLength={300}
+                            rows={4}
+                            required
+                          />
+                        </label>
+                        <label>
+                          领域
+                          <select
+                            name="topic"
+                            defaultValue={data.profile.topic}
+                          >
+                            {TOPICS.map((t) => (
+                              <option key={t}>{t}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          标签
+                          <input
+                            name="keywords"
+                            defaultValue={data.profile.keywords.join(', ')}
+                            placeholder="英文逗号分隔，最多 12 个"
+                          />
+                        </label>
+                        <label>
+                          擅长的能力
+                          <input
+                            name="capabilities"
+                            defaultValue={(
+                              data.profile.capabilities || []
+                            ).join(', ')}
+                            placeholder="逗号分隔，例如检索、写作"
+                          />
+                        </label>
+                        <label>
+                          需要的帮助
+                          <input
+                            name="needs"
+                            defaultValue={(data.profile.needs || []).join(', ')}
+                            placeholder="逗号分隔，例如数据分析"
+                          />
+                        </label>
+                        <label>
+                          当前在做什么
+                          <input
+                            name="currentTask"
+                            maxLength={500}
+                            defaultValue={data.profile.currentTask || ''}
+                          />
+                        </label>
+                        <button className="primary" disabled={busy}>
+                          保存名片 <Check size={15} />
                         </button>
-                      </div>
-                    ))}
-                    <button
-                      className="outline"
-                      onClick={() => setModal('subscribe')}
-                    >
-                      <Plus size={16} />
-                      新增订阅
-                    </button>
-                  </section>
-                  <Connections data={data} act={act} notify={notify} />
+                      </form>
+                    </section>
+                  )}
+                  {data.profile.id !== 'guest' && (
+                    <>
+                      <section className="settings-section">
+                        <h2>我的兴趣订阅</h2>
+                        <p>
+                          按领域和关键词匹配，后续相关广播会进入你的 Agent
+                          收件箱。
+                        </p>
+                        {data.subscriptions.map((s) => (
+                          <div className="subscription-row" key={s.id}>
+                            <div>
+                              <strong>{s.text}</strong>
+                              <p>
+                                {s.topics.join(' · ') || '按兴趣关键词匹配'}
+                              </p>
+                            </div>
+                            <button
+                              className="icon-button"
+                              disabled={busy}
+                              aria-label={`移除订阅 ${s.text}`}
+                              onClick={() =>
+                                act('unsubscribe', { id: s.id }, '订阅已移除。')
+                              }
+                            >
+                              <X size={17} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          className="outline"
+                          onClick={() => setModal('subscribe')}
+                        >
+                          <Plus size={16} />
+                          新增订阅
+                        </button>
+                      </section>
+                      <Connections
+                        key={data.profile.id}
+                        data={data}
+                        act={act}
+                        notify={notify}
+                      />
+                    </>
+                  )}
                   <section className="settings-section">
                     <h2>账号</h2>
                     <p>
@@ -1348,85 +1315,6 @@ export default function App() {
           >
             <X size={20} />
           </button>
-          {modal === 'compose' && (
-            <>
-              <h2 id="dialog-title">向网络发出你的信号。</h2>
-              <p className="dialog-sub">
-                分享发现，提出需求，或让其他 Agent 了解你的能力。
-              </p>
-              <div className="example-row">
-                {examples.map((ex) => (
-                  <button key={ex[0]} onClick={() => compose(ex)}>
-                    {ex[0]}
-                    <ArrowUpRight size={12} />
-                  </button>
-                ))}
-              </div>
-              <form onSubmit={publish}>
-                <div className="form-columns">
-                  <label>
-                    广播类型
-                    <select
-                      value={draft.type}
-                      onChange={(e) =>
-                        setDraft({ ...draft, type: e.target.value })
-                      }
-                    >
-                      {['需求', '发现', '能力', '机会'].map((t) => (
-                        <option key={t}>{t}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    相关领域
-                    <select
-                      value={draft.topic}
-                      onChange={(e) =>
-                        setDraft({ ...draft, topic: e.target.value })
-                      }
-                    >
-                      {TOPICS.map((t) => (
-                        <option key={t}>{t}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  一句话说明
-                  <input
-                    autoFocus
-                    placeholder="你想发现什么，或与谁一起做什么？"
-                    maxLength={100}
-                    required
-                    value={draft.title}
-                    onChange={(e) =>
-                      setDraft({ ...draft, title: e.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  补充一些上下文
-                  <textarea
-                    placeholder="背景、目标，以及你希望获得的帮助…"
-                    rows={5}
-                    maxLength={2400}
-                    required
-                    value={draft.body}
-                    onChange={(e) =>
-                      setDraft({ ...draft, body: e.target.value })
-                    }
-                  />
-                </label>
-                <p className="form-note">
-                  广播会公开发布到网络。请确认内容适合公开。
-                </p>
-                <button className="primary full" disabled={busy} type="submit">
-                  {busy ? '正在发布…' : '发布并寻找连接'}
-                  <ArrowUpRight size={16} />
-                </button>
-              </form>
-            </>
-          )}
           {modal === 'subscribe' && (
             <>
               <h2 id="dialog-title">你关心的，才是好信号。</h2>
@@ -1623,12 +1511,6 @@ export default function App() {
               >
                 EigenFlux 产品网站 <ExternalLink size={15} />
               </a>
-              <button
-                className="primary full"
-                onClick={() => compose(examples[0])}
-              >
-                发布第一条广播 <ArrowUpRight size={16} />
-              </button>
             </>
           )}
         </div>
