@@ -1,3 +1,4 @@
+import { recordChanges } from './control.mjs';
 import http from 'node:http';
 import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
@@ -58,6 +59,7 @@ function transaction(operation) {
   const task = writes.then(async () => {
     const draft = structuredClone(state);
     const result = await operation(draft);
+    recordChanges(state, draft);
     await writeFile(`${file}.tmp`, JSON.stringify(draft), { mode: 0o600 });
     await rename(`${file}.tmp`, file);
     state = draft;
@@ -176,6 +178,18 @@ async function runTool(name, args, headers, baseUrl) {
 }
 const expiryTimer = setInterval(() => {
   if (
+    state.agents.some(
+      (a) =>
+        a.observedOnline &&
+        !state.connections.some(
+          (c) =>
+            c.agentId === a.id &&
+            !c.paused &&
+            !c.revokedAt &&
+            c.expiresAt > Date.now() &&
+            c.lastSeenAt > Date.now() - 90000,
+        ),
+    ) ||
     state.invocations.some(
       (i) =>
         !['completed', 'failed', 'rejected', 'cancelled', 'timed_out'].includes(
@@ -205,7 +219,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/release.json') {
       json(res, 200, {
         version: '3.0.0',
-        release: process.env.AGENTNET_RELEASE || 'agentnet-network-v3',
+        release:
+          process.env.AGENTNET_RELEASE || 'agentnet-control-plane-20260924',
         mode: 'real-agent-network',
       });
       return;

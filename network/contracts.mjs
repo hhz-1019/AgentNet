@@ -25,6 +25,8 @@ export const scopes = [
   'activity:read',
   'presence:write',
   'credentials:rotate',
+  'control:read',
+  'control:write',
 ];
 export const contracts = {
   register_agent: [
@@ -57,7 +59,11 @@ export const contracts = {
   ],
   heartbeat: [
     '报告 Agent 在线状态。',
-    z.object({ run_id: id.optional() }),
+    z.object({
+      run_id: id.optional(),
+      status: z.enum(['online', 'working', 'waiting', 'error']).optional(),
+      detail: z.string().max(500).optional(),
+    }),
     'presence:write',
     false,
   ],
@@ -172,7 +178,7 @@ export const contracts = {
   ],
   remove_relation: [
     '移除自己创建的关系。',
-    z.object({ relation_id: id }),
+    z.object({ relation_id: id, request_id: id.optional() }),
     'relations:write',
     false,
   ],
@@ -228,6 +234,57 @@ export const contracts = {
     false,
   ],
 };
+contracts.request_approval = [
+  '请求主人批准共享文件、敏感上下文、外部工具或高成本行为；执行环境必须等待批准并落实权限。',
+  z.object({
+    category: z.enum([
+      'share_file',
+      'share_context',
+      'external_tool',
+      'costly_task',
+    ]),
+    summary: z.string().min(1).max(1000),
+    permissions: list.default([]),
+    request_id: id,
+  }),
+  'control:write',
+  false,
+];
+contracts.get_approvals = [
+  '查询当前 Agent 的人工审批结果。',
+  z.object({ ...page, approval_id: id.optional() }),
+  'control:read',
+  true,
+];
+contracts.get_control_requests = [
+  '获取主人交给当前 Agent 的指令。通过正常 Network API 执行，不能伪造完成。',
+  z.object(page),
+  'control:read',
+  true,
+];
+contracts.respond_control_request = [
+  '接收或拒绝人工指令；完成前服务器核验真实执行回执。',
+  z.object({
+    control_request_id: id,
+    status: z.enum(['accepted', 'completed', 'rejected']),
+    reason: z.string().max(1000).optional(),
+  }),
+  'control:write',
+  false,
+];
+for (const name of [
+  'publish',
+  'send_message',
+  'create_relation',
+  'remove_relation',
+  'invoke_agent',
+  'respond_invocation',
+  'request_approval',
+])
+  contracts[name][1] = contracts[name][1].extend({
+    approval_id: id.optional(),
+    control_request_id: id.optional(),
+  });
 /** @type {Array<[string,string,import("zod").ZodObject,boolean]>} */
 export const toolContracts = Object.entries(contracts).map(
   ([name, [description, schema, , readOnly]]) => [

@@ -1,5 +1,17 @@
 # 真实网络验收记录
 
+## Human Control Plane 改造（2026-09-24）
+
+- `npm run test:network` 七组通过；严格前端 TypeScript、oxlint、Vite 生产构建通过。
+- 新增真实 HTTP 控制台测试：行为策略、完整请求审批绑定、权限收窄、错误主人、参数变更、重复提交、审批过期（包括已交付的外部授权）、旧接口禁止策略、人工指令取消/实际执行/防止假完成、Owner 已读与 Agent 已读隔离、任务完整历史、重启持久化、主人刷新凭证。
+- 本地网页从八个导航模块检查真实数据，关系图节点进入实际 Profile，Feed 展示匹配依据，任务展示外部程序计算的文本结果；手机消息采用列表/详情切换。
+- 浏览器提交一条指令，独立 SDK 携带 control_request_id 真正发送，页面显示 `Sent by Agent · 由你指示`。浏览器审批时去掉 share_file，独立 SDK 收到空权限；页面显示“授权已交付 · 外部执行尚未上报”，没有宣称文件已共享。
+- 桌面和 390×844 手机视口验收；额外通过 API 建立 12 个本地测试关系，紧凑布局展示 4/12、桌面展示 8/12，完整目录保留。实际 DOM 边界检查无节点重叠；Tab 与 Enter 可打开正确节点，手机无文档横向溢出。
+- 独立界面复核修正小字对比度和密集关系图后给出 ship；占位符及侧栏辅助字对比度分别 5.39:1、4.80:1。长截图工具存在拼接问题，因此复核使用独立视口截图。
+- `.agentnet-audit` 内为忽略的测试账号/脚本，截图在 `.impeccable/review`，不进入源码发布。没有把测试活动硬编码到组件。
+
+以上为本地验证。当前公网发布标记为 `agentnet-control-plane-20260924`，部署完成后另外核对 release、八条路由、SDK/MCP 审批和指令链路；实测结果写入本机 `outputs/control-plane-public-verification.json`。
+
 ## Network API v3 架构改造（2026-09-24）
 
 本轮本地检查：`npm run test:network` 六组通过；`npm run build` 通过；`npx oxlint --deny no-undef network` 通过。运行 `network/examples/two-agents.mjs` 的独立子进程也纳入测试，实际结果为 HELLO NETWORK。

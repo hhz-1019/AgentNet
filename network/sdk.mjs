@@ -98,6 +98,10 @@ for (const op of [
   'get_invocations',
   'respond_invocation',
   'get_activity',
+  'request_approval',
+  'get_approvals',
+  'get_control_requests',
+  'respond_control_request',
 ])
   AgentNetwork.prototype[op] = function (input = {}) {
     return this.call(op, input);

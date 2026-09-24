@@ -1,124 +1,54 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-24T06:59:02.791099+00:00",
-  "title": "Design System: AgentNet",
+  "generatedAt": "2026-09-24T13:16:15.744063+00:00",
+  "title": "Design System: AgentNet Human Control Plane",
   "extensions": {
     "colorMeta": {
-      "primary": {
+      "accent": {
         "role": "primary",
-        "displayName": "Primary",
+        "displayName": "Accent",
         "tonalRamp": [
-          "oklch(15% 0.15084 38.03)",
-          "oklch(26% 0.15084 38.03)",
-          "oklch(38% 0.15084 38.03)",
-          "oklch(49% 0.15084 38.03)",
-          "oklch(61% 0.15084 38.03)",
-          "oklch(72% 0.15084 38.03)",
-          "oklch(84% 0.15084 38.03)",
-          "oklch(95% 0.15084 38.03)"
+          "oklch(15% 0.07245 170.15)",
+          "oklch(26% 0.07245 170.15)",
+          "oklch(38% 0.07245 170.15)",
+          "oklch(49% 0.07245 170.15)",
+          "oklch(61% 0.07245 170.15)",
+          "oklch(72% 0.07245 170.15)",
+          "oklch(84% 0.07245 170.15)",
+          "oklch(95% 0.07245 170.15)"
         ]
       },
-      "primary-hover": {
+      "accent-hover": {
         "role": "primary",
-        "displayName": "Primary Hover",
+        "displayName": "Accent Hover",
         "tonalRamp": [
-          "oklch(15% 0.15167 37.21)",
-          "oklch(26% 0.15167 37.21)",
-          "oklch(38% 0.15167 37.21)",
-          "oklch(49% 0.15167 37.21)",
-          "oklch(61% 0.15167 37.21)",
-          "oklch(72% 0.15167 37.21)",
-          "oklch(84% 0.15167 37.21)",
-          "oklch(95% 0.15167 37.21)"
+          "oklch(15% 0.05950 171.72)",
+          "oklch(26% 0.05950 171.72)",
+          "oklch(38% 0.05950 171.72)",
+          "oklch(49% 0.05950 171.72)",
+          "oklch(61% 0.05950 171.72)",
+          "oklch(72% 0.05950 171.72)",
+          "oklch(84% 0.05950 171.72)",
+          "oklch(95% 0.05950 171.72)"
         ]
       },
-      "paper": {
+      "canvas": {
         "role": "neutral",
-        "displayName": "Paper",
+        "displayName": "Canvas",
         "tonalRamp": [
-          "oklch(15% 0.00538 117.92)",
-          "oklch(26% 0.00538 117.92)",
-          "oklch(38% 0.00538 117.92)",
-          "oklch(49% 0.00538 117.92)",
-          "oklch(61% 0.00538 117.92)",
-          "oklch(72% 0.00538 117.92)",
-          "oklch(84% 0.00538 117.92)",
-          "oklch(95% 0.00538 117.92)"
+          "oklch(15% 0.00171 247.84)",
+          "oklch(26% 0.00171 247.84)",
+          "oklch(38% 0.00171 247.84)",
+          "oklch(49% 0.00171 247.84)",
+          "oklch(61% 0.00171 247.84)",
+          "oklch(72% 0.00171 247.84)",
+          "oklch(84% 0.00171 247.84)",
+          "oklch(95% 0.00171 247.84)"
         ]
       },
-      "ink": {
+      "surface": {
         "role": "neutral",
-        "displayName": "Ink",
-        "tonalRamp": [
-          "oklch(15% 0.01296 140.46)",
-          "oklch(26% 0.01296 140.46)",
-          "oklch(38% 0.01296 140.46)",
-          "oklch(49% 0.01296 140.46)",
-          "oklch(61% 0.01296 140.46)",
-          "oklch(72% 0.01296 140.46)",
-          "oklch(84% 0.01296 140.46)",
-          "oklch(95% 0.01296 140.46)"
-        ]
-      },
-      "muted": {
-        "role": "neutral",
-        "displayName": "Muted",
-        "tonalRamp": [
-          "oklch(15% 0.03382 132.86)",
-          "oklch(26% 0.03382 132.86)",
-          "oklch(38% 0.03382 132.86)",
-          "oklch(49% 0.03382 132.86)",
-          "oklch(61% 0.03382 132.86)",
-          "oklch(72% 0.03382 132.86)",
-          "oklch(84% 0.03382 132.86)",
-          "oklch(95% 0.03382 132.86)"
-        ]
-      },
-      "line": {
-        "role": "neutral",
-        "displayName": "Line",
-        "tonalRamp": [
-          "oklch(15% 0.01245 121.71)",
-          "oklch(26% 0.01245 121.71)",
-          "oklch(38% 0.01245 121.71)",
-          "oklch(49% 0.01245 121.71)",
-          "oklch(61% 0.01245 121.71)",
-          "oklch(72% 0.01245 121.71)",
-          "oklch(84% 0.01245 121.71)",
-          "oklch(95% 0.01245 121.71)"
-        ]
-      },
-      "sage": {
-        "role": "secondary",
-        "displayName": "Sage",
-        "tonalRamp": [
-          "oklch(15% 0.01234 121.70)",
-          "oklch(26% 0.01234 121.70)",
-          "oklch(38% 0.01234 121.70)",
-          "oklch(49% 0.01234 121.70)",
-          "oklch(61% 0.01234 121.70)",
-          "oklch(72% 0.01234 121.70)",
-          "oklch(84% 0.01234 121.70)",
-          "oklch(95% 0.01234 121.70)"
-        ]
-      },
-      "charcoal": {
-        "role": "neutral",
-        "displayName": "Charcoal",
-        "tonalRamp": [
-          "oklch(15% 0.00731 145.32)",
-          "oklch(26% 0.00731 145.32)",
-          "oklch(38% 0.00731 145.32)",
-          "oklch(49% 0.00731 145.32)",
-          "oklch(61% 0.00731 145.32)",
-          "oklch(72% 0.00731 145.32)",
-          "oklch(84% 0.00731 145.32)",
-          "oklch(95% 0.00731 145.32)"
-        ]
-      },
-      "white": {
-        "role": "neutral",
-        "displayName": "White",
+        "displayName": "Surface",
         "tonalRamp": [
           "oklch(15% 0.00000 89.88)",
           "oklch(26% 0.00000 89.88)",
@@ -130,102 +60,236 @@
           "oklch(95% 0.00000 89.88)"
         ]
       },
-      "panel": {
-        "role": "secondary",
-        "displayName": "Panel",
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Sidebar",
         "tonalRamp": [
-          "oklch(15% 0.01230 121.70)",
-          "oklch(26% 0.01230 121.70)",
-          "oklch(38% 0.01230 121.70)",
-          "oklch(49% 0.01230 121.70)",
-          "oklch(61% 0.01230 121.70)",
-          "oklch(72% 0.01230 121.70)",
-          "oklch(84% 0.01230 121.70)",
-          "oklch(95% 0.01230 121.70)"
+          "oklch(15% 0.00253 228.78)",
+          "oklch(26% 0.00253 228.78)",
+          "oklch(38% 0.00253 228.78)",
+          "oklch(49% 0.00253 228.78)",
+          "oklch(61% 0.00253 228.78)",
+          "oklch(72% 0.00253 228.78)",
+          "oklch(84% 0.00253 228.78)",
+          "oklch(95% 0.00253 228.78)"
         ]
       },
-      "nav-active": {
+      "soft": {
         "role": "neutral",
-        "displayName": "Nav Active",
+        "displayName": "Soft",
         "tonalRamp": [
-          "oklch(15% 0.02838 133.04)",
-          "oklch(26% 0.02838 133.04)",
-          "oklch(38% 0.02838 133.04)",
-          "oklch(49% 0.02838 133.04)",
-          "oklch(61% 0.02838 133.04)",
-          "oklch(72% 0.02838 133.04)",
-          "oklch(84% 0.02838 133.04)",
-          "oklch(95% 0.02838 133.04)"
+          "oklch(15% 0.00345 174.48)",
+          "oklch(26% 0.00345 174.48)",
+          "oklch(38% 0.00345 174.48)",
+          "oklch(49% 0.00345 174.48)",
+          "oklch(61% 0.00345 174.48)",
+          "oklch(72% 0.00345 174.48)",
+          "oklch(84% 0.00345 174.48)",
+          "oklch(95% 0.00345 174.48)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15% 0.01580 240.57)",
+          "oklch(26% 0.01580 240.57)",
+          "oklch(38% 0.01580 240.57)",
+          "oklch(49% 0.01580 240.57)",
+          "oklch(61% 0.01580 240.57)",
+          "oklch(72% 0.01580 240.57)",
+          "oklch(84% 0.01580 240.57)",
+          "oklch(95% 0.01580 240.57)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "tonalRamp": [
+          "oklch(15% 0.01860 245.30)",
+          "oklch(26% 0.01860 245.30)",
+          "oklch(38% 0.01860 245.30)",
+          "oklch(49% 0.01860 245.30)",
+          "oklch(61% 0.01860 245.30)",
+          "oklch(72% 0.01860 245.30)",
+          "oklch(84% 0.01860 245.30)",
+          "oklch(95% 0.01860 245.30)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "tonalRamp": [
+          "oklch(15% 0.00605 223.46)",
+          "oklch(26% 0.00605 223.46)",
+          "oklch(38% 0.00605 223.46)",
+          "oklch(49% 0.00605 223.46)",
+          "oklch(61% 0.00605 223.46)",
+          "oklch(72% 0.00605 223.46)",
+          "oklch(84% 0.00605 223.46)",
+          "oklch(95% 0.00605 223.46)"
+        ]
+      },
+      "control-border": {
+        "role": "neutral",
+        "displayName": "Control Border",
+        "tonalRamp": [
+          "oklch(15% 0.00869 225.10)",
+          "oklch(26% 0.00869 225.10)",
+          "oklch(38% 0.00869 225.10)",
+          "oklch(49% 0.00869 225.10)",
+          "oklch(61% 0.00869 225.10)",
+          "oklch(72% 0.00869 225.10)",
+          "oklch(84% 0.00869 225.10)",
+          "oklch(95% 0.00869 225.10)"
+        ]
+      },
+      "auxiliary-text": {
+        "role": "neutral",
+        "displayName": "Auxiliary Text",
+        "tonalRamp": [
+          "oklch(15% 0.02037 240.29)",
+          "oklch(26% 0.02037 240.29)",
+          "oklch(38% 0.02037 240.29)",
+          "oklch(49% 0.02037 240.29)",
+          "oklch(61% 0.02037 240.29)",
+          "oklch(72% 0.02037 240.29)",
+          "oklch(84% 0.02037 240.29)",
+          "oklch(95% 0.02037 240.29)"
         ]
       },
       "nav-text": {
         "role": "neutral",
         "displayName": "Nav Text",
         "tonalRamp": [
-          "oklch(15% 0.02570 129.97)",
-          "oklch(26% 0.02570 129.97)",
-          "oklch(38% 0.02570 129.97)",
-          "oklch(49% 0.02570 129.97)",
-          "oklch(61% 0.02570 129.97)",
-          "oklch(72% 0.02570 129.97)",
-          "oklch(84% 0.02570 129.97)",
-          "oklch(95% 0.02570 129.97)"
+          "oklch(15% 0.02277 241.13)",
+          "oklch(26% 0.02277 241.13)",
+          "oklch(38% 0.02277 241.13)",
+          "oklch(49% 0.02277 241.13)",
+          "oklch(61% 0.02277 241.13)",
+          "oklch(72% 0.02277 241.13)",
+          "oklch(84% 0.02277 241.13)",
+          "oklch(95% 0.02277 241.13)"
         ]
       },
-      "demand-bg": {
-        "role": "secondary",
-        "displayName": "Demand Bg",
+      "nav-active": {
+        "role": "neutral",
+        "displayName": "Nav Active",
         "tonalRamp": [
-          "oklch(15% 0.02045 62.86)",
-          "oklch(26% 0.02045 62.86)",
-          "oklch(38% 0.02045 62.86)",
-          "oklch(49% 0.02045 62.86)",
-          "oklch(61% 0.02045 62.86)",
-          "oklch(72% 0.02045 62.86)",
-          "oklch(84% 0.02045 62.86)",
-          "oklch(95% 0.02045 62.86)"
+          "oklch(15% 0.01418 162.46)",
+          "oklch(26% 0.01418 162.46)",
+          "oklch(38% 0.01418 162.46)",
+          "oklch(49% 0.01418 162.46)",
+          "oklch(61% 0.01418 162.46)",
+          "oklch(72% 0.01418 162.46)",
+          "oklch(84% 0.01418 162.46)",
+          "oklch(95% 0.01418 162.46)"
         ]
       },
-      "demand-text": {
-        "role": "secondary",
-        "displayName": "Demand Text",
+      "nav-active-text": {
+        "role": "neutral",
+        "displayName": "Nav Active Text",
         "tonalRamp": [
-          "oklch(15% 0.09585 56.26)",
-          "oklch(26% 0.09585 56.26)",
-          "oklch(38% 0.09585 56.26)",
-          "oklch(49% 0.09585 56.26)",
-          "oklch(61% 0.09585 56.26)",
-          "oklch(72% 0.09585 56.26)",
-          "oklch(84% 0.09585 56.26)",
-          "oklch(95% 0.09585 56.26)"
+          "oklch(15% 0.06254 167.89)",
+          "oklch(26% 0.06254 167.89)",
+          "oklch(38% 0.06254 167.89)",
+          "oklch(49% 0.06254 167.89)",
+          "oklch(61% 0.06254 167.89)",
+          "oklch(72% 0.06254 167.89)",
+          "oklch(84% 0.06254 167.89)",
+          "oklch(95% 0.06254 167.89)"
+        ]
+      },
+      "badge-background": {
+        "role": "neutral",
+        "displayName": "Badge Background",
+        "tonalRamp": [
+          "oklch(15% 0.00345 174.48)",
+          "oklch(26% 0.00345 174.48)",
+          "oklch(38% 0.00345 174.48)",
+          "oklch(49% 0.00345 174.48)",
+          "oklch(61% 0.00345 174.48)",
+          "oklch(72% 0.00345 174.48)",
+          "oklch(84% 0.00345 174.48)",
+          "oklch(95% 0.00345 174.48)"
+        ]
+      },
+      "badge-text": {
+        "role": "neutral",
+        "displayName": "Badge Text",
+        "tonalRamp": [
+          "oklch(15% 0.03263 164.36)",
+          "oklch(26% 0.03263 164.36)",
+          "oklch(38% 0.03263 164.36)",
+          "oklch(49% 0.03263 164.36)",
+          "oklch(61% 0.03263 164.36)",
+          "oklch(72% 0.03263 164.36)",
+          "oklch(84% 0.03263 164.36)",
+          "oklch(95% 0.03263 164.36)"
+        ]
+      },
+      "danger": {
+        "role": "neutral",
+        "displayName": "Danger",
+        "tonalRamp": [
+          "oklch(15% 0.15074 23.57)",
+          "oklch(26% 0.15074 23.57)",
+          "oklch(38% 0.15074 23.57)",
+          "oklch(49% 0.15074 23.57)",
+          "oklch(61% 0.15074 23.57)",
+          "oklch(72% 0.15074 23.57)",
+          "oklch(84% 0.15074 23.57)",
+          "oklch(95% 0.15074 23.57)"
+        ]
+      },
+      "online-text": {
+        "role": "neutral",
+        "displayName": "Online Text",
+        "tonalRamp": [
+          "oklch(15% 0.08596 159.61)",
+          "oklch(26% 0.08596 159.61)",
+          "oklch(38% 0.08596 159.61)",
+          "oklch(49% 0.08596 159.61)",
+          "oklch(61% 0.08596 159.61)",
+          "oklch(72% 0.08596 159.61)",
+          "oklch(84% 0.08596 159.61)",
+          "oklch(95% 0.08596 159.61)"
+        ]
+      },
+      "waiting-text": {
+        "role": "neutral",
+        "displayName": "Waiting Text",
+        "tonalRamp": [
+          "oklch(15% 0.10407 71.94)",
+          "oklch(26% 0.10407 71.94)",
+          "oklch(38% 0.10407 71.94)",
+          "oklch(49% 0.10407 71.94)",
+          "oklch(61% 0.10407 71.94)",
+          "oklch(72% 0.10407 71.94)",
+          "oklch(84% 0.10407 71.94)",
+          "oklch(95% 0.10407 71.94)"
         ]
       }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Intro display",
-        "purpose": "Main network premise; responsive sizes are recorded in DESIGN.md."
+      "headline": {
+        "displayName": "Dashboard heading",
+        "purpose": "Operational page title, reduced on phones."
       },
       "body": {
-        "displayName": "Signal reading text",
-        "purpose": "Chinese signal content with generous line height and a 73ch maximum."
+        "displayName": "Chinese operational prose",
+        "purpose": "Root base; dense components use the size overrides documented in DESIGN.md."
+      },
+      "code": {
+        "displayName": "Runtime identifiers and payloads",
+        "purpose": "Readable IDs, API content, and structured request data."
       }
     },
     "shadows": [
       {
-        "name": "dialog",
-        "value": "0 20px 80px #15200c30",
-        "purpose": "Modal separation."
-      },
-      {
         "name": "toast",
-        "value": "0 8px 25px #1d291930",
-        "purpose": "Temporary feedback."
-      },
-      {
-        "name": "search-focus",
-        "value": "0 0 0 2px #e5e9dd",
-        "purpose": "Search focus-within halo."
+        "value": "0 8px 24px #1d2a2624",
+        "purpose": "Transient feedback only."
       }
     ],
     "motion": [
@@ -236,31 +300,26 @@
       },
       {
         "name": "mobile-navigation",
-        "value": "transform 0.2s",
-        "purpose": "Slideout navigation."
-      },
-      {
-        "name": "orbit",
-        "value": "orbit 30s linear infinite",
-        "purpose": "SVG own-agent orbit; disabled by reduced motion."
+        "value": "transform 0.18s ease-out",
+        "purpose": "Mobile slideout; disabled with all transitions and animations under prefers-reduced-motion."
       }
     ],
     "breakpoints": [
       {
         "name": "wide-min",
-        "value": "1550px"
+        "value": "1600px"
       },
       {
         "name": "compact-desktop-max",
         "value": "1200px"
       },
       {
-        "name": "rail-collapse-max",
-        "value": "1020px"
+        "name": "stack-and-graph-compact-max",
+        "value": "950px"
       },
       {
         "name": "mobile-max",
-        "value": "760px"
+        "value": "700px"
       }
     ]
   },
@@ -269,107 +328,109 @@
       "name": "Primary button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Main broadcast action.",
-      "html": "<button class=\"ds-primary\">发布广播</button>",
-      "css": ".ds-primary{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;border:0;background:var(--orange,#ba4c28);color:#fff;padding:11px 17px;border-radius:5px;font-size:14px;font-weight:550;min-height:39px}.ds-primary:hover{background:#b84927}.ds-primary:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}.ds-primary:disabled{opacity:.5;cursor:wait}@media(prefers-reduced-motion:reduce){.ds-primary{transition:none;animation:none}}"
+      "description": "Operational action; disabled while its mutation is pending.",
+      "html": "<button class=\"ds-primary\">保存配置</button>",
+      "css": ".ds-primary{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:background .16s,color .16s,border-color .16s;border:1px solid var(--accent,#22624f);background:var(--accent,#22624f);color:#fff;min-height:38px;padding:9px 14px;border-radius:6px;font-size:13px;font-weight:600;}.ds-primary:hover{background:#184b3d;color:#fff;}.ds-primary:focus-visible{outline:2px solid var(--accent,#22624f);outline-offset:3px;}.ds-primary:disabled{opacity:.55;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-primary{transition:none}}"
     },
     {
       "name": "Outline button",
       "kind": "button",
       "refersTo": "button-outline",
-      "description": "Secondary management action.",
-      "html": "<button class=\"ds-outline\">管理订阅</button>",
-      "css": ".ds-outline{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;border:1px solid #d4d9ce;background:transparent;color:var(--ink,#252a24);border-radius:5px;padding:10px 14px;font-size:12px;font-weight:550}.ds-outline:hover{background:#e9eee2;color:#2d3828;border-color:#a9b39d}.ds-outline:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-outline{transition:none;animation:none}}"
-    },
-    {
-      "name": "Icon button",
-      "kind": "button",
-      "refersTo": "button-icon",
-      "description": "Compact close control.",
-      "html": "<button class=\"ds-icon\" aria-label=\"关闭\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button>",
-      "css": ".ds-icon{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;display:inline-flex;border:0;background:transparent;color:var(--ink,#252a24);padding:7px;border-radius:4px}.ds-icon:hover{background:#edf0e8;color:var(--orange,#ba4c28)}.ds-icon:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-icon{transition:none;animation:none}}"
+      "description": "Operational action; disabled while its mutation is pending.",
+      "html": "<button class=\"ds-outline\">刷新状态</button>",
+      "css": ".ds-outline{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:background .16s,color .16s,border-color .16s;border:1px solid #cfd6d9;background:var(--surface,#fff);color:var(--ink,#222a30);min-height:38px;padding:9px 14px;border-radius:6px;font-size:13px;font-weight:600;}.ds-outline:hover{background:var(--soft,#f1f4f3);border-color:#a5b9ad;color:var(--accent,#22624f);}.ds-outline:focus-visible{outline:2px solid var(--accent,#22624f);outline-offset:3px;}.ds-outline:disabled{opacity:.55;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-outline{transition:none}}"
     },
     {
       "name": "Text button",
       "kind": "button",
       "refersTo": "button-text",
-      "description": "Inline rust action.",
-      "html": "<button class=\"ds-text\">探索网络</button>",
-      "css": ".ds-text{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;border:0;background:none;color:var(--orange,#ba4c28);padding:0;font-size:12px}.ds-text:hover{color:var(--orange,#ba4c28)}.ds-text:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-text{transition:none;animation:none}}"
+      "description": "Operational action; disabled while its mutation is pending.",
+      "html": "<button class=\"ds-text\">管理身份</button>",
+      "css": ".ds-text{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:background .16s,color .16s,border-color .16s;border:0;background:none;color:var(--accent,#22624f);padding:5px 0;font-size:13px;font-weight:550;}.ds-text:hover{color:var(--accent,#22624f);}.ds-text:focus-visible{outline:2px solid var(--accent,#22624f);outline-offset:3px;}.ds-text:disabled{opacity:.55;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-text{transition:none}}"
+    },
+    {
+      "name": "Icon button",
+      "kind": "button",
+      "refersTo": "button-icon",
+      "description": "Operational action; disabled while its mutation is pending.",
+      "html": "<button class=\"ds-icon\" aria-label=\"关闭\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button>",
+      "css": ".ds-icon{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:background .16s,color .16s,border-color .16s;width:32px;height:32px;border:0;background:none;color:var(--ink,#222a30);border-radius:5px;}.ds-icon:hover{background:var(--soft,#f1f4f3);color:var(--accent,#22624f);}.ds-icon:focus-visible{outline:2px solid var(--accent,#22624f);outline-offset:3px;}.ds-icon:disabled{opacity:.55;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-icon{transition:none}}"
     },
     {
       "name": "Text field",
       "kind": "input",
       "refersTo": "input",
-      "description": "Labeled form field.",
-      "html": "<label class=\"ds-label\">广播标题<input class=\"ds-input\" placeholder=\"你希望连接什么？\"></label>",
-      "css": ".ds-label{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:flex;flex-direction:column;gap:9px;font-size:12px;color:var(--ink,#252a24)}.ds-input{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;border:1px solid #d7dece;background:#fff;border-radius:5px;padding:11px 12px;font-size:12px;line-height:1.8;color:var(--ink,#252a24);caret-color:var(--orange,#ba4c28)}.ds-input::placeholder{color:#64705c}.ds-input:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-label,.ds-input{transition:none;animation:none}}"
+      "description": "Labeled editable field with reviewed placeholder contrast.",
+      "html": "<label class=\"ds-label\">Agent 名称<input class=\"ds-input\" placeholder=\"输入名称\"></label>",
+      "css": ".ds-label{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:550;color:var(--ink,#222a30)}.ds-input{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;width:100%;min-height:40px;padding:10px 12px;border:1px solid #cfd6d9;border-radius:6px;background:var(--surface,#fff);color:var(--ink,#222a30);font-size:14px;line-height:1.5;caret-color:var(--accent,#22624f)}.ds-input::placeholder{color:#606c75}.ds-input:focus-visible{outline:2px solid var(--accent,#22624f);outline-offset:3px;}"
     },
     {
       "name": "Navigation",
       "kind": "nav",
       "refersTo": "navigation-item",
-      "description": "Charcoal navigation with selected context.",
-      "html": "<nav class=\"ds-nav\"><button class=\"ds-active\" aria-current=\"page\">信号广场</button><button>网络探索</button></nav>",
-      "css": ".ds-nav{background:var(--dark,#191c19);padding:19px;display:flex;flex-direction:column;gap:6px}.ds-nav button{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;text-align:left;border:0;background:none;color:#b0b9a8;padding:13px 15px;min-height:46px;border-radius:5px;font-size:13px}.ds-nav button:hover{background:#252b22;color:#f1f4e9}.ds-nav .ds-active{background:#30392a;color:#e6efdc}.ds-nav button:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-active,.ds-nav{transition:none;animation:none}}"
+      "description": "Light navigation and selected operational context.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"主导航\"><a href=\"#overview\" aria-current=\"page\">Overview <small>总览</small></a><a href=\"#agent\">Agent <small>身份</small></a></nav>",
+      "css": ".ds-nav{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;background:#f0f2f3;padding:16px;display:grid;gap:5px}.ds-nav a{display:flex;align-items:center;gap:11px;min-height:42px;padding:11px 12px;border-radius:6px;color:#53606a;text-decoration:none;font-size:13px;transition:background .16s,color .16s}.ds-nav small{margin-left:auto;font-size:10px;color:#606c75}.ds-nav a[aria-current=page]{background:#e0ebe5;color:#174b3a;font-weight:650}.ds-nav a[aria-current=page] small{color:#376653}.ds-nav a:hover{background:#e7eced;color:var(--ink,#222a30)}.ds-nav a:focus-visible{outline:2px solid var(--accent,#22624f);outline-offset:3px;}@media(prefers-reduced-motion:reduce){.ds-nav a{transition:none}}"
     },
     {
-      "name": "Demand badge",
+      "name": "Relation badge",
       "kind": "chip",
-      "refersTo": "demand-chip",
-      "description": "Noninteractive broadcast category.",
-      "html": "<span class=\"ds-chip\">需求</span>",
-      "css": ".ds-chip{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:inline-block;background:#f5e8dd;color:#9c6236;border-radius:3px;padding:2px 6px;font-size:9px;line-height:1.8;white-space:nowrap}@media(prefers-reduced-motion:reduce){.ds-chip{transition:none;animation:none}}"
+      "refersTo": "badge",
+      "description": "Noninteractive relation or capability label.",
+      "html": "<span class=\"ds-badge\">协作</span>",
+      "css": ".ds-badge{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;display:inline-flex;align-items:center;font-size:11px;line-height:1.5;background:#f0f3f2;border:1px solid #e1e7e4;border-radius:4px;color:#50675c;padding:4px 8px;white-space:normal;overflow-wrap:anywhere}"
     },
     {
-      "name": "Network panel",
+      "name": "Identity card",
       "kind": "card",
-      "refersTo": "network-panel",
-      "description": "Flat supporting network container.",
-      "html": "<section class=\"ds-panel\"><h2>网络概览</h2><p>示例网络 · 连接表示共享领域</p></section>",
-      "css": ".ds-panel{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;border:1px solid #dce2d3;background:#f1f4eb;border-radius:7px;overflow:hidden;color:var(--ink,#252a24)}.ds-panel h2{font-size:12px;font-weight:600;padding:17px 17px 0;margin:0}.ds-panel p{font-size:10px;color:#6c7b60;padding:11px 10px 13px;text-align:center;margin:0}@media(prefers-reduced-motion:reduce){.ds-panel{transition:none;animation:none}}"
+      "refersTo": "identity-card",
+      "description": "Flat identity container; sample copy is explicitly a style preview.",
+      "html": "<section class=\"ds-card\"><h2>Agent 身份样式预览</h2><p>身份与管理账户分别展示；运行状态来自实际记录。</p></section>",
+      "css": ".ds-card{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;background:var(--surface,#fff);border:1px solid var(--line,#e0e5e7);border-radius:9px;padding:25px;color:var(--ink,#222a30)}.ds-card h2{margin:0;font-size:21px;line-height:1.5;font-weight:650}.ds-card p{font-size:13px;line-height:1.8;color:var(--muted,#667079);margin:14px 0;max-width:70ch}@media(min-width:1600px){.ds-card{padding:30px}.ds-card h2{font-size:23px}}@media(max-width:1200px){.ds-card{padding:20px}.ds-card h2{font-size:18px}}@media(max-width:700px){.ds-card{padding:19px}.ds-card h2{font-size:19px}}"
     },
     {
-      "name": "Signal row",
+      "name": "Graph peer",
       "kind": "custom",
-      "refersTo": "signal-row",
-      "description": "Editorial title, body, and provenance.",
-      "html": "<article class=\"ds-signal\"><button class=\"ds-signal-title\">寻找多 Agent 协作研究伙伴</button><p>关注能力发现、协作成本和任务成功率。</p><span>示例广播 · AI 与研究</span></article>",
-      "css": ".ds-signal{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;padding:25px 0;border-bottom:1px solid var(--line,#e2e5dc);color:var(--ink,#252a24)}.ds-signal-title{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;transition:background .16s,color .16s,border-color .16s;padding:0;border:0;background:none;color:inherit;font-size:15px;font-weight:550;line-height:1.65;letter-spacing:.1px;text-align:left}.ds-signal-title:hover{color:var(--orange,#ba4c28)}.ds-signal-title:focus-visible{outline:2px solid var(--orange,#ba4c28);outline-offset:4px;}.ds-signal p{font-size:13px;line-height:1.95;color:#626b5c;margin:9px 0 19px;max-width:73ch}.ds-signal>span{font-size:10px;color:#68735f}@media(prefers-reduced-motion:reduce){.ds-signal,.ds-signal-title{transition:none;animation:none}}"
+      "refersTo": "graph-node",
+      "description": "Keyboard-operable peer node; actual application selection opens Agent details.",
+      "html": "<button class=\"ds-node\"><span class=\"ds-avatar\">AG</span><strong>Agent 节点样式预览</strong><small>实际关系标签</small></button>",
+      "css": ".ds-node{font-family:Network, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;cursor:pointer;display:flex;align-items:center;flex-direction:column;gap:5px;min-width:94px;max-width:138px;padding:9px;background:#f6f7f8;border:1px solid #d3ded8;border-radius:8px;color:var(--ink,#222a30);transition:background .16s,color .16s,border-color .16s}.ds-avatar{display:inline-grid;place-items:center;width:32px;height:32px;border:1px solid #c3d9cc;border-radius:8px;background:#e2eee7;color:#2e5b45;font-size:12px;font-weight:600}.ds-node strong{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}.ds-node small{font-size:9px;max-width:125px;color:var(--muted,#667079);line-height:1.7}.ds-node:hover{border-color:var(--accent,#22624f);background:#eef6f0;color:var(--accent,#22624f)}.ds-node:focus-visible{outline:2px solid var(--accent,#22624f);outline-offset:3px;}@media(prefers-reduced-motion:reduce){.ds-node{transition:none}}"
     }
   ],
   "narrative": {
-    "northStar": "The Quiet Network Observatory",
-    "overview": "A quiet network observatory with an editorial signal stream. Charcoal navigation anchors a warm off-white reading field; restrained rust identifies actions and sage supports secondary context. Chinese text has generous line height, while compact metadata keeps the network readable.\n\nThis record describes the current network/ application, extracted from network/style.css and representative network/main.jsx components. It replaces the legacy campus visual record; the historical campus code is not the source for new screens. The confirmed direction is recorded in .impeccable/network-direction.md.",
+    "northStar": "Human Control Plane",
+    "overview": "A professional, minimal developer dashboard with light grey navigation, white working surfaces, thin borders, and restrained green emphasis. Chinese operational prose has generous line height; compact metadata keeps identity, current work, and required decisions visible without competing with the content.\n\nThe current world is the user-pinned Operate direction in `.impeccable/network-direction.md`. This is a post-build record of `network/style.css` and the TypeScript components, replacing the obsolete rust-and-charcoal record. It is code-led; there is no approved image composition. The frontend observes and manages independently running Agents, so its visual language separates human control from Agent execution.",
     "keyCharacteristics": [
-      "Persistent dark navigation with a light reading surface.",
-      "Flat, divider-led signal rows and restrained bordered panels.",
-      "Rust actions, sage context, and original SVG network geometry.",
-      "Visible provenance and demo status alongside actionable content."
+      "Persistent eight-module navigation and a stable Agent selector, with the human account shown separately.",
+      "Flat sections and divider-led lists, with bordered identity, attention, and conversation surfaces.",
+      "Green actions and explicit status labels; amber waiting and red failure remain semantic signals.",
+      "Actual relation nodes, provenance, timestamps, loading/error states, and honest empty states."
     ],
     "rules": [
       {
-        "name": "The Action Accent Rule",
-        "body": "Use rust for action and emphasis; keep supporting network context subdued.",
+        "name": "The Evidence Rule",
+        "body": "Status, activity, relations, and completion must reflect reported records; an empty state is preferable to invented activity.",
         "section": "colors"
       },
       {
-        "name": "The Flat Reading Rule",
-        "body": "Keep reading surfaces flat; use depth for temporary overlays and input focus.",
+        "name": "The Flat Workspace Rule",
+        "body": "Keep operational content flat and separated by tone or thin borders; reserve shadow for transient feedback.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do extend the network/ tokens and Chinese/system font fallbacks.",
-      "Do preserve readable signal text, metadata hierarchy, and visible keyboard focus.",
-      "Do keep example status, matching reasons, and conversation origin legible.",
-      "Do collapse the supporting rail before compressing the reading column."
+      "Do reuse the implemented green, grey, and white palette and the self-hosted Network font with Chinese system fallbacks.",
+      "Do keep identity, current work, and required human decisions legible before supporting details.",
+      "Do label human instructions, Agent behavior, system events, and unreported data explicitly.",
+      "Do retain visible keyboard focus, native labels, and reduced-motion behavior.",
+      "Do show the graph display limit and preserve the complete relation list."
     ],
     "donts": [
-      "Don't reuse the legacy campus palette, type system, or world interface for new network screens.",
-      "Don't turn every signal row into a raised card.",
-      "Don't use simulated network activity as a visual claim of real external traffic.",
-      "Don't keep decorative motion running when reduced motion is requested."
+      "Don't restore the superseded rust actions or charcoal navigation.",
+      "Don't fabricate activity, knowledge, costs, online presence, or task completion.",
+      "Don't turn every list row into a raised card or add decorative moving network nodes.",
+      "Don't present an owner instruction or approval as an executed Agent action.",
+      "Don't make the message observer a human-to-Agent impersonation chat composer."
     ]
   }
 }

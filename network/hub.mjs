@@ -51,6 +51,9 @@ export const emptyHub = () => ({
   relations: [],
   invocations: [],
   activityLogs: [],
+  activityEvents: [],
+  approvals: [],
+  controlRequests: [],
   sequence: 0,
 });
 export function authenticate(state, headers, { optional = false } = {}) {
@@ -159,6 +162,8 @@ export function publicAgent(state, a) {
   const card = { ...a };
   delete card.ownerId;
   delete card.lease;
+  delete card.policies;
+  delete card.observedOnline;
   return {
     ...card,
     online: connections.some((c) => c.online),
@@ -188,7 +193,10 @@ export function snapshot(state, actor, baseUrl) {
           unread: c.messages.filter(
             (m) =>
               m.from !== actor.agentId &&
-              m.sequence > (c.readBy[actor.agentId] || 0),
+              m.sequence >
+                (actor.kind === 'owner'
+                  ? c.ownerReadBy?.[actor.userId] || 0
+                  : c.readBy[actor.agentId] || 0),
           ).length,
         }))
     : [];
@@ -725,6 +733,7 @@ export function networkAction(state, actor, action, payload) {
           signalId: payload.signalId || null,
           status: 'delivered',
           via: actor.kind,
+          controlRequestId: payload.controlRequestId || null,
         };
         c.messages.push(message);
         deliver(state, recipient.id, 'message', message.id);
@@ -742,7 +751,10 @@ export function networkAction(state, actor, action, payload) {
       (c) => c.id === payload.id && c.participants.includes(agent.id),
     );
     if (!c) problem('会话不存在。', 404, 'NOT_FOUND');
-    c.readBy[agent.id] = state.sequence;
+    if (actor.kind === 'owner') {
+      c.ownerReadBy ??= {};
+      c.ownerReadBy[actor.userId] = state.sequence;
+    } else c.readBy[agent.id] = state.sequence;
     return { read: true };
   }
   if (action === 'subscribe') {

@@ -1,3 +1,13 @@
+import {
+  approvalGate,
+  decideApproval,
+  defaultPolicies,
+  policyKeys,
+  activity,
+  controlView,
+  validateControl,
+  respondControl,
+} from './control.mjs';
 import { randomUUID } from 'node:crypto';
 import { contracts, scopes } from './contracts.mjs';
 import {
@@ -12,6 +22,7 @@ import {
   bootstrapClient,
   claimStatus,
   createAgent,
+  withReceipt,
 } from './hub.mjs';
 import {
   expireInvocations,
@@ -127,12 +138,72 @@ export function networkApi(s, headers, op, input, baseUrl) {
   if (c.expiresAt < Date.now() + 29 * 86400000)
     c.expiresAt = Date.now() + 30 * 86400000;
   const me = actor.agentId;
+  if (op === 'respond_invocation' && p.action === 'accept') {
+    const task = s.invocations.find(
+      (i) =>
+        i.id === p.invocation_id &&
+        [i.source_agent_id, i.target_agent_id].includes(me),
+    );
+    if (!task) problem('任务不存在。', 404, 'NOT_FOUND');
+    if (task.target_agent_id !== me)
+      problem('只有接收方可以接受任务。', 403, 'FORBIDDEN');
+    if ((p.permissions || []).some((x) => !task.permissions.includes(x)))
+      problem('不能扩大任务请求的权限。', 403, 'PERMISSION_ESCALATION');
+  }
+  const control = validateControl(s, actor, op, p);
+  if (control) return control.cached;
+  const gate = approvalGate(s, actor, op, p);
+  if (gate?.pending) return gate;
+  if (gate && Object.hasOwn(gate, 'cached')) return gate.cached;
   let result;
   switch (op) {
+    case 'get_approvals':
+      result = slice(
+        (s.approvals || [])
+          .filter(
+            (a) =>
+              a.agent_id === me && (!p.approval_id || a.id === p.approval_id),
+          )
+          .map(({ fingerprint: _fingerprint, ...a }) => ({
+            ...a,
+            status:
+              ['pending', 'approved', 'authorized'].includes(a.status) &&
+              a.expires_at <= Date.now()
+                ? 'expired'
+                : a.status,
+          })),
+        p,
+      );
+      break;
+    case 'request_approval':
+      result = {
+        allowed: true,
+        permissions: p.permissions,
+        ...(gate?.approved
+          ? {
+              approval_id: gate.approved.id,
+              expires_at: gate.approved.expires_at,
+            }
+          : {}),
+      };
+      break;
+    case 'get_control_requests':
+      result = slice(
+        (s.controlRequests || []).filter((r) => r.agent_id === me),
+        p,
+      );
+      break;
+    case 'respond_control_request':
+      result = respondControl(s, actor, p);
+      break;
     case 'get_profile': {
       const target = s.agents.find((a) => a.id === (p.agent_id || me));
       if (!target) problem('Agent 不存在。', 404, 'NOT_FOUND');
       result = { profile: identity(s, target, target.id === me) };
+      if (target.id !== me)
+        activity(s, me, 'profile_viewed', '查看了 Agent 的公开资料', {
+          peer_id: target.id,
+        });
       break;
     }
     case 'update_profile':
@@ -140,6 +211,8 @@ export function networkApi(s, headers, op, input, baseUrl) {
       break;
     case 'heartbeat': {
       const h = heartbeat(s, actor, { runId: p.run_id });
+      if (p.status) c.runtimeStatus = p.status;
+      if (p.detail !== undefined) c.runtimeDetail = p.detail;
       result = {
         online: h.online,
         agent_id: h.agentId,
@@ -205,6 +278,16 @@ export function networkApi(s, headers, op, input, baseUrl) {
         matching: 'lexical_and_structured',
         semantic_search: false,
       };
+      activity(
+        s,
+        me,
+        'agent_discovered',
+        `发现 ${matches.length} 个符合条件的 Agent`,
+        {
+          peer_ids: matches.map((x) => x.id),
+          detail: p.query || p.capability || '网络目录',
+        },
+      );
       break;
     }
     case 'send_message': {
@@ -212,6 +295,7 @@ export function networkApi(s, headers, op, input, baseUrl) {
         agentId: p.target_agent_id,
         text: p.text,
         signalId: p.signal_id,
+        controlRequestId: p.control_request_id,
         requestId: p.request_id,
       });
       result = {
@@ -265,8 +349,16 @@ export function networkApi(s, headers, op, input, baseUrl) {
         p,
       );
       break;
-    case 'create_relation':
     case 'remove_relation':
+      result = withReceipt(
+        s,
+        actor,
+        op,
+        { ...p, requestId: p.request_id },
+        () => relationAction(s, actor, op, p),
+      );
+      break;
+    case 'create_relation':
       result = relationAction(s, actor, op, p);
       break;
     case 'invoke_agent':
@@ -293,6 +385,23 @@ export function networkApi(s, headers, op, input, baseUrl) {
     case 'rotate_credential':
       result = rotateCredential(s, actor);
       break;
+  }
+  if (gate?.approved) {
+    gate.approved.status =
+      op === 'request_approval' ? 'authorized' : 'executed';
+    gate.approved.executed_at = Date.now();
+    gate.approved.execution_result = result;
+  }
+  if (p.control_request_id && op !== 'respond_control_request') {
+    const r = s.controlRequests.find((r) => r.id === p.control_request_id);
+    r.status = 'completed';
+    r.result = result;
+    r.updated_at = Date.now();
+    activity(s, me, 'human_intervention', 'Agent 已执行你的指令', {
+      source: 'agent',
+      control_request_id: r.id,
+      detail: r.summary,
+    });
   }
   s.activityLogs.unshift({
     id: randomUUID(),
@@ -412,7 +521,9 @@ export function legacyApi(s, headers, name, p, base) {
       },
       base,
     );
-    return { conversationId: r.conversation_id, messageId: r.message_id };
+    return r.pending
+      ? r
+      : { conversationId: r.conversation_id, messageId: r.message_id };
   }
   if (name === 'network_profile')
     return networkApi(
@@ -439,7 +550,7 @@ export function legacyApi(s, headers, name, p, base) {
       },
       base,
     );
-    return { signalId: r.post_id, matched: r.matched };
+    return r.pending ? r : { signalId: r.post_id, matched: r.matched };
   }
   return networkAction(
     s,
@@ -464,6 +575,90 @@ export function ownerApi(s, actor, op, p) {
   const a = s.agents.find((a) => a.id === id && a.ownerId === actor.userId);
   if (!a) problem('Agent 不存在或不属于此账号。', 403, 'NOT_OWNER');
   const selected = { ...actor, agentId: a.id };
+  s.approvals ??= [];
+  s.controlRequests ??= [];
+  if (op === 'decide_approval') return decideApproval(s, selected, p);
+  if (op === 'set_policy') {
+    if (
+      !policyKeys.includes(p.category) ||
+      !['allow', 'ask', 'deny'].includes(p.mode)
+    )
+      problem('权限策略无效。');
+    a.policies = { ...defaultPolicies, ...a.policies, [p.category]: p.mode };
+    activity(s, a.id, 'human_intervention', '你修改了行为权限', {
+      source: 'human',
+      detail: `${p.category}: ${p.mode}`,
+    });
+    return { policies: a.policies };
+  }
+  if (op === 'queue_control') {
+    if (
+      ![
+        'send_message',
+        'create_relation',
+        'remove_relation',
+        'invoke_agent',
+      ].includes(p.operation)
+    )
+      problem('不支持此人工指令。');
+    const id = randomUUID();
+    const parsed = contracts[p.operation][1].safeParse({
+      ...p.params,
+      request_id: `control-${id}`,
+    });
+    if (!parsed.success) problem('指令参数无效。');
+    delete parsed.data.approval_id;
+    delete parsed.data.control_request_id;
+    const r = {
+      id,
+      agent_id: a.id,
+      operation: p.operation,
+      payload: parsed.data,
+      summary: String(p.summary || p.operation).slice(0, 500),
+      status: 'queued',
+      created_at: Date.now(),
+      updated_at: Date.now(),
+      owner_id: actor.userId,
+    };
+    if (
+      s.controlRequests.filter(
+        (r) => r.agent_id === a.id && ['queued', 'accepted'].includes(r.status),
+      ).length >= 100
+    )
+      problem('请先处理已有指令。', 429, 'CONTROL_LIMIT');
+    s.controlRequests.unshift(r);
+    activity(s, a.id, 'human_intervention', '你向 Agent 下达了指令', {
+      source: 'human',
+      control_request_id: id,
+      detail: r.summary,
+    });
+    return { request: r };
+  }
+  if (op === 'cancel_control') {
+    const r = s.controlRequests.find(
+      (r) => r.id === p.control_request_id && r.agent_id === a.id,
+    );
+    if (!r) problem('指令不存在。', 404, 'NOT_FOUND');
+    if (!['queued', 'accepted'].includes(r.status))
+      problem('指令已结束。', 409, 'INVALID_TRANSITION');
+    r.status = 'cancelled';
+    r.updated_at = Date.now();
+    activity(s, a.id, 'human_intervention', '你取消了待执行指令', {
+      source: 'human',
+      control_request_id: r.id,
+    });
+    return { request: r };
+  }
+  if (op === 'rotate_owner_credential') {
+    const c = s.connections.find(
+      (c) => c.id === p.credential_id && c.agentId === a.id && !c.revokedAt,
+    );
+    if (!c) problem('凭证不存在。', 404, 'NOT_FOUND');
+    activity(s, a.id, 'human_intervention', '你刷新了客户端凭证', {
+      source: 'human',
+    });
+    return rotateCredential(s, { agentId: a.id, connectionId: c.id });
+  }
   if (op === 'select_agent') {
     s.sessions.find((x) => x.id === actor.sessionId).agentId = a.id;
     return { agent_id: a.id };
@@ -479,12 +674,20 @@ export function ownerApi(s, actor, op, p) {
     )
       problem('权限列表无效。');
     c.scopes = [...new Set(p.scopes)];
+    activity(s, a.id, 'human_intervention', '你修改了客户端权限', {
+      source: 'human',
+      detail: c.label,
+    });
     return { credential_id: c.id, scopes: c.scopes };
   }
   if (op === 'update_profile') {
     const parsed = contracts.update_profile[1].safeParse(p);
     if (!parsed.success) problem('资料格式无效。', 400, 'INVALID_INPUT');
-    return updateProfile(s, selected, parsed.data);
+    const result = updateProfile(s, selected, parsed.data);
+    activity(s, a.id, 'human_intervention', '你更新了 Agent 资料与能力', {
+      source: 'human',
+    });
+    return result;
   }
   if (op === 'claim')
     s.sessions.find((x) => x.id === actor.sessionId).agentId = a.id;
@@ -503,8 +706,22 @@ export function ownerApi(s, actor, op, p) {
       'save',
       'read',
     ].includes(op)
-  )
-    return networkAction(s, selected, op, p);
+  ) {
+    const result = networkAction(s, selected, op, p);
+    const labels = {
+      claim: '认领了运行环境',
+      'issue-token': '签发了客户端凭证',
+      revoke: '撤销了客户端凭证',
+      pause: '暂停了连接',
+      resume: '恢复了连接',
+      limit: '修改了发送额度',
+    };
+    if (labels[op])
+      activity(s, a.id, 'human_intervention', `你${labels[op]}`, {
+        source: 'human',
+      });
+    return result;
+  }
   problem('用户只能管理 Agent，通信请使用 Agent 凭证。', 403, 'AGENT_REQUIRED');
 }
 export function dashboard(s, actor, base) {
@@ -517,6 +734,7 @@ export function dashboard(s, actor, base) {
   const d = snapshot(s, actor, base);
   return {
     ...d,
+    ...controlView(s, actor),
     relations: actor
       ? s.relations.filter((r) =>
           [r.source_agent_id, r.target_agent_id].includes(actor.agentId),

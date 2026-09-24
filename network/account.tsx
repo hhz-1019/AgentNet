@@ -1,6 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, type SubmitEvent } from 'react';
+import type { Dashboard, Act, Notify, Connection } from './types';
+import { errorText } from './api';
 
-export function OneSentence({ base, notify }) {
+export function OneSentence({
+  base,
+  notify,
+}: {
+  base: string;
+  notify: Notify;
+}) {
   const prompt = `请接入 ${base}/join.md，按说明完成客户端注册，把登录或注册认领链接发给我；我确认后，请继续接入并报告结果。`;
   return (
     <section className="one-sentence">
@@ -28,8 +36,23 @@ export function OneSentence({ base, notify }) {
   );
 }
 
-export function ClaimConnection({ code, data, act, onComplete, notify }) {
-  const [info, setInfo] = useState(null),
+export function ClaimConnection({
+  code,
+  data,
+  act,
+  onComplete,
+  notify,
+}: {
+  code: string;
+  data: Dashboard;
+  act: Act;
+  onComplete: () => void;
+  notify: Notify;
+}) {
+  const [info, setInfo] = useState<{
+      label: string;
+      clientFingerprint: string;
+    } | null>(null),
     [error, setError] = useState(''),
     [limit, setLimit] = useState(60),
     [pending, setPending] = useState(false),
@@ -145,6 +168,10 @@ export function ClaimConnection({ code, data, act, onComplete, notify }) {
                       setPending(false);
                       return;
                     }
+                    if (!created.result.agent) {
+                      setPending(false);
+                      return;
+                    }
                     target = created.result.agent.agent_id;
                   }
                   const result = await act('claim', {
@@ -176,11 +203,17 @@ export function ClaimConnection({ code, data, act, onComplete, notify }) {
   );
 }
 
-export function AccountForm({ onSuccess, notify }) {
+export function AccountForm({
+  onSuccess,
+  notify,
+}: {
+  onSuccess: (data: Dashboard) => void;
+  notify: Notify;
+}) {
   const [mode, setMode] = useState('login'),
     [pending, setPending] = useState(false),
     [failure, setFailure] = useState('');
-  async function submit(e) {
+  async function submit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
     setFailure('');
@@ -195,7 +228,7 @@ export function AccountForm({ onSuccess, notify }) {
       onSuccess(result);
       notify(mode === 'register' ? '账号已创建。' : '已登录原账号。');
     } catch (error) {
-      setFailure(error.message);
+      setFailure(errorText(error));
     } finally {
       setPending(false);
     }
@@ -288,7 +321,15 @@ export function AccountForm({ onSuccess, notify }) {
   );
 }
 
-export function RecoveryNotice({ recovery, onDismissRecovery, notify }) {
+export function RecoveryNotice({
+  recovery,
+  onDismissRecovery,
+  notify,
+}: {
+  recovery: string | null;
+  onDismissRecovery: () => void;
+  notify: Notify;
+}) {
   if (!recovery) return null;
   return (
     <section className="recovery-note">
@@ -315,7 +356,7 @@ export function RecoveryNotice({ recovery, onDismissRecovery, notify }) {
   );
 }
 
-function connectionState(c, now) {
+function connectionState(c: Connection, now: number) {
   return c.revokedAt
     ? '已移除授权'
     : c.expiresAt <= now
@@ -329,7 +370,15 @@ function connectionState(c, now) {
             : '已授权 · 等待 Agent 连接';
 }
 
-export function ConnectionStatus({ data, onExplore, onManage }) {
+export function ConnectionStatus({
+  data,
+  onExplore,
+  onManage,
+}: {
+  data: Dashboard;
+  onExplore: () => void;
+  onManage: () => void;
+}) {
   const active = data.connections.filter(
     (c) => !c.revokedAt && c.expiresAt > data.serverTime,
   );
@@ -359,8 +408,16 @@ export function ConnectionStatus({ data, onExplore, onManage }) {
   );
 }
 
-export function Connections({ data, act, notify }) {
-  const [credential, setCredential] = useState(null),
+export function Connections({
+  data,
+  act,
+  notify,
+}: {
+  data: Dashboard;
+  act: Act;
+  notify: Notify;
+}) {
+  const [credential, setCredential] = useState<{ token: string } | null>(null),
     [pending, setPending] = useState(false);
   const visible = data.connections.filter((c) => !c.revokedAt);
   return (
@@ -413,6 +470,23 @@ export function Connections({ data, act, notify }) {
                 {c.paused ? '恢复' : '暂停'}
               </button>
               <button
+                className="outline"
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      '刷新后旧凭证立即失效，需要更新此客户端的私有配置。继续？',
+                    )
+                  )
+                    return;
+                  const r = await act('rotate_owner_credential', {
+                    credential_id: c.id,
+                  });
+                  if (r?.result.token) setCredential({ token: r.result.token });
+                }}
+              >
+                刷新凭证
+              </button>
+              <button
                 className="text-button"
                 onClick={() => {
                   if (
@@ -432,9 +506,12 @@ export function Connections({ data, act, notify }) {
                 e.preventDefault();
                 void act('set_permissions', {
                   credential_id: c.id,
-                  scopes: e.currentTarget.elements
-                    .namedItem('scopes')
-                    .value.split(',')
+                  scopes: (
+                    e.currentTarget.elements.namedItem(
+                      'scopes',
+                    ) as HTMLInputElement
+                  ).value
+                    .split(',')
                     .map((x) => x.trim())
                     .filter(Boolean),
                 });
@@ -479,38 +556,39 @@ export function Connections({ data, act, notify }) {
               dailyLimit: 60,
             });
             setPending(false);
-            if (result) setCredential(result.result);
+            if (result?.result.token)
+              setCredential({ token: result.result.token });
           }}
         >
           生成手动配置凭证
         </button>
-        {credential && (
-          <div className="credential-result">
-            <input
-              aria-label="手动配置凭证"
-              type="password"
-              readOnly
-              value={credential.token}
-            />
-            <button
-              className="outline"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(credential.token);
-                  notify('凭证已复制，仅用于客户端安全设置。');
-                } catch {
-                  notify('请手动复制凭证。');
-                }
-              }}
-            >
-              复制凭证
-            </button>
-            <button className="text-button" onClick={() => setCredential(null)}>
-              隐藏凭证
-            </button>
-          </div>
-        )}
       </details>
+      {credential && (
+        <div className="credential-result">
+          <input
+            aria-label="手动配置凭证"
+            type="password"
+            readOnly
+            value={credential.token}
+          />
+          <button
+            className="outline"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(credential.token);
+                notify('凭证已复制，仅用于客户端安全设置。');
+              } catch {
+                notify('请手动复制凭证。');
+              }
+            }}
+          >
+            复制凭证
+          </button>
+          <button className="text-button" onClick={() => setCredential(null)}>
+            隐藏凭证
+          </button>
+        </div>
+      )}
     </section>
   );
 }

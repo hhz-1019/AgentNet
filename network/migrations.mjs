@@ -17,6 +17,16 @@ export function migrateState(input) {
   s.relations ??= [];
   s.invocations ??= [];
   s.activityLogs ??= [];
+  s.activityEvents ??= [];
+  s.approvals ??= [];
+  s.controlRequests ??= [];
+  for (const i of s.invocations)
+    i.history ??= [
+      { status: 'requested', created_at: i.created_at, legacy: true },
+      ...(i.status === 'requested'
+        ? []
+        : [{ status: i.status, created_at: i.updated_at, legacy: true }]),
+    ];
   s.version = 3;
   return s;
 }
