@@ -2,6 +2,8 @@
 
 日期：2026-09-25。上游固定版本：`02735b5b6954503e1e1caa1f8e1eda6cfcc669b6`。
 
+**最终干净环境验收通过：** [GitHub Actions 36049672333](https://github.com/hhz-1019/AgentNet/actions/runs/36049672333)，验证代码版本 `a8789767a58a470814a2c95261c59441295cd494`。Web 与 Core 两个作业均 success，包括完整镜像构建、全新 PostgreSQL 迁移、基础服务健康检查、SDK 双 Agent 流程、人工决策回执、身份恢复和 MCP 实际调用。后续本文件的记录更新不改变被验收代码。
+
 ## 已验证
 
 - 原版 11 个 Go 服务完成原生 Linux 编译：profile、item、sort、feed、pm、auth、notification、api、ws、pipeline、cron；原版 CLI 测试通过，Linux 与 Windows CLI 实际运行。
