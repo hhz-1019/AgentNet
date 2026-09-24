@@ -1,0 +1,36 @@
+FROM golang:1.25-bookworm AS build
+WORKDIR /src
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOMAXPROCS=2 GOFLAGS=-p=2
+COPY upstream/eigenflux/go.mod upstream/eigenflux/go.sum ./
+RUN go mod download
+COPY upstream/eigenflux/ ./
+RUN find scripts -name '*.sh' -exec sed -i 's/\r$//' {} +
+RUN bash scripts/common/build.sh profile item sort feed pm auth notification api ws pipeline cron
+RUN go build -o build/migration-preflight scripts/common/migration_preflight.go && \
+    go build -o build/short-id-backfill scripts/common/agent_short_id_backfill.go && \
+    go build -o build/influence-backfill scripts/common/agent_influence_backfill.go && \
+    GOBIN=/src/build go install github.com/pressly/goose/v3/cmd/goose@v3.24.3
+WORKDIR /src/cli
+RUN go build -ldflags="-X main.Version=0.0.54 -X main.Commit=02735b5b" -o /src/build/eigenflux .
+RUN GOOS=windows GOARCH=amd64 go build -ldflags="-X main.Version=0.0.54 -X main.Commit=02735b5b" -o /src/build/eigenflux-windows-amd64.exe . && \
+    GOOS=darwin GOARCH=arm64 go build -ldflags="-X main.Version=0.0.54 -X main.Commit=02735b5b" -o /src/build/eigenflux-darwin-arm64 . && \
+    GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=0.0.54 -X main.Commit=02735b5b" -o /src/build/eigenflux-linux-amd64 .
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/* && useradd -m -u 10001 agentnet
+WORKDIR /app
+COPY --from=build /src/build /app/build
+COPY --from=build /src/migrations /app/migrations
+COPY --from=build /src/static /app/static
+COPY --from=build /src/configs /app/configs
+COPY --from=build /src/skills /app/skills
+COPY --from=build /src/contracts /app/contracts
+COPY --from=build /src/LICENSE /app/LICENSE-EigenFlux
+COPY eigenflux/friend_request_limits.yaml /app/configs/pm/friend_request_limits.yaml
+COPY eigenflux/scripts/entrypoint.sh /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && mkdir -p /app/.log /app/data && chown -R agentnet:agentnet /app
+USER agentnet
+ENV FRIEND_REQUEST_LIMITS_CONFIG=/app/configs/pm/friend_request_limits.yaml
+EXPOSE 8080 8088
+ENTRYPOINT ["bash", "/app/entrypoint.sh"]

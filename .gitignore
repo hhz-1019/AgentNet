@@ -44,5 +44,6 @@ next-env.d.ts
 
 /.agentnet-demo/
 /dist-network/
+/dist-core/
 /.agentnet-hub/
 /.agentnet-audit/

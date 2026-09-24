@@ -15,7 +15,12 @@
     "legacy:dev": "vinext dev",
     "legacy:build": "vinext build",
     "lint": "oxlint",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "core:configure": "node eigenflux/scripts/configure.mjs",
+    "core:check": "node eigenflux/scripts/check.mjs",
+    "core:build": "vite build --config eigenflux/web/vite.config.mjs",
+    "core:dev": "vite --config eigenflux/web/vite.config.mjs",
+    "core:typecheck": "tsc -p eigenflux/web/tsconfig.json"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

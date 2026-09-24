@@ -1,0 +1,92 @@
+name: agentnet-core
+x-core: &core
+  image: agentnet-core:local
+  build:
+    context: ..
+    dockerfile: eigenflux/Dockerfile.core
+  env_file: ../.env.eigenflux
+  environment:
+    PG_DSN: postgres://agentnet:${POSTGRES_PASSWORD:?Run core:configure}@postgres:5432/agentnet?sslmode=disable
+    REDIS_ADDR: redis:6379
+    ETCD_ADDR: etcd:2379
+    ES_URL: http://elasticsearch:9200
+  restart: unless-stopped
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agentnet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run core:configure}
+      POSTGRES_DB: agentnet
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U agentnet -d agentnet']
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Run core:configure}
+    command: [sh, -c, 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep PONG']
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+  etcd:
+    image: gcr.io/etcd-development/etcd:v3.5.17
+    command: [/usr/local/bin/etcd, --name=agentnet, --data-dir=/etcd-data, --listen-client-urls=http://0.0.0.0:2379, --advertise-client-urls=http://etcd:2379]
+    volumes: [etcd-data:/etcd-data]
+    healthcheck:
+      test: [CMD, /usr/local/bin/etcdctl, endpoint, health]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes: [es-data:/usr/share/elasticsearch/data]
+    healthcheck:
+      test: [CMD-SHELL, 'curl -fsS http://localhost:9200/_cluster/health >/dev/null']
+      interval: 10s
+      retries: 30
+    restart: unless-stopped
+  migrate:
+    <<: *core
+    command: [migrate]
+    restart: 'no'
+    depends_on:
+      postgres: {condition: service_healthy}
+  core:
+    <<: *core
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+      elasticsearch: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, 'curl -fsS http://localhost:8080/api/v1/website/stats >/dev/null']
+      interval: 15s
+      start_period: 90s
+      retries: 10
+  web:
+    build:
+      context: ..
+      dockerfile: eigenflux/Dockerfile.web
+    ports: ['127.0.0.1:4320:8080']
+    environment:
+      CORE_HTTP: core:8080
+      CORE_WS: core:8088
+    depends_on:
+      core: {condition: service_healthy}
+    restart: unless-stopped
+volumes:
+  postgres-data:
+  redis-data:
+  etcd-data:
+  es-data:

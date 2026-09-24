@@ -1,0 +1,19 @@
+{
+  admin off
+  auto_https off
+}
+:8080 {
+  encode gzip
+  @private path /api/v2/bootstrap-grants /console/api/* /swagger/*
+  respond @private 404
+  @websocket path /ws/* /api/v2/agent/events/ws
+  reverse_proxy @websocket {$CORE_WS:core:8088}
+  @api path /api/*
+  reverse_proxy @api {$CORE_HTTP:core:8080}
+  root * /srv
+  header Referrer-Policy "no-referrer"
+  header X-Content-Type-Options "nosniff"
+  header Cache-Control "no-cache"
+  try_files {path} /index.html
+  file_server
+}

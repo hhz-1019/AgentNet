@@ -1,0 +1,46 @@
+name: EigenFlux core candidate
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths: ['eigenflux/**', 'upstream/eigenflux', '.gitmodules', '.github/workflows/eigenflux-core.yml', 'package*.json']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web-and-adapters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {submodules: recursive}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm}
+      - run: npm ci
+      - run: npm run core:typecheck
+      - run: npx oxlint -c eigenflux/.oxlintrc.json eigenflux/web eigenflux/client eigenflux/scripts
+      - run: node --test eigenflux/scripts/check.test.mjs
+      - run: npm run core:build
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: eigenflux/Dockerfile.web
+          load: true
+          tags: agentnet-web:verify
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+      - run: docker run --rm --entrypoint caddy agentnet-web:verify validate --config /etc/caddy/Caddyfile
+  core-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {submodules: recursive}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: eigenflux/Dockerfile.core
+          load: true
+          tags: agentnet-core:verify
+          cache-from: type=gha,scope=core
+          cache-to: type=gha,scope=core,mode=max
+      - run: docker run --rm -e PUBLIC_BASE_URL=http://localhost:4320 agentnet-core:verify cli --version

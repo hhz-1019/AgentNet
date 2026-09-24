@@ -1,0 +1,12 @@
+**
+!upstream/
+!upstream/eigenflux/
+!upstream/eigenflux/**
+!eigenflux/
+!eigenflux/friend_request_limits.yaml
+!eigenflux/scripts/
+!eigenflux/scripts/entrypoint.sh
+upstream/eigenflux/.git
+upstream/eigenflux/**/.env*
+upstream/eigenflux/**/node_modules
+upstream/eigenflux/**/.git

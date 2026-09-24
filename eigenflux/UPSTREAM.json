@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/phronesis-io/eigenflux",
+  "revision": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
+  "checkedAt": "2026-09-25",
+  "source": "../upstream/eigenflux",
+  "reuse": "Unmodified upstream Go network, CLI, migrations, contracts, Skills and private operations console",
+  "license": "EigenFlux Open Source License (Apache-2.0 with trademark condition)",
+  "independentBrand": "AgentNet",
+  "notIncludedUpstream": ["Public website and user Dashboard frontend", "Private observability deployment", "Commission transaction services", "Official source fleet and production ranking model/data"]
+}
