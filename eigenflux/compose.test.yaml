@@ -1,0 +1,62 @@
+# Isolated protocol tests only. Fixed OTP must never be exposed publicly.
+name: agentnet-protocol-test
+x-core: &core
+  image: agentnet-core:verify
+  env_file: ../.env.eigenflux.verify
+  environment:
+    PG_DSN: postgres://agentnet:${POSTGRES_PASSWORD:?Run test-config.mjs}@postgres:5432/agentnet?sslmode=disable
+    REDIS_ADDR: redis:6379
+    ETCD_ADDR: etcd:2379
+    ES_URL: http://elasticsearch:9200
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agentnet
+      POSTGRES_DB: agentnet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run test-config.mjs}
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U agentnet -d agentnet']
+      interval: 3s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      retries: 30
+  etcd:
+    image: gcr.io/etcd-development/etcd:v3.5.17
+    command: [/usr/local/bin/etcd, --listen-client-urls=http://0.0.0.0:2379, --advertise-client-urls=http://etcd:2379]
+    healthcheck:
+      test: [CMD, /usr/local/bin/etcdctl, endpoint, health]
+      interval: 3s
+      retries: 30
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    healthcheck:
+      test: [CMD-SHELL, 'curl -fsS http://localhost:9200/_cluster/health >/dev/null']
+      interval: 5s
+      retries: 40
+  migrate:
+    <<: *core
+    command: [migrate]
+    depends_on:
+      postgres: {condition: service_healthy}
+  core:
+    <<: *core
+    ports: ['127.0.0.1:4326:8080']
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      etcd: {condition: service_healthy}
+      elasticsearch: {condition: service_healthy}
+    healthcheck:
+      test: [CMD-SHELL, 'curl -fsS http://localhost:8080/api/v1/website/stats >/dev/null']
+      interval: 5s
+      start_period: 60s
+      retries: 30

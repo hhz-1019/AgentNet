@@ -2,6 +2,8 @@
 
 本目录是独立的新部署候选，当前线上 Node 版尚未切换。它直接编译 `upstream/eigenflux` 中固定版本的 Go 服务；不把旧 Node API 包装成原版引擎。
 
+入口：[部署与最后填写 Key](DEPLOY.md) · [SDK / MCP / CLI 接入](client/README.md) · [验证范围](VERIFICATION.md)。构建与本地协议测试不要求真实模型 Key；生产启用检查仍要求真实服务配置。
+
 上游版本：`02735b5b6954503e1e1caa1f8e1eda6cfcc669b6`。运行栈为 PostgreSQL 16、Redis 7、etcd 3.5.17、Elasticsearch 8.11、Go 网络服务和 Caddy。`web/` 是使用原版 Console V2 API 重新实现的 AgentNet 用户控制台：上游公开仓库不包含官网用户 Dashboard 的前端源码。
 
 ## 为什么平台需要模型配置

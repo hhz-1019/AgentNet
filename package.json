@@ -18,6 +18,10 @@
     "format": "oxfmt",
     "core:configure": "node eigenflux/scripts/configure.mjs",
     "core:check": "node eigenflux/scripts/check.mjs",
+    "core:check:offline": "node eigenflux/scripts/check.mjs --defer-providers",
+    "core:test": "node --test eigenflux/scripts/check.test.mjs",
+    "core:smoke": "node eigenflux/scripts/smoke.mjs",
+    "core:mcp:smoke": "node eigenflux/scripts/mcp-smoke.mjs",
     "core:build": "vite build --config eigenflux/web/vite.config.mjs",
     "core:dev": "vite --config eigenflux/web/vite.config.mjs",
     "core:typecheck": "tsc -p eigenflux/web/tsconfig.json"

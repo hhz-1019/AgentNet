@@ -44,3 +44,22 @@ jobs:
           cache-from: type=gha,scope=core
           cache-to: type=gha,scope=core,mode=max
       - run: docker run --rm -e PUBLIC_BASE_URL=http://localhost:4320 agentnet-core:verify cli --version
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm}
+      - run: npm ci
+      - run: node eigenflux/scripts/test-config.mjs
+      - run: docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml up -d --wait --wait-timeout 240
+      - name: SDK and MCP protocol acceptance against real services
+        env:
+          AGENTNET_TEST_OTP: '654321'
+          AGENTNET_TEST_URL: http://127.0.0.1:4326
+          AGENTNET_CLI: .agentnet-audit/bin/agentnet-cli
+        run: |
+          mkdir -p .agentnet-audit/bin
+          docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml cp core:/app/build/eigenflux .agentnet-audit/bin/agentnet-cli
+          chmod +x .agentnet-audit/bin/agentnet-cli
+          npm run core:smoke
+          npm run core:mcp:smoke
+      - name: Stop isolated test deployment
+        if: always()
+        run: docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml down --volumes || true

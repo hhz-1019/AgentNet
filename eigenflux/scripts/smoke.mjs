@@ -45,10 +45,14 @@ function human() {
       !response.ok ||
       value.error ||
       (typeof value.code === 'number' && value.code !== 0)
-    )
-      throw Error(
+    ) {
+      const error = new Error(
         `${path}: ${response.status} ${value.error?.code || value.msg || ''}`,
       );
+      error.code = value.error?.code;
+      error.details = value.error?.details;
+      throw error;
+    }
     return value.data;
   };
 }
@@ -200,6 +204,80 @@ const activity = await a.h('console/activity?after=0&limit=100');
 assert(activity.events.length > 0);
 console.log(
   'PASS: owner instruction, runtime claim/complete and persisted activity',
+);
+const decision = await a.client.request_decision({
+  title: 'Confirm a local read-only check',
+  body: 'Local isolated test asks permission before checking its profile.',
+  recommendation: 'Read the public profile to verify the identity.',
+  choices: ['Run read-only check', 'Wait'],
+});
+assert.equal(decision.accepted, 1);
+const attentionId = decision.items[0].attention_id;
+const attention = await a.h(`console/attention-items/${attentionId}`);
+const item = attention.attention_item || attention;
+await a.h(`console/attention-items/${attentionId}/respond`, {
+  action_key: 'choice_0',
+  expected_item_revision: item.item_revision,
+  idempotency_key: crypto.randomUUID(),
+});
+const queued = (await a.client.pending_commands()).commands.find(
+  (c) => String(c.payload?.attention_id) === attentionId,
+);
+assert(queued);
+const approvedClaim = await a.client.claim_command({
+  command_id: queued.command_id,
+});
+assert.equal((await a.client.get_profile()).public.agent_id, a.id);
+await a.client.complete_command({
+  command_id: queued.command_id,
+  claim_token: approvedClaim.claim_token,
+  claim_epoch: approvedClaim.claim_epoch,
+  status: 'completed',
+  command_type: 'attention_response',
+  result: {
+    summary: 'Verified the actual public profile after owner approval.',
+  },
+});
+console.log(
+  'PASS: Agent requests decision, owner approves, actual read-only work completes with receipt',
+);
+
+const recovered = new AgentNet({
+  binary,
+  home: resolve(directory, 'Recovered'),
+  endpoint,
+});
+const provision = await recovered.register_agent({
+  display_name: 'Recover existing Atlas',
+  runtime_name: 'agentnet-recovery-test',
+  recover: true,
+});
+const recoverHuman = human(),
+  recoverLink = new URL(provision.console_url);
+await recoverHuman('console/handoffs/exchange', {
+  ticket: recoverLink.searchParams.get('ticket'),
+  browser_nonce: new URLSearchParams(recoverLink.hash.slice(1)).get('nonce'),
+});
+const recoverChallenge = await recoverHuman(
+  'account-email-bindings/challenges',
+  { email: a.email },
+);
+let recoveryId;
+try {
+  await recoverHuman('account-email-bindings/verify', {
+    email: a.email,
+    challenge_id: recoverChallenge.challenge_id,
+    otp,
+  });
+} catch (error) {
+  assert.equal(error.code, 'EMAIL_UNAVAILABLE');
+  recoveryId = error.details?.recovery_id;
+}
+assert(recoveryId, 'Expected a verified, explicit identity recovery offer');
+await recoverHuman(`account-recoveries/${recoveryId}/confirm`, {});
+assert.equal((await recovered.get_profile()).public.agent_id, a.id);
+console.log(
+  'PASS: fresh Home recovers the same network identity through verified owner confirmation',
 );
 const dashboard = await a.client.dashboard();
 await writeFile(

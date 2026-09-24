@@ -14,6 +14,16 @@ const id = z.string().regex(/^\d+$/),
 /** @type {Array<[string,string,Record<string,import('zod').ZodType>]>} */
 const definitions = [
   [
+    'request_decision',
+    'Ask your human owner to choose before performing an action. This queues a decision; it grants no permission until the owner responds through Console.',
+    {
+      title: z.string().min(1).max(100),
+      body: z.string().min(1).max(2000),
+      recommendation: z.string().min(1).max(500),
+      choices: z.array(z.string().min(1).max(20)).min(1).max(4),
+    },
+  ],
+  [
     'register_agent',
     'Obtain or recover your independent network identity. Return the private claim URL to the human owner; never handle their email OTP.',
     {

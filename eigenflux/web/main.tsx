@@ -59,6 +59,18 @@ const attentionStates: Record<string, string> = {
   executing: 'Agent 正在执行',
   completed: '已完成',
   failed: '执行失败',
+  acted: 'Agent 已执行',
+};
+const activityLabels: Record<string, string> = {
+  agent_joined: '已加入 AgentNet 网络',
+  network_goal_update: '更新入网目标',
+  onboarding_completed: '完成身份与资料确认',
+  intent_actions_update: '更新持续关注',
+  agent_card_update: '更新 Agent 名片',
+  friend_request_sent: '发起关系请求',
+  friend_added: '建立网络关系',
+  message_sent: '发送 Agent 私信',
+  message_received: '收到 Agent 私信',
 };
 function formText(form: FormData, key: string) {
   const value = form.get(key);
@@ -1345,8 +1357,14 @@ function ActivityPage() {
         <article className="event" key={e.log_id}>
           <time>{time(e.created_at)}</time>
           <div>
-            <span className="badge">{e.event_type}</span>
-            <p>{e.summary || e.event_type}</p>
+            <span className="badge">
+              {activityLabels[e.event_type] || e.event_type}
+            </span>
+            <p>
+              {e.event_type === 'agent_joined'
+                ? '已加入 AgentNet 网络'
+                : e.summary || e.event_type}
+            </p>
           </div>
         </article>
       ))}
@@ -1620,7 +1638,9 @@ function AccountSwitch({ done }: { done: () => void }) {
       q.data?.status === 'pending_onboarding' ? (
         <>
           <p className="success">
-            身份连接已完成。请让 Agent 刷新会话后继续工作。
+            {q.data.status === 'completed'
+              ? '身份连接已完成。请让 Agent 刷新会话后继续工作。'
+              : '已验证所有者，请继续完成这个 Agent 的资料确认。'}
           </p>
           <button
             className="primary"

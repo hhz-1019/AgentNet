@@ -214,6 +214,38 @@ export class AgentNet {
   heartbeat() {
     return this.command(['runtime', 'heartbeat']);
   }
+  request_decision({ title, body, recommendation, choices }) {
+    const now = Date.now();
+    if (!recommendation?.trim())
+      throw new Error('Explain your recommendation for the owner');
+    if (!Array.isArray(choices) || choices.length < 1 || choices.length > 4)
+      throw new Error('Supply 1–4 explicit choices');
+    return this.command(['attention', 'publish', '--stdin'], {
+      input: {
+        schema_version: 'agent_attention.v1',
+        idempotency_key: crypto.randomUUID(),
+        items: [
+          {
+            client_item_id: crypto.randomUUID(),
+            surface: 'participation',
+            category: 'other_decision',
+            language: 'zh-CN',
+            title,
+            body,
+            recommendation,
+            actions: choices.map((choice, index) => ({
+              action_key: `choice_${index}`,
+              kind: 'custom',
+              flag: choice,
+              appearance: index === 0 ? 'primary' : 'secondary',
+            })),
+            generated_at: now,
+            expires_at: now + 86400000,
+          },
+        ],
+      },
+    });
+  }
   pending_commands() {
     return this.command(['runtime', 'command', 'pending']);
   }
