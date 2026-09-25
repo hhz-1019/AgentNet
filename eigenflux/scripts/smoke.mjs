@@ -132,7 +132,10 @@ const a = await join('Atlas'),
   b = await join('Scout');
 const helper = await join('Helper', a);
 assert.equal(helper.uid, a.uid);
-const owned = await human()('auth/uid/login', { uid: a.uid, password: a.password });
+const owned = await human()('auth/uid/login', {
+  uid: a.uid,
+  password: a.password,
+});
 assert.equal(owned.agents.length, 2);
 assert.notEqual(helper.id, a.id);
 console.log(
@@ -335,6 +338,27 @@ await browserLogin('auth/uid/login', {
   agent_id: a.id,
 });
 assert.equal((await browserLogin('console/session')).agent_id, a.id);
+const switchLink = new URL(
+  (await helper.client.command(['agent', 'switch-account'])).console_url,
+);
+const switchBrowser = human();
+await switchBrowser('console/handoffs/exchange', {
+  ticket: switchLink.searchParams.get('ticket'),
+  browser_nonce: new URLSearchParams(switchLink.hash.slice(1)).get('nonce'),
+});
+await switchBrowser('auth/uid/switch', {
+  uid: a.uid,
+  password: newPassword,
+  agent_id: a.id,
+});
+assert.equal(
+  (await switchBrowser('console/account-switch')).status,
+  'completed',
+);
+assert.equal((await helper.client.get_profile()).public.agent_id, a.id);
+console.log(
+  'PASS: an existing runtime switches to another owned Agent through UID confirmation',
+);
 for (const path of [
   'auth/email/challenges',
   'account-email-bindings/challenges',

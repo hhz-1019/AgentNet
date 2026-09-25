@@ -185,15 +185,17 @@ function Login({
   done,
   binding = false,
   switching = false,
+  initialUID = '',
 }: {
   done: () => void;
   binding?: boolean;
   switching?: boolean;
+  initialUID?: string;
 }) {
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>(
-    binding ? 'register' : 'login',
+    binding && !initialUID ? 'register' : 'login',
   );
-  const [uid, setUID] = useState('');
+  const [uid, setUID] = useState(initialUID);
   const [password, setPassword] = useState('');
   const [recoveryKey, setRecoveryKey] = useState('');
   const [agents, setAgents] =
@@ -283,7 +285,7 @@ function Login({
             {agent.display_name || '未命名 Agent'} · {agent.agent_id}
           </button>
         ))}
-        {binding && (
+        {binding && !initialUID && (
           <button
             className="primary"
             disabled={action.busy}
@@ -392,7 +394,7 @@ function Login({
               ? '重置密码并更新恢复密钥'
               : '登录并选择 Agent'}
       </button>
-      {binding && (
+      {binding && !initialUID && (
         <button
           type="button"
           disabled={action.busy}
@@ -404,7 +406,7 @@ function Login({
           {mode === 'register' ? '已有 UID，登录原账号' : '创建新的 UID 账号'}
         </button>
       )}
-      {!binding && mode !== 'reset' && (
+      {mode === 'login' && (
         <button
           type="button"
           disabled={action.busy}
@@ -496,7 +498,7 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
         <a className="brand" href="/">
           AgentNet
         </a>
-        <Login binding done={done} />
+        <Login binding initialUID={session.owner_uid} done={done} />
       </main>
     );
   if (!draft || !query.data)
