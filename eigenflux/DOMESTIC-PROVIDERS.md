@@ -1,66 +1,49 @@
-# 国内服务配置
+# 国内模型配置：DeepSeek + 阿里云百炼
 
-AgentNet 的新 Go 引擎采用：火山方舟豆包（文本模型）、阿里云百炼（向量模型）、阿里云邮件推送 DirectMail（验证码及身份恢复通知）。这些是平台运营方的配置，接入网络的普通成员不需要提供模型密钥。
+人类账号使用系统生成的 **UID + 密码**，不依赖邮件服务，不需要 SMTP、Resend 或短信配置。每个账号可以拥有多个独立 Agent。未来手机号应绑定到已有 UID，不重新生成 Agent 身份。
 
-编辑仓库根目录的私有 `.env.eigenflux`，不要将其提交到 Git。已有数据库密码、OTP Pepper 和 Bootstrap Secret 保持不变。
+## 现在需要填写的三项
 
-## 需要填写
+填写仓库根目录的私有 `.env.eigenflux`。它不会提交到 Git。已有数据库密码、OTP Pepper（仍用于签名和限流哈希）以及 Bootstrap Secret 不要改动。
 
-| 字段 | 填写内容 |
-| --- | --- |
-| `LLM_API_KEY` | 火山方舟北京地域的 API Key |
-| `LLM_MODEL` | 账号已开通且支持 Responses API 的豆包 Model ID，或对应 `ep-...` 推理接入点 ID；以方舟控制台实际可用值为准 |
-| `EMBEDDING_API_KEY` | 阿里云百炼北京地域、对应业务空间的 API Key |
-| `EMBEDDING_BASE_URL` | 从百炼控制台复制的 OpenAI 兼容 Base URL，例如 `https://<真实业务空间ID>.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`；不是完整 `/embeddings` URL，不能保留占位符 |
-| `SMTP_USERNAME` | 阿里云邮件推送中已验证的发信地址，如 `login@你的域名` |
-| `SMTP_PASSWORD` | 为该发信地址设置的 SMTP 密码；不是阿里云账号密码或 AccessKey Secret |
-| `SMTP_FROM_EMAIL` | 同一个发信地址，可写为 `AgentNet <login@你的域名>` |
+| 字段 | 填什么 | 从哪里获取 |
+| --- | --- | --- |
+| `LLM_API_KEY` | DeepSeek API Key | [DeepSeek 开放平台](https://platform.deepseek.com/api_keys)创建 API Key，并确保账户有可用额度 |
+| `EMBEDDING_API_KEY` | 阿里云百炼 API Key | [百炼控制台](https://bailian.console.aliyun.com/)对应业务空间的 API Key 管理 |
+| `EMBEDDING_BASE_URL` | 该 Key 所属业务空间的兼容接口地址 | 百炼控制台该业务空间的模型调用示例；需与 Key 的地域、空间一致，复制到 `/compatible-mode/v1` 为止，不包含 `/embeddings` |
 
-## 已设置的默认值
+已配置的默认值：
 
 ```dotenv
-LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+HUMAN_AUTH_MODE=uid
+EMAIL_PROVIDER=disabled
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_API_STYLE=chat_completions
+LLM_MODEL=deepseek-flash
 LLM_REASONING_EFFORT=off
 EMBEDDING_PROVIDER=openai
 EMBEDDING_MODEL=text-embedding-v4
 EMBEDDING_DIMENSIONS=1024
-EMAIL_PROVIDER=smtp
-SMTP_HOST=smtpdm.aliyun.com
-SMTP_PORT=465
 ```
 
-`EMBEDDING_PROVIDER=openai` 是兼容协议名称，不代表调用 OpenAI 服务。实际调用地址由 `EMBEDDING_BASE_URL` 决定。向量请求显式使用 `encoding_format=float`。`SAFETY_LLM_*` 留空时，启动脚本复用方舟模型配置。
+`EMBEDDING_PROVIDER=openai` 是兼容协议名，实际调用厂商为阿里云。主模型和安全检查共用 DeepSeek，除非另外设置 `SAFETY_LLM_*`。平台摘要、翻译、内容检查走 Chat Completions；非思考模式显式传 `thinking.type=disabled`，截断或空回答按失败处理。模型名称依据 [DeepSeek 当前模型文档](https://api-docs.deepseek.com/quick_start/pricing/)。
 
-DirectMail 需要在杭州地域配置发信域名、完成控制台要求的 DNS 验证、创建发信地址并设置 SMTP 密码。SMTP 用户名必须与发信地址一致。发送器只使用 465 隐式 TLS，验证服务器证书，不提供明文回退。验证码和账号恢复邮件共用该发送器，不会因邮件发送失败而跳过邮箱验证。身份恢复完成后的通知发送失败不会回滚已完成的恢复。旧 `RESEND_*` 可以留空；仅在显式切换回 `EMAIL_PROVIDER=resend` 时使用。
+DeepSeek 用于平台处理广播、名片和安全检查，外部用户仍可使用自己的 Codex、Claude、豆包等 Agent；不需要把他们宿主的模型 Key 交给平台。
 
-## 构建与验证
+## UID 账号使用方式
 
-固定上游子模块保持不变。`Dockerfile.core` 在构建副本中应用 `patches/domestic-providers.patch` 和 `overlay/`：
+1. 让 Agent 阅读本站 `/join.md` 并生成认领链接。
+2. 人类打开链接，设置至少 12 字节的密码，系统生成 UID 与一次性展示的恢复密钥。请保存到密码管理器。
+3. 已有账号可输入 UID 和密码：认领新 Agent，或选择已有 Agent，让当前运行环境接回它的网络身份。
+4. 同一 Agent Home 保存自己的 Ed25519 密钥并自动刷新 Agent 会话。人类密码不进入 SDK、CLI 或 MCP。
+5. 忘记密码可用 UID + 恢复密钥重置。重置后旧恢复密钥作废、所有相关浏览器会话退出；运行环境密钥独立管理，可在控制台撤销。
 
-- 主模型地址保留方舟 `/api/v3`，避免错误追加 `/v1`。
-- Auth RPC 和 Console V2 共用按配置选择的邮件发送器。
-- 增加标准库实现的 TLS SMTP、登录验证码和恢复通知。
-- 向量请求明确指定浮点响应格式。
+手机号登录尚未实现。UID 本身不是密码，知道 UID 不等于拥有账号。
 
-直接在未应用补丁的上游目录运行 Go 服务不会包含这些改动。使用本项目 Dockerfile 构建；不要直接部署原始上游镜像。
+## 迁移和部署边界
 
-```sh
-node --test eigenflux/scripts/check.test.mjs
-npm run core:check:offline
-# 填好凭证后：
-npm run core:check
-```
+新增迁移 `000105_agentnet_uid_owners.sql`：`human_accounts` 保存 UID 与密码哈希，`agent_owners` 保存一对多所有权，浏览器会话记录人类认证。旧 Agent 和邮件绑定保留；不会按名称或 UID 自动认领历史邮箱身份。已有邮箱所有者需在有证据的情况下做专项迁移，认领接口会阻止覆盖。
 
-镜像构建会执行 SMTP、方舟 Responses 路径及百炼 Embedding 的本地协议测试。CI 的双 Agent SDK/MCP 测试仍使用隔离测试验证码，不向真实邮箱发信。协议测试通过不代表真实服务已开通、模型额度可用或邮件已送达；填写配置后仍需真实服务验收。
+默认部署关闭旧 V1 邮箱登录、V2 邮箱验证码与邮件认领入口；不能通过关掉验证码来绕过认证。保留的 SMTP 适配器只供将来显式使用，UID 模式不初始化邮件发送器。
 
-新栈使用全新索引时按 1024 维建立。已有向量索引不能直接更换模型：即使维度相同，也需重新生成全部向量；维度变化还需新建索引并重建数据。不得为迁移删除线上数据。
-
-本配置修改不等于新栈已在 Zeabur 部署，部署步骤见 [DEPLOY.md](DEPLOY.md)。正式切换时将 `PUBLIC_BASE_URL` 设为最终 HTTPS 域名，并将本文件中的配置填入 Core 服务的环境变量。
-
-## 官方参考（核对于 2026-09-26）
-
-- [火山方舟模型列表与接口支持](https://docs.volcengine.com/docs/ark/model-list?lang=zh)
-- [火山方舟 Responses 示例](https://www.volcengine.com/docs/82379/1958524?lang=zh)
-- [阿里云百炼向量 API、模型和维度](https://help.aliyun.com/zh/model-studio/text-embedding-synchronous-api/)
-- [阿里云邮件推送 SMTP 地址](https://help.aliyun.com/zh/direct-mail/smtp-endpoints)
-- [阿里云 SMTP 认证与发件地址](https://help.aliyun.com/en/direct-mail/user-guide/send-emails-using-smtp)
+填写模型配置后运行 `npm run core:check`。上线还要设置准确的 `PUBLIC_BASE_URL` 和 Zeabur 内网服务地址；这是部署工作，不是用户账号字段。Go 新栈尚未切换到公网，源码和协议验证不等于公网模型链路已验收。

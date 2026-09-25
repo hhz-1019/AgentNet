@@ -5,11 +5,6 @@ import { AgentNet } from '../client/sdk.mjs';
 const endpoint = process.env.AGENTNET_TEST_URL || 'http://127.0.0.1:4321';
 if (!['127.0.0.1', 'localhost', '[::1]'].includes(new URL(endpoint).hostname))
   throw Error('This test is restricted to an isolated loopback deployment');
-const otp = process.env.AGENTNET_TEST_OTP;
-if (!otp)
-  throw Error(
-    'Set AGENTNET_TEST_OTP for the isolated test server; never enable fixed OTP in production',
-  );
 const run = Date.now().toString();
 const directory = resolve('.agentnet-audit', 'core-' + run);
 await mkdir(directory, { recursive: true });
@@ -56,7 +51,7 @@ function human() {
     return value.data;
   };
 }
-async function join(name) {
+async function join(name, existingOwner) {
   const client = new AgentNet({
     binary,
     home: resolve(directory, name),
@@ -74,13 +69,12 @@ async function join(name) {
     ticket: link.searchParams.get('ticket'),
     browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce'),
   });
-  const email = `${name.toLowerCase()}-${run}@agentnet.invalid`;
-  const challenge = await h('account-email-bindings/challenges', { email });
-  await h('account-email-bindings/verify', {
-    email,
-    challenge_id: challenge.challenge_id,
-    otp,
-  });
+  const password = existingOwner?.password || `test-${crypto.randomUUID()}`;
+  const owner = existingOwner
+    ? await h('auth/uid/claim', { uid: existingOwner.uid, password })
+    : await h('auth/uid/register', { password });
+  assert(owner.uid.startsWith('u_'));
+  if (!existingOwner) assert(owner.recovery_key.startsWith('rk_'));
   let draft = await h('agents/me/onboarding-draft');
   const data = {
     identity_card: {
@@ -125,10 +119,22 @@ async function join(name) {
   const session = await h('console/session');
   assert.equal(session.onboarding.state, 'completed');
   await client.heartbeat();
-  return { client, h, id: identity.agent_id, email };
+  return {
+    client,
+    h,
+    id: identity.agent_id,
+    uid: owner.uid,
+    recoveryKey: owner.recovery_key,
+    password,
+  };
 }
 const a = await join('Atlas'),
   b = await join('Scout');
+const helper = await join('Helper', a);
+assert.equal(helper.uid, a.uid);
+const owned = await human()('auth/uid/login', { uid: a.uid, password: a.password });
+assert.equal(owned.agents.length, 2);
+assert.notEqual(helper.id, a.id);
 console.log(
   'PASS: two independent Agent Homes, signed registration, human claim and onboarding',
 );
@@ -258,26 +264,95 @@ await recoverHuman('console/handoffs/exchange', {
   ticket: recoverLink.searchParams.get('ticket'),
   browser_nonce: new URLSearchParams(recoverLink.hash.slice(1)).get('nonce'),
 });
-const recoverChallenge = await recoverHuman(
-  'account-email-bindings/challenges',
-  { email: a.email },
+await assert.rejects(
+  recoverHuman('auth/uid/claim', {
+    uid: a.uid,
+    password: 'incorrect-password',
+    agent_id: a.id,
+  }),
+  { code: 'UID_AUTH_INVALID' },
 );
-let recoveryId;
-try {
-  await recoverHuman('account-email-bindings/verify', {
-    email: a.email,
-    challenge_id: recoverChallenge.challenge_id,
-    otp,
-  });
-} catch (error) {
-  assert.equal(error.code, 'EMAIL_UNAVAILABLE');
-  recoveryId = error.details?.recovery_id;
-}
-assert(recoveryId, 'Expected a verified, explicit identity recovery offer');
-await recoverHuman(`account-recoveries/${recoveryId}/confirm`, {});
+await assert.rejects(
+  recoverHuman('auth/uid/claim', {
+    uid: b.uid,
+    password: b.password,
+    agent_id: a.id,
+  }),
+  { code: 'UID_AUTH_INVALID' },
+);
+const choices = await recoverHuman('auth/uid/login', {
+  uid: a.uid,
+  password: a.password,
+});
+assert(choices.agents.some((agent) => agent.agent_id === a.id));
+await recoverHuman('auth/uid/claim', {
+  uid: a.uid,
+  password: a.password,
+  agent_id: a.id,
+});
 assert.equal((await recovered.get_profile()).public.agent_id, a.id);
 console.log(
   'PASS: fresh Home recovers the same network identity through verified owner confirmation',
+);
+const browserLogin = human();
+await browserLogin('auth/uid/login', {
+  uid: a.uid,
+  password: a.password,
+  agent_id: a.id,
+});
+assert.equal((await browserLogin('console/session')).owner_uid, a.uid);
+const newPassword = `reset-${crypto.randomUUID()}`;
+await assert.rejects(
+  browserLogin('auth/uid/reset-password', {
+    uid: a.uid,
+    password: newPassword,
+    recovery_key: 'wrong',
+  }),
+  { code: 'UID_AUTH_INVALID' },
+);
+const reset = await browserLogin('auth/uid/reset-password', {
+  uid: a.uid,
+  password: newPassword,
+  recovery_key: a.recoveryKey,
+});
+assert.notEqual(reset.recovery_key, a.recoveryKey);
+await assert.rejects(browserLogin('console/session'));
+await assert.rejects(
+  browserLogin('auth/uid/login', { uid: a.uid, password: a.password }),
+  { code: 'UID_AUTH_INVALID' },
+);
+await assert.rejects(
+  browserLogin('auth/uid/reset-password', {
+    uid: a.uid,
+    password: newPassword,
+    recovery_key: a.recoveryKey,
+  }),
+  { code: 'UID_AUTH_INVALID' },
+);
+await browserLogin('auth/uid/login', {
+  uid: a.uid,
+  password: newPassword,
+  agent_id: a.id,
+});
+assert.equal((await browserLogin('console/session')).agent_id, a.id);
+for (const path of [
+  'auth/email/challenges',
+  'account-email-bindings/challenges',
+]) {
+  await assert.rejects(browserLogin(path, { email: 'someone@example.com' }));
+}
+const legacy = await fetch(endpoint + '/api/v1/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ login_method: 'email', email: 'someone@example.com' }),
+});
+const legacyBody = await legacy.json();
+assert(
+  legacy.status >= 400 || (legacyBody.code && legacyBody.code !== 0),
+  'legacy email login must be disabled',
+);
+console.log(
+  'PASS: UID browser login, wrong-password/cross-owner rejection, one-time recovery rotation, session revocation, email login disabled',
 );
 const dashboard = await a.client.dashboard();
 await writeFile(
@@ -286,8 +361,8 @@ await writeFile(
     {
       directory,
       endpoint,
-      a: { id: a.id, email: a.email },
-      b: { id: b.id, email: b.email },
+      a: { id: a.id, uid: a.uid },
+      b: { id: b.id, uid: b.uid },
       dashboard,
     },
     null,
@@ -295,5 +370,5 @@ await writeFile(
   ),
 );
 console.log(
-  'Model processing and real email delivery were NOT tested. Local fixed OTP was used only on this isolated test deployment.',
+  'Real model processing was NOT tested. UID authentication used ordinary passwords without OTP or mail services.',
 );

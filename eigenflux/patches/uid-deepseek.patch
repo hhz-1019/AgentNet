@@ -1,0 +1,238 @@
+--- a/rpc/auth/main.go
++++ b/rpc/auth/main.go
+@@ -1,6 +1,7 @@
+ package main
+ 
+ import (
++	"eigenflux_server/pkg/ownerauth"
+ 	"context"
+ 	"log"
+ 	"net"
+@@ -58,7 +59,9 @@
+ 	log.Printf("auth agent id generator ready: worker_id=%d", agentIDGen.WorkerID())
+ 
+ 	var emailSender email.Sender
+-	if cfg.EnableEmailVerification {
++	if ownerauth.UIDEnabled() {
++		log.Printf("human accounts: UID; legacy email login disabled")
++	} else if cfg.EnableEmailVerification {
+ 		emailSender, err = email.NewConfiguredSender(cfg.ResendApiKey, cfg.ResendFromEmail)
+ 		if err != nil {
+ 			log.Fatalf("invalid email configuration: %v", err)
+--- a/rpc/auth/handler.go
++++ b/rpc/auth/handler.go
+@@ -1,6 +1,7 @@
+ package main
+ 
+ import (
++	"eigenflux_server/pkg/ownerauth"
+ 	"context"
+ 	"crypto/rand"
+ 	"crypto/sha256"
+@@ -275,6 +276,7 @@
+ 
+ // StartLogin creates a challenge, sends OTP verification email, and returns challenge metadata.
+ func (s *AuthServiceImpl) StartLogin(ctx context.Context, req *auth.StartLoginReq) (*auth.StartLoginResp, error) {
++	if ownerauth.UIDEnabled() { return &auth.StartLoginResp{BaseResp: &base.BaseResp{Code: 410, Msg: "email login disabled; use UID Console login"}}, nil }
+ 	logger.Ctx(ctx).Info("StartLogin called", "method", req.LoginMethod, "emailMasked", logger.MaskEmail(req.Email))
+ 	if req.LoginMethod != "email" {
+ 		return &auth.StartLoginResp{
+@@ -465,6 +467,7 @@
+ 
+ // VerifyLogin validates the OTP code and issues a session token.
+ func (s *AuthServiceImpl) VerifyLogin(ctx context.Context, req *auth.VerifyLoginReq) (*auth.VerifyLoginResp, error) {
++	if ownerauth.UIDEnabled() { return &auth.VerifyLoginResp{BaseResp: &base.BaseResp{Code: 410, Msg: "email login disabled; use UID Console login"}}, nil }
+ 	logger.Ctx(ctx).Info("VerifyLogin called", "challengeID", req.ChallengeId)
+ 	if !s.emailVerificationEnabled {
+ 		return &auth.VerifyLoginResp{
+--- a/api/consolev2/service.go
++++ b/api/consolev2/service.go
+@@ -4,6 +4,7 @@
+ package consolev2
+ 
+ import (
++	"eigenflux_server/pkg/ownerauth"
+ 	"context"
+ 	"crypto/ed25519"
+ 	"crypto/hmac"
+@@ -218,7 +219,7 @@
+ 			client: llm.NewClient(cfg, nil).WithReasoningOff(),
+ 		}
+ 	}
+-	if mailservice.Configured(cfg.ResendApiKey) {
++	if !ownerauth.UIDEnabled() && mailservice.Configured(cfg.ResendApiKey) {
+ 		sender, err := mailservice.NewConfiguredSender(cfg.ResendApiKey, cfg.ResendFromEmail)
+ 		if err != nil {
+ 			return nil, err
+@@ -363,11 +364,19 @@
+ 	h.POST("/api/v2/agent-identities/provision", s.provision)
+ 	h.POST("/api/v2/agent-sessions/refresh-challenges", s.createRefreshChallenge)
+ 	h.POST("/api/v2/agent-sessions/refresh", s.refreshAgentSession)
++	if ownerauth.UIDEnabled() {
++        h.POST("/api/v2/auth/uid/register", s.consoleAuth(true), s.registerUID)
++        h.POST("/api/v2/auth/uid/login", s.requireSameOrigin(), s.loginUID)
++        h.POST("/api/v2/auth/uid/claim", s.consoleAuth(true), s.claimUID)
++        h.POST("/api/v2/auth/uid/switch", s.consoleAuth(true), s.claimUID)
++        h.POST("/api/v2/auth/uid/reset-password", s.requireSameOrigin(), s.resetUIDPassword)
++    } else {
+ 	h.POST("/api/v2/account-email-bindings/challenges", s.consoleAuth(true), s.createEmailBindingChallenge)
+ 	h.POST("/api/v2/account-email-bindings/verify", s.consoleAuth(true), s.verifyEmailBinding)
+ 	h.POST("/api/v2/account-recoveries/:recovery_id/confirm", s.consoleAuth(true), s.confirmAccountRecovery)
+ 	h.POST("/api/v2/auth/email/challenges", s.requireSameOrigin(), s.createEmailLoginChallenge)
+ 	h.POST("/api/v2/auth/email/verify", s.requireSameOrigin(), s.verifyEmailLogin)
++	}
+ 	h.POST("/api/v2/agents/me/principals/challenges", s.consoleAuth(true), s.createPrincipalChallenge)
+ 	h.POST("/api/v2/agents/me/principals", s.consoleAuth(true), s.addPrincipal)
+ 	h.GET("/api/v2/agents/me/principals", s.consoleAuth(false), s.listPrincipals)
+@@ -382,8 +391,12 @@
+ 	h.DELETE("/api/v2/console/accounts/:agent_id", s.consoleAuth(true), s.removeConsoleAccount)
+ 	h.GET("/api/v2/console/account-switch", s.consoleAuth(false), s.getCLIAccountSwitch)
+ 	h.POST("/api/v2/console/account-switch/confirm", s.consoleAuth(true), s.confirmCLIAccountSwitch)
++	if !ownerauth.UIDEnabled() {
+ 	h.POST("/api/v2/console/account-switch/challenges", s.consoleAuth(true), s.createCLIAccountSwitchChallenge)
++	}
++	if !ownerauth.UIDEnabled() {
+ 	h.POST("/api/v2/console/account-switch/verify", s.consoleAuth(true), s.verifyCLIAccountSwitchEmail)
++	}
+ 	h.DELETE("/api/v2/console/account-switch", s.consoleAuth(true), s.cancelCLIAccountSwitch)
+ 	h.PUT("/api/v2/agents/me/onboarding-draft", s.agentAuth("onboarding:write"), s.putOnboardingDraft)
+ 	h.PUT("/api/v2/console/onboarding-draft", s.consoleAuth(true), s.putOnboardingDraft)
+--- a/api/consolev2/onboarding_handlers.go
++++ b/api/consolev2/onboarding_handlers.go
+@@ -1,6 +1,7 @@
+ package consolev2
+ 
+ import (
++	"eigenflux_server/pkg/ownerauth"
+ 	"context"
+ 	"encoding/json"
+ 	"errors"
+@@ -160,6 +161,21 @@
+ 	// completes the claim step.
+ 	legacyIdentityTrusted := identity.LegacyIdentityTrusted
+ 	emailBound := identity.EmailVerified
++    ownerUID := ""
++    ownerBound := false
++    if ownerauth.UIDEnabled() {
++        if err := s.db.Raw(`SELECT owner_uid FROM agent_owners WHERE agent_id=?`, id).Scan(&ownerUID).Error; err != nil {
++            fail(c, 500, "SESSION_READ_FAILED", "could not read owner", nil); return
++        }
++        ownerBound = ownerUID != "" && state.State == "completed"
++        if !ownerBound {
++            sessionID, _ := c.Get("console_session_id")
++            if err := s.db.Raw(`SELECT EXISTS (SELECT 1 FROM console_v2_sessions s JOIN agent_owners o ON o.agent_id=s.agent_id AND o.owner_uid=s.owner_uid WHERE s.session_id=? AND s.auth_method='uid_password' AND s.status='active')`, sessionID).Scan(&ownerBound).Error; err != nil {
++                fail(c, 500, "SESSION_READ_FAILED", "could not read owner session", nil); return
++            }
++        }
++    }
++
+ 	runtime, runtimeName, runtimeVersion := consoleSessionRuntime(
+ 		identity.RuntimeName, identity.RuntimeVersion, identity.ClientHost,
+ 	)
+@@ -177,6 +193,7 @@
+ 		"created_at":              identity.CreatedAt,
+ 		"email":                   identity.BoundEmail,
+ 		"email_bound":             emailBound,
++        "owner_uid": ownerUID, "owner_bound": ownerBound,
+ 		"legacy_identity_trusted": legacyIdentityTrusted,
+ 		"verification_level":      verificationLevel,
+ 		"runtime":                 runtime,
+@@ -659,6 +676,9 @@
+ 		)`, sessionID, id, sessionID, id, sessionID, id, now).Scan(&emailVerifiedForSession).Error; err != nil {
+ 			return err
+ 		}
++        if ownerauth.UIDEnabled() {
++            if err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM console_v2_sessions s JOIN agent_owners o ON o.agent_id=s.agent_id AND o.owner_uid=s.owner_uid WHERE s.session_id=? AND s.agent_id=? AND s.auth_method='uid_password' AND s.status='active')`, sessionID,id).Scan(&emailVerifiedForSession).Error; err != nil { return err }
++        }
+ 		if !emailVerifiedForSession {
+ 			return errEmailBindingRequired
+ 		}
+@@ -781,7 +801,7 @@
+ 		return
+ 	}
+ 	if errors.Is(err, errEmailBindingRequired) {
+-		fail(c, http.StatusConflict, "EMAIL_BINDING_REQUIRED", "bind and verify an email before confirming onboarding", nil)
++		fail(c, http.StatusConflict, "EMAIL_BINDING_REQUIRED", "verify your owner account before confirming onboarding", nil)
+ 		return
+ 	}
+ 	if errors.Is(err, errInvalidOnboardingDraft) {
+--- a/api/consolev2/principal_handlers.go
++++ b/api/consolev2/principal_handlers.go
+@@ -24,7 +24,7 @@
+ 	method, typeOK := methodValue.(string)
+ 	recentValue, recentOK := c.Get("console_recent_auth_at")
+ 	recent, recentTypeOK := recentValue.(int64)
+-	return methodOK && typeOK && method == "email_otp" && recentOK && recentTypeOK &&
++	return methodOK && typeOK && (method == "email_otp" || method == "uid_password") && recentOK && recentTypeOK &&
+ 		recent >= now-int64(recentEmailAuthWindow/time.Millisecond) && recent <= now
+ }
+ 
+@@ -35,7 +35,7 @@
+ func (s *Service) createPrincipalChallenge(_ context.Context, c *app.RequestContext) {
+ 	now := time.Now().UnixMilli()
+ 	if !requireRecentEmailAuth(c, now) {
+-		fail(c, http.StatusForbidden, "RECENT_EMAIL_AUTH_REQUIRED", "complete email verification again before changing device keys", nil)
++		fail(c, http.StatusForbidden, "RECENT_EMAIL_AUTH_REQUIRED", "sign in again before changing device keys", nil)
+ 		return
+ 	}
+ 	id, ok := agentID(c)
+@@ -102,7 +102,7 @@
+ func (s *Service) addPrincipal(_ context.Context, c *app.RequestContext) {
+ 	now := time.Now().UnixMilli()
+ 	if !requireRecentEmailAuth(c, now) {
+-		fail(c, http.StatusForbidden, "RECENT_EMAIL_AUTH_REQUIRED", "complete email verification again before changing device keys", nil)
++		fail(c, http.StatusForbidden, "RECENT_EMAIL_AUTH_REQUIRED", "sign in again before changing device keys", nil)
+ 		return
+ 	}
+ 	id, ok := agentID(c)
+@@ -255,7 +255,7 @@
+ func (s *Service) revokePrincipal(_ context.Context, c *app.RequestContext) {
+ 	now := time.Now().UnixMilli()
+ 	if !requireRecentEmailAuth(c, now) {
+-		fail(c, http.StatusForbidden, "RECENT_EMAIL_AUTH_REQUIRED", "complete email verification again before changing device keys", nil)
++		fail(c, http.StatusForbidden, "RECENT_EMAIL_AUTH_REQUIRED", "sign in again before changing device keys", nil)
+ 		return
+ 	}
+ 	id, ok := agentID(c)
+--- a/pipeline/llm/client.go
++++ b/pipeline/llm/client.go
+@@ -3,6 +3,7 @@
+ import (
+ 	"context"
+ 	"fmt"
++"os"
+ 	"strings"
+ 	"time"
+ 	"unicode"
+@@ -20,6 +21,7 @@
+ 
+ type Client struct {
+ 	client          openai.Client
++apiStyle string
+ 	model           string
+ 	maxTokens       int
+ 	reasoningEffort shared.ReasoningEffort
+@@ -33,6 +35,7 @@
+ 	opts = append(opts, option.WithBaseURL(normalizeBaseURL(cfg.LLMBaseURL)))
+ 	return &Client{
+ 		client:          openai.NewClient(opts...),
++apiStyle: os.Getenv("LLM_API_STYLE"),
+ 		model:           cfg.LLMModel,
+ 		maxTokens:       cfg.LLMMaxTokens,
+ 		reasoningEffort: shared.ReasoningEffort(cfg.LLMReasoningEffort),
+@@ -60,6 +63,7 @@
+ 	}
+ 	return &Client{
+ 		client:          openai.NewClient(opts...),
++apiStyle: os.Getenv("LLM_API_STYLE"),
+ 		model:           model,
+ 		maxTokens:       cfg.LLMMaxTokens,
+ 		reasoningEffort: shared.ReasoningEffort(reasoningOff),
+@@ -260,6 +264,7 @@
+ 	if effortOverride != "" {
+ 		effort = shared.ReasoningEffort(effortOverride)
+ 	}
++	if c.apiStyle == "chat_completions" { return c.callChat(ctx, prompt, promptName, string(effort)) }
+ 	params := responses.ResponseNewParams{
+ 		Model:           shared.ResponsesModel(c.model),
+ 		MaxOutputTokens: openai.Int(int64(c.maxTokens)),

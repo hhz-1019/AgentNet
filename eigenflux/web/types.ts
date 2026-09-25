@@ -11,6 +11,8 @@ export interface Session {
   bio: string;
   email: string;
   email_bound: boolean;
+  owner_uid: string;
+  owner_bound: boolean;
   runtime_name: string;
   runtime_version: string;
   device_name: string;

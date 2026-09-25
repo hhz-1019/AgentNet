@@ -51,7 +51,6 @@ jobs:
       - run: docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml up -d --wait --wait-timeout 240
       - name: SDK and MCP protocol acceptance against real services
         env:
-          AGENTNET_TEST_OTP: '654321'
           AGENTNET_TEST_URL: http://127.0.0.1:4326
           AGENTNET_CLI: .agentnet-audit/bin/agentnet-cli
         run: |

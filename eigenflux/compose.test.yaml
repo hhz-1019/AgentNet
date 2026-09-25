@@ -1,4 +1,4 @@
-# Isolated protocol tests only. Fixed OTP must never be exposed publicly.
+# Isolated protocol tests with real UID/password authentication; no email bypass.
 name: agentnet-protocol-test
 x-core: &core
   image: agentnet-core:verify

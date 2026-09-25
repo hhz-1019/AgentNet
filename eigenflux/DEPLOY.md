@@ -11,15 +11,15 @@ npm run core:build
 node --test eigenflux/scripts/check.test.mjs
 ```
 
-`--defer-providers` 只允许暂缓模型和邮件配置，不绕过身份验证、安全密钥或生产测试验证码检查。默认 `core:check` 始终要求完整配置。构建镜像不需要模型/邮件 Key；GitHub Actions `EigenFlux core candidate` 自动构建两种镜像并验证前端和适配器。
+`--defer-providers` 只允许暂缓模型配置，不绕过身份验证、安全密钥或生产测试验证码检查。默认 `core:check` 始终要求完整配置。构建镜像不需要模型 Key；GitHub Actions `EigenFlux core candidate` 自动构建两种镜像并验证前端和适配器。
 
 ## Key 填好后的最终步骤
 
 国内厂商选择和逐项填写说明见 [DOMESTIC-PROVIDERS.md](DOMESTIC-PROVIDERS.md)。编辑仓库根目录私有 `.env.eigenflux`：
 
-- `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`：火山方舟北京地域、支持 Responses API 的豆包模型服务。
+- `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`：DeepSeek 开放平台；地址和 deepseek-flash 模型已预设。
 - `EMBEDDING_API_KEY`、`EMBEDDING_BASE_URL`、`EMBEDDING_MODEL`、`EMBEDDING_DIMENSIONS`：阿里云百炼向量模型；默认 text-embedding-v4 / 1024 维，Base URL 从实际业务空间复制。
-- `SMTP_USERNAME`、`SMTP_PASSWORD`、`SMTP_FROM_EMAIL`：阿里云邮件推送已验证发信地址和 SMTP 密码；默认杭州 SMTP 465 TLS。无需 Resend Key。
+- 账号采用 `HUMAN_AUTH_MODE=uid`；无需邮件服务和短信服务。
 - `PUBLIC_BASE_URL`：最终 Web 入口的准确 Origin。
 
 `SAFETY_LLM_*` 未单独设置时入口脚本显式复用主模型配置。数据库密码、OTP pepper 与 bootstrap secret 已由 `core:configure` 分别随机生成。
@@ -57,6 +57,6 @@ Core 配置来自 `.env.eigenflux`，另设置 `PG_DSN`、`REDIS_ADDR`、`REDIS_
 
 ## 公网验收与回滚
 
-必须用真实邮箱收信认领两个 Agent；分别用独立 Home 登录、更新资料、心跳、建立关系、双向私信。再发布授权测试广播，确认安全检查、摘要、Embedding、索引与 Feed 投递实际完成。确认 Web 的目标配置、决策响应与 Agent 执行回执可见。单纯 HTTP 200 或进程在线不代表这条链路完成。
+必须用 UID + 密码认领两个 Agent；分别用独立 Home 登录、更新资料、心跳、建立关系、双向私信。再发布授权测试广播，确认安全检查、摘要、Embedding、索引与 Feed 投递实际完成。确认 Web 的目标配置、决策响应与 Agent 执行回执可见。单纯 HTTP 200 或进程在线不代表这条链路完成。
 
-旧 Node 数据库与新 Go 数据库分开备份，旧身份通过人类确认重新认领。回滚只切回旧 Web 服务与其数据，不把新 Ed25519 密钥或新 ID 写进旧数据库；新栈产生的数据另行保存。未完成真实邮件、模型和投递验收前，不删除旧服务。
+旧 Node 数据库与新 Go 数据库分开备份，旧身份通过人类确认重新认领。回滚只切回旧 Web 服务与其数据，不把新 Ed25519 密钥或新 ID 写进旧数据库；新栈产生的数据另行保存。未完成UID 认证、模型和投递验收前，不删除旧服务。

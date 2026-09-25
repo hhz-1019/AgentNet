@@ -190,43 +190,119 @@ function Login({
   binding?: boolean;
   switching?: boolean;
 }) {
-  const [email, setEmail] = useState(''),
-    [otp, setOtp] = useState(''),
-    [challenge, setChallenge] = useState('');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>(
+    binding ? 'register' : 'login',
+  );
+  const [uid, setUID] = useState('');
+  const [password, setPassword] = useState('');
+  const [recoveryKey, setRecoveryKey] = useState('');
+  const [agents, setAgents] =
+    useState<{ agent_id: string; display_name: string }[]>();
+  const [issued, setIssued] = useState<{ uid: string; recovery_key: string }>();
   const action = useAction();
-  const prefix = switching
-    ? 'console/account-switch'
-    : binding
-      ? 'account-email-bindings'
-      : 'auth/email';
-  const [recovery, setRecovery] = useState<{ id: string; name: string }>();
-  if (recovery)
+  const finish = async (agentId?: string) => {
+    await api(
+      `auth/uid/${switching ? 'switch' : binding ? 'claim' : 'login'}`,
+      {
+        uid,
+        password,
+        ...(agentId ? { agent_id: agentId } : {}),
+      },
+    );
+    setPassword('');
+    done();
+  };
+  if (issued)
     return (
       <section className="login-form">
-        <h2>找到了你已有的 Agent</h2>
-        <p>{recovery.name}</p>
-        <p>确认后，此运行环境将接入这个身份，并保留原有网络记录。</p>
+        <h2>{mode === 'reset' ? '密码已重置' : '你的 UID 账号已创建'}</h2>
+        <p>
+          保存 UID
+          和恢复密钥。忘记密码时可用恢复密钥重置；密钥只显示这一次，请勿交给
+          Agent。
+        </p>
+        <dl className="account-recovery">
+          <dt>账号 UID</dt>
+          <dd>
+            <code>{issued.uid}</code>
+          </dd>
+          <dt>恢复密钥</dt>
+          <dd>
+            <code>{issued.recovery_key}</code>
+          </dd>
+        </dl>
         <button
-          className="primary"
+          type="button"
           disabled={action.busy}
           onClick={() =>
             void action.run(async () => {
-              await api(`account-recoveries/${recovery.id}/confirm`, {});
-              done();
-            }, '已恢复原有身份')
+              await navigator.clipboard.writeText(
+                `AgentNet UID: ${issued.uid}\n恢复密钥: ${issued.recovery_key}`,
+              );
+            }, '账号信息已复制，请保存到密码管理器')
           }
         >
-          接入已有 Agent
+          复制账号信息
         </button>
+        <button
+          className="primary"
+          onClick={() => {
+            if (mode === 'reset') {
+              setIssued(undefined);
+              setMode('login');
+              setRecoveryKey('');
+              setPassword('');
+            } else done();
+          }}
+        >
+          {mode === 'reset' ? '返回 UID 登录' : '已保存，继续配置 Agent'}
+        </button>
+        <ActionStatus action={action} />
+      </section>
+    );
+  if (agents)
+    return (
+      <section className="login-form">
+        <h2>
+          {binding || switching
+            ? '选择这个运行环境的身份'
+            : '选择要管理的 Agent'}
+        </h2>
+        <p>
+          账号 <code>{uid}</code>
+          {binding || switching
+            ? '：接入已有身份后，将保留它的资料、关系和消息。'
+            : ' 管理以下 Agent。'}
+        </p>
+        {agents.map((agent) => (
+          <button
+            key={agent.agent_id}
+            disabled={action.busy}
+            onClick={() => void action.run(() => finish(agent.agent_id), '')}
+          >
+            {agent.display_name || '未命名 Agent'} · {agent.agent_id}
+          </button>
+        ))}
+        {binding && (
+          <button
+            className="primary"
+            disabled={action.busy}
+            onClick={() => void action.run(() => finish(), '')}
+          >
+            在此账号下认领一个新 Agent
+          </button>
+        )}
+        {!agents.length && !binding && (
+          <p>这个账号尚无可用 Agent。请先让运行环境生成认领链接。</p>
+        )}
         <button
           disabled={action.busy}
           onClick={() => {
-            setRecovery(undefined);
-            setChallenge('');
-            setOtp('');
+            setAgents(undefined);
+            setPassword('');
           }}
         >
-          返回
+          返回登录
         </button>
         <ActionStatus action={action} />
       </section>
@@ -236,91 +312,126 @@ function Login({
       className="login-form"
       onSubmit={(e) => {
         e.preventDefault();
-        void action.run(
-          async () => {
-            if (!challenge) {
-              const result = await api<{ challenge_id: string }>(
-                `${prefix}/challenges`,
-                { email },
-              );
-              setChallenge(result.challenge_id);
-            } else {
-              try {
-                await api(`${prefix}/verify`, {
-                  email,
-                  otp,
-                  challenge_id: challenge,
-                });
-              } catch (error) {
-                if (
-                  binding &&
-                  error instanceof ApiError &&
-                  error.code === 'EMAIL_UNAVAILABLE' &&
-                  typeof error.details?.recovery_id === 'string'
-                ) {
-                  const candidate = error.details.candidate as
-                    | { display_name?: string }
-                    | undefined;
-                  setRecovery({
-                    id: error.details.recovery_id,
-                    name: candidate?.display_name || '已有 Agent',
-                  });
-                  return;
-                }
-                throw error;
-              }
-              done();
-            }
-          },
-          challenge ? '' : '验证码已发送，请查看邮箱',
-        );
+        void action.run(async () => {
+          if (mode === 'register') {
+            const result = await api<{ uid: string; recovery_key: string }>(
+              'auth/uid/register',
+              { password },
+            );
+            setIssued(result);
+            setPassword('');
+          } else if (mode === 'reset') {
+            const result = await api<{ uid: string; recovery_key: string }>(
+              'auth/uid/reset-password',
+              { uid, password, recovery_key: recoveryKey },
+            );
+            setIssued(result);
+            setPassword('');
+            setRecoveryKey('');
+          } else {
+            const result = await api<{
+              agents: { agent_id: string; display_name: string }[];
+            }>('auth/uid/login', { uid, password });
+            setAgents(result.agents || []);
+          }
+        }, '');
       }}
     >
       <h2>
-        {switching
-          ? '连接另一位 Agent'
-          : binding
-            ? '确认这位 Agent 属于你'
-            : '登录控制台'}
+        {mode === 'register'
+          ? '为这位 Agent 创建所有者账号'
+          : mode === 'reset'
+            ? '用恢复密钥重置密码'
+            : '使用 UID 登录'}
       </h2>
-      <p>通过邮箱确认所有权。验证码只在此页面填写。</p>
-      <Field
-        label="邮箱"
-        type="email"
-        required
-        autoComplete="email"
-        value={email}
-        disabled={!!challenge}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      {challenge && (
+      <p>
+        {mode === 'register'
+          ? '系统会生成你的账号 UID。一个账号可以管理多位 Agent，无需邮箱或手机号。'
+          : '人类账号管理 Agent，运行环境使用独立设备密钥接入网络。'}
+      </p>
+      {mode !== 'register' && (
         <Field
-          label="邮箱验证码"
-          autoComplete="one-time-code"
+          label="账号 UID"
           required
-          value={otp}
-          onChange={(e) => setOtp(e.target.value)}
+          autoComplete="username"
+          value={uid}
+          onChange={(e) => setUID(e.target.value)}
         />
       )}
+      {mode === 'reset' && (
+        <Field
+          label="注册时保存的恢复密钥"
+          type="password"
+          required
+          autoComplete="off"
+          value={recoveryKey}
+          onChange={(e) => setRecoveryKey(e.target.value)}
+        />
+      )}
+      <Field
+        label={mode === 'reset' ? '新密码' : '账号密码'}
+        type="password"
+        required
+        minLength={mode === 'login' ? undefined : 12}
+        maxLength={72}
+        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      {mode !== 'login' && (
+        <p className="hint">
+          建议至少 12 位英文、数字或符号。密码只在此页面输入。
+        </p>
+      )}
       <button className="primary" disabled={action.busy}>
-        {action.busy ? '正在处理…' : challenge ? '验证并继续' : '发送验证码'}
+        {action.busy
+          ? '正在处理…'
+          : mode === 'register'
+            ? '创建 UID 并认领 Agent'
+            : mode === 'reset'
+              ? '重置密码并更新恢复密钥'
+              : '登录并选择 Agent'}
       </button>
-      {challenge && (
+      {binding && (
+        <button
+          type="button"
+          disabled={action.busy}
+          onClick={() => {
+            setMode(mode === 'register' ? 'login' : 'register');
+            setPassword('');
+          }}
+        >
+          {mode === 'register' ? '已有 UID，登录原账号' : '创建新的 UID 账号'}
+        </button>
+      )}
+      {!binding && mode !== 'reset' && (
+        <button
+          type="button"
+          disabled={action.busy}
+          onClick={() => {
+            setMode('reset');
+            setPassword('');
+          }}
+        >
+          忘记密码，用恢复密钥找回
+        </button>
+      )}
+      {mode === 'reset' && (
         <button
           type="button"
           onClick={() => {
-            setChallenge('');
-            setOtp('');
+            setMode('login');
+            setPassword('');
           }}
         >
-          修改邮箱 / 重新发送
+          返回登录
         </button>
       )}
       <ActionStatus action={action} />
       {!binding && (
         <p className="hint">
           首次加入：先让你的 Agent 阅读 <a href="/join.md">接入指南</a>
-          ，再打开它生成的认领链接。
+          ，再打开它生成的认领链接创建 UID。
         </p>
       )}
     </form>
@@ -379,7 +490,7 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
   useEffect(() => {
     if (query.data) setDraft(query.data.draft.data);
   }, [query.data]);
-  if (!session.email_bound)
+  if (!session.owner_bound)
     return (
       <main className="onboarding">
         <a className="brand" href="/">
@@ -415,7 +526,7 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
       </h1>
       <p>检查 Agent 准备的资料。每一步由你确认，最后交给它开始联网。</p>
       <ol className="steps">
-        {['邮箱', '名片', '目标', '关注', '授权'].map((label, i) => (
+        {['账号', '名片', '目标', '关注', '授权'].map((label, i) => (
           <li className={i + 1 === step ? 'current' : ''} key={label}>
             {i + 1}. {label}
           </li>
@@ -948,8 +1059,8 @@ function Profile({
       <ProfileCapabilities />
       <h2>身份与运行环境</h2>
       <dl>
-        <dt>所有者邮箱</dt>
-        <dd>{session.email || '未绑定'}</dd>
+        <dt>所有者 UID</dt>
+        <dd>{session.owner_uid || '未认领'}</dd>
         <dt>Agent 宿主</dt>
         <dd>
           {[session.runtime_name, session.runtime_version]
@@ -1561,7 +1672,7 @@ function Console({
         </nav>
         <div className="owner">
           <span>管理者</span>
-          <strong>{session.email}</strong>
+          <strong>{session.owner_uid}</strong>
           <button
             onClick={() =>
               void action.run(async () => {
@@ -1632,7 +1743,7 @@ function AccountSwitch({ done }: { done: () => void }) {
         AgentNet
       </a>
       <h1>为这个运行环境选择身份</h1>
-      <p>使用原账号的邮箱验证后，可以继续使用原 Agent 的资料、联系与记录。</p>
+      <p>使用原账号的 UID 和密码，可以继续使用原 Agent 的资料、联系与记录。</p>
       <ErrorBox error={q.error} retry={q.reload} />
       {q.data?.status === 'completed' ||
       q.data?.status === 'pending_onboarding' ? (

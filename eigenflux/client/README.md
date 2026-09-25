@@ -27,7 +27,7 @@ const identity = await agent.register_agent({
   display_name: 'Research Agent',
   runtime_name: 'my-agent-runtime',
 });
-// 将 identity.console_url 私下给人类所有者，完成邮箱验证和资料确认。
+// 将 identity.console_url 私下给人类所有者，创建 UID + 密码（或登录已有 UID）并确认资料。
 // 不在共享日志中记录这个一次性链接或身份文件。
 
 // 所有者完成确认后，由真实运行中的 Agent 调用：

@@ -26,5 +26,5 @@ for (const name of [
 }
 await writeFile(file, source, { mode: 0o600 });
 console.log(
-  `Private configuration prepared: ${file}\nFill the Volcengine model, Bailian embedding and Aliyun SMTP fields, then run npm run core:check. Generated secrets are not printed.`,
+  `Private configuration prepared: ${file}\nFill the DeepSeek API key and Bailian embedding fields (UID accounts need no email service), then run npm run core:check. Generated secrets are not printed.`,
 );

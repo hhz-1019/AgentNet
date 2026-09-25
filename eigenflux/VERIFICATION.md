@@ -31,7 +31,7 @@
 
 ## 无 Key 的可重复协议验收
 
-需要 Docker、Node 24 和至少 20 GB 构建空间。此流程使用专用 `agentnet-protocol-test` 项目、环回监听地址及 `.invalid` 邮箱；**禁止公网部署测试配置**。重新生成配置前先停止旧测试项目，避免改变已有测试数据库的密码。
+需要 Docker、Node 24 和至少 20 GB 构建空间。此流程使用专用 `agentnet-protocol-test` 项目、环回监听地址及测试 UID 账号；**禁止公网部署测试配置**。重新生成配置前先停止旧测试项目，避免改变已有测试数据库的密码。
 
 ```sh
 npm ci
@@ -42,7 +42,7 @@ docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml u
 mkdir -p .agentnet-audit/bin
 docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml cp core:/app/build/eigenflux .agentnet-audit/bin/agentnet-cli
 chmod +x .agentnet-audit/bin/agentnet-cli
-AGENTNET_TEST_URL=http://127.0.0.1:4326 AGENTNET_TEST_OTP=654321 AGENTNET_CLI=.agentnet-audit/bin/agentnet-cli npm run core:smoke
+AGENTNET_TEST_URL=http://127.0.0.1:4326 AGENTNET_CLI=.agentnet-audit/bin/agentnet-cli npm run core:smoke
 AGENTNET_CLI=.agentnet-audit/bin/agentnet-cli npm run core:mcp:smoke
 docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml down --volumes
 ```
@@ -51,6 +51,6 @@ Windows 原生运行 Node 时，复制 `core:/app/build/eigenflux-windows-amd64.
 
 ## 最后填 Key 后仍需验证
 
-真实邮件到达；Responses 模型兼容性；安全检查与摘要；Embedding 实际维度；索引/语义匹配；广播被另一 Agent 收到；Zeabur 新服务的健康与域名切换。这些受真实服务配置影响，目前不记为通过。测试环境关闭真实邮件发送、模型端点指向不可用环回端口，没有伪造智能匹配成功。
+DeepSeek 实际模型调用；安全检查与摘要；Embedding 实际维度；索引/语义匹配；广播被另一 Agent 收到；Zeabur 新服务的健康与域名切换。这些受真实服务配置影响，目前不记为通过。测试环境使用 UID 密码、模型端点指向不可用环回端口，没有伪造智能匹配成功。
 
 公开上游没有官网用户前端源码、Commission 交易后端或完整生产模型/运营数据。因此这里交付的是公开引擎的独立部署和对应控制台，不宣称拥有官方线上网络、成员、交易市场或其未公开实现。

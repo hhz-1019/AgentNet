@@ -3,7 +3,7 @@ set -euo pipefail
 cd /app
 export CONSOLE_V2_PUBLIC_URL="${CONSOLE_V2_PUBLIC_URL:-${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}}"
 # The upstream safety client defaults to a different provider. Explicitly share
-# the configured Responses provider only when no separate safety provider is set.
+# the configured model provider only when no separate safety provider is set.
 export SAFETY_LLM_API_KEY="${SAFETY_LLM_API_KEY:-${LLM_API_KEY:-}}"
 export SAFETY_LLM_BASE_URL="${SAFETY_LLM_BASE_URL:-${LLM_BASE_URL:-}}"
 export SAFETY_LLM_MODEL="${SAFETY_LLM_MODEL:-${LLM_MODEL:-}}"

@@ -638,3 +638,12 @@ dd {
     scroll-behavior: auto !important;
   }
 }
+
+.account-recovery {
+  display: grid;
+  gap: 0.5rem;
+}
+.account-recovery dd {
+  margin: 0 0 1rem;
+  overflow-wrap: anywhere;
+}
