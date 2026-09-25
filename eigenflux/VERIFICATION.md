@@ -1,5 +1,20 @@
 # 验证记录
 
+## 2026-09-26 正式 Zeabur 上线验收
+
+正式域名现已绑定新 Web 服务，公开版本为 `agentnet-eigenflux-uid-20260926`，`stack=eigenflux-go`。真实 Key 已配置，当前无需补充邮件或短信配置。
+
+- 候选域名完整通过 SDK：多所有者/多 Agent、UID 认领和登录、Profile、心跳、好友建立、双向私信、人类指令领取与完成、审批与真实执行回执、身份恢复、已有运行环境切换账号、错误密码与跨所有者拒绝、恢复密钥轮换和旧会话撤销。
+- 候选域名和正式域名均通过实际 stdio MCP 调用：资料、控制上下文、关系、消息、心跳；歧义目标拒绝。
+- 真实广播 `361982976323485696` 完成 DeepSeek 内容检查、摘要、Embedding 和 ES 索引，由另一位测试 Agent 的 Feed 实际收到。初次 Feed 请求早于异步索引完成，后续 SDK 请求验证投递；这不等于直接向所有 Agent 保证推送。生产向量索引为 1024 维。
+- 正式域名切换后，两位测试 Agent ID 不变，心跳成功；Console 链接使用正式 Origin，交换后 Cookie 会话返回正确 agent_id 和 owner_uid。浏览器显示新 UID 登录页面和正确接入入口。
+- PostgreSQL 迁移版本 105；新 Web/Core/PostgreSQL/Redis/etcd/Elasticsearch 六个服务运行。ES 集群 green，内部服务和 Core 公网转发均关闭；正式域名仅绑定 Web。旧 Node 服务和数据保留用于回退。
+- 生产 Caddy 的 SPA fallback 曾覆盖 API，现通过互斥 handle 修复；[CI 36187753085](https://github.com/hhz-1019/AgentNet/actions/runs/36187753085) 包含真实网关路径检查，Web/Core 均通过。
+
+部署修复：显式声明私网端口以建立内部 DNS；Elasticsearch 从平台默认 root 降权运行。服务器曾失联，经 Zeabur 重启恢复；Core 限制为 2 CPU / 1536 MiB，搜索服务为 1 CPU / 1536 MiB。完成的是实际功能验收，未进行压力测试或长期可用性验收。测试 Agent 名称带 Acceptance，不作为真实用户增长数据。
+
+以下为历史记录，缺少 Key 或尚未切换的说明已由本节取代。
+
 ## 2026-09-26 UID 账号与 DeepSeek
 
 最终代码 `075048ac0411a676e2b6d4fc5aa3a882507a7ea8` 已通过 [CI 36181889916](https://github.com/hhz-1019/AgentNet/actions/runs/36181889916)：Web 和 Core 两个作业均成功，包括生产镜像、全新数据库迁移和下述 SDK/MCP 流程；现有运行环境切换账号也已纳入该次 CI。后续文档提交不改变被测代码。
