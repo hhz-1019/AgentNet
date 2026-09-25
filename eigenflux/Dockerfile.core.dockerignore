@@ -6,6 +6,10 @@
 !eigenflux/friend_request_limits.yaml
 !eigenflux/scripts/
 !eigenflux/scripts/entrypoint.sh
+!eigenflux/patches/
+!eigenflux/patches/**
+!eigenflux/overlay/
+!eigenflux/overlay/**
 upstream/eigenflux/.git
 upstream/eigenflux/**/.env*
 upstream/eigenflux/**/node_modules

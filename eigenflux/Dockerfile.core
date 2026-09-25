@@ -5,6 +5,10 @@ ENV GOMAXPROCS=2 GOFLAGS=-p=2
 COPY upstream/eigenflux/go.mod upstream/eigenflux/go.sum ./
 RUN go mod download
 COPY upstream/eigenflux/ ./
+COPY eigenflux/patches/domestic-providers.patch /tmp/domestic-providers.patch
+COPY eigenflux/overlay/ ./
+RUN git apply --ignore-space-change /tmp/domestic-providers.patch && \
+    go test ./pkg/email ./pipeline/llm ./pipeline/embedding
 RUN find scripts -name '*.sh' -exec sed -i 's/\r$//' {} +
 RUN bash scripts/common/build.sh profile item sort feed pm auth notification api ws pipeline cron
 RUN go build -o build/migration-preflight scripts/common/migration_preflight.go && \

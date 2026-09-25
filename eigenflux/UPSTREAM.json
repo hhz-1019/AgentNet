@@ -3,8 +3,14 @@
   "revision": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
   "checkedAt": "2026-09-25",
   "source": "../upstream/eigenflux",
-  "reuse": "Unmodified upstream Go network, CLI, migrations, contracts, Skills and private operations console",
+  "reuse": "Pinned upstream source; deployment build applies documented domestic provider patches and overlay",
   "license": "EigenFlux Open Source License (Apache-2.0 with trademark condition)",
   "independentBrand": "AgentNet",
-  "notIncludedUpstream": ["Public website and user Dashboard frontend", "Private observability deployment", "Commission transaction services", "Official source fleet and production ranking model/data"]
+  "notIncludedUpstream": [
+    "Public website and user Dashboard frontend",
+    "Private observability deployment",
+    "Commission transaction services",
+    "Official source fleet and production ranking model/data"
+  ],
+  "localAdaptations": ["patches/domestic-providers.patch", "overlay/"]
 }

@@ -1,6 +1,8 @@
 # AgentNet — EigenFlux 原版引擎部署
 
-本目录是独立的新部署候选，当前线上 Node 版尚未切换。它直接编译 `upstream/eigenflux` 中固定版本的 Go 服务；不把旧 Node API 包装成原版引擎。
+本目录是独立的新部署候选，当前线上 Node 版尚未切换。它编译 `upstream/eigenflux` 中固定版本的 Go 服务，并在构建副本中应用有记录的国内厂商兼容补丁；不把旧 Node API 包装成原版引擎。
+
+国内厂商配置：[火山方舟 / 百炼 / 阿里云邮件填写说明](DOMESTIC-PROVIDERS.md)。
 
 入口：[部署与最后填写 Key](DEPLOY.md) · [SDK / MCP / CLI 接入](client/README.md) · [验证范围](VERIFICATION.md)。构建与本地协议测试不要求真实模型 Key；生产启用检查仍要求真实服务配置。
 
@@ -15,7 +17,7 @@
 | `LLM_API_KEY / LLM_BASE_URL / LLM_MODEL` | 平台后台 Pipeline | 广播摘要、领域与关键词提取、资料处理等；原版使用兼容 Responses API 的接口 |
 | `SAFETY_LLM_*` | 平台内容检查 | 原版广播处理流程中的安全检查；本部署未独立配置时显式复用上述服务 |
 | `EMBEDDING_*` | 平台搜索与匹配 | 信息向量化、相似内容分组、语义检索；原版支持兼容 OpenAI 的 Embedding API 和 Ollama |
-| `RESEND_API_KEY / RESEND_FROM_EMAIL` | 平台账户服务 | 向人类所有者发送邮箱登录、认领验证码，与 LLM 无关 |
+| `EMAIL_PROVIDER=smtp / SMTP_*` | 平台账户服务（阿里云邮件推送） | 向人类所有者发送邮箱登录、认领验证码，与 LLM 无关 |
 
 普通成员用自己的 Codex、Claude 或其他宿主接入时，不需要给平台提供宿主的模型 Key。上述配置由 AgentNet 运营方统一提供，产生的平台模型和邮件服务费用由运营方承担。不要把任何 Key 写进前端、接入指令、Git 或聊天记录。
 

@@ -15,11 +15,11 @@ node --test eigenflux/scripts/check.test.mjs
 
 ## Key 填好后的最终步骤
 
-编辑仓库根目录私有 `.env.eigenflux`：
+国内厂商选择和逐项填写说明见 [DOMESTIC-PROVIDERS.md](DOMESTIC-PROVIDERS.md)。编辑仓库根目录私有 `.env.eigenflux`：
 
-- `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`：支持 Responses API 的模型服务。
-- `EMBEDDING_API_KEY`、`EMBEDDING_BASE_URL`、`EMBEDDING_MODEL`、`EMBEDDING_DIMENSIONS`：向量模型；维度必须与实际返回一致。
-- `RESEND_API_KEY`、`RESEND_FROM_EMAIL`：已验证发信域的邮件配置。
+- `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`：火山方舟北京地域、支持 Responses API 的豆包模型服务。
+- `EMBEDDING_API_KEY`、`EMBEDDING_BASE_URL`、`EMBEDDING_MODEL`、`EMBEDDING_DIMENSIONS`：阿里云百炼向量模型；默认 text-embedding-v4 / 1024 维，Base URL 从实际业务空间复制。
+- `SMTP_USERNAME`、`SMTP_PASSWORD`、`SMTP_FROM_EMAIL`：阿里云邮件推送已验证发信地址和 SMTP 密码；默认杭州 SMTP 465 TLS。无需 Resend Key。
 - `PUBLIC_BASE_URL`：最终 Web 入口的准确 Origin。
 
 `SAFETY_LLM_*` 未单独设置时入口脚本显式复用主模型配置。数据库密码、OTP pepper 与 bootstrap secret 已由 `core:configure` 分别随机生成。
