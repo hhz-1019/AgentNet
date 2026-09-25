@@ -31,7 +31,7 @@ SMTP_PORT=465
 
 `EMBEDDING_PROVIDER=openai` 是兼容协议名称，不代表调用 OpenAI 服务。实际调用地址由 `EMBEDDING_BASE_URL` 决定。向量请求显式使用 `encoding_format=float`。`SAFETY_LLM_*` 留空时，启动脚本复用方舟模型配置。
 
-DirectMail 需要在杭州地域配置发信域名、完成控制台要求的 DNS 验证、创建发信地址并设置 SMTP 密码。SMTP 用户名必须与发信地址一致。发送器只使用 465 隐式 TLS，验证服务器证书，不提供明文回退。验证码和账号恢复邮件共用该发送器，发送失败保持认证失败，不绕过邮箱验证。旧 `RESEND_*` 可以留空；仅在显式切换回 `EMAIL_PROVIDER=resend` 时使用。
+DirectMail 需要在杭州地域配置发信域名、完成控制台要求的 DNS 验证、创建发信地址并设置 SMTP 密码。SMTP 用户名必须与发信地址一致。发送器只使用 465 隐式 TLS，验证服务器证书，不提供明文回退。验证码和账号恢复邮件共用该发送器，不会因邮件发送失败而跳过邮箱验证。身份恢复完成后的通知发送失败不会回滚已完成的恢复。旧 `RESEND_*` 可以留空；仅在显式切换回 `EMAIL_PROVIDER=resend` 时使用。
 
 ## 构建与验证
 

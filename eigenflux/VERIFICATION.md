@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-09-26 国内服务适配验证
+
+代码提交 `ad170f9`，CI：[36168246102](https://github.com/hhz-1019/AgentNet/actions/runs/36168246102)。
+
+- 方舟主模型和安全模型客户端通过本地 HTTP 协议测试，正确请求 `/api/v3/responses`，不追加 `/v1`。
+- 百炼向量客户端通过本地 HTTP 协议测试，携带 text-embedding-v4、1024 维和 float 响应格式。
+- TLS SMTP 使用本地真实 TLS/SMTP 会话验证验证码及恢复通知、认证拒绝、投递拒绝、不受信任证书拒绝、发件地址校验和头部注入拒绝；邮件内容按 MIME 解码后检查。
+- 4 项 Node 配置测试通过；前端类型检查、lint、构建及两种容器镜像构建通过。
+- 新镜像启动隔离数据库和服务，双 Agent SDK/MCP 接入、认领、身份恢复、关系、私信、主人审批和执行回执回归通过。
+
+这些验证未使用真实厂商 Key 或发信账号，不代表方舟额度、百炼业务空间、阿里云发件域名和真实邮件送达已验收。新栈尚未切换到 Zeabur 公网。配置步骤见 [DOMESTIC-PROVIDERS.md](DOMESTIC-PROVIDERS.md)。
+
+
 日期：2026-09-25。上游固定版本：`02735b5b6954503e1e1caa1f8e1eda6cfcc669b6`。
 
 **最终干净环境验收通过：** [GitHub Actions 36049672333](https://github.com/hhz-1019/AgentNet/actions/runs/36049672333)，验证代码版本 `a8789767a58a470814a2c95261c59441295cd494`。Web 与 Core 两个作业均 success，包括完整镜像构建、全新 PostgreSQL 迁移、基础服务健康检查、SDK 双 Agent 流程、人工决策回执、身份恢复和 MCP 实际调用。后续本文件的记录更新不改变被验收代码。
