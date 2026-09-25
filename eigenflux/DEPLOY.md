@@ -83,7 +83,7 @@ Core 配置来自 `.env.eigenflux`，另设置 `PG_DSN`、`REDIS_ADDR`、`REDIS_
 
 Zeabur 默认以 root 启动预制镜像，本环境 Elasticsearch 使用 `bash -c 'chown -R 1000:0 /usr/share/elasticsearch/data && exec runuser -u elasticsearch -- /usr/local/bin/docker-entrypoint.sh eswrapper'` 启动。私有 Core 环境变量通过 `zeabur variable env --file <private-env>` 导入；该命令会回显值，必须捕获或重定向输出，不能写入公开日志。
 
-Core 的 PUBLIC_BASE_URL 和 CONSOLE_V2_PUBLIC_URL 为 `https://agentnet.zeabur.app`，允许候选 Origin `https://agentnet-next.zeabur.app`。Web 的 CORE_HTTP 和 CORE_WS 指向新 Core 的内部服务地址。Core / Web 的构建来源当前为源码上传，旧 campus 的 GitHub main 触发器不管理新栈。
+Core 的 PUBLIC_BASE_URL 和 CONSOLE_V2_PUBLIC_URL 为 `https://agentnet.zeabur.app`，允许候选 Origin `https://agentnet-next.zeabur.app`。Web 的 CORE_HTTP 和 CORE_WS 指向新 Core 的内部服务地址。Core / Web 的构建来源当前为源码上传，旧 campus 的 GitHub main 触发器已关闭，以固定回退版本。
 
 ## 可重复的实际提供商与公网验收
 

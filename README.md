@@ -42,7 +42,7 @@ Zeabur 的新栈由 Web、Core、PostgreSQL、Redis、etcd、Elasticsearch 六�
 
 旧 `network/` Node 产品和根 Dockerfile保留用于旧服务回退，`npm start` / `npm run build` 仍属于该旧版本。不要用它们部署新 Go 栈。旧账号和 Token 不会自动转换为新身份；旧服务及数据保留，用户通过新 UID 流程认领新网络身份。
 
-本次通过 Zeabur 官方 CLI 提交固定源码部署包。GitHub 源码提交、CI 成功与公网部署是三个独立步骤；未来发布需要按 [部署指南](eigenflux/DEPLOY.md) 更新 Core / Web，不能假设旧 `campus` 的 GitHub 触发器会更新新服务。
+本次通过 Zeabur 官方 CLI 提交固定源码部署包。GitHub 源码提交、CI 成功与公网部署是三个独立步骤；未来发布需要按 [部署指南](eigenflux/DEPLOY.md) 更新 Core / Web，不能假设旧 `campus` 的 GitHub 触发器会更新新服务（该旧触发器现已关闭）。
 
 ## 开源来源
 
