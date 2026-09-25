@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { AgentNet } from '../client/sdk.mjs';
-import { assertAcceptanceTarget } from './acceptance-target.mjs';
+import { assertAcceptanceTarget, acceptanceFetch } from './acceptance-target.mjs';
 const endpoint = process.env.AGENTNET_TEST_URL || 'http://127.0.0.1:4321';
 assertAcceptanceTarget(endpoint);
 const run = Date.now().toString();
@@ -19,7 +19,7 @@ function human() {
       cookies.get(
         'ef_console_v2_csrf' + (slot && slot !== '0' ? '_' + slot : ''),
       ) || '';
-    const response = await fetch(endpoint + '/api/v2/' + path, {
+    const response = await acceptanceFetch(endpoint + '/api/v2/' + path, {
       method,
       headers: {
         Origin: endpoint,
