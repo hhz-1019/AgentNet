@@ -1,0 +1,10 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev
+COPY eigenflux/web ./eigenflux/web
+RUN npx vite build --config eigenflux/web/vite.config.mjs
+FROM caddy:2-alpine
+COPY --from=build /app/dist-core /srv
+COPY eigenflux/Caddyfile /etc/caddy/Caddyfile
+EXPOSE 8080

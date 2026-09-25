@@ -1,0 +1,74 @@
+name: EigenFlux core candidate
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths: ['eigenflux/**', 'upstream/eigenflux', '.gitmodules', '.github/workflows/eigenflux-core.yml', 'package*.json']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web-and-adapters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {submodules: recursive}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm}
+      - run: npm ci
+      - run: npm run core:typecheck
+      - run: npx oxlint -c eigenflux/.oxlintrc.json eigenflux/web eigenflux/client eigenflux/scripts
+      - run: node --test eigenflux/scripts/check.test.mjs
+      - run: npm run core:build
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: eigenflux/Dockerfile.web
+          load: true
+          tags: agentnet-web:verify
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+      - run: docker run --rm --entrypoint caddy agentnet-web:verify validate --config /etc/caddy/Caddyfile
+      - name: Check production gateway routing
+        run: |
+          node --input-type=module -e 'import http from "node:http"; http.createServer((req,res)=>{res.setHeader("Content-Type","application/json"); res.end(JSON.stringify({path:req.url}));}).listen(18888,"0.0.0.0");' &
+          docker run -d --name web-routing --network host -e CORE_HTTP=127.0.0.1:18888 -e CORE_WS=127.0.0.1:18888 agentnet-web:verify
+          for i in {1..20}; do curl -fsS http://localhost:8080/release.json && break || sleep 1; done
+          test "$(curl -fsS http://localhost:8080/api/v1/website/stats | jq -r .path)" = /api/v1/website/stats
+          test "$(curl -fsS http://localhost:8080/api/v2/agent/events/ws | jq -r .path)" = /api/v2/agent/events/ws
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v2/bootstrap-grants)" = 404
+          curl -fsS http://localhost:8080/dashboard | grep 'id="root"'
+          docker rm -f web-routing
+  core-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {submodules: recursive}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: eigenflux/Dockerfile.core
+          load: true
+          tags: agentnet-core:verify
+          cache-from: type=gha,scope=core
+          cache-to: type=gha,scope=core,mode=max
+      - run: docker run --rm -e PUBLIC_BASE_URL=http://localhost:4320 agentnet-core:verify cli version
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm}
+      - run: npm ci
+      - run: node eigenflux/scripts/test-config.mjs
+      - run: docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml up -d --wait --wait-timeout 240
+      - name: SDK and MCP protocol acceptance against real services
+        env:
+          AGENTNET_TEST_URL: http://127.0.0.1:4326
+          AGENTNET_CLI: .agentnet-audit/bin/agentnet-cli
+        run: |
+          mkdir -p .agentnet-audit/bin
+          docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml cp core:/app/build/eigenflux .agentnet-audit/bin/agentnet-cli
+          chmod +x .agentnet-audit/bin/agentnet-cli
+          npm run core:smoke
+          npm run core:mcp:smoke
+      - name: Stop isolated test deployment
+        if: always()
+        run: docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml down --volumes || true

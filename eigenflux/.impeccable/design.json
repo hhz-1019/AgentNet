@@ -1,0 +1,482 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-24T19:32:16.454Z",
+  "title": "Design System: AgentNet Human Control Plane",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Primary",
+        "tonalRamp": [
+          "oklch(15.00% 0.05780 167.24)",
+          "oklch(26.43% 0.05780 167.24)",
+          "oklch(37.86% 0.05780 167.24)",
+          "oklch(49.29% 0.05780 167.24)",
+          "oklch(60.71% 0.05780 167.24)",
+          "oklch(72.14% 0.05780 167.24)",
+          "oklch(83.57% 0.05780 167.24)",
+          "oklch(95.00% 0.05780 167.24)"
+        ]
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Primary Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.05228 162.50)",
+          "oklch(26.43% 0.05228 162.50)",
+          "oklch(37.86% 0.05228 162.50)",
+          "oklch(49.29% 0.05228 162.50)",
+          "oklch(60.71% 0.05228 162.50)",
+          "oklch(72.14% 0.05228 162.50)",
+          "oklch(83.57% 0.05228 162.50)",
+          "oklch(95.00% 0.05228 162.50)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "tonalRamp": [
+          "oklch(15.00% 0.00409 121.56)",
+          "oklch(26.43% 0.00409 121.56)",
+          "oklch(37.86% 0.00409 121.56)",
+          "oklch(49.29% 0.00409 121.56)",
+          "oklch(60.71% 0.00409 121.56)",
+          "oklch(72.14% 0.00409 121.56)",
+          "oklch(83.57% 0.00409 121.56)",
+          "oklch(95.00% 0.00409 121.56)"
+        ]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Sidebar",
+        "tonalRamp": [
+          "oklch(15.00% 0.00854 128.56)",
+          "oklch(26.43% 0.00854 128.56)",
+          "oklch(37.86% 0.00854 128.56)",
+          "oklch(49.29% 0.00854 128.56)",
+          "oklch(60.71% 0.00854 128.56)",
+          "oklch(72.14% 0.00854 128.56)",
+          "oklch(83.57% 0.00854 128.56)",
+          "oklch(95.00% 0.00854 128.56)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.00000 89.88)",
+          "oklch(26.43% 0.00000 89.88)",
+          "oklch(37.86% 0.00000 89.88)",
+          "oklch(49.29% 0.00000 89.88)",
+          "oklch(60.71% 0.00000 89.88)",
+          "oklch(72.14% 0.00000 89.88)",
+          "oklch(83.57% 0.00000 89.88)",
+          "oklch(95.00% 0.00000 89.88)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.01888 174.25)",
+          "oklch(26.43% 0.01888 174.25)",
+          "oklch(37.86% 0.01888 174.25)",
+          "oklch(49.29% 0.01888 174.25)",
+          "oklch(60.71% 0.01888 174.25)",
+          "oklch(72.14% 0.01888 174.25)",
+          "oklch(83.57% 0.01888 174.25)",
+          "oklch(95.00% 0.01888 174.25)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "tonalRamp": [
+          "oklch(15.00% 0.02770 158.44)",
+          "oklch(26.43% 0.02770 158.44)",
+          "oklch(37.86% 0.02770 158.44)",
+          "oklch(49.29% 0.02770 158.44)",
+          "oklch(60.71% 0.02770 158.44)",
+          "oklch(72.14% 0.02770 158.44)",
+          "oklch(83.57% 0.02770 158.44)",
+          "oklch(95.00% 0.02770 158.44)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "tonalRamp": [
+          "oklch(15.00% 0.01136 141.26)",
+          "oklch(26.43% 0.01136 141.26)",
+          "oklch(37.86% 0.01136 141.26)",
+          "oklch(49.29% 0.01136 141.26)",
+          "oklch(60.71% 0.01136 141.26)",
+          "oklch(72.14% 0.01136 141.26)",
+          "oklch(83.57% 0.01136 141.26)",
+          "oklch(95.00% 0.01136 141.26)"
+        ]
+      },
+      "control-border": {
+        "role": "neutral",
+        "displayName": "Control Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.01634 148.38)",
+          "oklch(26.43% 0.01634 148.38)",
+          "oklch(37.86% 0.01634 148.38)",
+          "oklch(49.29% 0.01634 148.38)",
+          "oklch(60.71% 0.01634 148.38)",
+          "oklch(72.14% 0.01634 148.38)",
+          "oklch(83.57% 0.01634 148.38)",
+          "oklch(95.00% 0.01634 148.38)"
+        ]
+      },
+      "control-hover": {
+        "role": "neutral",
+        "displayName": "Control Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.01067 136.56)",
+          "oklch(26.43% 0.01067 136.56)",
+          "oklch(37.86% 0.01067 136.56)",
+          "oklch(49.29% 0.01067 136.56)",
+          "oklch(60.71% 0.01067 136.56)",
+          "oklch(72.14% 0.01067 136.56)",
+          "oklch(83.57% 0.01067 136.56)",
+          "oklch(95.00% 0.01067 136.56)"
+        ]
+      },
+      "focus": {
+        "role": "neutral",
+        "displayName": "Focus",
+        "tonalRamp": [
+          "oklch(15.00% 0.05804 164.23)",
+          "oklch(26.43% 0.05804 164.23)",
+          "oklch(37.86% 0.05804 164.23)",
+          "oklch(49.29% 0.05804 164.23)",
+          "oklch(60.71% 0.05804 164.23)",
+          "oklch(72.14% 0.05804 164.23)",
+          "oklch(83.57% 0.05804 164.23)",
+          "oklch(95.00% 0.05804 164.23)"
+        ]
+      },
+      "nav-text": {
+        "role": "neutral",
+        "displayName": "Nav Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.02615 163.64)",
+          "oklch(26.43% 0.02615 163.64)",
+          "oklch(37.86% 0.02615 163.64)",
+          "oklch(49.29% 0.02615 163.64)",
+          "oklch(60.71% 0.02615 163.64)",
+          "oklch(72.14% 0.02615 163.64)",
+          "oklch(83.57% 0.02615 163.64)",
+          "oklch(95.00% 0.02615 163.64)"
+        ]
+      },
+      "nav-hover": {
+        "role": "neutral",
+        "displayName": "Nav Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.01476 132.48)",
+          "oklch(26.43% 0.01476 132.48)",
+          "oklch(37.86% 0.01476 132.48)",
+          "oklch(49.29% 0.01476 132.48)",
+          "oklch(60.71% 0.01476 132.48)",
+          "oklch(72.14% 0.01476 132.48)",
+          "oklch(83.57% 0.01476 132.48)",
+          "oklch(95.00% 0.01476 132.48)"
+        ]
+      },
+      "nav-selected": {
+        "role": "neutral",
+        "displayName": "Nav Selected",
+        "tonalRamp": [
+          "oklch(15.00% 0.01933 133.08)",
+          "oklch(26.43% 0.01933 133.08)",
+          "oklch(37.86% 0.01933 133.08)",
+          "oklch(49.29% 0.01933 133.08)",
+          "oklch(60.71% 0.01933 133.08)",
+          "oklch(72.14% 0.01933 133.08)",
+          "oklch(83.57% 0.01933 133.08)",
+          "oklch(95.00% 0.01933 133.08)"
+        ]
+      },
+      "nav-selected-text": {
+        "role": "neutral",
+        "displayName": "Nav Selected Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.05154 160.22)",
+          "oklch(26.43% 0.05154 160.22)",
+          "oklch(37.86% 0.05154 160.22)",
+          "oklch(49.29% 0.05154 160.22)",
+          "oklch(60.71% 0.05154 160.22)",
+          "oklch(72.14% 0.05154 160.22)",
+          "oklch(83.57% 0.05154 160.22)",
+          "oklch(95.00% 0.05154 160.22)"
+        ]
+      },
+      "conversation-selected": {
+        "role": "neutral",
+        "displayName": "Conversation Selected",
+        "tonalRamp": [
+          "oklch(15.00% 0.01594 130.42)",
+          "oklch(26.43% 0.01594 130.42)",
+          "oklch(37.86% 0.01594 130.42)",
+          "oklch(49.29% 0.01594 130.42)",
+          "oklch(60.71% 0.01594 130.42)",
+          "oklch(72.14% 0.01594 130.42)",
+          "oklch(83.57% 0.01594 130.42)",
+          "oklch(95.00% 0.01594 130.42)"
+        ]
+      },
+      "badge": {
+        "role": "neutral",
+        "displayName": "Badge",
+        "tonalRamp": [
+          "oklch(15.00% 0.01020 131.36)",
+          "oklch(26.43% 0.01020 131.36)",
+          "oklch(37.86% 0.01020 131.36)",
+          "oklch(49.29% 0.01020 131.36)",
+          "oklch(60.71% 0.01020 131.36)",
+          "oklch(72.14% 0.01020 131.36)",
+          "oklch(83.57% 0.01020 131.36)",
+          "oklch(95.00% 0.01020 131.36)"
+        ]
+      },
+      "badge-text": {
+        "role": "neutral",
+        "displayName": "Badge Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.03846 155.52)",
+          "oklch(26.43% 0.03846 155.52)",
+          "oklch(37.86% 0.03846 155.52)",
+          "oklch(49.29% 0.03846 155.52)",
+          "oklch(60.71% 0.03846 155.52)",
+          "oklch(72.14% 0.03846 155.52)",
+          "oklch(83.57% 0.03846 155.52)",
+          "oklch(95.00% 0.03846 155.52)"
+        ]
+      },
+      "avatar": {
+        "role": "neutral",
+        "displayName": "Avatar",
+        "tonalRamp": [
+          "oklch(15.00% 0.01886 130.19)",
+          "oklch(26.43% 0.01886 130.19)",
+          "oklch(37.86% 0.01886 130.19)",
+          "oklch(49.29% 0.01886 130.19)",
+          "oklch(60.71% 0.01886 130.19)",
+          "oklch(72.14% 0.01886 130.19)",
+          "oklch(83.57% 0.01886 130.19)",
+          "oklch(95.00% 0.01886 130.19)"
+        ]
+      },
+      "presence-idle": {
+        "role": "neutral",
+        "displayName": "Presence Idle",
+        "tonalRamp": [
+          "oklch(15.00% 0.01520 155.45)",
+          "oklch(26.43% 0.01520 155.45)",
+          "oklch(37.86% 0.01520 155.45)",
+          "oklch(49.29% 0.01520 155.45)",
+          "oklch(60.71% 0.01520 155.45)",
+          "oklch(72.14% 0.01520 155.45)",
+          "oklch(83.57% 0.01520 155.45)",
+          "oklch(95.00% 0.01520 155.45)"
+        ]
+      },
+      "presence-active": {
+        "role": "neutral",
+        "displayName": "Presence Active",
+        "tonalRamp": [
+          "oklch(15.00% 0.08713 154.43)",
+          "oklch(26.43% 0.08713 154.43)",
+          "oklch(37.86% 0.08713 154.43)",
+          "oklch(49.29% 0.08713 154.43)",
+          "oklch(60.71% 0.08713 154.43)",
+          "oklch(72.14% 0.08713 154.43)",
+          "oklch(83.57% 0.08713 154.43)",
+          "oklch(95.00% 0.08713 154.43)"
+        ]
+      },
+      "recommendation-line": {
+        "role": "neutral",
+        "displayName": "Recommendation Line",
+        "tonalRamp": [
+          "oklch(15.00% 0.04029 148.70)",
+          "oklch(26.43% 0.04029 148.70)",
+          "oklch(37.86% 0.04029 148.70)",
+          "oklch(49.29% 0.04029 148.70)",
+          "oklch(60.71% 0.04029 148.70)",
+          "oklch(72.14% 0.04029 148.70)",
+          "oklch(83.57% 0.04029 148.70)",
+          "oklch(95.00% 0.04029 148.70)"
+        ]
+      },
+      "error-surface": {
+        "role": "neutral",
+        "displayName": "Error Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.01410 39.42)",
+          "oklch(26.43% 0.01410 39.42)",
+          "oklch(37.86% 0.01410 39.42)",
+          "oklch(49.29% 0.01410 39.42)",
+          "oklch(60.71% 0.01410 39.42)",
+          "oklch(72.14% 0.01410 39.42)",
+          "oklch(83.57% 0.01410 39.42)",
+          "oklch(95.00% 0.01410 39.42)"
+        ]
+      },
+      "error-line": {
+        "role": "neutral",
+        "displayName": "Error Line",
+        "tonalRamp": [
+          "oklch(15.00% 0.12366 28.06)",
+          "oklch(26.43% 0.12366 28.06)",
+          "oklch(37.86% 0.12366 28.06)",
+          "oklch(49.29% 0.12366 28.06)",
+          "oklch(60.71% 0.12366 28.06)",
+          "oklch(72.14% 0.12366 28.06)",
+          "oklch(83.57% 0.12366 28.06)",
+          "oklch(95.00% 0.12366 28.06)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Landing headline",
+        "purpose": "Landing only; console pages use the headline role."
+      },
+      "headline": {
+        "displayName": "Console page headline",
+        "purpose": "Reduces to 27px at 720px and below."
+      },
+      "body": {
+        "displayName": "Reading text",
+        "purpose": "Browser-default base size; paragraph line height is explicit."
+      },
+      "metadata": {
+        "displayName": "Hints and timestamps",
+        "purpose": "Muted text with explicit legibility on selected conversation rows."
+      },
+      "metric": {
+        "displayName": "Summary count",
+        "purpose": "Reduces to 32px at 720px and below."
+      }
+    },
+    "shadows": [
+      {
+        "name": "mobile-navigation",
+        "value": "16px 0 40px #26332f12",
+        "purpose": "The open mobile sidebar; desktop records and panels remain flat."
+      }
+    ],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "1000px"
+      },
+      {
+        "name": "mobile",
+        "value": "720px"
+      }
+    ],
+    "focus": {
+      "value": "3px solid #719e89",
+      "offset": "3px",
+      "selector": ":focus-visible"
+    },
+    "source": {
+      "stylesheet": "web/style.css",
+      "components": "web/main.tsx",
+      "mode": "code-led scan",
+      "scope": "Separate Go-core candidate. Tonal ramps are synthesized panel previews, not additional implemented UI tokens."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Submit a primary action; busy disables the control.",
+      "html": "<button class=\"ds-primary\">交给 Agent 处理</button>",
+      "css": ".ds-primary{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;font-size:16px;cursor:pointer;border:1px solid #cbd5cc;border-radius:6px;padding:10px 15px;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;background:var(--accent,#315e4d);color:white;border-color:var(--accent,#315e4d)}.ds-primary:hover{background:#244938}.ds-primary:disabled{opacity:.6;cursor:wait}.ds-primary:focus-visible,.ds-secondary:focus-visible,.ds-field:focus-visible,.ds-nav a:focus-visible{outline:3px solid #719e89;outline-offset:3px;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined actions, including decisions and retries.",
+      "html": "<button class=\"ds-secondary\">先观察</button>",
+      "css": ".ds-secondary{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;font-size:16px;cursor:pointer;border:1px solid #cbd5cc;border-radius:6px;padding:10px 15px;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;background:white;color:#26332f}.ds-secondary:hover{background:#edf2eb}.ds-secondary:disabled{opacity:.6;cursor:wait}.ds-primary:focus-visible,.ds-secondary:focus-visible,.ds-field:focus-visible,.ds-nav a:focus-visible{outline:3px solid #719e89;outline-offset:3px;}"
+    },
+    {
+      "name": "Labeled Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Persistent label above an editable native field.",
+      "html": "<label class=\"ds-label\">公开名称<input class=\"ds-field\" value=\"Research Agent\"></label>",
+      "css": ".ds-label{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;font-size:14px;font-weight:500;display:block;margin:18px 0;color:#26332f}.ds-field{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;font-size:inherit;display:block;width:100%;padding:11px 12px;border:1px solid #cbd5cc;background:white;color:#26332f;border-radius:6px;margin-top:8px;line-height:1.5}.ds-primary:focus-visible,.ds-secondary:focus-visible,.ds-field:focus-visible,.ds-nav a:focus-visible{outline:3px solid #719e89;outline-offset:3px;}"
+    },
+    {
+      "name": "Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Soft selected state uses aria-current; focus remains visible.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#today\" aria-current=\"page\">今日概览</a><a href=\"#profile\">Agent 名片</a></nav>",
+      "css": ".ds-nav{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;display:grid;gap:5px}.ds-nav a{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:6px;color:#52645b;text-decoration:none;font-size:14px}.ds-nav a:hover{background:#e6ece2}.ds-nav a[aria-current]{color:#294c3a;background:#e1e9dc;font-weight:600}.ds-primary:focus-visible,.ds-secondary:focus-visible,.ds-field:focus-visible,.ds-nav a:focus-visible{outline:3px solid #719e89;outline-offset:3px;}"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Static category or relationship label; known activity events use Chinese labels. Not an interactive filter.",
+      "html": "<span class=\"ds-badge\">等待回应</span>",
+      "css": ".ds-badge{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;font-size:12px;padding:4px 8px;background:#edf1ea;border-radius:4px;color:#4d6555}"
+    },
+    {
+      "name": "Login Panel",
+      "kind": "card",
+      "refersTo": "login-panel",
+      "description": "White bordered enclosure for account verification.",
+      "html": "<section class=\"ds-panel\"><h2>登录控制台</h2><p>通过邮箱确认所有权。验证码只在此页面填写。</p></section>",
+      "css": ".ds-panel{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;background:white;color:#26332f;border:1px solid var(--line,#dfe5de);padding:32px;border-radius:12px}.ds-panel h2{font-size:20px;letter-spacing:-.3px;margin:0 0 16px}.ds-panel p{line-height:1.8;margin:8px 0 16px}"
+    },
+    {
+      "name": "Empty State",
+      "kind": "card",
+      "refersTo": "empty-state",
+      "description": "Dashed text enclosure for loading and empty content.",
+      "html": "<div class=\"ds-empty\">目前没有等待你决定的事项。</div>",
+      "css": ".ds-empty{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;border:1px dashed #cbd5cc;color:var(--muted,#596b60);padding:34px;line-height:1.8;margin:18px 0;border-radius:8px}"
+    },
+    {
+      "name": "Attention Record",
+      "kind": "custom",
+      "description": "Flat record with a fine recommendation rule and explicit execution state. The pending example is distinct from the final acted status, displayed as Agent 已执行.",
+      "html": "<article class=\"ds-record\"><h3>协作联系</h3><p class=\"ds-recommendation\">Agent 建议：先确认共同目标。</p><span class=\"ds-hint\">已决定，等待 Agent 执行</span></article>",
+      "css": ".ds-record{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;color:#26332f;padding:24px 0;border-bottom:1px solid var(--line,#dfe5de)}.ds-record h3{font-size:16px;margin:12px 0 8px}.ds-recommendation{border-left:1px solid #91a994;padding-left:16px;line-height:1.8;margin:8px 0 16px}.ds-hint{color:var(--muted,#596b60);font-size:13px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Human Control Plane",
+    "overview": "AgentNet presents a person's Agent as a persistent network participant. The interface is restrained and professional: off-white canvas, pale-green navigation, dark green actions, generous reading space, and thin dividers. It makes identity, recent presence, human decisions, and execution progress legible without turning every record into a raised card.\n\nThis is a code-led record of the separate Go-core candidate in `web/main.tsx` and `web/style.css`, not a replacement for the repository's older Node design system. It captures implemented visuals; no approved visual comp or production execution certification is implied.",
+    "keyCharacteristics": [
+      "Quiet green surfaces and clear dark text.",
+      "Flat records, explicit text states, and restrained controls.",
+      "Persistent Agent context with responsive navigation."
+    ],
+    "rules": [],
+    "dos": [
+      "Do reuse the extracted green surfaces, thin dividers, and field treatments.",
+      "Do preserve text labels alongside presence and execution states.",
+      "Do keep long identifiers and message content wrap-safe and action rows able to wrap.",
+      "Do preserve visible keyboard focus and the mobile navigation and conversation layouts."
+    ],
+    "donts": [
+      "Don't make a queued instruction or decision look like completed Agent execution.",
+      "Don't replace flat record lists with elevated cards by default.",
+      "Don't describe this candidate's visuals as evidence of production connectivity or backend completion."
+    ]
+  }
+}

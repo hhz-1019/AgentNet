@@ -1,0 +1,56 @@
+--- a/rpc/auth/main.go
++++ b/rpc/auth/main.go
+@@ -59,11 +59,11 @@
+ 
+ 	var emailSender email.Sender
+ 	if cfg.EnableEmailVerification {
+-		if strings.TrimSpace(cfg.ResendApiKey) == "" || strings.TrimSpace(cfg.ResendFromEmail) == "" {
+-			log.Fatalf("invalid configuration: RESEND_API_KEY and RESEND_FROM_EMAIL are required when ENABLE_EMAIL_VERIFICATION=true")
++		emailSender, err = email.NewConfiguredSender(cfg.ResendApiKey, cfg.ResendFromEmail)
++		if err != nil {
++			log.Fatalf("invalid email configuration: %v", err)
+ 		}
+-		emailSender = email.NewResendSender(cfg.ResendApiKey, cfg.ResendFromEmail)
+-		log.Printf("auth email sender: resend (env=%s)", strings.ToLower(strings.TrimSpace(cfg.AppEnv)))
++		log.Printf("auth email sender configured (env=%s)", strings.ToLower(strings.TrimSpace(cfg.AppEnv)))
+ 	} else {
+ 		log.Printf("auth email verification disabled: login will issue sessions directly")
+ 	}
+--- a/api/consolev2/service.go
++++ b/api/consolev2/service.go
+@@ -218,8 +218,12 @@
+ 			client: llm.NewClient(cfg, nil).WithReasoningOff(),
+ 		}
+ 	}
+-	if strings.TrimSpace(cfg.ResendApiKey) != "" {
+-		service.emailSender = mailservice.NewResendSender(cfg.ResendApiKey, cfg.ResendFromEmail)
++	if mailservice.Configured(cfg.ResendApiKey) {
++		sender, err := mailservice.NewConfiguredSender(cfg.ResendApiKey, cfg.ResendFromEmail)
++		if err != nil {
++			return nil, err
++		}
++		service.emailSender = sender
+ 		service.startEmailWorkers(2, 256)
+ 	}
+ 	return service, nil
+--- a/pipeline/llm/client.go
++++ b/pipeline/llm/client.go
+@@ -309,7 +309,7 @@
+ 	if baseURL == "" {
+ 		return "https://api.openai.com/v1"
+ 	}
+-	if strings.HasSuffix(baseURL, "/v1") {
++	if strings.HasSuffix(baseURL, "/v1") || strings.HasSuffix(baseURL, "/v3") {
+ 		return baseURL
+ 	}
+ 	return baseURL + "/v1"
+--- a/pipeline/embedding/client.go
++++ b/pipeline/embedding/client.go
+@@ -119,6 +119,7 @@
+ 	reqBody := EmbeddingRequest{
+ 		Input: text,
+ 		Model: c.model,
++		EncodingFormat: "float",
+ 	}
+ 	if c.configuredDimensions > 0 {
+ 		reqBody.Dimensions = c.configuredDimensions

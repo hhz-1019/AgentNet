@@ -15,7 +15,18 @@
     "legacy:dev": "vinext dev",
     "legacy:build": "vinext build",
     "lint": "oxlint",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "core:configure": "node eigenflux/scripts/configure.mjs",
+    "core:check": "node eigenflux/scripts/check.mjs",
+    "core:providers": "node eigenflux/scripts/provider-smoke.mjs",
+    "core:check:offline": "node eigenflux/scripts/check.mjs --defer-providers",
+    "core:test": "node --test eigenflux/scripts/check.test.mjs",
+    "core:smoke": "node eigenflux/scripts/smoke.mjs",
+    "core:mcp:smoke": "node eigenflux/scripts/mcp-smoke.mjs",
+    "core:broadcast:smoke": "node eigenflux/scripts/broadcast-smoke.mjs",
+    "core:build": "vite build --config eigenflux/web/vite.config.mjs",
+    "core:dev": "vite --config eigenflux/web/vite.config.mjs",
+    "core:typecheck": "tsc -p eigenflux/web/tsconfig.json"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
