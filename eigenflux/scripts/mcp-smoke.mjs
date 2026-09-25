@@ -3,16 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { assertAcceptanceTarget } from './acceptance-target.mjs';
 
 const state = JSON.parse(
   await readFile('.agentnet-audit/core-smoke-state.json', 'utf8'),
 );
-if (
-  !['127.0.0.1', 'localhost', '[::1]'].includes(
-    new URL(state.endpoint).hostname,
-  )
-)
-  throw Error('Only isolated loopback fixtures are allowed');
+assertAcceptanceTarget(state.endpoint);
 const transport = new StdioClientTransport({
   command: process.execPath,
   args: [resolve('eigenflux/client/mcp.mjs')],

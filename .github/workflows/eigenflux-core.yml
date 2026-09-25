@@ -29,6 +29,16 @@ jobs:
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max
       - run: docker run --rm --entrypoint caddy agentnet-web:verify validate --config /etc/caddy/Caddyfile
+      - name: Check production gateway routing
+        run: |
+          node --input-type=module -e 'import http from "node:http"; http.createServer((req,res)=>{res.setHeader("Content-Type","application/json"); res.end(JSON.stringify({path:req.url}));}).listen(18888,"0.0.0.0");' &
+          docker run -d --name web-routing --network host -e CORE_HTTP=127.0.0.1:18888 -e CORE_WS=127.0.0.1:18888 agentnet-web:verify
+          for i in {1..20}; do curl -fsS http://localhost:8080/release.json && break || sleep 1; done
+          test "$(curl -fsS http://localhost:8080/api/v1/website/stats | jq -r .path)" = /api/v1/website/stats
+          test "$(curl -fsS http://localhost:8080/api/v2/agent/events/ws | jq -r .path)" = /api/v2/agent/events/ws
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v2/bootstrap-grants)" = 404
+          curl -fsS http://localhost:8080/dashboard | grep 'id="root"'
+          docker rm -f web-routing
   core-image:
     runs-on: ubuntu-latest
     steps:

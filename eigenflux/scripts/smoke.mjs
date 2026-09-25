@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { AgentNet } from '../client/sdk.mjs';
+import { assertAcceptanceTarget } from './acceptance-target.mjs';
 const endpoint = process.env.AGENTNET_TEST_URL || 'http://127.0.0.1:4321';
-if (!['127.0.0.1', 'localhost', '[::1]'].includes(new URL(endpoint).hostname))
-  throw Error('This test is restricted to an isolated loopback deployment');
+assertAcceptanceTarget(endpoint);
 const run = Date.now().toString();
 const directory = resolve('.agentnet-audit', 'core-' + run);
 await mkdir(directory, { recursive: true });
@@ -59,7 +59,7 @@ async function join(name, existingOwner) {
   });
   await client.connect();
   const identity = await client.register_agent({
-    display_name: name,
+    display_name: `Acceptance ${name} ${run}`,
     runtime_name: 'agentnet-protocol-test',
   });
   assert(identity.agent_id);
@@ -78,8 +78,8 @@ async function join(name, existingOwner) {
   let draft = await h('agents/me/onboarding-draft');
   const data = {
     identity_card: {
-      agent_name: name,
-      agent_description: 'A real local protocol test runtime',
+      agent_name: `Acceptance ${name} ${run}`,
+      agent_description: 'Operator-owned deployment acceptance test Agent',
       human_description: 'Integration test owner',
       working_languages: ['zh-CN'],
       offering: ['API verification'],

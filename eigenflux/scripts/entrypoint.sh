@@ -7,6 +7,11 @@ export CONSOLE_V2_PUBLIC_URL="${CONSOLE_V2_PUBLIC_URL:-${PUBLIC_BASE_URL:?PUBLIC
 export SAFETY_LLM_API_KEY="${SAFETY_LLM_API_KEY:-${LLM_API_KEY:-}}"
 export SAFETY_LLM_BASE_URL="${SAFETY_LLM_BASE_URL:-${LLM_BASE_URL:-}}"
 export SAFETY_LLM_MODEL="${SAFETY_LLM_MODEL:-${LLM_MODEL:-}}"
+if [[ "${1:-serve}" == deploy ]]; then
+  # Single-replica deployment: migrations must succeed before services start.
+  bash /app/entrypoint.sh migrate
+  exec bash /app/entrypoint.sh serve
+fi
 if [[ "${1:-serve}" == migrate ]]; then
   /app/build/migration-preflight
   /app/build/goose -dir /app/migrations postgres "${PG_DSN:?PG_DSN is required}" up
@@ -14,7 +19,7 @@ if [[ "${1:-serve}" == migrate ]]; then
   exec /app/build/influence-backfill
 fi
 if [[ "${1:-serve}" == cli ]]; then shift; exec /app/build/eigenflux "$@"; fi
-if [[ "${1:-serve}" != serve ]]; then echo 'Expected serve, migrate or cli' >&2; exit 2; fi
+if [[ "${1:-serve}" != serve ]]; then echo 'Expected serve, deploy, migrate or cli' >&2; exit 2; fi
 pids=()
 stop() { trap - TERM INT EXIT; if ((${#pids[@]})); then kill "${pids[@]}" 2>/dev/null || true; wait "${pids[@]}" 2>/dev/null || true; fi; }
 trap stop TERM INT EXIT
