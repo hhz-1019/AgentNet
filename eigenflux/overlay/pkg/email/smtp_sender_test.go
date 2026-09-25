@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"mime/quotedprintable"
 	"net/http"
 	"net/http/httptest"
 	"net/mail"
@@ -97,9 +98,19 @@ func TestSMTPSender(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !strings.Contains(body, "From: \"AgentNet\" <sender@example.test>") {
-					t.Fatalf("invalid MIME From: %s", body)
+				message, err := mail.ReadMessage(strings.NewReader(body))
+				if err != nil {
+					t.Fatal(err)
 				}
+				address, err := mail.ParseAddress(message.Header.Get("From"))
+				if err != nil || address.Address != "sender@example.test" || address.Name != "AgentNet" {
+					t.Fatal("invalid MIME From")
+				}
+				decoded, err := io.ReadAll(quotedprintable.NewReader(message.Body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				body = string(decoded)
 				if mode == "otp" && !strings.Contains(body, "123456") {
 					t.Fatal("OTP absent")
 				}
