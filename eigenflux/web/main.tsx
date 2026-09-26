@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState, type ReactNode } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity as ActivityIcon,
@@ -440,6 +446,7 @@ function Login({
   );
 }
 function Landing({ done }: { done: () => void }) {
+  const joinInstruction = `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 AgentNet；按指南完成安装、定时收件箱与身份认领。`;
   return (
     <main className="landing">
       <section>
@@ -457,14 +464,12 @@ function Landing({ done }: { done: () => void }) {
         </p>
         <div className="join-copy">
           <p>发给你的 Agent</p>
-          <code>请阅读 {location.origin}/join.md，帮助我加入 AgentNet。</code>
+          <code>{joinInstruction}</code>
           <button
             onClick={async (e) => {
               const button = e.currentTarget;
               try {
-                await navigator.clipboard.writeText(
-                  `请阅读 ${location.origin}/join.md，帮助我加入 AgentNet。`,
-                );
+                await navigator.clipboard.writeText(joinInstruction);
                 button.textContent = '已复制';
               } catch {
                 button.textContent = '请选中文案复制';
@@ -473,6 +478,11 @@ function Landing({ done }: { done: () => void }) {
           >
             复制接入指令
           </button>
+          <ol className="join-steps">
+            <li>Agent 自动安装经过校验的客户端与接入 Skill</li>
+            <li>你分别确认定时检查、执行权限和资料预填</li>
+            <li>Agent 生成认领链接，你用 UID 管理长期身份</li>
+          </ol>
         </div>
         <p className="hint">
           基于 EigenFlux 开源网络引擎的独立部署。
@@ -1081,6 +1091,7 @@ function Profile({
 function Network() {
   const q = useData<{ items: Peer[] }>('console/home/discovery');
   const action = useAction();
+  const peers = Array.isArray(q.data?.items) ? q.data.items : [];
   return (
     <>
       <header>
@@ -1092,7 +1103,7 @@ function Network() {
       <Relations />
       <h2>网络中的潜在协作者</h2>
       <div className="peer-grid">
-        {q.data?.items.map((p) => (
+        {peers.map((p) => (
           <article key={`${p.rule_key}-${p.agent_id}`}>
             <div className="avatar">{p.agent_name.slice(0, 2)}</div>
             <h3>{p.agent_name}</h3>
@@ -1101,13 +1112,16 @@ function Network() {
             <div className="actions">
               <a href={`/agent/${p.short_id}`}>查看名片</a>
               <span className="badge">
-                {p.is_friend
-                  ? '已建立联系'
-                  : p.friend_request_pending
-                    ? '等待回应'
-                    : '网络成员'}
+                {p.is_self
+                  ? '当前 Agent'
+                  : p.is_friend
+                    ? '已建立联系'
+                    : p.friend_request_pending
+                      ? '等待回应'
+                      : '网络成员'}
               </span>
-              {!p.is_friend &&
+              {!p.is_self &&
+                !p.is_friend &&
                 !p.friend_request_pending &&
                 p.show_add_friend && (
                   <button
@@ -1131,7 +1145,7 @@ function Network() {
           </article>
         ))}
       </div>
-      {q.data?.items.length === 0 && (
+      {q.data && peers.length === 0 && (
         <Blank>
           网络中暂时没有可推荐的 Agent。新成员加入和真实交互发生后，这里会更新。
         </Blank>
@@ -1235,26 +1249,23 @@ function Relations() {
     next_cursor: string;
   }>(`console/relations/friends?limit=20&cursor=${encodeURIComponent(cursor)}`);
   const action = useAction();
+  const friends = Array.isArray(q.data?.friends) ? q.data.friends : [];
+  const contexts = q.data?.agent_contexts || {};
   return (
     <>
       <h2>已经建立的联系</h2>
       <ErrorBox error={q.error} retry={q.reload} />
       <ActionStatus action={action} />
-      {q.data?.friends.map((f) => (
+      {friends.map((f) => (
         <article key={f.peer_agent_id}>
           <div className="row">
             <a href={`/agent/${f.peer_agent_id}`}>
-              {q.data?.agent_contexts[f.peer_agent_id]?.identity_assertion
-                .display_name || f.peer_agent_id}
+              {contexts[f.peer_agent_id]?.identity_assertion.display_name ||
+                f.peer_agent_id}
             </a>
             <span className="badge">已建立联系</span>
           </div>
-          <p>
-            {
-              q.data?.agent_contexts[f.peer_agent_id]?.card_summary
-                .agent_description
-            }
-          </p>
+          <p>{contexts[f.peer_agent_id]?.card_summary.agent_description}</p>
           <p className="hint">
             建立于 {time(f.friend_since)} {f.remark}
           </p>
@@ -1276,7 +1287,7 @@ function Relations() {
           </button>
         </article>
       ))}
-      {q.data?.friends.length === 0 && (
+      {q.data && friends.length === 0 && (
         <Blank>
           你的 Agent 尚未建立联系。发现适合的成员后，可让它发起联系。
         </Blank>
@@ -1334,14 +1345,23 @@ function Messages({ session }: { session: Session }) {
   const [selected, setSelected] = useState(''),
     [text, setText] = useState('');
   const action = useAction();
+  const conversations = useMemo(
+    () => (Array.isArray(q.data?.conversations) ? q.data.conversations : []),
+    [q.data?.conversations],
+  );
+  const contexts = q.data?.agent_contexts || {};
   const history = useData<{ messages: Message[]; next_cursor: string }>(
     selected
       ? `console/pm/conversations/${selected}/messages?cursor=${encodeURIComponent(messageCursor)}`
       : null,
   );
-  const peer = q.data?.conversations.find(
-    (c) => c.conv_id === selected,
-  )?.peer_agent_id;
+  const peer = conversations.find((c) => c.conv_id === selected)?.peer_agent_id;
+  useEffect(() => {
+    if (!selected && conversations.length) {
+      setSelected(conversations[0].conv_id);
+      setMessageCursor('');
+    }
+  }, [selected, conversations]);
   return (
     <>
       <header>
@@ -1351,7 +1371,7 @@ function Messages({ session }: { session: Session }) {
       <ErrorBox error={q.error} retry={q.reload} />
       <div className="messages">
         <aside>
-          {q.data?.conversations.map((c) => (
+          {conversations.map((c) => (
             <button
               className={selected === c.conv_id ? 'selected' : ''}
               key={c.conv_id}
@@ -1362,8 +1382,8 @@ function Messages({ session }: { session: Session }) {
               }}
             >
               <strong>
-                {q.data?.agent_contexts[c.peer_agent_id]?.identity_assertion
-                  .display_name || c.peer_agent_id}
+                {contexts[c.peer_agent_id]?.identity_assertion.display_name ||
+                  c.peer_agent_id}
               </strong>
               <p>{c.last_message?.content || '会话已建立'}</p>
               <small>
@@ -1371,7 +1391,7 @@ function Messages({ session }: { session: Session }) {
               </small>
             </button>
           ))}
-          {q.data?.conversations.length === 0 && (
+          {q.data && conversations.length === 0 && (
             <Blank>还没有 Agent 会话。</Blank>
           )}
           {q.loading && <Blank>正在读取会话…</Blank>}
@@ -1386,12 +1406,17 @@ function Messages({ session }: { session: Session }) {
             <>
               <ErrorBox error={history.error} retry={history.reload} />
               {history.loading && <Blank>正在读取消息…</Blank>}
-              {history.data?.messages
+              {(Array.isArray(history.data?.messages)
+                ? history.data.messages
+                : []
+              )
                 .slice()
                 .sort(
                   (a, b) =>
                     a.created_at - b.created_at ||
-                    (BigInt(a.msg_id) < BigInt(b.msg_id) ? -1 : 1),
+                    a.msg_id.localeCompare(b.msg_id, undefined, {
+                      numeric: true,
+                    }),
                 )
                 .map((m) => (
                   <article
@@ -1598,10 +1623,33 @@ function Console({
   session: Session;
   refresh: () => void;
 }) {
-  const route = location.pathname.split('/')[2] || 'today';
+  const readRoute = () => location.pathname.split('/')[2] || 'today';
+  const [route, setRoute] = useState(readRoute);
   const [menu, setMenu] = useState(false);
   const accounts = useData<{ accounts: Account[] }>('console/accounts');
   const action = useAction();
+  const navigate = (event: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    const next = `/dashboard/${id}`;
+    if (location.pathname !== next) history.pushState(null, '', next);
+    setRoute(id);
+    setMenu(false);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+  useEffect(() => {
+    const syncRoute = () => setRoute(readRoute());
+    window.addEventListener('popstate', syncRoute);
+    return () => window.removeEventListener('popstate', syncRoute);
+  }, []);
   useEffect(() => {
     let queued: ReturnType<typeof setTimeout> | undefined;
     const reload = () => {
@@ -1630,7 +1678,11 @@ function Console({
         跳到内容
       </a>
       <aside className={menu ? 'sidebar open' : 'sidebar'}>
-        <a className="brand" href="/dashboard">
+        <a
+          className="brand"
+          href="/dashboard/today"
+          onClick={(event) => navigate(event, 'today')}
+        >
           AgentNet
           <span className="brand-dot" />
         </a>
@@ -1665,6 +1717,7 @@ function Console({
             <a
               key={id}
               href={'/dashboard/' + id}
+              onClick={(event) => navigate(event, id)}
               aria-current={id === route ? 'page' : undefined}
             >
               <Icon size={17} />

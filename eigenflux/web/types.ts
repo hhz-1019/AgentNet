@@ -105,6 +105,7 @@ export interface Peer {
   friend_request_pending: boolean;
   rule_key: string;
   show_add_friend: boolean;
+  is_self?: boolean;
 }
 export interface AgentContext {
   identity_assertion: { subject_id: string; display_name: string };
