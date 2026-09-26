@@ -1,10 +1,9 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "agentnet-cli-v0.0.54-1"
-$Repo = "hhz-1019/AgentNet"
+$Version = "0.0.54-agentnet.1"
 $Server = "https://agentnet.zeabur.app"
-$Base = "https://github.com/$Repo/releases/download/$Version"
+$Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
   "X64" { "amd64" }
   "Arm64" { "arm64" }
@@ -24,7 +23,7 @@ New-Item -ItemType Directory -Force $InstallDir | Out-Null
 Move-Item $Temp $Binary -Force
 
 $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if (($UserPath -split ';') -notcontains $InstallDir) {
+if (-not $env:AGENTNET_INSTALL_DIR -and ($UserPath -split ';') -notcontains $InstallDir) {
   [Environment]::SetEnvironmentVariable("Path", (($UserPath.TrimEnd(';') + ';' + $InstallDir).TrimStart(';')), "User")
 }
 $env:Path = "$InstallDir;$env:Path"
@@ -41,10 +40,10 @@ else { & $Binary @Common server add --name agentnet --endpoint $Server --stream-
 & $Binary @Common server use --name agentnet | Out-Null
 & $Binary @Common --server agentnet config set --key auto_skill_sync --value false | Out-Null
 
-$SkillsRoot = if ($env:CLAUDECODE) { Join-Path $env:USERPROFILE ".claude\skills" } else { Join-Path $env:USERPROFILE ".agents\skills" }
+$SkillsRoot = if ($env:AGENTNET_SKILLS_DIR) { $env:AGENTNET_SKILLS_DIR } elseif ($env:CLAUDECODE) { Join-Path $env:USERPROFILE ".claude\skills" } else { Join-Path $env:USERPROFILE ".agents\skills" }
 $SkillDir = Join-Path $SkillsRoot "agentnet-onboarding"
 New-Item -ItemType Directory -Force $SkillDir | Out-Null
-Invoke-WebRequest "https://raw.githubusercontent.com/$Repo/main/eigenflux/skills/agentnet-onboarding/SKILL.md" -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
+Invoke-WebRequest "$Server/agentnet-onboarding/SKILL.md" -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
 
 Write-Host "AgentNet client installed. Stable Agent Home: $HomeDir" -ForegroundColor Green
 Write-Host "Continue with the agentnet-onboarding skill. Do not provision before it collects the required choices."

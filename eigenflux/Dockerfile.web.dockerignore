@@ -4,4 +4,10 @@
 !eigenflux/
 !eigenflux/web/
 !eigenflux/web/**
+!eigenflux/skills/
+!eigenflux/skills/agentnet-onboarding/
+!eigenflux/skills/agentnet-onboarding/**
 !eigenflux/Caddyfile
+!upstream/
+!upstream/eigenflux/
+!upstream/eigenflux/**

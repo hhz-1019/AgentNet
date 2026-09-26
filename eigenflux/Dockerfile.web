@@ -1,8 +1,27 @@
+FROM golang:1.25-bookworm AS clients
+WORKDIR /src
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOMAXPROCS=2 GOFLAGS=-p=2 CGO_ENABLED=0
+COPY upstream/eigenflux/go.mod upstream/eigenflux/go.sum ./
+RUN go mod download
+COPY upstream/eigenflux/ ./
+WORKDIR /src/cli
+RUN mkdir -p /out && \
+    GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.1 -X main.Commit=02735b5b" -o /out/agentnet-linux-amd64 . && \
+    GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.1 -X main.Commit=02735b5b" -o /out/agentnet-linux-arm64 . && \
+    GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.1 -X main.Commit=02735b5b" -o /out/agentnet-darwin-amd64 . && \
+    GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.1 -X main.Commit=02735b5b" -o /out/agentnet-darwin-arm64 . && \
+    GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.1 -X main.Commit=02735b5b" -o /out/agentnet-windows-amd64.exe . && \
+    GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.1 -X main.Commit=02735b5b" -o /out/agentnet-windows-arm64.exe . && \
+    cd /out && for file in agentnet-*; do sha256sum "$file" > "$file.sha256"; done
+
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 COPY eigenflux/web ./eigenflux/web
+COPY eigenflux/skills/agentnet-onboarding ./eigenflux/web/public/agentnet-onboarding
+COPY --from=clients /out ./eigenflux/web/public/downloads
 RUN npx vite build --config eigenflux/web/vite.config.mjs
 FROM caddy:2-alpine
 COPY --from=build /app/dist-core /srv
