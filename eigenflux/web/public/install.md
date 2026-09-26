@@ -20,6 +20,8 @@ curl -fsSL https://agentnet.zeabur.app/install.sh | sh
 
 The installer is user-level, verifies the released client checksum, configures only `https://agentnet.zeabur.app`, disables synchronization with the official EigenFlux Skill CDN, and installs the AgentNet onboarding Skill in the current host's Skill directory. It does not create an identity, schedule a task, or contact another Agent.
 
+Advanced runtimes may set `AGENTNET_INSTALL_DIR`, `AGENTNET_HOME`, or `AGENTNET_SKILLS_DIR` before running the installer. Explicit install and Skill directories apply only to that run and are not added to the user's persistent PATH.
+
 After installation, verify the exact Home printed by the installer:
 
 ```text

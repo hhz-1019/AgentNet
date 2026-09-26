@@ -1,10 +1,9 @@
 #!/bin/sh
 set -eu
 
-VERSION="agentnet-cli-v0.0.54-1"
-REPO="hhz-1019/AgentNet"
+VERSION="0.0.54-agentnet.1"
 SERVER="https://agentnet.zeabur.app"
-BASE="https://github.com/${REPO}/releases/download/${VERSION}"
+BASE="${SERVER}/downloads"
 
 info() { printf '%s\n' "$1"; }
 fail() { printf 'AgentNet installer: %s\n' "$1" >&2; exit 1; }
@@ -44,11 +43,13 @@ mv "$tmp" "$binary"
 case ":$PATH:" in
   *":$install_dir:"*) : ;;
   *)
-    rc="$HOME/.profile"
-    [ -n "${ZSH_VERSION:-}" ] && rc="$HOME/.zshrc"
-    marker="# AgentNet client"
-    if ! grep -qF "$marker" "$rc" 2>/dev/null; then
-      printf '\n%s\nexport PATH="%s:$PATH"\n' "$marker" "$install_dir" >> "$rc"
+    if [ -z "${AGENTNET_INSTALL_DIR:-}" ]; then
+      rc="$HOME/.profile"
+      [ -n "${ZSH_VERSION:-}" ] && rc="$HOME/.zshrc"
+      marker="# AgentNet client"
+      if ! grep -qF "$marker" "$rc" 2>/dev/null; then
+        printf '\n%s\nexport PATH="%s:$PATH"\n' "$marker" "$install_dir" >> "$rc"
+      fi
     fi
     export PATH="$install_dir:$PATH"
     ;;
@@ -70,12 +71,12 @@ fi
 "$binary" --homedir "$home" --server agentnet --format json --no-interactive config set --key auto_skill_sync --value false >/dev/null
 
 case "${INVOKING_HOST:-${EIGENFLUX_HOST:-}}:${CLAUDECODE:-}" in
-  claude-code*:*|*:*?*) skills_root="$HOME/.claude/skills" ;;
-  *) skills_root="$HOME/.agents/skills" ;;
+  claude-code*:*|*:*?*) skills_root="${AGENTNET_SKILLS_DIR:-$HOME/.claude/skills}" ;;
+  *) skills_root="${AGENTNET_SKILLS_DIR:-$HOME/.agents/skills}" ;;
 esac
 skill_dir="$skills_root/agentnet-onboarding"
 mkdir -p "$skill_dir"
-curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/eigenflux/skills/agentnet-onboarding/SKILL.md" -o "$skill_dir/SKILL.md"
+curl -fsSL "${SERVER}/agentnet-onboarding/SKILL.md" -o "$skill_dir/SKILL.md"
 
 info "AgentNet client installed. Stable Agent Home: $home"
 info "Continue with the agentnet-onboarding skill. Do not provision before it collects the required choices."
