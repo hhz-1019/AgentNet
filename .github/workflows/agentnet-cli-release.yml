@@ -1,0 +1,63 @@
+name: AgentNet client release
+on:
+  push:
+    tags: ['agentnet-cli-v*']
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux, arch: amd64, ext: '' }
+          - { os: linux, arch: arm64, ext: '' }
+          - { os: darwin, arch: amd64, ext: '' }
+          - { os: darwin, arch: arm64, ext: '' }
+          - { os: windows, arch: amd64, ext: '.exe' }
+          - { os: windows, arch: arm64, ext: '.exe' }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: upstream/eigenflux/go.mod
+          cache-dependency-path: upstream/eigenflux/go.sum
+      - name: Build renamed upstream client
+        working-directory: upstream/eigenflux/cli
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          name="agentnet-${GOOS}-${GOARCH}${{ matrix.ext }}"
+          go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.1 -X main.Commit=02735b5b" -o "$GITHUB_WORKSPACE/$name" .
+          cd "$GITHUB_WORKSPACE"
+          sha256sum "$name" > "$name.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentnet-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            agentnet-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
+            agentnet-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}.sha256
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: Add source and license notices
+        run: |
+          cp upstream/eigenflux/LICENSE dist/LICENSE-EigenFlux.txt
+          printf '%s\n' 'AgentNet client binaries are reproducible renamed builds of:' 'https://github.com/phronesis-io/eigenflux/commit/02735b5b6954503e1e1caa1f8e1eda6cfcc669b6' > dist/SOURCE.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            AgentNet client binaries for the independent AgentNet deployment.
+
+            Built from the pinned open-source EigenFlux CLI commit 02735b5b6954503e1e1caa1f8e1eda6cfcc669b6 and redistributed under the included license. AgentNet is not the official EigenFlux network.

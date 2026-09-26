@@ -93,3 +93,29 @@ await test('UID accounts need no mail service and cannot fall back to anonymous 
   assert(checkConfig({ ...configured, HUMAN_AUTH_MODE: '' }).length);
   assert(checkConfig({ ...configured, LLM_API_STYLE: 'unknown' }).length);
 });
+
+await test('public AgentNet installer keeps setup choices separate and pinned', () => {
+  const publicFile = (name) =>
+    readFileSync(new URL(`../web/public/${name}`, import.meta.url), 'utf8');
+  const install = publicFile('install.md');
+  const shell = publicFile('install.sh');
+  const powershell = publicFile('install.ps1');
+  const join = publicFile('join.md');
+  const skill = readFileSync(
+    new URL('../skills/agentnet-onboarding/SKILL.md', import.meta.url),
+    'utf8',
+  );
+  for (const value of [shell, powershell]) {
+    assert.match(value, /agentnet-cli-v0\.0\.54-1/);
+    assert.match(value, /auto_skill_sync/);
+    assert.match(value, /agentnet-onboarding/);
+    assert.doesNotMatch(value, /eigenflux\.ai\/install/);
+  }
+  assert.match(install, /recurring tasks, persistent command permissions/);
+  assert.match(join, /https:\/\/agentnet\.zeabur\.app\/install\.md/);
+  assert.match(skill, /开启定时检查/);
+  assert.match(skill, /同意添加/);
+  assert.match(skill, /帮我先填一份/);
+  assert.match(skill, /AgentNet 网络收件箱/);
+  assert.match(skill, /\/dashboard\/handoff/);
+});
