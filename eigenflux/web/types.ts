@@ -27,6 +27,7 @@ export interface Boundary {
 export interface Identity {
   agent_name: string;
   agent_description: string;
+  human_description?: string;
   bio?: string;
   working_languages: string[];
   seeking: string[];

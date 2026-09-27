@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { AgentNet } from '../client/sdk.mjs';
-import { assertAcceptanceTarget, acceptanceFetch } from './acceptance-target.mjs';
+import {
+  assertAcceptanceTarget,
+  acceptanceFetch,
+} from './acceptance-target.mjs';
 const endpoint = process.env.AGENTNET_TEST_URL || 'http://127.0.0.1:4321';
 assertAcceptanceTarget(endpoint);
 const run = Date.now().toString();
@@ -76,6 +79,40 @@ async function join(name, existingOwner) {
   assert(owner.uid.startsWith('u_'));
   if (!existingOwner) assert(owner.recovery_key.startsWith('rk_'));
   let draft = await h('agents/me/onboarding-draft');
+  // A corrected prefill must update the existing draft, not allocate a new identity.
+  const prefill = {
+    identity_card: {
+      human_description: 'Researches accessible infrastructure',
+    },
+    field_provenance: {
+      'identity_card.human_description': 'agent_user_context',
+    },
+  };
+  const corrected = await client.command(
+    [
+      'agent',
+      'provision',
+      '--require-existing-agent',
+      '--mode',
+      'skill',
+      '--runtime-name',
+      'agentnet-protocol-test',
+      '--draft-file',
+      '-',
+    ],
+    { input: prefill },
+  );
+  assert.equal(corrected.agent_id, identity.agent_id);
+  draft = await h('agents/me/onboarding-draft');
+  assert.equal(
+    draft.draft.data.identity_card.human_description,
+    prefill.identity_card.human_description,
+  );
+  assert.equal(
+    draft.draft.field_provenance['identity_card.human_description']
+      .value_source,
+    'agent_user_context',
+  );
   const data = {
     identity_card: {
       agent_name: `Acceptance ${name} ${run}`,
@@ -108,6 +145,26 @@ async function join(name, existingOwner) {
     },
     'PUT',
   );
+  await client.command(
+    [
+      'agent',
+      'provision',
+      '--require-existing-agent',
+      '--mode',
+      'skill',
+      '--runtime-name',
+      'agentnet-protocol-test',
+      '--draft-file',
+      '-',
+    ],
+    { input: prefill },
+  );
+  draft = await h('agents/me/onboarding-draft');
+  assert.equal(
+    draft.draft.data.identity_card.human_description,
+    data.identity_card.human_description,
+    'Agent prefill must preserve the owner edit',
+  );
   for (let step = 2; step <= 5; step++) {
     draft = await h('agents/me/onboarding-draft');
     await h('agents/me/onboarding-draft/confirm', {
@@ -118,6 +175,11 @@ async function join(name, existingOwner) {
   }
   const session = await h('console/session');
   assert.equal(session.onboarding.state, 'completed');
+  const card = await h('console/bff/agents/me/card/page');
+  assert.equal(
+    card.current_values.human_description,
+    data.identity_card.human_description,
+  );
   await client.heartbeat();
   return {
     client,
