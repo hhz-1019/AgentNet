@@ -17,7 +17,7 @@ jobs:
       - run: npm ci
       - run: npm run core:typecheck
       - run: npx oxlint -c eigenflux/.oxlintrc.json eigenflux/web eigenflux/client eigenflux/scripts
-      - run: node --test eigenflux/scripts/check.test.mjs
+      - run: npm run core:test
       - run: npm run core:build
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6

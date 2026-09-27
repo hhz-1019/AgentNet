@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
+const messages: Record<string, string> = {
+  HANDOFF_INVALID:
+    '这个一次性认领链接已使用、已过期或不完整。请继续已有会话、使用 UID 登录，或让原 Agent 生成新链接。',
+  REVISION_CONFLICT: '资料已更新。你的填写仍保留，请核对最新资料后重试。',
+  CONSOLE_ACCOUNT_LIMIT_REACHED:
+    '此浏览器已登录五位 Agent，请选择一个会话退出后继续。',
+  CONSOLE_SESSION_REQUIRED:
+    '登录会话已失效，请使用 UID 重新登录，原 Agent 身份不会丢失。',
+  CSRF_INVALID: '页面的登录状态已变化，请重新打开控制台后再保存。',
+  OWNER_BINDING_REQUIRED: '请先使用 UID 认领这位 Agent，再继续配置。',
+};
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -6,7 +17,7 @@ export class ApiError extends Error {
     public code?: string,
     public details?: Record<string, unknown>,
   ) {
-    super(message);
+    super(messages[code || ''] || message);
   }
 }
 export function csrfCookie(cookie: string): string {
@@ -39,6 +50,17 @@ export async function api<T>(
       ? { body: JSON.stringify(body) }
       : {}),
     signal: AbortSignal.timeout(20000),
+  }).catch((error: unknown) => {
+    const timeout =
+      error instanceof Error &&
+      ['TimeoutError', 'AbortError'].includes(error.name);
+    throw new ApiError(
+      0,
+      timeout
+        ? '请求超时，提交可能已保存。请重试，系统会先核对最新进度。'
+        : '暂时无法连接服务，请检查网络后重试。',
+      timeout ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
+    );
   });
   const result = await response
     .json()

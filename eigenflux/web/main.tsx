@@ -21,6 +21,12 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { api, ApiError, requestKey, useData, refreshData } from './api';
+import {
+  normalizeBoundary,
+  normalizeDraft,
+  saveOnboardingStep,
+  DraftConflict,
+} from './onboarding';
 import type {
   Session,
   DraftResponse,
@@ -138,17 +144,18 @@ function BoundaryFields({
   value,
   onChange,
 }: {
-  value: Boundary;
+  value: Boundary | undefined;
   onChange: (value: Boundary) => void;
 }) {
+  const boundary = normalizeBoundary(value);
   return (
     <div className="checks">
       {(Object.keys(boundaryLabels) as (keyof Boundary)[]).map((key) => (
         <label key={key}>
           <input
             type="checkbox"
-            checked={value[key]}
-            onChange={(e) => onChange({ ...value, [key]: e.target.checked })}
+            checked={boundary[key]}
+            onChange={(e) => onChange({ ...boundary, [key]: e.target.checked })}
           />
           {boundaryLabels[key]}
         </label>
@@ -160,11 +167,14 @@ function useAction() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
+  const pending = useRef(false);
   return {
     error,
     busy,
     note,
     run: async (fn: () => Promise<void>, success = '已保存') => {
+      if (pending.current) return;
+      pending.current = true;
       setBusy(true);
       setError('');
       setNote('');
@@ -174,6 +184,7 @@ function useAction() {
       } catch (e) {
         setError(e instanceof Error ? e.message : '操作失败');
       } finally {
+        pending.current = false;
         setBusy(false);
       }
     },
@@ -498,10 +509,15 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
     live: false,
   });
   const [draft, setDraft] = useState<Draft>();
+  const [snapshot, setSnapshot] = useState<DraftResponse>();
+  const [conflict, setConflict] = useState<DraftResponse>();
   const [reviewStep, setReviewStep] = useState<number>();
   const action = useAction();
   useEffect(() => {
-    if (query.data) setDraft(query.data.draft.data);
+    if (query.data) {
+      setSnapshot(query.data);
+      setDraft(normalizeDraft(query.data.draft.data));
+    }
   }, [query.data]);
   if (!session.owner_bound)
     return (
@@ -512,14 +528,14 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
         <Login binding initialUID={session.owner_uid} done={done} />
       </main>
     );
-  if (!draft || !query.data)
+  if (!draft || !snapshot)
     return (
       <main className="onboarding">
         <ErrorBox error={query.error} retry={query.reload} />
         <Blank>正在读取 Agent 提交的名片…</Blank>
       </main>
     );
-  const currentStep = query.data.onboarding.current_step;
+  const currentStep = snapshot.onboarding.current_step;
   const step = Math.min(reviewStep ?? currentStep, currentStep);
   const card = draft.identity_card;
   return (
@@ -564,25 +580,26 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
           e.preventDefault();
           void action.run(
             async () => {
-              await api(
-                'console/onboarding-draft',
-                {
-                  expected_revision: query.data!.draft.revision,
-                  idempotency_key: requestKey(),
+              try {
+                const latest = await saveOnboardingStep(
+                  api,
+                  snapshot,
                   draft,
-                },
-                'PUT',
-              );
-              const latest = await api<DraftResponse>(
-                'agents/me/onboarding-draft',
-              );
-              await api('agents/me/onboarding-draft/confirm', {
-                step,
-                expected_onboarding_revision: latest.onboarding.revision,
-                idempotency_key: requestKey(),
-              });
+                  step,
+                  setSnapshot,
+                );
+                setSnapshot(latest);
+                setDraft(normalizeDraft(latest.draft.data));
+                setConflict(undefined);
+              } catch (e) {
+                if (e instanceof DraftConflict) {
+                  setSnapshot(e.latest);
+                  setConflict(e.latest);
+                  setReviewStep(step);
+                }
+                throw e;
+              }
               setReviewStep(undefined);
-              query.reload();
               done();
             },
             step === 5 ? '接入已确认，请让 Agent 继续运行。' : '此步骤已确认',
@@ -707,7 +724,8 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
               }
             />
             <p className="hint">
-              这些是交给 Agent 的授权边界，外部执行仍由其运行环境负责。
+              未设置的权限默认关闭。请逐项确认；这些是交给 Agent
+              的授权边界，外部执行仍由其运行环境负责。
             </p>
           </>
         )}
@@ -715,9 +733,25 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
           {action.busy
             ? '正在保存…'
             : step === 5
-              ? '确认授权并完成接入'
-              : '保存并继续'}
+              ? conflict
+                ? '保留我的授权设置并完成接入'
+                : '确认授权并完成接入'
+              : conflict
+                ? '保留我的填写并继续'
+                : '保存并继续'}
         </button>
+        {conflict && (
+          <button
+            type="button"
+            disabled={action.busy}
+            onClick={() => {
+              setDraft(normalizeDraft(conflict.draft.data));
+              setConflict(undefined);
+            }}
+          >
+            载入最新资料
+          </button>
+        )}
         <ActionStatus action={action} />
       </form>
     </main>
@@ -1888,6 +1922,9 @@ function AccountSwitch({ done }: { done: () => void }) {
 function App() {
   const [session, setSession] = useState<Session | null>(),
     [error, setError] = useState('');
+  const [handoffError, setHandoffError] = useState<ApiError>();
+  const [connecting, setConnecting] = useState(false);
+  const initialURL = useRef(new URL(location.href));
   const once = useRef(false);
   async function refresh() {
     setError('');
@@ -1898,35 +1935,123 @@ function App() {
       else setError(e instanceof Error ? e.message : '连接失败');
     }
   }
+  async function openHandoff(replaceAgentId?: string) {
+    setConnecting(true);
+    try {
+      const url = initialURL.current,
+        ticket = url.searchParams.get('ticket'),
+        nonce = new URLSearchParams(url.hash.slice(1)).get('nonce');
+      if (
+        (url.pathname === '/dashboard/handoff' || ticket || nonce) &&
+        (!ticket || !nonce)
+      )
+        throw new ApiError(
+          400,
+          '认领链接不完整，请复制完整链接，包括 #nonce 后的内容；也可以使用 UID 登录。',
+          'HANDOFF_INCOMPLETE',
+        );
+      if (ticket && nonce) {
+        const handoff = await api<{ account_switch: boolean }>(
+          'console/handoffs/exchange',
+          {
+            ticket,
+            browser_nonce: nonce,
+            ...(replaceAgentId ? { replace_agent_id: replaceAgentId } : {}),
+          },
+        );
+        history.replaceState(
+          null,
+          '',
+          handoff.account_switch ? '/dashboard/account-switch' : '/dashboard',
+        );
+      }
+      setHandoffError(undefined);
+      await refresh();
+    } catch (e) {
+      const issue =
+        e instanceof ApiError ? e : new ApiError(0, '认领暂未完成，请重试。');
+      setHandoffError(issue);
+      // A previous attempt may have succeeded before the response was lost.
+      // Show the existing identity explicitly; never assume it is this ticket's Agent.
+      try {
+        setSession(await api<Session>('console/session'));
+      } catch {
+        setSession(null);
+      }
+    } finally {
+      setConnecting(false);
+    }
+  }
+  const leaveHandoff = (login = false) => {
+    history.replaceState(null, '', '/dashboard');
+    setHandoffError(undefined);
+    setError('');
+    if (login) setSession(null);
+    else void refresh();
+  };
   useEffect(() => {
     if (once.current) return;
     once.current = true;
-    void (async () => {
-      try {
-        const url = new URL(location.href),
-          ticket = url.searchParams.get('ticket'),
-          nonce = new URLSearchParams(url.hash.slice(1)).get('nonce');
-        if (ticket && nonce) {
-          const handoff = await api<{ account_switch: boolean }>(
-            'console/handoffs/exchange',
-            {
-              ticket,
-              browser_nonce: nonce,
-            },
-          );
-          history.replaceState(
-            null,
-            '',
-            handoff.account_switch ? '/dashboard/account-switch' : '/dashboard',
-          );
-        }
-        await refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : '认领失败');
-      }
-    })();
+    void openHandoff();
   }, []);
   if (location.pathname.startsWith('/agent/')) return <PublicCard />;
+  if (handoffError) {
+    const accounts = handoffError.details?.accounts;
+    return (
+      <main className="onboarding">
+        <a className="brand" href="/">
+          AgentNet
+        </a>
+        <h1>继续登录或认领 Agent</h1>
+        <ErrorBox error={handoffError.message} />
+        {session && (
+          <section>
+            <h2>此浏览器已有登录会话</h2>
+            <p>
+              {session.agent_name} · {session.agent_id}
+            </p>
+            <button disabled={connecting} onClick={() => leaveHandoff()}>
+              继续管理这位 Agent
+            </button>
+          </section>
+        )}
+        {handoffError.code === 'CONSOLE_ACCOUNT_LIMIT_REACHED' &&
+          Array.isArray(accounts) &&
+          accounts.map((a: { agent_id: string; agent_name: string }) => (
+            <button
+              key={a.agent_id}
+              disabled={connecting}
+              onClick={() => void openHandoff(a.agent_id)}
+            >
+              退出 {a.agent_name || a.agent_id} 的浏览器会话并继续
+            </button>
+          ))}
+        <button
+          className="primary"
+          disabled={connecting}
+          onClick={() => leaveHandoff(true)}
+        >
+          使用 UID 登录已有账号
+        </button>
+        {handoffError.status !== 400 &&
+          handoffError.code !== 'HANDOFF_INVALID' &&
+          handoffError.code !== 'CONSOLE_ACCOUNT_LIMIT_REACHED' && (
+            <button disabled={connecting} onClick={() => void openHandoff()}>
+              {connecting ? '正在核对…' : '重试认领连接'}
+            </button>
+          )}
+        <p>
+          尚未认领的新 Agent：让原来的 Agent 使用原 Agent Home
+          重新生成控制台链接。不要删除身份、重新注册或把密码交给 Agent。
+        </p>
+        <p>
+          认领链接只能使用一次。已认领后可直接从控制台用 UID
+          登录，无需重复打开旧链接。
+        </p>
+        <a href="/install.md">查看接入与恢复说明</a>
+      </main>
+    );
+  }
   if (error)
     return (
       <main className="onboarding">
@@ -1966,6 +2091,36 @@ function App() {
     />
   );
 }
+class AppErrorBoundary extends React.Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed)
+      return (
+        <main className="onboarding">
+          <a className="brand" href="/">
+            AgentNet
+          </a>
+          <h1>页面暂时无法显示</h1>
+          <p role="alert">
+            页面遇到了异常。已保存的账号与 Agent 身份仍然保留，无需重新注册。
+          </p>
+          <button onClick={() => location.reload()}>重新加载页面</button>
+          <a href="/dashboard">返回控制台登录</a>
+        </main>
+      );
+    return this.props.children;
+  }
+}
 const root = createRoot(document.getElementById('root')!);
-root.render(<App />);
+root.render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>,
+);
 if (import.meta.hot) import.meta.hot.dispose(() => root.unmount());

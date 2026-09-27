@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { AgentNet } from '../client/sdk.mjs';
+import { normalizeDraft, saveOnboardingStep } from '../web/onboarding.ts';
 import {
   assertAcceptanceTarget,
   acceptanceFetch,
@@ -64,6 +65,7 @@ async function join(name, existingOwner) {
   const identity = await client.register_agent({
     display_name: `Acceptance ${name} ${run}`,
     runtime_name: 'agentnet-protocol-test',
+    draft: { identity_card: { agent_name: `Acceptance ${name} ${run}` } },
   });
   assert(identity.agent_id);
   const h = human();
@@ -72,6 +74,18 @@ async function join(name, existingOwner) {
     ticket: link.searchParams.get('ticket'),
     browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce'),
   });
+  await assert.rejects(
+    h('console/handoffs/exchange', {
+      ticket: link.searchParams.get('ticket'),
+      browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce'),
+    }),
+    (error) => error.code === 'HANDOFF_INVALID',
+  );
+  assert.equal(
+    (await h('console/session')).agent_id,
+    identity.agent_id,
+    'replayed ticket must not destroy the existing browser session',
+  );
   const password = existingOwner?.password || `test-${crypto.randomUUID()}`;
   const owner = existingOwner
     ? await h('auth/uid/claim', { uid: existingOwner.uid, password })
@@ -165,16 +179,42 @@ async function join(name, existingOwner) {
     data.identity_card.human_description,
     'Agent prefill must preserve the owner edit',
   );
+  if (name === 'Helper') {
+    // Reproduce legacy/Agent-generated drafts with no authorization object.
+    const before = await h('agents/me/onboarding-draft');
+    const withoutPermissions = { ...before.draft.data };
+    delete withoutPermissions.security_boundary;
+    await h(
+      'console/onboarding-draft',
+      {
+        expected_revision: before.onboarding.revision,
+        idempotency_key: crypto.randomUUID(),
+        draft: withoutPermissions,
+      },
+      'PUT',
+    );
+  }
   for (let step = 2; step <= 5; step++) {
     draft = await h('agents/me/onboarding-draft');
-    await h('agents/me/onboarding-draft/confirm', {
+    await saveOnboardingStep(
+      h,
+      draft,
+      normalizeDraft(draft.draft.data),
       step,
-      expected_onboarding_revision: draft.onboarding.revision,
-      idempotency_key: crypto.randomUUID(),
-    });
+      () => {},
+    );
   }
   const session = await h('console/session');
   assert.equal(session.onboarding.state, 'completed');
+  if (name === 'Helper') {
+    const finalDraft = await h('agents/me/onboarding-draft');
+    assert.deepEqual(Object.values(finalDraft.draft.data.security_boundary), [
+      false,
+      false,
+      false,
+      false,
+    ]);
+  }
   const card = await h('console/bff/agents/me/card/page');
   assert.equal(
     card.current_values.human_description,

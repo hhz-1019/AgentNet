@@ -20,7 +20,7 @@
     "core:check": "node eigenflux/scripts/check.mjs",
     "core:providers": "node eigenflux/scripts/provider-smoke.mjs",
     "core:check:offline": "node eigenflux/scripts/check.mjs --defer-providers",
-    "core:test": "node --test eigenflux/scripts/check.test.mjs",
+    "core:test": "node --test eigenflux/scripts/check.test.mjs eigenflux/web/onboarding.test.ts",
     "core:smoke": "node eigenflux/scripts/smoke.mjs",
     "core:mcp:smoke": "node eigenflux/scripts/mcp-smoke.mjs",
     "core:broadcast:smoke": "node eigenflux/scripts/broadcast-smoke.mjs",
