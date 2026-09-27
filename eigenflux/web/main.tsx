@@ -498,6 +498,7 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
     live: false,
   });
   const [draft, setDraft] = useState<Draft>();
+  const [reviewStep, setReviewStep] = useState<number>();
   const action = useAction();
   useEffect(() => {
     if (query.data) setDraft(query.data.draft.data);
@@ -518,7 +519,8 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
         <Blank>正在读取 Agent 提交的名片…</Blank>
       </main>
     );
-  const step = query.data.onboarding.current_step;
+  const currentStep = query.data.onboarding.current_step;
+  const step = Math.min(reviewStep ?? currentStep, currentStep);
   const card = draft.identity_card;
   return (
     <main className="onboarding">
@@ -540,7 +542,20 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
       <ol className="steps">
         {['账号', '名片', '目标', '关注', '授权'].map((label, i) => (
           <li className={i + 1 === step ? 'current' : ''} key={label}>
-            {i + 1}. {label}
+            {i >= 1 && i + 1 <= currentStep ? (
+              <button
+                type="button"
+                disabled={action.busy}
+                aria-current={i + 1 === step ? 'step' : undefined}
+                onClick={() => setReviewStep(i + 1)}
+              >
+                {i + 1}. {label}
+              </button>
+            ) : (
+              <>
+                {i + 1}. {label}
+              </>
+            )}
           </li>
         ))}
       </ol>
@@ -566,6 +581,7 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
                 expected_onboarding_revision: latest.onboarding.revision,
                 idempotency_key: requestKey(),
               });
+              setReviewStep(undefined);
               query.reload();
               done();
             },
@@ -579,7 +595,7 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
               label="Agent 名称"
               value={card.agent_name || ''}
               required
-              maxLength={100}
+              maxLength={40}
               onChange={(e) =>
                 setDraft({
                   ...draft,
@@ -588,7 +604,8 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
               }
             />
             <TextField
-              label="公开简介"
+              label="Agent 简介"
+              maxLength={1000}
               value={card.agent_description || card.bio || ''}
               onChange={(e) =>
                 setDraft({
@@ -597,6 +614,21 @@ function Onboard({ session, done }: { session: Session; done: () => void }) {
                 })
               }
             />
+            <TextField
+              label="人类伙伴介绍"
+              maxLength={500}
+              value={card.human_description || ''}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  identity_card: { ...card, human_description: e.target.value },
+                })
+              }
+            />
+            <p className="muted">
+              这里用于概括你的长期关注、研究方向与工作偏好。Agent
+              应从已获授权的宿主记忆中提炼草稿，由你核对；没有可用记忆时可留空或自行填写。请勿填写敏感个人信息。
+            </p>
             {(['offering', 'seeking', 'working_languages'] as const).map(
               (k) => (
                 <Field
@@ -1174,6 +1206,7 @@ function ProfileCapabilities() {
   const q = useData<{
     profile_version: number;
     current_values: {
+      human_description?: string;
       offering?: string[];
       seeking?: string[];
       working_languages?: string[];
@@ -1182,7 +1215,7 @@ function ProfileCapabilities() {
   const action = useAction();
   return (
     <>
-      <h2>能力与需求</h2>
+      <h2>人类伙伴、能力与需求</h2>
       <ErrorBox error={q.error} retry={q.reload} />
       {q.data ? (
         <form
@@ -1196,6 +1229,7 @@ function ProfileCapabilities() {
                 {
                   expected_version: q.data!.profile_version,
                   updates: {
+                    human_description: formText(form, 'human_description'),
                     offering: [formText(form, 'offering')].filter(Boolean),
                     seeking: [formText(form, 'seeking')].filter(Boolean),
                     working_languages: formText(form, 'languages')
@@ -1204,7 +1238,7 @@ function ProfileCapabilities() {
                       .filter(Boolean),
                   },
                   source: 'agentnet_owner_console',
-                  reason: 'Owner updated capabilities',
+                  reason: 'Owner updated partner profile and capabilities',
                 },
                 'PUT',
               );
@@ -1212,6 +1246,12 @@ function ProfileCapabilities() {
             });
           }}
         >
+          <TextField
+            label="人类伙伴介绍"
+            name="human_description"
+            maxLength={500}
+            defaultValue={q.data.current_values.human_description || ''}
+          />
           <TextField
             label="可以提供什么"
             name="offering"
@@ -1232,7 +1272,7 @@ function ProfileCapabilities() {
               q.data.current_values.working_languages?.join(', ') || ''
             }
           />
-          <button disabled={action.busy}>保存能力与需求</button>
+          <button disabled={action.busy}>保存伙伴介绍与能力</button>
           <ActionStatus action={action} />
         </form>
       ) : (
