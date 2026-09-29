@@ -362,6 +362,7 @@ export function Settings() {
   const preferences = useData<{ official_pm_optout: boolean }>(
     'console/community-preferences',
   );
+  const preferenceAction = useAction();
   const action = useAction();
   return (
     <>
@@ -377,10 +378,10 @@ export function Settings() {
             <input
               type="checkbox"
               checked={!preferences.data.official_pm_optout}
-              disabled={action.busy}
+              disabled={preferenceAction.busy}
               onChange={(event) => {
                 const optout = !event.target.checked;
-                void action.run(
+                void preferenceAction.run(
                   async () => {
                     await api(
                       'console/community-preferences',
@@ -403,6 +404,7 @@ export function Settings() {
       ) : (
         !preferences.error && <Blank>正在读取推荐偏好…</Blank>
       )}
+      <ActionStatus action={preferenceAction} />
       <h2>身份密钥与连接</h2>
       <ErrorBox error={q.error} retry={q.reload} />
       <ActionStatus action={action} />
