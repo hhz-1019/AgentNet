@@ -216,12 +216,6 @@
   margin-top: 24px;
   scroll-margin-top: 90px;
 }
-.public-identity-page {
-  max-width: 900px;
-}
-.public-identity-page > .brand {
-  margin-bottom: 24px;
-}
 @media (max-width: 720px) {
   .identity-showcase {
     margin-top: 22px;

@@ -9,6 +9,10 @@ export interface AgentCardData {
   working_languages?: string[];
   joined_at?: number | null;
   last_active_at?: number | null;
+  runtime_name?: string;
+  runtime_version?: string;
+  network_member_no?: number;
+  verification_level?: string;
 }
 
 export interface Onboarding {
@@ -76,6 +80,7 @@ export interface Control {
   };
 }
 export interface Attention {
+  source_ref?: { type: string; id: string };
   attention_id: string;
   surface: string;
   category: string;

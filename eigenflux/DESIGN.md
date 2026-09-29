@@ -71,6 +71,12 @@ typography:
   identity-handle:
     fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace"
     fontSize: "14px"
+  public-identity-name:
+    fontSize: "clamp(38px, 6vw, 76px)"
+  public-section:
+    fontSize: "23px"
+  public-fact:
+    fontSize: "15px"
 rounded:
   badge: "4px"
   control: "6px"
@@ -79,6 +85,8 @@ rounded:
   panel: "12px"
   identity-card: "22px"
   identity-card-mobile: "18px"
+  public-hero: "21px 21px 0 0"
+  public-hero-mobile: "17px 17px 0 0"
 spacing:
   small: "8px"
   inline: "12px"
@@ -130,6 +138,11 @@ components:
     textColor: "{colors.identity-ivory}"
     rounded: "{rounded.identity-card}"
     padding: "30px 36px 26px"
+  public-identity-hero:
+    backgroundColor: "{colors.identity-forest}"
+    textColor: "{colors.identity-ivory}"
+    rounded: "{rounded.public-hero}"
+    padding: "40px 48px 34px"
 ---
 
 # Design System: AgentNet Human Control Plane
@@ -140,7 +153,7 @@ components:
 
 AgentNet presents a person's Agent as a persistent network participant. The interface is restrained and professional: off-white canvas, pale-green navigation, dark green actions, generous reading space, and thin dividers. It makes identity, recent presence, human decisions, and execution progress legible without turning every record into a raised card.
 
-This is a code-led record of the current AgentNet web app in `web/main.tsx`, `web/style.css`, and `web/identity-card.css`. The identity card adds a distinct dark-green object within the existing control plane. It captures implemented visuals; visual review alone does not certify production connectivity or execution.
+This is a code-led record of the current AgentNet web app in `web/main.tsx`, `web/style.css`, `web/identity-card.css`, and `web/public-agent.css`. The identity card adds a distinct dark-green object within the existing control plane; the public profile extends it into a forest hero over a white reading surface. It captures implemented visuals; visual review alone does not certify production connectivity or execution.
 
 **Key Characteristics:**
 
@@ -171,6 +184,8 @@ Display type belongs to the landing headline. Console pages use the headline rol
 
 The identity name uses the dedicated identity-name role; names longer than 22 characters use `clamp(27px, 3.2vw, 40px)`. At the mobile breakpoint the name uses `clamp(30px, 8vw, 48px)`. Names wrap anywhere; the monospace handle also wraps. The card summary clamps to two lines and capability labels truncate; the public page retains the full description and capability list below the card.
 
+The public profile enlarges the hero name with the public-identity-name role; its long-name variant uses `clamp(30px, 4vw, 48px)`. At 720px and below, ordinary names use `clamp(34px, 10vw, 56px)` while the more specific long-name variant remains in effect. Public section headings use public-section and reduce to 21px on mobile; working-language headings remain 15px. Fact labels use 12px, values use public-fact with tabular numerals, and all values wrap safely. These are local profile roles.
+
 ## Layout
 
 Desktop uses a fixed 250px sidebar and a 66px topbar. Main content is centered within the remaining workspace, capped at 1250px, with 44px vertical and 48px horizontal padding. Forms cap at 740px. Records are separated by bottom rules and 24px vertical padding; action rows wrap with 12px gaps. Summary counts occupy four columns, while discovery records use two columns with a 34px gutter.
@@ -179,11 +194,15 @@ At 1000px and below, the sidebar becomes 210px, main padding becomes 36px by 28p
 
 The landing has a 1200px cap, a 1.15:1 two-column composition, and a 100px gap that becomes 40px at the middle breakpoint; mobile stacks the copy and form. Onboarding uses an 840px container. These are surface-specific compositions, not universal page templates.
 
-The identity showcase caps at 780px and centers within the profile page. It appears above the retained profile and capability forms. Its stage provides 1200px perspective; the public identity page caps at 900px. Mobile card padding becomes 23px by 24px, footer metadata wraps, and share actions wrap. Decorative corner artwork and the motion toggle are hidden at the mobile breakpoint.
+The owner identity showcase caps at 780px and centers above the retained profile and capability forms. Its stage provides 1200px perspective. Mobile owner-card padding becomes 23px by 24px, footer metadata wraps, and share actions wrap. Decorative corner artwork and the motion toggle are hidden at the mobile breakpoint.
+
+The public profile caps at 1040px with page padding of 28px 32px 0. Its single sheet joins the forest identity hero to a white body with 48px horizontal inset. Metadata occupies three columns (1:1.2:1); the full biography precedes equal offer and need columns with a 48px gap, then working languages and inline contact. At 720px and below, page padding is 18px 14px 0, body inset is 24px, metadata becomes stacked label/value rows, and offer and need sections become one column. The contact dock sticks 16px above the viewport bottom (8px on mobile), hiding when the contact section enters its observer region; its mobile action fills the width.
 
 ## Elevation & Depth
 
 Shell depth comes from tonal surfaces and fine borders, with a shadow for the mobile navigation drawer (`16px 0 40px #26332f12`). Controls and ordinary records do not acquire shadows on hover. The identity card is a scoped exception: its resting shadow (`0 25px 45px -22px #153b354d, inset 0 1px 0 #eff5db30`), fine inner border, and ellipse ornament suggest a physical card.
+
+The public sheet removes the hero's card shadow so the forest and white surfaces read as one document. Its sticky contact dock alone uses `0 10px 25px -18px #153b354d` for separation from content.
 
 The card follows fine-pointer mouse movement with bounded rotation (up to 4.5 degrees on X and 5.5 degrees on Y) and a cursor-centered sheen. Transform returns use 500ms `cubic-bezier(0.16, 1, 0.3, 1)`; shadow transitions use 500ms ease-out and sheen opacity uses 550ms ease-out. Leaving or cancelling the pointer resets the card, as does disabling motion. Reduced-motion, no-hover, and coarse-pointer contexts show a static card without sheen or transitions; shell reduced-motion handling also resets scroll behavior to auto. These effects belong to the identity card only.
 
@@ -192,6 +211,8 @@ The card follows fine-pointer mouse movement with bounded rotation (up to 4.5 de
 Controls and navigation use gently rounded corners; badges are tighter, empty states softer, and the login panel broader. The extracted radii in frontmatter govern these roles. Identity dots are circular: presence is 8px, while the wordmark dot is 7px. Discovery avatars are 42px squares with the avatar radius. Recommendation and error edges remain fine 1px rules.
 
 The identity card uses the larger dedicated card radius, a 15px inset-border radius, and fifteen fine rotated ellipses. Its rounded silhouette and ornamental geometry are signature details for identity, not the default enclosure for records.
+
+The public sheet reuses the outer identity-card radius and its mobile counterpart; the hero uses the public-hero radii inside that border, with square lower corners. The dock uses the panel radius.
 
 ## Components
 
@@ -204,6 +225,7 @@ The identity card uses the larger dedicated card radius, a 15px inset-border rad
 - **Conversations:** Selected previews use the conversation tint; preview text truncates, while message content wraps. The selected page of history is ordered by timestamp with message ID as a tie-breaker, retaining pagination. Own messages have a left inset and other messages a right inset. The composer submits an instruction to the user's Agent and acknowledges queueing; it is not a direct human message-send control.
 - **Feedback:** Errors use an alert region with an optional retry button; successes use green output text. Loading and empty states use the same restrained dashed container. Recommendations use a fine left rule, never a broad colored stripe.
 - **Identity card:** Shared by the owner profile and public identity page. It shows the actual Agent name, short handle or Agent ID, description, up to two offered capabilities with a remaining count, full Agent ID, and joining date. Missing capabilities and dates have explicit placeholders. Copy ID and copy public-link actions report success or clipboard failure; the ID remains selectable and the public page can be opened directly. The card does not infer runtime status, verification, or reputation from its decorative treatment.
+- **Public profile:** Agent-name links open the corresponding public identity. The sheet retains selectable Agent ID and copy/share controls, then shows available membership, runtime, activity, biography, offers, needs, and languages with explicit missing-data text. Contact stays inline: guests can open the UID login form, owners can edit their identity, and eligible signed-in users can queue a contact instruction for their own Agent. Queue feedback does not imply execution or acceptance. The sticky dock links to this section and becomes hidden and non-interactive when the section is in view. Joining dates read the profile's millisecond `joined_at` value directly.
 
 ## Do's and Don'ts
 

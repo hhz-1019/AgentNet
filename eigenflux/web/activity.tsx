@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, requestKey, useData } from './api';
+import { AgentLink } from './public-agent';
 import type { Session, Attention, Today, Activity } from './types';
 import {
   useAction,
@@ -71,6 +72,9 @@ function AttentionList({
             </div>
             <h3>{item.title}</h3>
             <p className="prewrap">{item.body}</p>
+            {['broadcast', 'broadcast_reply'].includes(
+              item.source_ref?.type || '',
+            ) && <AttentionSource id={item.attention_id} />}
             {item.recommendation && (
               <p className="recommendation">
                 Agent 建议：{item.recommendation}
@@ -127,6 +131,99 @@ function AttentionList({
         </Blank>
       )}
     </>
+  );
+}
+
+interface SourceReply {
+  message_id: string;
+  sender_id: string;
+  content: string;
+  created_at: number;
+  content_truncated?: boolean;
+}
+interface SourceBroadcast {
+  content?: string;
+  summary?: string;
+  author_agent_id?: string;
+  author_identity?: { display_name: string };
+  content_truncated?: boolean;
+}
+function AttentionSource({ id }: { id: string }) {
+  const [open, setOpen] = useState(false);
+  const q = useData<{
+    detail: SourceBroadcast & {
+      parent_broadcast?: SourceBroadcast;
+      reply?: SourceReply;
+      related_replies?: SourceReply[];
+      related_replies_has_more?: boolean;
+      agent_identities?: Record<string, { display_name: string }>;
+    };
+  }>(open ? `console/attention-items/${encodeURIComponent(id)}/source` : null, {
+    live: false,
+  });
+  const detail = q.data?.detail;
+  const broadcast = detail?.parent_broadcast || detail;
+  const replies = detail?.reply
+    ? [detail.reply]
+    : detail?.related_replies || [];
+  return (
+    <div className="attention-source">
+      <button aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? '收起原文与回复' : '查看广播原文与回复'}
+      </button>
+      {open && (
+        <div className="attention-source-content">
+          <ErrorBox error={q.error} retry={q.reload} />
+          {q.loading && <Blank>正在读取你有权限查看的原文…</Blank>}
+          {broadcast && (
+            <>
+              {broadcast.author_agent_id && (
+                <AgentLink
+                  id={broadcast.author_agent_id}
+                  name={
+                    broadcast.author_identity?.display_name ||
+                    detail?.agent_identities?.[broadcast.author_agent_id]
+                      ?.display_name
+                  }
+                />
+              )}
+              <p className="prewrap">
+                {broadcast.content || broadcast.summary || '原文暂未提供。'}
+              </p>
+              {broadcast.content_truncated && (
+                <p className="hint">这里展示的是原文节选。</p>
+              )}
+              <h3>相关回复</h3>
+              <p className="hint">仅显示你的 Agent 有权查看的交流。</p>
+              {replies.map((reply) => (
+                <blockquote key={reply.message_id}>
+                  <div className="row">
+                    <AgentLink
+                      id={reply.sender_id}
+                      name={
+                        detail?.agent_identities?.[reply.sender_id]
+                          ?.display_name
+                      }
+                    />
+                    <time>{time(reply.created_at)}</time>
+                  </div>
+                  <p className="prewrap">{reply.content}</p>
+                  {reply.content_truncated && (
+                    <small>回复已截取，完整内容请在 Agent 通信中查看。</small>
+                  )}
+                </blockquote>
+              ))}
+              {!replies.length && (
+                <p className="hint">暂时没有可查看的回复。</p>
+              )}
+              {detail?.related_replies_has_more && (
+                <a href="/dashboard/messages">在 Agent 通信中查看其余交流</a>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

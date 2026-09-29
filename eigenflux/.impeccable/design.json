@@ -425,6 +425,18 @@
       "identity-handle": {
         "displayName": "Identity handle",
         "purpose": "Monospace short handle or Agent ID on the identity card."
+      },
+      "public-identity-name": {
+        "displayName": "Public profile name",
+        "purpose": "Enlarged forest hero name; long names use clamp(30px, 4vw, 48px), ordinary mobile names use clamp(34px, 10vw, 56px)."
+      },
+      "public-section": {
+        "displayName": "Public profile section",
+        "purpose": "Reduces to 21px on mobile; working-language headings remain 15px."
+      },
+      "public-fact": {
+        "displayName": "Public profile fact",
+        "purpose": "Wrap-safe metadata values with tabular numerals; labels use 12px."
       }
     },
     "shadows": [
@@ -437,6 +449,11 @@
         "name": "identity-card",
         "value": "0 25px 45px -22px #153b354d, inset 0 1px 0 #eff5db30",
         "purpose": "Local resting elevation for the Agent identity card only."
+      },
+      {
+        "name": "public-contact-dock",
+        "value": "0 10px 25px -18px #153b354d",
+        "purpose": "Separates the sticky contact action from content; the public hero itself has no card shadow."
       }
     ],
     "motion": [
@@ -466,11 +483,18 @@
       "offset": "3px",
       "selector": ":focus-visible"
     },
+    "publicProfile": {
+      "source": ["web/public-agent.css", "web/public-agent.tsx"],
+      "layout": "1040px page cap; forest identity hero above one white reading sheet. Three metadata columns (1:1.2:1), full biography, equal offer/need columns with 48px gap, languages, then inline contact. At 720px and below metadata stacks into label/value rows and offer/need becomes one column.",
+      "shape": "22px outer sheet and 21px hero top corners; 18px and 17px respectively on mobile. Hero lower corners are square.",
+      "contact": "Inline UID login for guests, profile editing for the owner, or an instruction queued for the signed-in user's Agent. Sticky dock sits 16px from the bottom (8px mobile) and is hidden and non-interactive while the contact section intersects its observer region.",
+      "evidence": "Reviewed desktop, mobile, login and source screenshots are synthetic UI validation; they do not establish production connectivity or completed contact."
+    },
     "source": {
       "stylesheet": "web/style.css",
       "components": "web/main.tsx",
       "mode": "code-led scan",
-      "scope": "Current AgentNet web app, including the scoped identity-card addition. Tonal ramps are synthesized panel previews, not additional implemented UI tokens."
+      "scope": "Current AgentNet web app, including the scoped identity-card and public-profile additions. Tonal ramps are synthesized panel previews, not additional implemented UI tokens."
     }
   },
   "components": [
@@ -548,7 +572,7 @@
   ],
   "narrative": {
     "northStar": "Human Control Plane",
-    "overview": "AgentNet presents a person's Agent as a persistent network participant. The interface is restrained and professional: off-white canvas, pale-green navigation, dark green actions, generous reading space, and thin dividers. It makes identity, recent presence, human decisions, and execution progress legible without turning every record into a raised card.\r\n\r\nThis is a code-led record of the current AgentNet web app in `web/main.tsx`, `web/style.css`, and `web/identity-card.css`. The identity card adds a distinct dark-green object within the existing control plane. It captures implemented visuals; visual review alone does not certify production connectivity or execution.",
+    "overview": "AgentNet presents a person's Agent as a persistent network participant. The interface is restrained and professional: off-white canvas, pale-green navigation, dark green actions, generous reading space, and thin dividers. It makes identity, recent presence, human decisions, and execution progress legible without turning every record into a raised card.\r\n\r\nThis is a code-led record of the current AgentNet web app in `web/main.tsx`, `web/style.css`, `web/identity-card.css`, and `web/public-agent.css`. The identity card adds a distinct dark-green object within the existing control plane; the public profile extends it into a forest hero over a white reading surface. It captures implemented visuals; visual review alone does not certify production connectivity or execution.",
     "keyCharacteristics": [
       "Quiet green surfaces and clear dark text.",
       "Flat records, explicit text states, and restrained controls.",

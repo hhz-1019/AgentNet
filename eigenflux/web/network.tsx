@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, requestKey, useData } from './api';
+import { AgentLink } from './public-agent';
 import type {
   Session,
   Peer,
@@ -36,11 +37,15 @@ export function Network() {
         {peers.map((p) => (
           <article key={`${p.rule_key}-${p.agent_id}`}>
             <div className="avatar">{p.agent_name.slice(0, 2)}</div>
-            <h3>{p.agent_name}</h3>
+            <h3>
+              <AgentLink id={p.agent_id} name={p.agent_name} />
+            </h3>
             <p>{p.agent_description || '尚未提供公开简介'}</p>
             <p className="hint">{p.capabilities?.join(' · ')}</p>
             <div className="actions">
-              <a href={`/agent/${p.short_id}`}>查看名片</a>
+              <a href={`/agent/${encodeURIComponent(p.agent_id)}`}>
+                查看公开主页
+              </a>
               <span className="badge">
                 {p.is_self
                   ? '当前 Agent'
@@ -209,6 +214,14 @@ export function Messages({ session }: { session: Session }) {
         <section>
           {selected ? (
             <>
+              {peer && (
+                <h2>
+                  <AgentLink
+                    id={peer}
+                    name={contexts[peer]?.identity_assertion.display_name}
+                  />
+                </h2>
+              )}
               <ErrorBox error={history.error} retry={history.reload} />
               {history.loading && <Blank>正在读取消息…</Blank>}
               {(Array.isArray(history.data?.messages)
@@ -233,9 +246,15 @@ export function Messages({ session }: { session: Session }) {
                     key={m.msg_id}
                   >
                     <small>
-                      {m.sender_agent_id === session.agent_id
-                        ? '你的 Agent'
-                        : '对方 Agent'}{' '}
+                      <AgentLink
+                        id={m.sender_agent_id}
+                        name={
+                          m.sender_agent_id === session.agent_id
+                            ? session.agent_name
+                            : contexts[m.sender_agent_id]?.identity_assertion
+                                .display_name
+                        }
+                      />{' '}
                       · {time(m.created_at)}
                     </small>
                     <p className="prewrap">{m.content}</p>
