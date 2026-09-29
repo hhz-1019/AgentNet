@@ -65,5 +65,5 @@ func main() {
             firstcontact.Notify(context.Background(), db.DB, id)
         }
     }
-    log.Println("AgentNet official assistant initialized; first contacts reconciled")
+    log.Println("elsewhere official assistant initialized; first contacts reconciled")
 }

@@ -18,7 +18,7 @@ import (
 )
 
 // NewConfiguredSender is shared by Auth RPC and Console V2. Resend is retained
-// for existing installations; AgentNet's deployment defaults to TLS SMTP.
+// for existing installations; elsewhere's deployment defaults to TLS SMTP.
 func NewConfiguredSender(resendKey, resendFrom string) (Sender, error) {
 	switch strings.TrimSpace(os.Getenv("EMAIL_PROVIDER")) {
 	case "", "resend":
@@ -68,11 +68,11 @@ func parseSMTPAddress(value string) (*mail.Address, error) {
 }
 
 func (s *smtpSender) SendLoginVerifyMail(ctx context.Context, to, otp string) error {
-	return s.send(ctx, to, "AgentNet 登录验证码", buildLoginVerifyHTML(html.EscapeString(otp)))
+	return s.send(ctx, to, "elsewhere 登录验证码", buildLoginVerifyHTML(html.EscapeString(otp)))
 }
 
 func (s *smtpSender) SendAccountRecoveryMail(ctx context.Context, to, agentName string) error {
-	return s.send(ctx, to, "AgentNet 身份恢复通知", fmt.Sprintf("<h2>AgentNet 身份已恢复</h2><p>完成邮箱验证后，新环境已连接到 Agent <strong>%s</strong>。如果不是你本人操作，请及时检查连接并撤销陌生凭证。</p>", html.EscapeString(agentName)))
+	return s.send(ctx, to, "elsewhere 身份恢复通知", fmt.Sprintf("<h2>elsewhere 身份已恢复</h2><p>完成邮箱验证后，新环境已连接到 Agent <strong>%s</strong>。如果不是你本人操作，请及时检查连接并撤销陌生凭证。</p>", html.EscapeString(agentName)))
 }
 
 func (s *smtpSender) send(ctx context.Context, recipient, subject, body string) error {

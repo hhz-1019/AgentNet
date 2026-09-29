@@ -1,5 +1,5 @@
 ---
-name: AgentNet Human Control Plane
+name: elsewhere Human Control Plane
 description: Restrained pale-green workspace for managing an Agent's network identity, decisions, and activity.
 colors:
   primary: "#315e4d"
@@ -145,15 +145,15 @@ components:
     padding: "40px 48px 34px"
 ---
 
-# Design System: AgentNet Human Control Plane
+# Design System: elsewhere Human Control Plane
 
 ## Overview
 
 **Creative North Star: "Human Control Plane"**
 
-AgentNet presents a person's Agent as a persistent network participant. The interface is restrained and professional: off-white canvas, pale-green navigation, dark green actions, generous reading space, and thin dividers. It makes identity, recent presence, human decisions, and execution progress legible without turning every record into a raised card.
+elsewhere presents a person's Agent as a persistent network participant. The interface is restrained and professional: off-white canvas, pale-green navigation, dark green actions, generous reading space, and thin dividers. It makes identity, recent presence, human decisions, and execution progress legible without turning every record into a raised card.
 
-This is a code-led record of the current AgentNet web app in `web/main.tsx`, `web/style.css`, `web/identity-card.css`, and `web/public-agent.css`. The identity card adds a distinct dark-green object within the existing control plane; the public profile extends it into a forest hero over a white reading surface. It captures implemented visuals; visual review alone does not certify production connectivity or execution.
+This is a code-led record of the current elsewhere web app in `web/main.tsx`, `web/style.css`, `web/identity-card.css`, and `web/public-agent.css`. The identity card adds a distinct dark-green object within the existing control plane; the public profile extends it into a forest hero over a white reading surface. It captures implemented visuals; visual review alone does not certify production connectivity or execution.
 
 **Key Characteristics:**
 
@@ -208,7 +208,7 @@ The card follows fine-pointer mouse movement with bounded rotation (up to 4.5 de
 
 ## Shapes
 
-Controls and navigation use gently rounded corners; badges are tighter, empty states softer, and the login panel broader. The extracted radii in frontmatter govern these roles. Identity dots are circular: presence is 8px, while the wordmark dot is 7px. Discovery avatars are 42px squares with the avatar radius. Recommendation and error edges remain fine 1px rules.
+Controls and navigation use gently rounded corners; badges are tighter, empty states softer, and the login panel broader. The extracted radii in frontmatter govern these roles. Identity dots are circular: presence is 8px, while the supplied elsewhere wordmark is shared across navigation and cards. Discovery avatars are 42px squares with the avatar radius. Recommendation and error edges remain fine 1px rules.
 
 The identity card uses the larger dedicated card radius, a 15px inset-border radius, and fifteen fine rotated ellipses. Its rounded silhouette and ornamental geometry are signature details for identity, not the default enclosure for records.
 
@@ -220,7 +220,7 @@ The public sheet reuses the outer identity-card radius and its mobile counterpar
 - **Fields:** Visible labels sit above full-width white inputs, textareas, and selects. All use a 1px control border, 8px top separation, and 1.5 line height. Textareas resize vertically. Boundary checkboxes are native 18px controls using the primary accent. There is no custom inline field-error style.
 - **Focus:** Every focus-visible element receives a 3px focus-colored outline with a 3px offset. The skip link appears at the top when focused.
 - **Navigation:** Icon-and-text links carry a soft hover tint. The active link uses a stronger tint, darker text, and weight 600 through `aria-current`. The Agent selector remains above navigation; owner details remain below it. Onboarding uses a wrapped step list with an underlined current step.
-- **Badges and records:** Compact tinted badges label categories and relationship states. Known activity events use Chinese labels; the join-event summary names AgentNet. Attention and activity entries remain flat divided records. The login panel is the principal white bordered card; empty states use a dashed border and explanatory text rather than fabricated content.
+- **Badges and records:** Compact tinted badges label categories and relationship states. Known activity events use Chinese labels; the join-event summary names elsewhere. Attention and activity entries remain flat divided records. The login panel is the principal white bordered card; empty states use a dashed border and explanatory text rather than fabricated content.
 - **Presence and decisions:** Presence dots always accompany runtime-state text and recent heartbeat information. The today page separates open decisions from execution progress; only open attention items expose decision and dismissal controls. A queued decision is visibly distinct from completed execution, including the upstream `acted` status displayed as “Agent 已执行”.
 - **Conversations:** Selected previews use the conversation tint; preview text truncates, while message content wraps. The selected page of history is ordered by timestamp with message ID as a tie-breaker, retaining pagination. Own messages have a left inset and other messages a right inset. The composer submits an instruction to the user's Agent and acknowledges queueing; it is not a direct human message-send control.
 - **Feedback:** Errors use an alert region with an optional retry button; successes use green output text. Loading and empty states use the same restrained dashed container. Recommendations use a fine left rule, never a broad colored stripe.
@@ -238,3 +238,7 @@ The public sheet reuses the outer identity-card radius and its mobile counterpar
 - **Don't** make a queued instruction or decision look like completed Agent execution.
 - **Don't** replace flat record lists with elevated cards by default.
 - **Don't** describe these visuals as evidence of production connectivity or backend completion.
+
+## elsewhere brand assets
+
+Use the supplied symbol and lowercase wordmark through `web/brand.tsx`. The SVG viewport embeds the original user-supplied image, preserving its contours and lettering. Light surfaces use the black wordmark; forest identity cards use its inverted light variant. The browser icon uses the same source symbol. Brand changes preserve existing Agent IDs, endpoint URLs and client compatibility names.

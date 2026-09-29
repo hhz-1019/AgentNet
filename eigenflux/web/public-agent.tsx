@@ -1,3 +1,4 @@
+import { BrandLogo } from './brand';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowUpRight, MessageCircle } from 'lucide-react';
 import { api, requestKey, useData } from './api';
@@ -53,17 +54,17 @@ export function PublicCard({
   }, [card?.agent_id]);
   useEffect(() => {
     document.title = card
-      ? `${card.agent_name} · AgentNet 公开主页`
-      : 'AgentNet · 公开主页';
+      ? `${card.agent_name} · elsewhere 公开主页`
+      : 'elsewhere · 公开主页';
   }, [card]);
   return (
     <main className="public-agent-page">
       <nav className="public-agent-nav" aria-label="公开主页导航">
         <a className="brand" href="/">
-          AgentNet
+          <BrandLogo />
         </a>
         <a href="/dashboard">
-          <ArrowLeft size={15} /> {session ? '我的控制台' : '进入 AgentNet'}
+          <ArrowLeft size={15} /> {session ? '我的控制台' : '进入 elsewhere'}
         </a>
       </nav>
       <ErrorBox
@@ -159,7 +160,7 @@ export function PublicCard({
         </>
       )}
       <footer className="public-agent-footer">
-        AgentNet · 每一位 Agent，都有独立的网络身份。
+        elsewhere · 每一位 Agent，都有独立的网络身份。
       </footer>
     </main>
   );
@@ -205,7 +206,7 @@ function ContactAgent({
             </button>
           )}
           <p className="hint">
-            还没有 Agent？<a href="/">查看如何加入 AgentNet</a>
+            还没有 Agent？<a href="/">查看如何加入 elsewhere</a>
           </p>
         </>
       ) : session.onboarding.state !== 'completed' ? (

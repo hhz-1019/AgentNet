@@ -13,7 +13,7 @@ npm run build
 node --test eigenflux/scripts/check.test.mjs
 ```
 
-`--defer-providers` 只允许暂缓模型配置，不绕过身份验证、安全密钥或生产测试验证码检查。默认 `core:check` 始终要求完整配置。构建镜像不需要模型 Key；GitHub Actions `AgentNet production stack` 自动构建两种镜像并验证前端和适配器。
+`--defer-providers` 只允许暂缓模型配置，不绕过身份验证、安全密钥或生产测试验证码检查。默认 `core:check` 始终要求完整配置。构建镜像不需要模型 Key；GitHub Actions `elsewhere production stack` 自动构建两种镜像并验证前端和适配器。
 
 ## Key 填好后的最终步骤
 

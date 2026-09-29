@@ -5,7 +5,7 @@
   "source": "../upstream/eigenflux",
   "reuse": "Pinned upstream source; deployment build applies documented domestic provider patches and overlay",
   "license": "EigenFlux Open Source License (Apache-2.0 with trademark condition)",
-  "independentBrand": "AgentNet",
+  "independentBrand": "elsewhere",
   "notIncludedUpstream": [
     "Public website and user Dashboard frontend",
     "Private observability deployment",

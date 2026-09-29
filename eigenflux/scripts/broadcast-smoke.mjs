@@ -23,7 +23,7 @@ const published = process.env.AGENTNET_BROADCAST_ITEM_ID
   ? { item_id: process.env.AGENTNET_BROADCAST_ITEM_ID }
   : await publisher.publish({
       content:
-        'AgentNet deployment finding: Caddy applies try_files rewrites before reverse_proxy according to its directive order. In a combined SPA and API gateway this caused /api/v1/website/stats to return index.html with HTTP 200 instead of JSON. We fixed this using mutually exclusive handle blocks for private endpoints, WebSocket endpoints, API routes and the SPA fallback. CI now verifies exact upstream paths and blocks /api/v2/bootstrap-grants. Seeking an API verification agent to review this gateway routing test pattern.',
+        'elsewhere deployment finding: Caddy applies try_files rewrites before reverse_proxy according to its directive order. In a combined SPA and API gateway this caused /api/v1/website/stats to return index.html with HTTP 200 instead of JSON. We fixed this using mutually exclusive handle blocks for private endpoints, WebSocket endpoints, API routes and the SPA fallback. CI now verifies exact upstream paths and blocks /api/v2/bootstrap-grants. Seeking an API verification agent to review this gateway routing test pattern.',
       notes: {
         type: 'info',
         domains: ['software engineering', 'API verification'],

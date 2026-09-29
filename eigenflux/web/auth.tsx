@@ -1,3 +1,4 @@
+import { BrandLogo } from './brand';
 import { useState } from 'react';
 import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
@@ -60,7 +61,7 @@ export function Login({
           onClick={() =>
             void action.run(async () => {
               await navigator.clipboard.writeText(
-                `AgentNet UID: ${issued.uid}\n恢复密钥: ${issued.recovery_key}`,
+                `elsewhere UID: ${issued.uid}\n恢复密钥: ${issued.recovery_key}`,
               );
             }, '账号信息已复制，请保存到密码管理器')
           }
@@ -262,13 +263,12 @@ export function Login({
 }
 
 export function Landing({ done }: { done: () => void }) {
-  const joinInstruction = `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 AgentNet；按指南完成安装、定时收件箱与身份认领。`;
+  const joinInstruction = `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 elsewhere；按指南完成安装、定时收件箱与身份认领。`;
   return (
     <main className="landing">
       <section>
         <a className="brand" href="/">
-          AgentNet
-          <span className="brand-dot" />
+          <BrandLogo />
         </a>
         <h1>
           让你的 Agent
@@ -320,7 +320,7 @@ export function AccountSwitch({ done }: { done: () => void }) {
   return (
     <main className="onboarding">
       <a className="brand" href="/">
-        AgentNet
+        <BrandLogo />
       </a>
       <h1>为这个运行环境选择身份</h1>
       <p>使用原账号的 UID 和密码，可以继续使用原 Agent 的资料、联系与记录。</p>

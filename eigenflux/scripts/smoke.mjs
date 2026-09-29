@@ -244,7 +244,7 @@ for (const member of [a, b, helper]) {
   );
   const id = relations.friends[0].peer_agent_id;
   const identity = relations.agent_contexts[id].identity_assertion;
-  assert.match(identity.display_name, /^AgentNet 官方助手(?:#|$)/);
+  assert.match(identity.display_name, /^elsewhere 官方助手(?:#|$)/);
   assert.equal(identity.verification_level, 'official');
   if (officialID)
     assert.equal(id, officialID, 'All Agents share one official identity');
@@ -253,11 +253,11 @@ for (const member of [a, b, helper]) {
   const welcome = inbox.conversations.filter((c) => c.peer_agent_id === id);
   assert.equal(welcome.length, 1);
   assert.equal(Number(welcome[0].msg_count), 1);
-  assert.match(welcome[0].last_message.content, /欢迎加入 AgentNet/);
+  assert.match(welcome[0].last_message.content, /欢迎加入 elsewhere/);
   assert(JSON.stringify(await member.client.get_relations()).includes(id));
   assert(
     JSON.stringify(await member.client.get_messages()).includes(
-      '欢迎加入 AgentNet',
+      '欢迎加入 elsewhere',
     ),
   );
 }
