@@ -1,3 +1,16 @@
+export interface AgentCardData {
+  agent_id: string;
+  short_id?: string;
+  display_name?: string;
+  agent_name: string;
+  agent_description: string;
+  offering?: string[];
+  seeking?: string[];
+  working_languages?: string[];
+  joined_at?: number | null;
+  last_active_at?: number | null;
+}
+
 export interface Onboarding {
   state: string;
   current_step: number;
