@@ -78,7 +78,7 @@ AGENTNET_CLI=.agentnet-audit/bin/agentnet-cli npm run core:mcp:smoke
 docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml down --volumes
 ```
 
-Windows 原生运行 Node 时，复制 `core:/app/build/eigenflux-windows-amd64.exe`，并用 PowerShell `$env:AGENTNET_CLI` 等设置对应环境变量；或在 WSL 中完整执行上述 Linux 命令。最后一条只删除专用测试项目及其测试卷；生产使用另一份 Compose 配置和项目名。
+Windows 原生运行 Node 时，使用 Web 公开下载目录中对应架构并校验过的 Windows CLI（Core 镜像只含 Linux CLI），并用 PowerShell `$env:AGENTNET_CLI` 等设置对应环境变量；或在 WSL 中完整执行上述 Linux 命令。最后一条只删除专用测试项目及其测试卷；生产使用另一份 Compose 配置和项目名。
 
 ## 最后填 Key 后仍需验证
 

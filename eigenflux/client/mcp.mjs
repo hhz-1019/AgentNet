@@ -139,12 +139,6 @@ for (const [name, description, inputSchema] of definitions)
     { description, inputSchema },
     async (args) => {
       try {
-        if (
-          name === 'send_message' &&
-          [args.receiver_id, args.conversation_id, args.item_id].filter(Boolean)
-            .length !== 1
-        )
-          throw new Error('Supply exactly one destination');
         const result = await client[name](args);
         return { content: [{ type: 'text', text: JSON.stringify(result) }] };
       } catch (error) {

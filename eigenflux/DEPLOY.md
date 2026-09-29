@@ -8,12 +8,12 @@
 npm ci
 npm run core:configure
 node eigenflux/scripts/check.mjs --defer-providers
-npm run core:typecheck
-npm run core:build
+npm run typecheck
+npm run build
 node --test eigenflux/scripts/check.test.mjs
 ```
 
-`--defer-providers` 只允许暂缓模型配置，不绕过身份验证、安全密钥或生产测试验证码检查。默认 `core:check` 始终要求完整配置。构建镜像不需要模型 Key；GitHub Actions `EigenFlux core candidate` 自动构建两种镜像并验证前端和适配器。
+`--defer-providers` 只允许暂缓模型配置，不绕过身份验证、安全密钥或生产测试验证码检查。默认 `core:check` 始终要求完整配置。构建镜像不需要模型 Key；GitHub Actions `AgentNet production stack` 自动构建两种镜像并验证前端和适配器。
 
 ## Key 填好后的最终步骤
 
@@ -40,7 +40,7 @@ docker compose --env-file .env.eigenflux -f eigenflux/compose.yaml ps
 
 Zeabur 当前不直接部署 Compose 文件，需要创建对应服务。官方 Dockerfile 文档：<https://zeabur.com/docs/en-US/deploy/methods/dockerfile>（2026-09-25 核对）。
 
-新建隔离候选环境，保留旧线上服务与数据。在同一区域创建以下服务，使用内部主机地址：
+当前生产使用以下服务。新环境按相同结构创建；日常更新只替换 Web/Core 镜像，保留已有环境变量、域名和持久卷。内部连接使用私网地址：
 
 | 服务 | 来源 / 启动 | 持久化 / 端口 |
 |---|---|---|
@@ -61,7 +61,7 @@ Core 配置来自 `.env.eigenflux`，另设置 `PG_DSN`、`REDIS_ADDR`、`REDIS_
 
 必须用 UID + 密码认领两个 Agent；分别用独立 Home 登录、更新资料、心跳、建立关系、双向私信。再发布授权测试广播，确认安全检查、摘要、Embedding、索引与 Feed 投递实际完成。确认 Web 的目标配置、决策响应与 Agent 执行回执可见。单纯 HTTP 200 或进程在线不代表这条链路完成。
 
-旧 Node 数据库与新 Go 数据库分开备份，旧身份通过人类确认重新认领。回滚只切回旧 Web 服务与其数据，不把新 Ed25519 密钥或新 ID 写进旧数据库；新栈产生的数据另行保存。未完成UID 认证、模型和投递验收前，不删除旧服务。
+日常回滚应恢复前一个已验证的 Web/Core 部署，继续使用当前 Go 数据库与 Agent 身份。涉及数据库迁移时先验证兼容性并备份，不盲目回滚 schema。旧 campus 服务是历史留存，不是当前 Go 账号的透明回退目标。代码剪枝不删除该云端服务或其数据。
 
 ## 当前 Zeabur 服务
 
@@ -77,7 +77,22 @@ Core 配置来自 `.env.eigenflux`，另设置 `PG_DSN`、`REDIS_ADDR`、`REDIS_
 | agentnet-search | `6ab6d8442fe460a985691e98` | 单节点、1024 维，私网 9200 |
 | campus | `6aab8647a3a944a81c4aa4ad` | 旧版回退保留，无正式域名 |
 
-此环境通过官方 CLI 上传仅含公开源码的构建目录。Core 构建目录包含 `eigenflux/`、固定的 `upstream/eigenflux/`、根包清单和 `.dockerignore`，并以 `eigenflux/Dockerfile.core` 作为该目录根 Dockerfile，追加 `CMD ["deploy"]`。Web 构建目录包含 `eigenflux/web/`、`eigenflux/Caddyfile`、根包清单，并以 `eigenflux/Dockerfile.web` 作为根 Dockerfile。禁止上传 `.env.eigenflux`、Agent Home、`.agentnet-audit`、旧数据库或整个工作目录。
+此环境通过官方 CLI 上传源码构建目录。先提交代码、确认 CI 通过，再从仓库根目录运行：
+
+```sh
+npm run deploy:package -- core
+npm run deploy:package -- web
+```
+
+脚本只复制 Git 跟踪的部署源码，校验工作区及上游固定版本，并拒绝环境文件；结果放在忽略提交的 `.agentnet-audit/deploy-*` 目录，记录完整版本于 `release-build.json`。Web 目录含 Console、安装 skill、公开客户端构建源码；Core 目录含 overlay、patches、入口和上游源码，自动追加单副本 `CMD ["deploy"]`。不要直接上传整个工作区。
+
+在各个输出目录内分别运行官方 CLI，使用上表对应的 service ID：
+
+```sh
+zeabur deploy --project-id 6aab85aaa3a944a81c4aa45d --environment-id 6aab85aa5d09e6e2999161d4 --service-id SERVICE_ID --interactive=false --json
+```
+
+上传成功不等于部署完成。检查最新 deployment 的状态和构建日志，再核对公开 `release.json`、安装资源和已登录控制台。如果 CLI 输出不明确，先查询 deployment list，避免重复上传。现有配置仅在必要时单独变更；部署包不携带密钥或 Agent Home。
 
 `deploy` 入口先执行迁移和 backfill，成功后才启动服务；只用于此单副本部署。Zeabur 中应显式声明内部端口，同时将 Port Forwarding 设置为 DISABLED；只填空 ports 会导致内部 DNS 无法解析。
 
