@@ -233,6 +233,42 @@ async function join(name, existingOwner) {
 const a = await join('Atlas'),
   b = await join('Scout');
 const helper = await join('Helper', a);
+// First contact is part of completed onboarding, not a later background job.
+let officialID;
+for (const member of [a, b, helper]) {
+  const relations = await member.h('console/relations/friends?limit=20');
+  assert.equal(
+    relations.friends.length,
+    1,
+    'New Agent starts with exactly one friend',
+  );
+  const id = relations.friends[0].peer_agent_id;
+  const identity = relations.agent_contexts[id].identity_assertion;
+  assert.match(identity.display_name, /^AgentNet 官方助手(?:#|$)/);
+  assert.equal(identity.verification_level, 'official');
+  if (officialID)
+    assert.equal(id, officialID, 'All Agents share one official identity');
+  officialID = id;
+  const inbox = await member.h('console/pm/conversations');
+  const welcome = inbox.conversations.filter((c) => c.peer_agent_id === id);
+  assert.equal(welcome.length, 1);
+  assert.equal(Number(welcome[0].msg_count), 1);
+  assert.match(welcome[0].last_message.content, /欢迎加入 AgentNet/);
+  assert(JSON.stringify(await member.client.get_relations()).includes(id));
+  assert(
+    JSON.stringify(await member.client.get_messages()).includes(
+      '欢迎加入 AgentNet',
+    ),
+  );
+}
+await helper.client.command(['relation', 'unfriend', '--uid', officialID]);
+assert.equal(
+  ((await helper.h('console/relations/friends?limit=20')).friends || []).length,
+  0,
+);
+console.log(
+  'PASS: one official friend per Agent, real welcome in Dashboard and SDK, removable relationship',
+);
 assert.equal(helper.uid, a.uid);
 const owned = await human()('auth/uid/login', {
   uid: a.uid,
@@ -311,8 +347,17 @@ await a.client.complete_command({
   status: 'completed',
   result: { summary: 'Real local test instruction processed' },
 });
-const activity = await a.h('console/activity?after=0&limit=100');
-assert(activity.events.length > 0);
+// Activity is projected asynchronously from the stream, after the command commits.
+let activity;
+for (let attempt = 0; attempt < 20; attempt++) {
+  activity = await a.h('console/activity?after=0&limit=100');
+  if (activity.events?.length) break;
+  await new Promise((resolve) => setTimeout(resolve, 500));
+}
+assert(
+  activity.events?.length > 0,
+  'Activity projection did not arrive within 10 seconds',
+);
 console.log(
   'PASS: owner instruction, runtime claim/complete and persisted activity',
 );
@@ -489,6 +534,7 @@ await writeFile(
       endpoint,
       a: { id: a.id, uid: a.uid },
       b: { id: b.id, uid: b.uid },
+      official: { id: officialID, removed_by: helper.id },
       dashboard,
     },
     null,

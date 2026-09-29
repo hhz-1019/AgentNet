@@ -112,12 +112,22 @@ function Relations() {
               {contexts[f.peer_agent_id]?.identity_assertion.display_name ||
                 f.peer_agent_id}
             </a>
-            <span className="badge">已建立联系</span>
+            <span className="badge">
+              {contexts[f.peer_agent_id]?.identity_assertion
+                .verification_level === 'official'
+                ? '官方助手 · 已建立联系'
+                : '已建立联系'}
+            </span>
           </div>
           <p>{contexts[f.peer_agent_id]?.card_summary.agent_description}</p>
           <p className="hint">
             建立于 {time(f.friend_since)} {f.remark}
           </p>
+          <a
+            href={`/dashboard/messages?peer=${encodeURIComponent(f.peer_agent_id)}`}
+          >
+            查看对话
+          </a>
           <button
             disabled={action.busy}
             onClick={() =>
@@ -168,7 +178,15 @@ export function Messages({ session }: { session: Session }) {
   const peer = conversations.find((c) => c.conv_id === selected)?.peer_agent_id;
   useEffect(() => {
     if (!selected && conversations.length) {
-      setSelected(conversations[0].conv_id);
+      const requestedPeer = new URLSearchParams(window.location.search).get(
+        'peer',
+      );
+      setSelected(
+        (
+          conversations.find((c) => c.peer_agent_id === requestedPeer) ||
+          conversations[0]
+        ).conv_id,
+      );
       setMessageCursor('');
     }
   }, [selected, conversations]);
@@ -195,6 +213,10 @@ export function Messages({ session }: { session: Session }) {
                 {contexts[c.peer_agent_id]?.identity_assertion.display_name ||
                   c.peer_agent_id}
               </strong>
+              {contexts[c.peer_agent_id]?.identity_assertion
+                .verification_level === 'official' && (
+                <span className="badge">官方助手</span>
+              )}
               <p>{c.last_message?.content || '会话已建立'}</p>
               <small>
                 {time(c.updated_at)} · {c.unread_count} 未读

@@ -7,15 +7,21 @@ RUN go mod download
 COPY upstream/eigenflux/ ./
 COPY eigenflux/patches/domestic-providers.patch /tmp/domestic-providers.patch
 COPY eigenflux/patches/uid-deepseek.patch /tmp/uid-deepseek.patch
+COPY eigenflux/patches/official-assistant.patch /tmp/official-assistant.patch
 COPY eigenflux/overlay/ ./
+# Zeabur injects runtime secrets into builds. Tests get only the compiler
+# environment, never a deployment's database, credentials or model switches.
 RUN git apply --ignore-space-change /tmp/domestic-providers.patch && \
     git apply --ignore-space-change /tmp/uid-deepseek.patch && \
+    git apply --ignore-space-change /tmp/official-assistant.patch && \
+    env -i PATH="$PATH" HOME="$HOME" GOPROXY="$GOPROXY" GOMAXPROCS=2 GOFLAGS=-p=2 \
     go test ./pkg/email ./pipeline/llm ./pipeline/embedding ./api/consolev2 ./rpc/auth
 RUN find scripts -name '*.sh' -exec sed -i 's/\r$//' {} +
 RUN bash scripts/common/build.sh profile item sort feed pm auth notification api ws pipeline cron
 RUN go build -o build/migration-preflight scripts/common/migration_preflight.go && \
     go build -o build/short-id-backfill scripts/common/agent_short_id_backfill.go && \
     go build -o build/influence-backfill scripts/common/agent_influence_backfill.go && \
+    go build -o build/official-assistant ./scripts/official_assistant && \
     GOBIN=/src/build go install github.com/pressly/goose/v3/cmd/goose@v3.24.3
 WORKDIR /src/cli
 RUN go build -ldflags="-X main.Version=0.0.54 -X main.Commit=02735b5b" -o /src/build/eigenflux .

@@ -1,0 +1,28 @@
+--- a/api/consolev2/onboarding_handlers.go
++++ b/api/consolev2/onboarding_handlers.go
+@@ -17,6 +17,7 @@
+ 
+ 	"eigenflux_server/pkg/activity"
+ 	"eigenflux_server/pkg/agentcard"
++	"eigenflux_server/pkg/firstcontact"
+ 	"eigenflux_server/pkg/logger"
+ 	"eigenflux_server/pkg/mq"
+ 	"eigenflux_server/pkg/runtimeidentity"
+@@ -717,6 +718,9 @@
+ 				updated_at = ? WHERE agent_id = ?`, now, now, id).Error; err != nil {
+ 				return err
+ 			}
++			if err := firstcontact.Ensure(tx, id, s.idgen.NextID); err != nil {
++				return err
++			}
+ 			contextRevision = revision
+ 			newState = "completed"
+ 			nextStep = 5
+@@ -808,6 +812,7 @@
+ 	}
+ 	if !replayed && req.Step == 5 && response["state"] == "completed" {
+ 		publishProfileCompletion(ctx, id)
++		firstcontact.Notify(ctx, s.db, id)
+ 		activity.PublishOnboardingCompleted(ctx, id)
+ 	}
+ 	if accountSwitchCompleted {
