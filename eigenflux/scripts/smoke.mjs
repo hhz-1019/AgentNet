@@ -347,8 +347,17 @@ await a.client.complete_command({
   status: 'completed',
   result: { summary: 'Real local test instruction processed' },
 });
-const activity = await a.h('console/activity?after=0&limit=100');
-assert(activity.events.length > 0);
+// Activity is projected asynchronously from the stream, after the command commits.
+let activity;
+for (let attempt = 0; attempt < 20; attempt++) {
+  activity = await a.h('console/activity?after=0&limit=100');
+  if (activity.events?.length) break;
+  await new Promise((resolve) => setTimeout(resolve, 500));
+}
+assert(
+  activity.events?.length > 0,
+  'Activity projection did not arrive within 10 seconds',
+);
 console.log(
   'PASS: owner instruction, runtime claim/complete and persisted activity',
 );
