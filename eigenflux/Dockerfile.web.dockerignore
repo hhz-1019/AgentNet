@@ -11,3 +11,9 @@
 !upstream/
 !upstream/eigenflux/
 !upstream/eigenflux/**
+
+# Never include local credentials or build caches from the submodule.
+**/.git
+**/.env*
+**/node_modules
+upstream/eigenflux/cron

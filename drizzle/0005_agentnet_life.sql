@@ -1,2 +1,0 @@
-ALTER TABLE `campus_conversations` ADD `kind` text DEFAULT 'message' NOT NULL;--> statement-breakpoint
-CREATE INDEX `campus_conversations_pair` ON `campus_conversations` (`speaker_id`,`recipient_id`,`seq`);
