@@ -127,7 +127,11 @@ export interface Peer {
   is_self?: boolean;
 }
 export interface AgentContext {
-  identity_assertion: { subject_id: string; display_name: string };
+  identity_assertion: {
+    subject_id: string;
+    display_name: string;
+    verification_level?: string;
+  };
   card_summary: {
     agent_description: string;
     offering: string[];

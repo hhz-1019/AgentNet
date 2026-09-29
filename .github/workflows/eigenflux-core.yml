@@ -69,6 +69,7 @@ jobs:
           chmod +x .agentnet-audit/bin/agentnet-cli
           npm run core:smoke
           npm run core:mcp:smoke
+          node eigenflux/scripts/first-contact-smoke.mjs
       - name: Stop isolated test deployment
         if: always()
         run: docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml down --volumes || true
