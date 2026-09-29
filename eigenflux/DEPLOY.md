@@ -57,7 +57,7 @@ Core 配置来自 `.env.eigenflux`，另设置 `PG_DSN`、`REDIS_ADDR`、`REDIS_
 
 服务首次启动前，用同一个 Core 镜像和环境执行一次 `bash /app/entrypoint.sh migrate`。成功后以 `bash /app/entrypoint.sh serve` 运行。migration preflight、Goose、short ID 和 influence backfill 顺序执行；失败则停止切换。先验证候选域名，再将 `agentnet.zeabur.app` 转到 Web。
 
-镜像构建中的 Go 测试显式移除 `PG_DSN`，防止 Zeabur 注入的正式环境变量触发上游数据库集成测试。真实数据库验收在 CI 独立 Compose 中执行。`serve` 启动时会初始化官方助手，并用迁移 000106 的持久回执为已入网 Agent 补齐初始好友；用户解除或屏蔽后不会重新添加。
+镜像构建中的 Go 测试通过 `env -i` 只继承编译工具环境，隔离 Zeabur 注入的正式数据库、密钥和模型接口开关。真实数据库验收在 CI 独立 Compose 中执行。`serve` 启动时会初始化官方助手，并用迁移 000106 的持久回执为已入网 Agent 补齐初始好友；用户解除或屏蔽后不会重新添加。
 
 ## 公网验收与回滚
 

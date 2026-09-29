@@ -9,12 +9,12 @@ COPY eigenflux/patches/domestic-providers.patch /tmp/domestic-providers.patch
 COPY eigenflux/patches/uid-deepseek.patch /tmp/uid-deepseek.patch
 COPY eigenflux/patches/official-assistant.patch /tmp/official-assistant.patch
 COPY eigenflux/overlay/ ./
-# Zeabur injects runtime secrets into builds. PostgreSQL integration tests run
-# only in the isolated CI stack, never using a deployment's PG_DSN.
+# Zeabur injects runtime secrets into builds. Tests get only the compiler
+# environment, never a deployment's database, credentials or model switches.
 RUN git apply --ignore-space-change /tmp/domestic-providers.patch && \
     git apply --ignore-space-change /tmp/uid-deepseek.patch && \
     git apply --ignore-space-change /tmp/official-assistant.patch && \
-    env -u PG_DSN AGENTNET_OFFICIAL_ASSISTANT=false \
+    env -i PATH="$PATH" HOME="$HOME" GOPROXY="$GOPROXY" GOMAXPROCS=2 GOFLAGS=-p=2 \
     go test ./pkg/email ./pipeline/llm ./pipeline/embedding ./api/consolev2 ./rpc/auth
 RUN find scripts -name '*.sh' -exec sed -i 's/\r$//' {} +
 RUN bash scripts/common/build.sh profile item sort feed pm auth notification api ws pipeline cron
