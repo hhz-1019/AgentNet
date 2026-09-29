@@ -1,0 +1,254 @@
+.public-agent-page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 28px 32px 0;
+}
+.public-agent-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+.public-agent-nav > a:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.public-agent-sheet {
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: white;
+  overflow: clip;
+}
+.public-agent-sheet .identity-showcase {
+  max-width: none;
+  margin: 0;
+}
+.public-agent-sheet .identity-stage {
+  padding: 0;
+}
+.public-agent-sheet .agent-id-card {
+  border-radius: 21px 21px 0 0;
+  padding: 40px 48px 34px;
+  box-shadow: none;
+}
+.public-agent-sheet .identity-card-person {
+  margin-top: 52px;
+}
+.public-agent-sheet .identity-card-person h2 {
+  font-size: clamp(38px, 6vw, 76px);
+}
+.public-agent-sheet .identity-card-person h2.identity-long-name {
+  font-size: clamp(30px, 4vw, 48px);
+}
+.public-agent-sheet .identity-card-caption {
+  padding: 20px 48px 0;
+}
+.public-agent-sheet .identity-share-actions {
+  margin-top: 12px;
+}
+.public-agent-sheet .identity-feedback {
+  margin-bottom: 0;
+}
+.public-agent-body {
+  padding: 0 48px 42px;
+}
+.public-agent-facts {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 24px;
+  padding: 26px 0;
+  border-block: 1px solid var(--line);
+  margin: 4px 0 40px;
+}
+.public-agent-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.public-agent-facts dd {
+  margin: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.public-agent-body h2 {
+  font-size: 23px;
+  margin: 0 0 18px;
+}
+.public-agent-about p {
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+.public-agent-exchange {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  margin-top: 42px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+.public-agent-exchange ul {
+  padding-left: 20px;
+  margin: 0;
+}
+.public-agent-exchange li {
+  padding: 0 0 12px 4px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.public-agent-language {
+  margin-top: 32px;
+}
+.public-agent-language h2 {
+  font-size: 15px;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+.public-agent-contact {
+  margin-top: 42px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 25px;
+}
+.public-agent-contact form {
+  max-width: none;
+}
+.public-agent-contact .login-form {
+  max-width: 520px;
+}
+.public-agent-dock {
+  position: sticky;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  margin: 20px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f6f7f4;
+  z-index: 3;
+  box-shadow: 0 10px 25px -18px #153b354d;
+}
+.public-agent-dock span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.public-agent-dock[data-hidden='true'] {
+  visibility: hidden;
+  pointer-events: none;
+}
+.public-agent-dock a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+}
+.public-agent-footer {
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+  padding: 30px 0 36px;
+}
+.agent-name-link {
+  text-decoration: none;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.agent-name-link:hover {
+  text-decoration: underline;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.attention-source {
+  margin: 18px 0;
+}
+.attention-source > button {
+  font-size: 13px;
+}
+.attention-source-content {
+  margin-top: 18px;
+  padding: 18px 0;
+  border-block: 1px solid var(--line);
+}
+.attention-source-content blockquote {
+  margin: 16px 0 0;
+  padding: 12px 18px;
+  border-left: 1px solid var(--line);
+}
+@media (max-width: 720px) {
+  .public-agent-page {
+    padding: 18px 14px 0;
+  }
+  .public-agent-nav {
+    margin-bottom: 22px;
+  }
+  .public-agent-sheet {
+    border-radius: 18px;
+  }
+  .public-agent-sheet .agent-id-card {
+    padding: 28px 24px;
+    border-radius: 17px 17px 0 0;
+  }
+  .public-agent-sheet .identity-card-person {
+    margin-top: 38px;
+  }
+  .public-agent-sheet .identity-card-person h2 {
+    font-size: clamp(34px, 10vw, 56px);
+  }
+  .public-agent-sheet .identity-card-caption {
+    padding: 18px 24px 0;
+  }
+  .public-agent-body {
+    padding: 0 24px 28px;
+  }
+  .public-agent-facts {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  .public-agent-facts > div {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 10px;
+  }
+  .public-agent-facts dt {
+    margin: 0;
+  }
+  .public-agent-body h2 {
+    font-size: 21px;
+  }
+  .public-agent-exchange {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    margin-top: 28px;
+    padding-top: 24px;
+  }
+  .public-agent-language h2 {
+    font-size: 15px;
+  }
+  .public-agent-dock {
+    bottom: 8px;
+    padding: 10px;
+  }
+  .public-agent-dock span {
+    display: none;
+  }
+  .public-agent-dock a {
+    justify-content: center;
+    width: 100%;
+  }
+}

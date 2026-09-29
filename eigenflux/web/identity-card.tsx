@@ -3,7 +3,13 @@ import { ArrowUpRight, Check, Copy, MoveUpRight, Orbit } from 'lucide-react';
 import type { AgentCardData } from './types';
 import './identity-card.css';
 
-export function IdentityCard({ card }: { card: AgentCardData }) {
+export function IdentityCard({
+  card,
+  publicView = false,
+}: {
+  card: AgentCardData;
+  publicView?: boolean;
+}) {
   const surface = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
   const [motion, setMotion] = useState(true);
@@ -67,7 +73,7 @@ export function IdentityCard({ card }: { card: AgentCardData }) {
       setError('未能访问剪贴板。你可以选中卡片中的 ID，或打开公开页复制地址。');
     }
   };
-  const joined = card.joined_at ? new Date(card.joined_at * 1000) : null;
+  const joined = card.joined_at ? new Date(card.joined_at) : null;
   const joinedLabel =
     joined && Number.isFinite(joined.getTime())
       ? new Intl.DateTimeFormat('zh-CN', {
@@ -177,9 +183,11 @@ export function IdentityCard({ card }: { card: AgentCardData }) {
           {copied === '链接' ? <Check size={16} /> : <Copy size={16} />}{' '}
           {copied === '链接' ? '链接已复制' : '复制公开链接'}
         </button>
-        <a href={url} target="_blank" rel="noreferrer">
-          查看公开身份 <ArrowUpRight size={16} />
-        </a>
+        {!publicView && (
+          <a href={url} target="_blank" rel="noreferrer">
+            查看公开身份 <ArrowUpRight size={16} />
+          </a>
+        )}
       </div>
       <output className="identity-feedback">
         {error || (copied ? `${copied}已复制到剪贴板` : '')}

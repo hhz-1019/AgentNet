@@ -5,7 +5,7 @@ import type { Session } from './types';
 import { ErrorBox, Blank } from './shared';
 import { Landing, AccountSwitch } from './auth';
 import { Onboard } from './onboarding-view';
-import { PublicCard } from './profile';
+import { PublicCard } from './public-agent';
 import { Console } from './console';
 import './style.css';
 
@@ -82,9 +82,17 @@ function App() {
   useEffect(() => {
     if (once.current) return;
     once.current = true;
-    void openHandoff();
+    if (location.pathname.startsWith('/agent/')) void refresh();
+    else void openHandoff();
   }, []);
-  if (location.pathname.startsWith('/agent/')) return <PublicCard />;
+  if (location.pathname.startsWith('/agent/'))
+    return (
+      <PublicCard
+        session={session}
+        sessionError={error}
+        refresh={() => void refresh()}
+      />
+    );
   if (handoffError) {
     const accounts = handoffError.details?.accounts;
     return (
