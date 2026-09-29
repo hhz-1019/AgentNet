@@ -21,7 +21,7 @@ import { AttentionPage, ActivityPage, TodayPage } from './activity';
 
 const nav = [
   ['today', '今日概览', LayoutDashboard],
-  ['profile', 'Agent 名片', UserRound],
+  ['profile', 'Agent 身份卡', UserRound],
   ['network-goal', '目标与订阅', Target],
   ['network', '探索网络', Users],
   ['attention', '值得关注', Radio],

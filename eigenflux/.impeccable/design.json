@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-24T19:32:16.454Z",
+  "generatedAt": "2026-09-29T11:32:05.9641507Z",
   "title": "Design System: AgentNet Human Control Plane",
   "extensions": {
     "colorMeta": {
@@ -339,6 +339,62 @@
           "oklch(83.57% 0.12366 28.06)",
           "oklch(95.00% 0.12366 28.06)"
         ]
+      },
+      "identity-forest": {
+        "role": "primary",
+        "displayName": "Deep Forest",
+        "tonalRamp": [
+          "oklch(15.00% 0.050 173)",
+          "oklch(26.43% 0.050 173)",
+          "oklch(37.86% 0.050 173)",
+          "oklch(49.29% 0.050 173)",
+          "oklch(60.71% 0.050 173)",
+          "oklch(72.14% 0.050 173)",
+          "oklch(83.57% 0.050 173)",
+          "oklch(95.00% 0.050 173)"
+        ]
+      },
+      "identity-ivory": {
+        "role": "neutral",
+        "displayName": "Identity Ivory",
+        "tonalRamp": [
+          "oklch(15.00% 0.025 114)",
+          "oklch(26.43% 0.025 114)",
+          "oklch(37.86% 0.025 114)",
+          "oklch(49.29% 0.025 114)",
+          "oklch(60.71% 0.025 114)",
+          "oklch(72.14% 0.025 114)",
+          "oklch(83.57% 0.025 114)",
+          "oklch(95.00% 0.025 114)"
+        ]
+      },
+      "identity-border": {
+        "role": "neutral",
+        "displayName": "Identity Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.040 160)",
+          "oklch(26.43% 0.040 160)",
+          "oklch(37.86% 0.040 160)",
+          "oklch(49.29% 0.040 160)",
+          "oklch(60.71% 0.040 160)",
+          "oklch(72.14% 0.040 160)",
+          "oklch(83.57% 0.040 160)",
+          "oklch(95.00% 0.040 160)"
+        ]
+      },
+      "identity-ornament": {
+        "role": "neutral",
+        "displayName": "Ellipse Green",
+        "tonalRamp": [
+          "oklch(15.00% 0.065 125)",
+          "oklch(26.43% 0.065 125)",
+          "oklch(37.86% 0.065 125)",
+          "oklch(49.29% 0.065 125)",
+          "oklch(60.71% 0.065 125)",
+          "oklch(72.14% 0.065 125)",
+          "oklch(83.57% 0.065 125)",
+          "oklch(95.00% 0.065 125)"
+        ]
       }
     },
     "typographyMeta": {
@@ -361,16 +417,40 @@
       "metric": {
         "displayName": "Summary count",
         "purpose": "Reduces to 32px at 720px and below."
+      },
+      "identity-name": {
+        "displayName": "Identity name",
+        "purpose": "Card name only; smaller long-name variant and a mobile clamp preserve readable wrapping."
+      },
+      "identity-handle": {
+        "displayName": "Identity handle",
+        "purpose": "Monospace short handle or Agent ID on the identity card."
       }
     },
     "shadows": [
       {
         "name": "mobile-navigation",
         "value": "16px 0 40px #26332f12",
-        "purpose": "The open mobile sidebar; desktop records and panels remain flat."
+        "purpose": "The open mobile sidebar; ordinary desktop records remain flat."
+      },
+      {
+        "name": "identity-card",
+        "value": "0 25px 45px -22px #153b354d, inset 0 1px 0 #eff5db30",
+        "purpose": "Local resting elevation for the Agent identity card only."
       }
     ],
-    "motion": [],
+    "motion": [
+      {
+        "name": "identity-transform",
+        "value": "transform 500ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 500ms ease-out",
+        "purpose": "Fine-pointer mouse tilt bounded to 4.5 degrees X and 5.5 degrees Y; resets on pointer leave/cancel or disabling motion."
+      },
+      {
+        "name": "identity-sheen",
+        "value": "opacity 550ms ease-out",
+        "purpose": "Cursor-centered sheen; static without sheen or transitions for reduced-motion, no-hover, or coarse-pointer contexts."
+      }
+    ],
     "breakpoints": [
       {
         "name": "compact",
@@ -390,7 +470,7 @@
       "stylesheet": "web/style.css",
       "components": "web/main.tsx",
       "mode": "code-led scan",
-      "scope": "Separate Go-core candidate. Tonal ramps are synthesized panel previews, not additional implemented UI tokens."
+      "scope": "Current AgentNet web app, including the scoped identity-card addition. Tonal ramps are synthesized panel previews, not additional implemented UI tokens."
     }
   },
   "components": [
@@ -423,7 +503,7 @@
       "kind": "nav",
       "refersTo": "nav-item",
       "description": "Soft selected state uses aria-current; focus remains visible.",
-      "html": "<nav class=\"ds-nav\"><a href=\"#today\" aria-current=\"page\">今日概览</a><a href=\"#profile\">Agent 名片</a></nav>",
+      "html": "<nav class=\"ds-nav\"><a href=\"#today\" aria-current=\"page\">今日概览</a><a href=\"#profile\">Agent 身份卡</a></nav>",
       "css": ".ds-nav{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;display:grid;gap:5px}.ds-nav a{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:6px;color:#52645b;text-decoration:none;font-size:14px}.ds-nav a:hover{background:#e6ece2}.ds-nav a[aria-current]{color:#294c3a;background:#e1e9dc;font-weight:600}.ds-primary:focus-visible,.ds-secondary:focus-visible,.ds-field:focus-visible,.ds-nav a:focus-visible{outline:3px solid #719e89;outline-offset:3px;}"
     },
     {
@@ -456,27 +536,38 @@
       "description": "Flat record with a fine recommendation rule and explicit execution state. The pending example is distinct from the final acted status, displayed as Agent 已执行.",
       "html": "<article class=\"ds-record\"><h3>协作联系</h3><p class=\"ds-recommendation\">Agent 建议：先确认共同目标。</p><span class=\"ds-hint\">已决定，等待 Agent 执行</span></article>",
       "css": ".ds-record{font-family:Inter,'Segoe UI','Microsoft YaHei',sans-serif;color:#26332f;padding:24px 0;border-bottom:1px solid var(--line,#dfe5de)}.ds-record h3{font-size:16px;margin:12px 0 8px}.ds-recommendation{border-left:1px solid #91a994;padding-left:16px;line-height:1.8;margin:8px 0 16px}.ds-hint{color:var(--muted,#596b60);font-size:13px}"
+    },
+    {
+      "name": "Agent Identity Card",
+      "kind": "card",
+      "refersTo": "identity-card",
+      "description": "Explicit synthetic static preview of the shared owner/public identity card. The application adds optional bounded mouse tilt, sheen, and separate copy/link controls.",
+      "html": "<section class=\"ds-identity\"><svg class=\"ds-identity-ornament\" viewBox=\"0 0 360 420\" fill=\"none\" aria-hidden=\"true\"><ellipse cx=\"180\" cy=\"210\" rx=\"44\" ry=\"92\" transform=\"rotate(-49 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"52\" ry=\"98\" transform=\"rotate(-42 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"60\" ry=\"104\" transform=\"rotate(-35 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"68\" ry=\"110\" transform=\"rotate(-28 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"76\" ry=\"116\" transform=\"rotate(-21 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"84\" ry=\"122\" transform=\"rotate(-14 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"92\" ry=\"128\" transform=\"rotate(-7 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"100\" ry=\"134\" transform=\"rotate(0 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"108\" ry=\"140\" transform=\"rotate(7 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"116\" ry=\"146\" transform=\"rotate(14 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"124\" ry=\"152\" transform=\"rotate(21 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"132\" ry=\"158\" transform=\"rotate(28 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"140\" ry=\"164\" transform=\"rotate(35 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"148\" ry=\"170\" transform=\"rotate(42 180 210)\"/><ellipse cx=\"180\" cy=\"210\" rx=\"156\" ry=\"176\" transform=\"rotate(49 180 210)\"/></svg><div class=\"ds-identity-top\"><strong>AgentNet</strong><span>网络身份卡</span></div><h2>示例 Agent</h2><code>@synthetic-preview</code><p>合成预览 · 非真实网络身份</p><span class=\"ds-identity-capability\">能力待补充</span><footer><span>AGENT ID<br><code>synthetic-preview</code></span><span>加入网络<br>暂未提供</span></footer></section>",
+      "css": ".ds-identity{position:relative;isolation:isolate;overflow:hidden;font-family:Inter,\"Segoe UI\",\"Microsoft YaHei\",sans-serif;background:#183e35;color:#f1f4df;border:1px solid #48685a;border-radius:22px;padding:30px 36px 26px;box-shadow:0 25px 45px -22px #153b354d,inset 0 1px 0 #eff5db30}.ds-identity:after{content:\"\";position:absolute;inset:9px;border:1px solid #b8ce9f20;border-radius:15px;pointer-events:none}.ds-identity-top{position:relative;display:flex;justify-content:space-between;gap:16px}.ds-identity-top strong{font-size:20px;letter-spacing:-.6px}.ds-identity-top span{font-size:12px;color:#c4d5c6;letter-spacing:2px}.ds-identity h2{position:relative;margin:42px 0 8px;font-size:clamp(32px,4.8vw,60px);font-weight:500;line-height:1.12;letter-spacing:-.035em;overflow-wrap:anywhere}.ds-identity code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px;color:#c1d5b3;overflow-wrap:anywhere}.ds-identity p{position:relative;color:#d5dfd2;font-size:14px;line-height:1.8;margin:19px 0 22px}.ds-identity-capability{position:relative;display:inline-block;border:1px solid #b8ce9f45;border-radius:4px;padding:5px 10px;font-size:12px}.ds-identity footer{position:relative;display:flex;flex-wrap:wrap;gap:36px;border-top:1px solid #b8ce9f40;margin-top:26px;padding-top:21px;font-size:12px;line-height:1.8}.ds-identity footer code{color:#f1f4df;font-size:13px}.ds-identity-ornament{position:absolute;width:52%;height:110%;right:-12%;top:-3%;opacity:.25;stroke:#c6dbab;stroke-width:.65;pointer-events:none}@media(max-width:720px){.ds-identity{padding:23px 24px;border-radius:18px}.ds-identity h2{font-size:clamp(30px,8vw,48px)}}"
     }
   ],
   "narrative": {
     "northStar": "Human Control Plane",
-    "overview": "AgentNet presents a person's Agent as a persistent network participant. The interface is restrained and professional: off-white canvas, pale-green navigation, dark green actions, generous reading space, and thin dividers. It makes identity, recent presence, human decisions, and execution progress legible without turning every record into a raised card.\n\nThis is a code-led record of the separate Go-core candidate in `web/main.tsx` and `web/style.css`, not a replacement for the repository's older Node design system. It captures implemented visuals; no approved visual comp or production execution certification is implied.",
+    "overview": "AgentNet presents a person's Agent as a persistent network participant. The interface is restrained and professional: off-white canvas, pale-green navigation, dark green actions, generous reading space, and thin dividers. It makes identity, recent presence, human decisions, and execution progress legible without turning every record into a raised card.\r\n\r\nThis is a code-led record of the current AgentNet web app in `web/main.tsx`, `web/style.css`, and `web/identity-card.css`. The identity card adds a distinct dark-green object within the existing control plane. It captures implemented visuals; visual review alone does not certify production connectivity or execution.",
     "keyCharacteristics": [
       "Quiet green surfaces and clear dark text.",
       "Flat records, explicit text states, and restrained controls.",
-      "Persistent Agent context with responsive navigation."
+      "Persistent Agent context with responsive navigation.",
+      "A dark forest identity card with ivory name type and fine elliptical ornament."
     ],
     "rules": [],
     "dos": [
       "Do reuse the extracted green surfaces, thin dividers, and field treatments.",
       "Do preserve text labels alongside presence and execution states.",
       "Do keep long identifiers and message content wrap-safe and action rows able to wrap.",
-      "Do preserve visible keyboard focus and the mobile navigation and conversation layouts."
+      "Do preserve visible keyboard focus and the mobile navigation and conversation layouts.",
+      "Do keep identity-card motion optional, bounded, and static for reduced-motion or coarse-pointer users.",
+      "Do label synthetic previews explicitly and keep displayed identity facts tied to actual profile data."
     ],
     "donts": [
       "Don't make a queued instruction or decision look like completed Agent execution.",
       "Don't replace flat record lists with elevated cards by default.",
-      "Don't describe this candidate's visuals as evidence of production connectivity or backend completion."
+      "Don't describe these visuals as evidence of production connectivity or backend completion."
     ]
   }
 }

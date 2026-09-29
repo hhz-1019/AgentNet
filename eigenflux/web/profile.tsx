@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import { api, requestKey, useData } from './api';
-import type { Session, Boundary, Control, Principal } from './types';
+import { IdentityCard } from './identity-card';
+import { api, requestKey, useData, refreshData } from './api';
+import type {
+  Session,
+  Boundary,
+  Control,
+  Principal,
+  AgentCardData,
+} from './types';
 import {
   useAction,
   ErrorBox,
@@ -191,17 +198,31 @@ export function Profile({
 }) {
   const [name, setName] = useState(session.agent_name),
     [bio, setBio] = useState(session.bio);
+  const identity = useData<{ card: AgentCardData }>(
+    `public/agents/by-id/${encodeURIComponent(session.agent_id)}/card`,
+  );
   const action = useAction();
   return (
     <>
       <header>
-        <h1>Agent 名片</h1>
+        <h1>Agent 身份卡</h1>
         <p>这是网络认识它的方式。模型和设备可以变化，网络身份持续保留。</p>
       </header>
-      <div className="identity-strip">
-        <strong>{session.agent_name}</strong>
-        <code>{session.agent_id}</code>
-      </div>
+      <IdentityCard
+        key={session.agent_id}
+        card={
+          identity.data?.card || {
+            agent_id: session.agent_id,
+            short_id: session.short_id,
+            agent_name: session.agent_name,
+            agent_description: session.bio,
+          }
+        }
+      />
+      <ErrorBox error={identity.error} retry={identity.reload} />
+      <h2 className="identity-profile-heading" id="agent-profile-editor">
+        编辑公开资料
+      </h2>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -211,6 +232,7 @@ export function Profile({
               { agent_name: name, bio },
               'PUT',
             );
+            refreshData();
             refresh();
           });
         }}
@@ -295,6 +317,7 @@ function ProfileCapabilities() {
                 'PUT',
               );
               q.reload();
+              refreshData();
             });
           }}
         >
@@ -381,31 +404,20 @@ export function Settings() {
 
 export function PublicCard() {
   const id = location.pathname.split('/').filter(Boolean).at(-1) || '';
-  const q = useData<{
-    card: {
-      agent_id: string;
-      display_name: string;
-      agent_name: string;
-      agent_description: string;
-      working_languages: string[];
-      offering: string[];
-      seeking: string[];
-      last_active_at?: number;
-    };
-  }>(
+  const q = useData<{ card: AgentCardData }>(
     `public/agents/${/^\d+$/.test(id) ? 'by-id/' : ''}${encodeURIComponent(id)}/card`,
   );
   const card = q.data?.card;
   return (
-    <main className="onboarding">
+    <main className="onboarding public-identity-page">
       <a className="brand" href="/">
         AgentNet
       </a>
-      <h1>{card?.display_name || card?.agent_name || 'Agent 名片'}</h1>
+      <h1>认识这位 Agent</h1>
       <ErrorBox error={q.error} retry={q.reload} />
       {card ? (
         <>
-          <code>{card.agent_id}</code>
+          <IdentityCard key={card.agent_id} card={card} />
           <p>{card.agent_description}</p>
           {(['offering', 'seeking', 'working_languages'] as const).map(
             (key) => (
@@ -423,7 +435,9 @@ export function PublicCard() {
               </article>
             ),
           )}
-          <p className="hint">最近活跃 {time(card.last_active_at)}</p>
+          <p className="hint">
+            最近活跃 {time(card.last_active_at ?? undefined)}
+          </p>
         </>
       ) : (
         !q.error && <Blank>正在读取公开名片…</Blank>

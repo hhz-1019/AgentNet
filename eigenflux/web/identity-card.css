@@ -1,0 +1,287 @@
+/* A physical identity card inside the existing quiet green control plane. */
+.identity-showcase {
+  max-width: 780px;
+  margin: 38px auto 20px;
+}
+.identity-stage {
+  perspective: 1200px;
+  padding: 16px 12px 28px;
+}
+.agent-id-card {
+  --rx: 0deg;
+  --ry: 0deg;
+  --px: 50%;
+  --py: 50%;
+  --sheen: 0;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 30px 36px 26px;
+  color: #f1f4df;
+  background: #183e35;
+  border: 1px solid #48685a;
+  border-radius: 22px;
+  box-shadow:
+    0 25px 45px -22px #153b354d,
+    inset 0 1px 0 #eff5db30;
+  transform: rotateX(var(--rx)) rotateY(var(--ry));
+  transition:
+    transform 500ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 500ms ease-out;
+}
+.agent-id-card::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border: 1px solid #b8ce9f20;
+  border-radius: 15px;
+  pointer-events: none;
+}
+.identity-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}
+.identity-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+}
+.identity-card-kind {
+  font-size: 12px;
+  color: #c4d5c6;
+  letter-spacing: 2px;
+}
+.identity-card-person {
+  position: relative;
+  max-width: 80%;
+  margin-top: 42px;
+}
+.identity-card-person h2 {
+  color: #f1f4df;
+  margin: 0 0 8px;
+  font-size: clamp(32px, 4.8vw, 60px);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.identity-card-person h2.identity-long-name {
+  font-size: clamp(27px, 3.2vw, 40px);
+}
+.identity-handle {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  color: #c1d5b3;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.identity-bio {
+  color: #d5dfd2;
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 19px 0 0;
+  max-width: 49ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.identity-capabilities {
+  display: flex;
+  gap: 8px;
+  margin: 22px 0 26px;
+  position: relative;
+  min-width: 0;
+}
+.identity-capabilities span {
+  border: 1px solid #b8ce9f45;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  max-width: 45%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.identity-card-bottom {
+  display: flex;
+  align-items: end;
+  gap: 36px;
+  border-top: 1px solid #b8ce9f40;
+  padding-top: 21px;
+  position: relative;
+}
+.identity-meta-label {
+  display: block;
+  color: #bacebb;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  margin-bottom: 7px;
+}
+.identity-card-bottom code,
+.identity-card-bottom time {
+  color: #f1f4df;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.identity-card-bottom code {
+  user-select: all;
+}
+.identity-corner {
+  margin-left: auto;
+  color: #c0d59c;
+}
+.identity-guilloche {
+  position: absolute;
+  width: 52%;
+  height: 110%;
+  right: -12%;
+  top: -3%;
+  opacity: 0.25;
+  pointer-events: none;
+}
+.identity-guilloche svg {
+  width: 100%;
+  height: 100%;
+  stroke: #c6dbab;
+  stroke-width: 0.65;
+}
+.identity-sheen {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--sheen);
+  background: radial-gradient(
+    ellipse at var(--px) var(--py),
+    #f4ffe422,
+    transparent 65%
+  );
+  transition: opacity 550ms ease-out;
+}
+.identity-card-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.identity-motion-toggle {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 7px 0;
+  flex-shrink: 0;
+}
+.identity-share-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.identity-share-actions button {
+  font-size: 13px;
+}
+.identity-share-actions a {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 13px;
+  padding: 10px 5px;
+}
+.identity-feedback {
+  display: block;
+  min-height: 26px;
+  margin: 10px 12px 0;
+  text-align: center;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.identity-profile-heading {
+  border-top: 1px solid var(--line);
+  padding-top: 32px;
+  margin-top: 24px;
+  scroll-margin-top: 90px;
+}
+.public-identity-page {
+  max-width: 900px;
+}
+.public-identity-page > .brand {
+  margin-bottom: 24px;
+}
+@media (max-width: 720px) {
+  .identity-showcase {
+    margin-top: 22px;
+  }
+  .identity-stage {
+    padding: 8px 0 22px;
+  }
+  .agent-id-card {
+    padding: 23px 24px;
+    border-radius: 18px;
+  }
+  .identity-card-person {
+    max-width: 94%;
+    margin-top: 34px;
+  }
+  .identity-card-person h2 {
+    font-size: clamp(30px, 8vw, 48px);
+  }
+  .identity-card-kind {
+    letter-spacing: 1px;
+    font-size: 11px;
+  }
+  .identity-wordmark {
+    font-size: 18px;
+  }
+  .identity-card-bottom {
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .identity-card-bottom code,
+  .identity-card-bottom time {
+    font-size: 12px;
+  }
+  .identity-corner {
+    display: none;
+  }
+  .identity-card-caption {
+    padding: 0;
+    align-items: start;
+  }
+  .identity-card-caption > span {
+    max-width: 24ch;
+    line-height: 1.7;
+  }
+  .identity-motion-toggle {
+    display: none;
+  }
+  .identity-share-actions {
+    gap: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
+  .agent-id-card {
+    transform: none;
+    transition: none;
+  }
+  .identity-sheen {
+    display: none;
+  }
+  .identity-motion-toggle {
+    display: none;
+  }
+}

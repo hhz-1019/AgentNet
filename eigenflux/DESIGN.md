@@ -26,6 +26,10 @@ colors:
   recommendation-line: "#91a994"
   error-surface: "#faeeea"
   error-line: "#9c4138"
+  identity-forest: "#183e35"
+  identity-ivory: "#f1f4df"
+  identity-border: "#48685a"
+  identity-ornament: "#c6dbab"
 typography:
   display:
     fontFamily: "Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif"
@@ -59,12 +63,22 @@ typography:
     fontWeight: 500
     lineHeight: 1.6
     letterSpacing: "-1px"
+  identity-name:
+    fontSize: "clamp(32px, 4.8vw, 60px)"
+    fontWeight: 500
+    lineHeight: 1.12
+    letterSpacing: "-0.035em"
+  identity-handle:
+    fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace"
+    fontSize: "14px"
 rounded:
   badge: "4px"
   control: "6px"
   empty: "8px"
   avatar: "9px"
   panel: "12px"
+  identity-card: "22px"
+  identity-card-mobile: "18px"
 spacing:
   small: "8px"
   inline: "12px"
@@ -111,6 +125,11 @@ components:
     textColor: "{colors.muted}"
     rounded: "{rounded.empty}"
     padding: "34px"
+  identity-card:
+    backgroundColor: "{colors.identity-forest}"
+    textColor: "{colors.identity-ivory}"
+    rounded: "{rounded.identity-card}"
+    padding: "30px 36px 26px"
 ---
 
 # Design System: AgentNet Human Control Plane
@@ -121,19 +140,22 @@ components:
 
 AgentNet presents a person's Agent as a persistent network participant. The interface is restrained and professional: off-white canvas, pale-green navigation, dark green actions, generous reading space, and thin dividers. It makes identity, recent presence, human decisions, and execution progress legible without turning every record into a raised card.
 
-This is a code-led record of the separate Go-core candidate in `web/main.tsx` and `web/style.css`, not a replacement for the repository's older Node design system. It captures implemented visuals; no approved visual comp or production execution certification is implied.
+This is a code-led record of the current AgentNet web app in `web/main.tsx`, `web/style.css`, and `web/identity-card.css`. The identity card adds a distinct dark-green object within the existing control plane. It captures implemented visuals; visual review alone does not certify production connectivity or execution.
 
 **Key Characteristics:**
 
 - Quiet green surfaces and clear dark text.
 - Flat records, explicit text states, and restrained controls.
 - Persistent Agent context with responsive navigation.
+- A dark forest identity card with ivory name type and fine elliptical ornament.
 
 ## Colors
 
 ### Primary
 
 Forest green identifies primary actions, links, successful feedback, and the current onboarding step. The darker primary hover is reserved for the filled action. Focus has its own lighter green outline.
+
+The identity card uses its own deeper forest surface, ivory name and identifiers, subdued green border, and pale-green ellipse ornament. These colors are local to the identity card rather than replacements for the shell palette.
 
 ### Neutral
 
@@ -147,6 +169,8 @@ The shared stack prefers Inter, then Segoe UI and Microsoft YaHei. No bundled fo
 
 Display type belongs to the landing headline. Console pages use the headline role; section headings and record titles step down to the section and title roles. Metadata is smaller but retains the muted foreground's legibility. Summary counts use the metric role. Console headlines reduce to 27px and metrics to 32px at the mobile breakpoint. Native bold defaults remain in headings whose weight is not explicitly set. Code uses the browser monospace face with 13px text and wraps long identifiers.
 
+The identity name uses the dedicated identity-name role; names longer than 22 characters use `clamp(27px, 3.2vw, 40px)`. At the mobile breakpoint the name uses `clamp(30px, 8vw, 48px)`. Names wrap anywhere; the monospace handle also wraps. The card summary clamps to two lines and capability labels truncate; the public page retains the full description and capability list below the card.
+
 ## Layout
 
 Desktop uses a fixed 250px sidebar and a 66px topbar. Main content is centered within the remaining workspace, capped at 1250px, with 44px vertical and 48px horizontal padding. Forms cap at 740px. Records are separated by bottom rules and 24px vertical padding; action rows wrap with 12px gaps. Summary counts occupy four columns, while discovery records use two columns with a 34px gutter.
@@ -155,13 +179,19 @@ At 1000px and below, the sidebar becomes 210px, main padding becomes 36px by 28p
 
 The landing has a 1200px cap, a 1.15:1 two-column composition, and a 100px gap that becomes 40px at the middle breakpoint; mobile stacks the copy and form. Onboarding uses an 840px container. These are surface-specific compositions, not universal page templates.
 
+The identity showcase caps at 780px and centers within the profile page. It appears above the retained profile and capability forms. Its stage provides 1200px perspective; the public identity page caps at 900px. Mobile card padding becomes 23px by 24px, footer metadata wraps, and share actions wrap. Decorative corner artwork and the motion toggle are hidden at the mobile breakpoint.
+
 ## Elevation & Depth
 
-Desktop depth comes from tonal surfaces and fine borders. The only authored shadow is the mobile navigation drawer (`16px 0 40px #26332f12`). Controls and records do not acquire shadows on hover. The stylesheet defines no animated transitions; reduced-motion handling resets scroll behavior to auto.
+Shell depth comes from tonal surfaces and fine borders, with a shadow for the mobile navigation drawer (`16px 0 40px #26332f12`). Controls and ordinary records do not acquire shadows on hover. The identity card is a scoped exception: its resting shadow (`0 25px 45px -22px #153b354d, inset 0 1px 0 #eff5db30`), fine inner border, and ellipse ornament suggest a physical card.
+
+The card follows fine-pointer mouse movement with bounded rotation (up to 4.5 degrees on X and 5.5 degrees on Y) and a cursor-centered sheen. Transform returns use 500ms `cubic-bezier(0.16, 1, 0.3, 1)`; shadow transitions use 500ms ease-out and sheen opacity uses 550ms ease-out. Leaving or cancelling the pointer resets the card, as does disabling motion. Reduced-motion, no-hover, and coarse-pointer contexts show a static card without sheen or transitions; shell reduced-motion handling also resets scroll behavior to auto. These effects belong to the identity card only.
 
 ## Shapes
 
 Controls and navigation use gently rounded corners; badges are tighter, empty states softer, and the login panel broader. The extracted radii in frontmatter govern these roles. Identity dots are circular: presence is 8px, while the wordmark dot is 7px. Discovery avatars are 42px squares with the avatar radius. Recommendation and error edges remain fine 1px rules.
+
+The identity card uses the larger dedicated card radius, a 15px inset-border radius, and fifteen fine rotated ellipses. Its rounded silhouette and ornamental geometry are signature details for identity, not the default enclosure for records.
 
 ## Components
 
@@ -173,6 +203,7 @@ Controls and navigation use gently rounded corners; badges are tighter, empty st
 - **Presence and decisions:** Presence dots always accompany runtime-state text and recent heartbeat information. The today page separates open decisions from execution progress; only open attention items expose decision and dismissal controls. A queued decision is visibly distinct from completed execution, including the upstream `acted` status displayed as “Agent 已执行”.
 - **Conversations:** Selected previews use the conversation tint; preview text truncates, while message content wraps. The selected page of history is ordered by timestamp with message ID as a tie-breaker, retaining pagination. Own messages have a left inset and other messages a right inset. The composer submits an instruction to the user's Agent and acknowledges queueing; it is not a direct human message-send control.
 - **Feedback:** Errors use an alert region with an optional retry button; successes use green output text. Loading and empty states use the same restrained dashed container. Recommendations use a fine left rule, never a broad colored stripe.
+- **Identity card:** Shared by the owner profile and public identity page. It shows the actual Agent name, short handle or Agent ID, description, up to two offered capabilities with a remaining count, full Agent ID, and joining date. Missing capabilities and dates have explicit placeholders. Copy ID and copy public-link actions report success or clipboard failure; the ID remains selectable and the public page can be opened directly. The card does not infer runtime status, verification, or reputation from its decorative treatment.
 
 ## Do's and Don'ts
 
@@ -180,6 +211,8 @@ Controls and navigation use gently rounded corners; badges are tighter, empty st
 - **Do** preserve text labels alongside presence and execution states.
 - **Do** keep long identifiers and message content wrap-safe and action rows able to wrap.
 - **Do** preserve visible keyboard focus and the mobile navigation and conversation layouts.
+- **Do** keep identity-card motion optional, bounded, and static for reduced-motion or coarse-pointer users.
+- **Do** label synthetic previews explicitly and keep displayed identity facts tied to actual profile data.
 - **Don't** make a queued instruction or decision look like completed Agent execution.
 - **Don't** replace flat record lists with elevated cards by default.
-- **Don't** describe this candidate's visuals as evidence of production connectivity or backend completion.
+- **Don't** describe these visuals as evidence of production connectivity or backend completion.
