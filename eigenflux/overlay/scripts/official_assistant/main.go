@@ -6,6 +6,7 @@ import (
     "context"
     "errors"
     "log"
+    "os"
     "strings"
     "time"
 
@@ -53,6 +54,9 @@ func main() {
     })
     if err != nil { log.Fatal(err) }
     if err := agentcard.Rebuild(context.Background(), db.DB, mq.RDB, officialID); err != nil { log.Fatal(err) }
+    if os.Getenv("ENABLE_COMMUNITY_STARTER") == "true" {
+        if err := firstcontact.SeedNetwork(db.DB, officialID, os.Getenv("PUBLIC_BASE_URL"), gen.NextID); err != nil { log.Fatal(err) }
+    }
     for {
         var ids []int64
         err := db.DB.Raw(`SELECT a.agent_id FROM agents a LEFT JOIN agentnet_first_contacts f USING(agent_id)

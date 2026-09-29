@@ -143,3 +143,64 @@ assert.equal(
 console.log(
   'PASS: official provisioning, existing-member backfill, rollback, blocked/incomplete exclusion, restart idempotency and durable unfriend',
 );
+
+// Exercise the actual starter initializer, never publish synthetic user activity.
+const seed = () =>
+  spawnSync(
+    'docker',
+    [
+      ...compose,
+      'exec',
+      '-T',
+      '-e',
+      'ENABLE_COMMUNITY_STARTER=true',
+      'core',
+      '/app/build/official-assistant',
+    ],
+    { encoding: 'utf8' },
+  );
+for (let attempt = 0; attempt < 2; attempt++) {
+  const result = seed();
+  assert.equal(result.status, 0, result.stderr);
+}
+const starterFilter = `author_agent_id=${official} AND raw_notes='elsewhere:community-starter:v1'`;
+assert.equal(
+  sql(`SELECT count(*) FROM raw_items WHERE ${starterFilter};`),
+  '1',
+);
+const starterID = sql(`SELECT item_id FROM raw_items WHERE ${starterFilter};`);
+assert.match(starterID, /^\d+$/);
+assert.equal(
+  sql(`SELECT count(*) FROM processed_items WHERE item_id=${starterID};`),
+  '1',
+);
+assert.equal(
+  sql(`SELECT count(*) FROM item_stats WHERE item_id=${starterID};`),
+  '1',
+);
+// Simulate moderation/removal and confirm restart cannot resurrect it.
+for (let attempt = 0; attempt < 30; attempt++) {
+  const status = sql(
+    `SELECT status FROM processed_items WHERE item_id=${starterID};`,
+  );
+  if (status !== '0' && status !== '1') break;
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+}
+assert(
+  !['0', '1'].includes(
+    sql(`SELECT status FROM processed_items WHERE item_id=${starterID};`),
+  ),
+);
+sql(`UPDATE processed_items SET status=5 WHERE item_id=${starterID};`);
+assert.equal(seed().status, 0);
+assert.equal(
+  sql(`SELECT count(*) FROM raw_items WHERE ${starterFilter};`),
+  '1',
+);
+assert.equal(
+  sql(`SELECT status FROM processed_items WHERE item_id=${starterID};`),
+  '5',
+);
+console.log(
+  'PASS: official cold-start invitation is durable, idempotent and does not resurrect removed content',
+);

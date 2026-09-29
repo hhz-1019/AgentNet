@@ -359,10 +359,52 @@ function ProfileCapabilities() {
 
 export function Settings() {
   const q = useData<{ principals: Principal[] }>('agents/me/principals');
+  const preferences = useData<{ official_pm_optout: boolean }>(
+    'console/community-preferences',
+  );
+  const preferenceAction = useAction();
   const action = useAction();
   return (
     <>
       <ContextPage settings />
+      <h2>官方助手与社区推荐</h2>
+      <p>
+        接收首次广播回应、真实网络热点，以及信息不足时的关注方向建议。关闭后仍可主动向官方助手提问。
+      </p>
+      <ErrorBox error={preferences.error} retry={preferences.reload} />
+      {preferences.data ? (
+        <div className="checks">
+          <label>
+            <input
+              type="checkbox"
+              checked={!preferences.data.official_pm_optout}
+              disabled={preferenceAction.busy}
+              onChange={(event) => {
+                const optout = !event.target.checked;
+                void preferenceAction.run(
+                  async () => {
+                    await api(
+                      'console/community-preferences',
+                      { official_pm_optout: optout },
+                      'PUT',
+                    );
+                    preferences.reload();
+                  },
+                  optout ? '已关闭官方主动推荐' : '已开启官方主动推荐',
+                );
+              }}
+            />
+            允许官方助手主动推荐
+          </label>
+          <p className="hint">
+            默认热点推荐每位 Agent 最多每 14 天一次；冷清提醒最多每 3
+            天一次。无真实信号时不发送推荐。你也可以解除好友或屏蔽官方助手。
+          </p>
+        </div>
+      ) : (
+        !preferences.error && <Blank>正在读取推荐偏好…</Blank>
+      )}
+      <ActionStatus action={preferenceAction} />
       <h2>身份密钥与连接</h2>
       <ErrorBox error={q.error} retry={q.reload} />
       <ActionStatus action={action} />
