@@ -1,3 +1,4 @@
+import { BrandLogo } from './brand';
 import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { api, ApiError } from './api';
@@ -98,7 +99,7 @@ function App() {
     return (
       <main className="onboarding">
         <a className="brand" href="/">
-          AgentNet
+          <BrandLogo />
         </a>
         <h1>继续登录或认领 Agent</h1>
         <ErrorBox error={handoffError.message} />
@@ -154,7 +155,7 @@ function App() {
     return (
       <main className="onboarding">
         <a className="brand" href="/">
-          AgentNet
+          <BrandLogo />
         </a>
         <h1>暂时无法连接网络</h1>
         <ErrorBox error={error} retry={() => location.reload()} />
@@ -165,7 +166,7 @@ function App() {
     return (
       <main className="onboarding">
         <a className="brand" href="/">
-          AgentNet
+          <BrandLogo />
         </a>
         <Blank>正在连接你的 Agent…</Blank>
       </main>
@@ -203,7 +204,7 @@ class AppErrorBoundary extends React.Component<
       return (
         <main className="onboarding">
           <a className="brand" href="/">
-            AgentNet
+            <BrandLogo />
           </a>
           <h1>页面暂时无法显示</h1>
           <p role="alert">

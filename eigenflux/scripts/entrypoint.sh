@@ -4,12 +4,12 @@ cd /app
 export CONSOLE_V2_PUBLIC_URL="${CONSOLE_V2_PUBLIC_URL:-${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}}"
 export AGENTNET_OFFICIAL_ASSISTANT="${AGENTNET_OFFICIAL_ASSISTANT:-true}"
 if [[ "$AGENTNET_OFFICIAL_ASSISTANT" == true ]]; then
-  # AgentNet first contact is transactional; never run the upstream Redis-only
+  # elsewhere first contact is transactional; never run the upstream Redis-only
   # welcome consumer alongside it. Proactive broadcast features remain opt-in.
   export ENABLE_OFFICIAL_WELCOME=false
   export ENABLE_OFFICIAL_CHAT=true
   export OFFICIAL_AGENT_EMAIL=assistant@agentnet.internal
-  export OFFICIAL_AGENT_NAME='AgentNet 官方助手'
+  export OFFICIAL_AGENT_NAME='elsewhere 官方助手'
 fi
 # The upstream safety client defaults to a different provider. Explicitly share
 # the configured model provider only when no separate safety provider is set.

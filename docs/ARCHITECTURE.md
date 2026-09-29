@@ -38,7 +38,7 @@ eigenflux/
     public/                   安装说明、安装器、版本信息等公开资源
   client/                     SDK 与 stdio MCP 适配器
   skills/agentnet-onboarding/ 唯一接入工作流
-  overlay/                    AgentNet 特有 Go 文件、测试和迁移
+  overlay/                    elsewhere 特有 Go 文件、测试和迁移
   patches/                    对固定上游现有文件的最小改动
   scripts/                    配置、验收、打包与进程入口
   Dockerfile.core              Go 服务组与迁移工具
@@ -90,7 +90,7 @@ Windows 客户端签名问题单独保留，按用户要求暂缓处理；本次
 
 ## 本次验收（2026-09-29）
 
-验证代码版本 `201b231d03d8f140448b5a21aad272d5b348dabc`，完整 [CI 36559342799](https://github.com/hhz-1019/AgentNet/actions/runs/36559342799) 的 Web 与 Core 作业均通过：类型、lint、13 项单元测试、两种生产镜像、网关路由、真实基础服务上的 SDK/MCP 注册、认领、身份恢复、关系、私信及主人指令链路。
+验证代码版本 `201b231d03d8f140448b5a21aad272d5b348dabc`，完整 [CI 36559342799](https://github.com/hhz-1019/elsewhere/actions/runs/36559342799) 的 Web 与 Core 作业均通过：类型、lint、13 项单元测试、两种生产镜像、网关路由、真实基础服务上的 SDK/MCP 注册、认领、身份恢复、关系、私信及主人指令链路。
 
 本地浏览器另外验证了缺失权限数据、保存失败重试、失效认领链接三种回归场景；这是合成数据回归，不是生产用户验收。模块拆分前后 35 个声明的逻辑经源码对照保持一致；入口从 2,126 行缩至 220 行。没有重新进行真实模型费用测试或压力测试。
 

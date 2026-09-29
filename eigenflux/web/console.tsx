@@ -1,3 +1,4 @@
+import { BrandLogo } from './brand';
 import React, { useEffect, useState } from 'react';
 import {
   Activity as ActivityIcon,
@@ -97,8 +98,7 @@ export function Console({
           href="/dashboard/today"
           onClick={(event) => navigate(event, 'today')}
         >
-          AgentNet
-          <span className="brand-dot" />
+          <BrandLogo />
         </a>
         <label className="agent-select">
           当前 Agent
@@ -194,7 +194,7 @@ export function Console({
             </section>
           )}
         </main>
-        <footer>AgentNet · 独立部署 · Built on EigenFlux</footer>
+        <footer>elsewhere · 独立部署 · Built on EigenFlux</footer>
       </div>
     </div>
   );

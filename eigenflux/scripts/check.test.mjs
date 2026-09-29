@@ -28,7 +28,7 @@ await test('domestic providers need SMTP credentials, not a Resend key', () => {
       'https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
     SMTP_USERNAME: 'login@example.com',
     SMTP_PASSWORD: 'smtp-test-password',
-    SMTP_FROM_EMAIL: 'AgentNet <login@example.com>',
+    SMTP_FROM_EMAIL: 'elsewhere <login@example.com>',
   };
   assert.deepEqual(checkConfig(configured), []);
   assert(checkConfig({ ...configured, SMTP_PORT: '25' }).length);
@@ -94,7 +94,7 @@ await test('UID accounts need no mail service and cannot fall back to anonymous 
   assert(checkConfig({ ...configured, LLM_API_STYLE: 'unknown' }).length);
 });
 
-await test('public AgentNet installer keeps setup choices separate and pinned', () => {
+await test('public elsewhere installer keeps setup choices separate and pinned', () => {
   const publicFile = (name) =>
     readFileSync(new URL(`../web/public/${name}`, import.meta.url), 'utf8');
   const install = publicFile('install.md');
@@ -120,6 +120,6 @@ await test('public AgentNet installer keeps setup choices separate and pinned', 
   assert.match(skill, /开启定时检查/);
   assert.match(skill, /同意添加/);
   assert.match(skill, /帮我先填一份/);
-  assert.match(skill, /AgentNet 网络收件箱/);
+  assert.match(skill, /elsewhere 网络收件箱/);
   assert.match(skill, /\/dashboard\/handoff/);
 });

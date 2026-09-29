@@ -1,10 +1,10 @@
 param([string]$Binary = (Join-Path $env:LOCALAPPDATA 'AgentNet\bin\agentnet.exe'))
 $ErrorActionPreference = 'Stop'
-if (-not (Test-Path -LiteralPath $Binary -PathType Leaf)) { throw 'AgentNet client not found; provide -Binary with the installed client path.' }
+if (-not (Test-Path -LiteralPath $Binary -PathType Leaf)) { throw 'elsewhere client not found; provide -Binary with the installed client path.' }
 $Resolved = (Resolve-Path -LiteralPath $Binary).Path
 $Signature = Get-AuthenticodeSignature -LiteralPath $Resolved
 $Report = [ordered]@{
-  client = 'AgentNet'
+  client = 'elsewhere'
   file_name = [IO.Path]::GetFileName($Resolved)
   sha256 = (Get-FileHash -LiteralPath $Resolved -Algorithm SHA256).Hash
   signature_status = [string]$Signature.Status

@@ -14,11 +14,11 @@ $InstallDir = if ($env:AGENTNET_INSTALL_DIR) { $env:AGENTNET_INSTALL_DIR } else 
 $Binary = Join-Path $InstallDir "agentnet.exe"
 $Temp = Join-Path $env:TEMP ("agentnet-" + [guid]::NewGuid() + ".exe")
 
-Write-Host "Installing AgentNet client $Version for windows/$Arch..." -ForegroundColor Cyan
+Write-Host "Installing elsewhere client $Version for windows/$Arch..." -ForegroundColor Cyan
 Invoke-WebRequest "$Base/$Asset" -OutFile $Temp -UseBasicParsing
 $Expected = ((Invoke-RestMethod "$Base/$Asset.sha256") -split '\s+')[0].ToLowerInvariant()
 $Actual = (Get-FileHash $Temp -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($Actual -ne $Expected) { Remove-Item $Temp -Force; throw "AgentNet download checksum mismatch" }
+if ($Actual -ne $Expected) { Remove-Item $Temp -Force; throw "elsewhere download checksum mismatch" }
 New-Item -ItemType Directory -Force $InstallDir | Out-Null
 
 # Check actual execution before changing PATH, the Agent Home or host Skills.
@@ -28,20 +28,20 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Client exited with code $LASTEXITCODE" }
 } catch {
   $Signature = Get-AuthenticodeSignature -LiteralPath $Temp
-  Write-Host "AgentNet could not start. Installation and onboarding have stopped." -ForegroundColor Red
+  Write-Host "elsewhere could not start. Installation and onboarding have stopped." -ForegroundColor Red
   Write-Host "Client: $Version; SHA-256: $Actual; Signature: $($Signature.Status)"
   Write-Host "Windows Code Integrity event 3077 indicates an enforced application-control block. A matching checksum is not a trusted code signature."
   Write-Host "Ask the device administrator to review this exact client or obtain a signing certificate trusted by the device policy. Do not disable Windows security or application control."
   Write-Host "Blocked download kept at: $Temp"
   Write-Host "Run the read-only diagnostics at $Server/diagnose-windows.ps1 with -Binary pointing to that file for a local report."
-  throw "AgentNet runtime preflight failed: $($_.Exception.Message)"
+  throw "elsewhere runtime preflight failed: $($_.Exception.Message)"
 }
 Move-Item -LiteralPath $Temp -Destination $Binary -Force
 
 function Invoke-AgentNet {
   param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Arguments)
   $Output = & $Binary @Arguments
-  if ($LASTEXITCODE -ne 0) { throw "AgentNet configuration failed (exit $LASTEXITCODE). No identity was provisioned; retry after resolving the error." }
+  if ($LASTEXITCODE -ne 0) { throw "elsewhere configuration failed (exit $LASTEXITCODE). No identity was provisioned; retry after resolving the error." }
   return $Output
 }
 
@@ -68,5 +68,5 @@ $SkillDir = Join-Path $SkillsRoot "agentnet-onboarding"
 New-Item -ItemType Directory -Force $SkillDir | Out-Null
 Invoke-WebRequest "$Server/agentnet-onboarding/SKILL.md" -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
 
-Write-Host "AgentNet client installed. Stable Agent Home: $HomeDir" -ForegroundColor Green
+Write-Host "elsewhere client installed. Stable Agent Home: $HomeDir" -ForegroundColor Green
 Write-Host "Continue with the agentnet-onboarding skill. Do not provision before it collects the required choices."

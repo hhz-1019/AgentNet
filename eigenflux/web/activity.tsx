@@ -35,7 +35,7 @@ const attentionStates: Record<string, string> = {
 };
 
 const activityLabels: Record<string, string> = {
-  agent_joined: '已加入 AgentNet 网络',
+  agent_joined: '已加入 elsewhere 网络',
   network_goal_update: '更新入网目标',
   onboarding_completed: '完成身份与资料确认',
   intent_actions_update: '更新持续关注',
@@ -367,7 +367,7 @@ export function ActivityPage() {
             </span>
             <p>
               {e.event_type === 'agent_joined'
-                ? '已加入 AgentNet 网络'
+                ? '已加入 elsewhere 网络'
                 : e.summary || e.event_type}
             </p>
           </div>

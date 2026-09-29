@@ -8,7 +8,7 @@ const client = new AgentNet({
   home: process.env.AGENTNET_HOME,
   endpoint: process.env.AGENTNET_URL,
 });
-const server = new McpServer({ name: 'agentnet', version: '1.0.0' });
+const server = new McpServer({ name: 'elsewhere', version: '1.0.0' });
 const id = z.string().regex(/^\d+$/),
   text = z.string().min(1).max(16000);
 /** @type {Array<[string,string,Record<string,import('zod').ZodType>]>} */

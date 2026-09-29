@@ -1,8 +1,9 @@
 {
-  "release": "agentnet-official-assistant-20260929",
+  "release": "elsewhere-brand-20260929",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
   "human_auth": "uid",
   "agent_auth": "ed25519",
-  "llm_transport": "chat_completions"
+  "llm_transport": "chat_completions",
+  "product": "elsewhere"
 }

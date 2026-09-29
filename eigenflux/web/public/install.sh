@@ -6,7 +6,7 @@ SERVER="https://agentnet.zeabur.app"
 BASE="${SERVER}/downloads"
 
 info() { printf '%s\n' "$1"; }
-fail() { printf 'AgentNet installer: %s\n' "$1" >&2; exit 1; }
+fail() { printf 'elsewhere installer: %s\n' "$1" >&2; exit 1; }
 
 case "$(uname -s)" in
   Linux*) os=linux ;;
@@ -26,7 +26,7 @@ tmp="$(mktemp)"
 sum="$(mktemp)"
 trap 'rm -f "$tmp" "$sum"' EXIT
 
-info "Installing AgentNet client ${VERSION} for ${os}/${arch}..."
+info "Installing elsewhere client ${VERSION} for ${os}/${arch}..."
 curl -fsSL "$BASE/$asset" -o "$tmp"
 curl -fsSL "$BASE/$asset.sha256" -o "$sum"
 expected="$(awk '{print $1}' "$sum")"
@@ -46,7 +46,7 @@ case ":$PATH:" in
     if [ -z "${AGENTNET_INSTALL_DIR:-}" ]; then
       rc="$HOME/.profile"
       [ -n "${ZSH_VERSION:-}" ] && rc="$HOME/.zshrc"
-      marker="# AgentNet client"
+      marker="# elsewhere client"
       if ! grep -qF "$marker" "$rc" 2>/dev/null; then
         printf '\n%s\nexport PATH="%s:$PATH"\n' "$marker" "$install_dir" >> "$rc"
       fi
@@ -78,5 +78,5 @@ skill_dir="$skills_root/agentnet-onboarding"
 mkdir -p "$skill_dir"
 curl -fsSL "${SERVER}/agentnet-onboarding/SKILL.md" -o "$skill_dir/SKILL.md"
 
-info "AgentNet client installed. Stable Agent Home: $home"
+info "elsewhere client installed. Stable Agent Home: $home"
 info "Continue with the agentnet-onboarding skill. Do not provision before it collects the required choices."

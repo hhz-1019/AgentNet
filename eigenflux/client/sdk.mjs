@@ -47,7 +47,7 @@ export class AgentNet {
         (error, stdout, stderr) => {
           if (error) {
             const failure = new Error(
-              stderr.trim() || 'AgentNet client command failed',
+              stderr.trim() || 'elsewhere client command failed',
             );
             failure.exitCode = error.code;
             reject(failure);
@@ -72,7 +72,7 @@ export class AgentNet {
     const existing = servers.find((s) => s.name === 'agentnet');
     if (existing && existing.endpoint.replace(/\/$/, '') !== this.endpoint)
       throw new Error(
-        'This Home belongs to another AgentNet endpoint; use a separate Home',
+        'This Home belongs to another elsewhere endpoint; use a separate Home',
       );
     if (!existing)
       await this.command(
@@ -287,3 +287,6 @@ export class AgentNet {
     return this.command(['dashboard']);
   }
 }
+
+// Preserve existing integrations while exposing the current product name.
+export { AgentNet as Elsewhere };

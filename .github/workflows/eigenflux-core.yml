@@ -1,4 +1,4 @@
-name: AgentNet production stack
+name: elsewhere production stack
 on:
   push:
     branches: [main, 'codex/**']

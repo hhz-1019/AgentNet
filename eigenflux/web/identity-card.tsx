@@ -1,5 +1,6 @@
+import { BrandLogo } from './brand';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { ArrowUpRight, Check, Copy, MoveUpRight, Orbit } from 'lucide-react';
+import { ArrowUpRight, Check, Copy, MoveUpRight } from 'lucide-react';
 import type { AgentCardData } from './types';
 import './identity-card.css';
 
@@ -112,7 +113,7 @@ export function IdentityCard({
           </div>
           <div className="identity-card-top">
             <span className="identity-wordmark">
-              <Orbit size={22} strokeWidth={1.5} /> AgentNet
+              <BrandLogo inverse />
             </span>
             <span className="identity-card-kind">网络身份卡</span>
           </div>

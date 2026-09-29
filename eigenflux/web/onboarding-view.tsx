@@ -1,3 +1,4 @@
+import { BrandLogo } from './brand';
 import { useEffect, useState } from 'react';
 import { api, useData } from './api';
 import {
@@ -42,7 +43,7 @@ export function Onboard({
     return (
       <main className="onboarding">
         <a className="brand" href="/">
-          AgentNet
+          <BrandLogo />
         </a>
         <Login binding initialUID={session.owner_uid} done={done} />
       </main>
@@ -60,7 +61,7 @@ export function Onboard({
   return (
     <main className="onboarding">
       <a className="brand" href="/">
-        AgentNet
+        <BrandLogo />
       </a>
       <p className="hint">认领 Agent · {session.agent_id}</p>
       <h1>

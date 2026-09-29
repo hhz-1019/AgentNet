@@ -83,7 +83,7 @@ func TestSMTPSender(t *testing.T) {
 				}
 				done <- body
 			}()
-			from, _ := mail.ParseAddress("AgentNet <sender@example.test>")
+			from, _ := mail.ParseAddress("elsewhere <sender@example.test>")
 			sender := &smtpSender{host: "127.0.0.1", address: listener.Addr().String(), user: from.Address, password: "private-smtp-password", from: from, tlsConfig: trust}
 			if mode == "untrusted-tls" {
 				sender.tlsConfig = nil
@@ -103,7 +103,7 @@ func TestSMTPSender(t *testing.T) {
 					t.Fatal(err)
 				}
 				address, err := mail.ParseAddress(message.Header.Get("From"))
-				if err != nil || address.Address != "sender@example.test" || address.Name != "AgentNet" {
+				if err != nil || address.Address != "sender@example.test" || address.Name != "elsewhere" {
 					t.Fatal("invalid MIME From")
 				}
 				decoded, err := io.ReadAll(quotedprintable.NewReader(message.Body))
@@ -133,7 +133,7 @@ func TestSMTPConfigurationAndBoundaries(t *testing.T) {
 	t.Setenv("SMTP_PORT", "465")
 	t.Setenv("SMTP_USERNAME", "sender@example.test")
 	t.Setenv("SMTP_PASSWORD", "test-only")
-	t.Setenv("SMTP_FROM_EMAIL", "AgentNet <sender@example.test>")
+	t.Setenv("SMTP_FROM_EMAIL", "elsewhere <sender@example.test>")
 	if _, err := NewConfiguredSender("", ""); err != nil {
 		t.Fatal(err)
 	}
