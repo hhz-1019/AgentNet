@@ -1,0 +1,134 @@
+diff --git a/api/consolev2/service.go b/api/consolev2/service.go
+index e883f79..fa78853 100644
+--- a/api/consolev2/service.go
++++ b/api/consolev2/service.go
+@@ -385,6 +385,8 @@ func (s *Service) Register(h *server.Hertz) {
+ 	h.PUT("/api/v2/console/onboarding-draft", s.consoleAuth(true), s.putOnboardingDraft)
+ 	h.GET("/api/v2/agents/me/onboarding-draft", s.consoleAuth(false), s.getOnboardingDraft)
+ 	h.POST("/api/v2/agents/me/onboarding-draft/confirm", s.consoleAuth(true), s.confirmOnboardingStep)
++	h.GET("/api/v2/console/community-preferences", s.consoleAuth(false), s.requireCompleted, s.getCommunityPreferences)
++	h.PUT("/api/v2/console/community-preferences", s.consoleAuth(true), s.requireCompleted, s.putCommunityPreferences)
+ 	h.GET("/api/v2/agents/me/control-context", s.consoleAuth(false), s.requireCompleted, s.getControlContext)
+ 	h.GET("/api/v2/agent-context", s.agentAuth("context:read"), s.requireCompleted, s.getControlContext)
+ 	h.GET("/api/v2/agent-capabilities", s.agentAuth("context:read"), s.getAgentCapabilities)
+diff --git a/pipeline/official/official.go b/pipeline/official/official.go
+index aaf1fe7..e889f7b 100644
+--- a/pipeline/official/official.go
++++ b/pipeline/official/official.go
+@@ -61,7 +61,8 @@ func (s *Sender) PassesGate(officialID, targetID int64, targetEmail string) bool
+ 	if friend, err := pmdal.IsFriend(db.DB, officialID, targetID); err != nil || !friend {
+ 		return false
+ 	}
+-	if cfgs, err := apidal.GetSettings(db.DB, targetID); err == nil && cfgs.OfficialPMOptout {
++	if !s.ChatGate(officialID, targetID, targetEmail) { return false }
++	if cfgs, err := apidal.GetSettings(db.DB, targetID); err != nil || cfgs.OfficialPMOptout {
+ 		return false
+ 	}
+ 	return true
+@@ -71,6 +72,9 @@ func (s *Sender) PassesGate(officialID, targetID int64, targetEmail string) bool
+ // friendship but ignores the proactive-PM opt-out — a user who DMs the official
+ // account wants a reply regardless of having muted proactive pushes.
+ func (s *Sender) ChatGate(officialID, userID int64, userEmail string) bool {
++	for _, pair := range [][2]int64{{officialID, userID}, {userID, officialID}} {
++		blocked, err := pmdal.IsBlocked(db.DB, pair[0], pair[1]); if err != nil || blocked { return false }
++	}
+ 	if friend, err := pmdal.IsFriend(db.DB, officialID, userID); err != nil || !friend {
+ 		return false
+ 	}
+@@ -181,6 +185,7 @@ func (s *Sender) Generate(ctx context.Context, task string) (string, error) {
+ // Send delivers content as the official account in a friend conversation.
+ // Returns true on confirmed delivery (transport ok AND BaseResp.Code == 0).
+ func (s *Sender) Send(ctx context.Context, officialID, targetID int64, content string) bool {
++	if !s.ChatGate(officialID, targetID, "") { return false }
+ 	return s.sendPM(ctx, &pm.SendPMReq{SenderId: officialID, ReceiverId: targetID, Content: content})
+ }
+ 
+diff --git a/pipeline/consumer/official_first_broadcast_consumer.go b/pipeline/consumer/official_first_broadcast_consumer.go
+index 3900920..b43cd61 100644
+--- a/pipeline/consumer/official_first_broadcast_consumer.go
++++ b/pipeline/consumer/official_first_broadcast_consumer.go
+@@ -44,7 +44,8 @@ func NewOfficialFirstBroadcastConsumer(sender *official.Sender) *OfficialFirstBr
+ 		ConsumerName: officialFirstBroadcastConsumerName,
+ 		MetricsLabel: officialFirstBroadcastMetricsLabel,
+ 		Workers:      4,
+-		MaxRetries:   3,
++		MaxRetries:   20,
++		RetryMinIdle:  time.Minute,
+ 		Handle:       c.handle,
+ 	}
+ 	return c
+@@ -74,6 +75,11 @@ func (c *OfficialFirstBroadcastConsumer) handle(ctx context.Context, _ string, v
+ 		logger.Default().Warn("OfficialFirstBroadcastConsumer raw item not found", "itemID", itemID, "err", err)
+ 		return HandleRetry
+ 	}
++	// Never echo rejected, deleted, duplicate or still-unreviewed content.
++	var processed itemdal.ProcessedItem
++	if err := db.DB.First(&processed, "item_id = ?", itemID).Error; err != nil { return HandleRetry }
++	if processed.Status == itemdal.StatusPending || processed.Status == itemdal.StatusProcessing { return HandleRetry }
++	if processed.Status != itemdal.StatusCompleted || processed.DistributionSkipReason != "" { return HandleSuccess }
+ 	authorID := raw.AuthorAgentID
+ 	if authorID == officialID {
+ 		return HandleSuccess
+@@ -96,7 +102,9 @@ func (c *OfficialFirstBroadcastConsumer) handle(ctx context.Context, _ string, v
+ 	if err := db.DB.Raw("SELECT count(*) FROM raw_items WHERE author_agent_id = ?", authorID).Scan(&itemCount).Error; err != nil {
+ 		return HandleRetry
+ 	}
+-	if itemCount != 1 {
++	var firstID int64
++	if err := db.DB.Raw("SELECT item_id FROM raw_items WHERE author_agent_id = ? ORDER BY created_at, item_id LIMIT 1", authorID).Scan(&firstID).Error; err != nil { return HandleRetry }
++	if itemCount == 0 || firstID != itemID {
+ 		return HandleSuccess
+ 	}
+ 	// Dedup: reply to each author's first broadcast at most once.
+@@ -125,6 +133,8 @@ func (c *OfficialFirstBroadcastConsumer) handle(ctx context.Context, _ string, v
+ 		logger.Default().Warn("OfficialFirstBroadcastConsumer generate failed", "authorID", authorID, "err", gerr)
+ 		return HandleRetry
+ 	}
++	// Recheck after model latency so a new opt-out or block wins.
++	if !c.sender.PassesGate(officialID, authorID, author.Email) { return HandleSuccess }
+ 	// Reply under the broadcast (item-originated conversation).
+ 	if !c.sender.SendOnItem(ctx, officialID, itemID, content) {
+ 		_ = mq.RDB.Del(ctx, officialFirstBroadcastKey(authorID)).Err()
+diff --git a/pipeline/cron/official_trending.go b/pipeline/cron/official_trending.go
+index ad1ec57..77058e9 100644
+--- a/pipeline/cron/official_trending.go
++++ b/pipeline/cron/official_trending.go
+@@ -126,7 +126,7 @@ func runOfficialTrending(ctx context.Context, cfg *config.Config, rdb *redis.Cli
+ 				variants[lang] = gen
+ 				msg = gen
+ 			}
+-			if !oc.Send(ctx, officialID, f.AgentID, msg) {
++			if !oc.PassesGate(officialID, f.AgentID, agent.Email) || !oc.Send(ctx, officialID, f.AgentID, msg) {
+ 				oc.CooldownRelease(ctx, "trending", f.AgentID)
+ 				continue
+ 			}
+diff --git a/pipeline/cron/official_feed_rescue.go b/pipeline/cron/official_feed_rescue.go
+index f1183b5..cf3e291 100644
+--- a/pipeline/cron/official_feed_rescue.go
++++ b/pipeline/cron/official_feed_rescue.go
+@@ -80,6 +80,7 @@ func runOfficialFeedRescue(ctx context.Context, cfg *config.Config, rdb *redis.C
+ 	if agg, aerr := apidal.GetNetworkSignalAgg(ctx, db.DB, "7d", hotSinceMs); aerr == nil && agg != nil {
+ 		hotTopics = pickTrendingTopics(agg.Counts, cfg.OfficialTrendingPoolN, 5)
+ 	}
++	if len(hotTopics) == 0 { return }
+ 
+ 	llmBudget := cfg.OfficialLLMMaxPerRun
+ 	if llmBudget <= 0 {
+@@ -95,7 +96,7 @@ func runOfficialFeedRescue(ctx context.Context, cfg *config.Config, rdb *redis.C
+ 		for _, f := range friends {
+ 			cursor = f.RelationID
+ 			agent, aerr := profiledal.GetAgentByID(db.DB, f.AgentID)
+-			if aerr != nil {
++			if aerr != nil || agent.ProfileCompletedAt == nil || time.Now().UnixMilli()-*agent.ProfileCompletedAt < int64(windowDays)*86400000 {
+ 				continue
+ 			}
+ 			if !oc.PassesGate(officialID, f.AgentID, agent.Email) {
+@@ -131,7 +132,7 @@ func runOfficialFeedRescue(ctx context.Context, cfg *config.Config, rdb *redis.C
+ 				oc.CooldownRelease(ctx, "rescue", f.AgentID)
+ 				continue
+ 			}
+-			if !oc.Send(ctx, officialID, f.AgentID, content) {
++			if !oc.PassesGate(officialID, f.AgentID, agent.Email) || !oc.Send(ctx, officialID, f.AgentID, content) {
+ 				oc.CooldownRelease(ctx, "rescue", f.AgentID)
+ 				continue
+ 			}

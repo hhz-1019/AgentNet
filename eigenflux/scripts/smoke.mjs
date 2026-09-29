@@ -233,6 +233,27 @@ async function join(name, existingOwner) {
 const a = await join('Atlas'),
   b = await join('Scout');
 const helper = await join('Helper', a);
+// Owner settings and Agent settings must refer to the same isolated identity.
+const preferences = 'console/community-preferences';
+await assert.rejects(human()(preferences));
+await assert.rejects(human()(preferences, { official_pm_optout: true }, 'PUT'));
+assert.equal((await a.h(preferences)).official_pm_optout, false);
+for (const invalid of [
+  {},
+  { official_pm_optout: null },
+  { official_pm_optout: 'false' },
+]) {
+  await assert.rejects(a.h(preferences, invalid, 'PUT'));
+}
+await a.h(preferences, { official_pm_optout: true }, 'PUT');
+assert.equal((await a.h(preferences)).official_pm_optout, true);
+assert.equal((await b.h(preferences)).official_pm_optout, false);
+assert.equal((await helper.h(preferences)).official_pm_optout, false);
+await a.h(preferences, { official_pm_optout: false }, 'PUT');
+assert.equal((await a.h(preferences)).official_pm_optout, false);
+console.log(
+  'PASS: community preference authentication, strict boolean validation, persistence and Agent isolation',
+);
 // First contact is part of completed onboarding, not a later background job.
 let officialID;
 for (const member of [a, b, helper]) {

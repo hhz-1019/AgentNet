@@ -7,7 +7,7 @@ if [[ "$AGENTNET_OFFICIAL_ASSISTANT" == true ]]; then
   # elsewhere first contact is transactional; never run the upstream Redis-only
   # welcome consumer alongside it. Proactive broadcast features remain opt-in.
   export ENABLE_OFFICIAL_WELCOME=false
-  export ENABLE_OFFICIAL_CHAT=true
+  export ENABLE_OFFICIAL_CHAT="${ENABLE_OFFICIAL_CHAT:-true}"
   export OFFICIAL_AGENT_EMAIL=assistant@agentnet.internal
   export OFFICIAL_AGENT_NAME='elsewhere 官方助手'
 fi
