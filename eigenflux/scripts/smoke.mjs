@@ -263,7 +263,7 @@ for (const member of [a, b, helper]) {
 }
 await helper.client.command(['relation', 'unfriend', '--uid', officialID]);
 assert.equal(
-  (await helper.h('console/relations/friends?limit=20')).friends.length,
+  ((await helper.h('console/relations/friends?limit=20')).friends || []).length,
   0,
 );
 console.log(
