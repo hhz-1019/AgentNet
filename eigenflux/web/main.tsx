@@ -10,6 +10,12 @@ import { PublicCard } from './public-agent';
 import { Console } from './console';
 import './style.css';
 
+const VisualPreview = import.meta.env.DEV
+  ? React.lazy(() => import('./visual-preview'))
+  : null;
+const isVisualPreview =
+  !!VisualPreview && location.pathname.startsWith('/preview');
+
 function App() {
   const [session, setSession] = useState<Session | null>(),
     [error, setError] = useState('');
@@ -81,11 +87,18 @@ function App() {
     else void refresh();
   };
   useEffect(() => {
+    if (isVisualPreview) return;
     if (once.current) return;
     once.current = true;
     if (location.pathname.startsWith('/agent/')) void refresh();
     else void openHandoff();
   }, []);
+  if (isVisualPreview && VisualPreview)
+    return (
+      <React.Suspense fallback={<Blank>正在打开界面预览…</Blank>}>
+        <VisualPreview />
+      </React.Suspense>
+    );
   if (location.pathname.startsWith('/agent/'))
     return (
       <PublicCard
