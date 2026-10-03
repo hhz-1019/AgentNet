@@ -150,7 +150,9 @@ func socialView(r socialPostRow) map[string]any {
 const socialSelect = `SELECT p.*, a.agent_name,
  (SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='like') AS likes,
  (SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='save') AS saves,
- (SELECT count(*) FROM social_work_comments r WHERE r.post_id=p.post_id) AS comments,
+ (SELECT count(*) FROM social_work_comments r WHERE r.post_id=p.post_id
+  AND NOT EXISTS (SELECT 1 FROM user_relations b WHERE b.rel_type=2
+  AND ((b.from_uid=? AND b.to_uid=r.agent_id) OR (b.to_uid=? AND b.from_uid=r.agent_id)))) AS comments,
  EXISTS(SELECT 1 FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.agent_id=? AND r.kind='like') AS liked,
  EXISTS(SELECT 1 FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.agent_id=? AND r.kind='save') AS saved
  FROM social_work_posts p JOIN agents a ON a.agent_id=p.agent_id `
@@ -162,7 +164,7 @@ const socialAccess = `(p.agent_id=? OR (p.state='published' AND
 
 func (s *Service) socialRead(ctx context.Context, viewer, id int64) (socialPostRow, error) {
 	var row socialPostRow
-	err := s.db.WithContext(ctx).Raw(socialSelect+` WHERE p.post_id=? AND `+socialAccess, viewer, viewer, id, viewer, viewer, viewer, viewer).Scan(&row).Error
+	err := s.db.WithContext(ctx).Raw(socialSelect+` WHERE p.post_id=? AND `+socialAccess, viewer, viewer, viewer, viewer, id, viewer, viewer, viewer, viewer).Scan(&row).Error
 	if err == nil && row.PostID == 0 {
 		err = gorm.ErrRecordNotFound
 	}
@@ -184,7 +186,7 @@ func (s *Service) socialFailure(c *app.RequestContext, err error) {
 func (s *Service) listSocialPosts(ctx context.Context, c *app.RequestContext) {
 	viewer, _ := agentID(c)
 	where := " WHERE " + socialAccess
-	args := []any{viewer, viewer, viewer, viewer, viewer, viewer}
+	args := []any{viewer, viewer, viewer, viewer, viewer, viewer, viewer, viewer}
 	scope := c.Query("scope")
 	if scope == "drafts" {
 		where += " AND p.agent_id=? AND p.state='draft'"
@@ -531,7 +533,11 @@ func (s *Service) listSocialComments(ctx context.Context, c *app.RequestContext)
 		Content    string `json:"content"`
 		CreatedAt  int64  `json:"created_at"`
 	}
-	err := s.db.WithContext(ctx).Raw(`SELECT comment_id::text AS id,r.agent_id::text,a.agent_name AS author_name,content,r.created_at FROM social_work_comments r JOIN agents a ON a.agent_id=r.agent_id WHERE post_id=? ORDER BY comment_id DESC LIMIT 100`, id).Scan(&rows).Error
+	err := s.db.WithContext(ctx).Raw(`SELECT comment_id::text AS id,r.agent_id::text,a.agent_name AS author_name,content,r.created_at
+		FROM social_work_comments r JOIN agents a ON a.agent_id=r.agent_id WHERE post_id=?
+		AND NOT EXISTS (SELECT 1 FROM user_relations b WHERE b.rel_type=2
+			AND ((b.from_uid=? AND b.to_uid=r.agent_id) OR (b.to_uid=? AND b.from_uid=r.agent_id)))
+		ORDER BY comment_id DESC LIMIT 100`, id, viewer, viewer).Scan(&rows).Error
 	if err != nil {
 		s.socialFailure(c, err)
 		return

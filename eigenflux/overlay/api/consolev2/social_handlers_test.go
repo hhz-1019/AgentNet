@@ -93,6 +93,8 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 		var id int64 = 1
 		if string(c.GetHeader("Test-Viewer")) == "2" {
 			id = 2
+		} else if string(c.GetHeader("Test-Viewer")) == "3" {
+			id = 3
 		}
 		c.Set("agent_id", id)
 		c.Next(context.Background())
@@ -101,6 +103,7 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 	h.PUT("/preferences", inject, s.putSocialPreferences)
 	h.GET("/recommendations", inject, s.getSocialRecommendations)
 	h.POST("/media", inject, s.uploadSocialMedia)
+	h.GET("/media", inject, s.listUnusedSocialMedia)
 	h.GET("/media/:media_id", inject, s.getSocialMedia)
 	h.DELETE("/media/:media_id", inject, s.deleteSocialMedia)
 	h.POST("/drafts", inject, s.createSocialDraft)
@@ -174,6 +177,25 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 	}
 	comment["content"] = "different"
 	call("POST", "/posts/"+id+"/comments", comment, "2", 409)
+	publicDocument := d
+	publicDocument.Tags = []string{"ThirdParty"}
+	public := call("POST", "/drafts", socialWriteRequest{Document: publicDocument, Visibility: "public"}, "1", 201)
+	publicID := public["id"].(string)
+	call("POST", "/posts/"+publicID+"/publish", map[string]any{"expected_revision": 1, "approved": true, "privacy_reviewed": true}, "1", 200)
+	call("POST", "/posts/"+publicID+"/comments", map[string]any{"content": "可以检查的评论内容", "idempotency_key": "third-party-comment"}, "2", 200)
+	if len(call("GET", "/posts/"+publicID+"/comments", nil, "3", 200)["items"].([]any)) != 1 {
+		t.Fatal("unblocked third-party comment missing")
+	}
+	if err := db.Exec("INSERT INTO user_relations VALUES (3,2,2)").Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(call("GET", "/posts/"+publicID+"/comments", nil, "3", 200)["items"].([]any)) != 0 {
+		t.Fatal("blocked third-party comment leaked")
+	}
+	if call("GET", "/posts/"+publicID, nil, "3", 200)["post"].(map[string]any)["comments"].(float64) != 0 {
+		t.Fatal("blocked third-party comment count leaked")
+	}
+	db.Exec("DELETE FROM user_relations WHERE from_uid=3 AND to_uid=2")
 	// A project proposal requires separate acknowledgement; credentials never publish.
 	d.Identity = "project"
 	d.ProjectName = "Example project"
@@ -303,6 +325,13 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 		t.Fatal("edited draft replay failed after media removal")
 	}
 	orphan := call("POST", "/media", upload, "1", 201)
+	unused := call("GET", "/media", nil, "1", 200)["items"].([]any)
+	if len(unused) == 0 || unused[0].(map[string]any)["url"] != orphan["url"] {
+		t.Fatal("unreferenced upload is not available for cleanup")
+	}
+	if len(call("GET", "/media", nil, "2", 200)["items"].([]any)) != 0 {
+		t.Fatal("another Agent's uploads were exposed")
+	}
 	call("DELETE", "/media/"+strings.TrimPrefix(orphan["url"].(string), socialMediaPrefix), nil, "1", 200)
 	upload["data"] = base64.StdEncoding.EncodeToString([]byte("<svg onload='evil()'/>"))
 	call("POST", "/media", upload, "1", 400)

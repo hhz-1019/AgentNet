@@ -1,6 +1,6 @@
 --- a/api/consolev2/service.go
 +++ b/api/consolev2/service.go
-@@ -408,6 +408,28 @@
+@@ -408,6 +408,29 @@
  	h.GET("/api/v2/console/today/status", s.consoleAuth(false), s.requireCompleted, s.getTodayStatus)
  	h.GET("/api/v2/console/today/brief", s.consoleAuth(false), s.requireCompleted, s.getTodayBrief)
  	h.GET("/api/v2/console/home/discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
@@ -11,6 +11,7 @@
 +	h.GET("/api/v2/console/social/preferences", s.consoleAuth(false), s.requireCompleted, s.getSocialPreferences)
 +	h.PUT("/api/v2/console/social/preferences", s.consoleAuth(true), s.requireCompleted, s.putSocialPreferences)
 +	h.GET("/api/v2/console/social/recommendations", s.consoleAuth(false), s.requireCompleted, s.getSocialRecommendations)
++	h.GET("/api/v2/console/social/media", s.consoleAuth(false), s.requireCompleted, s.listUnusedSocialMedia)
 +	h.POST("/api/v2/console/social/media", s.consoleAuth(true), s.requireCompleted, s.uploadSocialMedia)
 +	h.GET("/api/v2/console/social/media/:media_id", s.consoleAuth(false), s.requireCompleted, s.getSocialMedia)
 +	h.DELETE("/api/v2/console/social/media/:media_id", s.consoleAuth(true), s.requireCompleted, s.deleteSocialMedia)
@@ -48,3 +49,37 @@
  		if seed.category == "runtime" || seed.id == "heartbeat.plan" || seed.id == "settings.report" ||
  			seed.id == "settings.sync" ||
  			seed.id == "skills.sync" || strings.HasPrefix(seed.id, "feed.event.") || seed.id == "feed.feedback" ||
+--- a/api/consolev2/command_handlers.go
++++ b/api/consolev2/command_handlers.go
+@@ -191,2 +191,7 @@
+ 	agentIDValue, _ := agentID(c)
++	commandType := c.Query("command_type")
++	if commandType != "" && !validCommandType(commandType) {
++		fail(c, http.StatusBadRequest, "INVALID_COMMAND_TYPE", "command_type is invalid", nil)
++		return
++	}
+ 	limit := 20
+@@ -207,2 +212,3 @@
+ 			WHERE agent_id = ? AND (status IN ('pending','notified') OR (status = 'claimed' AND claim_until <= ?))
++			AND (? = '' OR command_type = ?)
+ 			ORDER BY created_at, command_id LIMIT ?
+@@ -216,3 +222,3 @@
+ 		FROM candidates WHERE cumulative_bytes <= ? OR row_num = 1
+-		ORDER BY created_at, command_id`, agentIDValue, now, limit, commandListPayloadBudget).Scan(&rows).Error; err != nil {
++		ORDER BY created_at, command_id`, agentIDValue, now, commandType, commandType, limit, commandListPayloadBudget).Scan(&rows).Error; err != nil {
+ 		fail(c, http.StatusInternalServerError, "COMMAND_LIST_FAILED", "could not list Agent commands", nil)
+--- a/cli/cmd/runtime_v2.go
++++ b/cli/cmd/runtime_v2.go
+@@ -85,2 +85,3 @@
+ 		limit, _ := cmd.Flags().GetInt("limit")
++		commandType, _ := cmd.Flags().GetString("command-type")
+ 		clientV2, _, err := newV2ClientForServer(serverFlag, true)
+@@ -89,3 +90,3 @@
+ 		}
+-		response, err := clientV2.Get("/agent-commands/pending", map[string]string{"limit": strconv.Itoa(limit)})
++		response, err := clientV2.Get("/agent-commands/pending", map[string]string{"limit": strconv.Itoa(limit), "command_type": commandType})
+ 		if err != nil {
+@@ -208,2 +209,3 @@
+ 	runtimeV2CommandPendingCmd.Flags().Int("limit", 20, "maximum commands to return (1-50)")
++	runtimeV2CommandPendingCmd.Flags().String("command-type", "", "optional command type filter")
+ 	runtimeV2CommandClaimCmd.Flags().String("command-id", "", "command ID to claim")

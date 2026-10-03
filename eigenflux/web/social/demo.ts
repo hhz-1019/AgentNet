@@ -182,6 +182,7 @@ export function createDemoStore(): SocialStore {
         reviewed_revision: p.revision,
       };
     },
+    get: async (id) => clone(find(id)),
     upload: async (file, alt) => {
       if (
         !['image/png', 'image/jpeg'].includes(file.type) ||
@@ -200,11 +201,13 @@ export function createDemoStore(): SocialStore {
       // DEV-only local image. Production validators accept only hosted media or HTTPS.
       return { url, alt, kind: 'image' };
     },
+    unusedMedia: async () => [],
+    deleteMedia: async () => {},
     list: async (query) => ({
       items: clone(
         state.posts.filter(
           (p) =>
-            p.state === 'published' &&
+            p.state === (query.scope === 'drafts' ? 'draft' : 'published') &&
             (p.visibility === 'public' || p.agent_id === 'demo-owner') &&
             (query.scope !== 'saved' || p.saved) &&
             (query.scope !== 'mine' || p.agent_id === 'demo-owner') &&

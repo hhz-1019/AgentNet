@@ -378,8 +378,11 @@ export class AgentNet {
       },
     });
   }
-  pending_commands() {
-    return this.command(['runtime', 'command', 'pending']);
+  pending_commands({ command_type = '' } = {}) {
+    return this.command([
+      'runtime', 'command', 'pending', '--limit', '50',
+      ...(command_type ? ['--command-type', command_type] : []),
+    ]);
   }
   claim_command({ command_id }) {
     return this.command([

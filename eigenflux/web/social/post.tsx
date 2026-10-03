@@ -245,6 +245,7 @@ export function PostDetail({
             try {
               await store.comment(post.id, content, op.current.key);
               setComments(await store.comments(post.id));
+              op.current = { key: crypto.randomUUID(), content: '' };
               setContent('');
               onUpdated();
             } catch (err) {

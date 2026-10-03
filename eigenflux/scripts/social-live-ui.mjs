@@ -136,8 +136,37 @@ try {
   const mediaURL = await page.getByLabel('附件 1 链接').inputValue();
   assert.match(mediaURL, /^\/api\/v2\/console\/social\/media\/[0-9]+$/);
   assert.equal((await peer.request.get(origin + mediaURL)).status(), 404);
+  const orphan = await (await a.request.post(origin + '/api/v2/console/social/media', {
+    data: { data: png.toString('base64'), alt: '待清理截图', kind: 'image' },
+  })).json();
+  await page.getByRole('button', { name: '管理未使用的上传' }).click();
+  await page.getByRole('button', { name: '删除这张图片' }).first().click();
+  assert.equal((await a.request.get(origin + orphan.data.url)).status(), 404);
+  await page.route('**/console/social/drafts', async (route) => {
+    await route.fetch();
+    await route.abort('failed');
+  }, { times: 1 });
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await page.getByRole('alert').waitFor();
+  await page.waitForFunction(() => !document.querySelector('.sw-editor')?.closest('fieldset')?.disabled);
+  await page.getByLabel('正文', { exact: true }).fill(
+    '这份记录来自真实接口联调，展示图片上传、草稿保存、服务端版本检查与授权流程。验证范围是本地浏览器和隔离数据库，尚未验证公网部署。丢失首次保存响应后补充了实际验证过程。',
+  );
   await page.getByLabel('仅自己', { exact: true }).check();
   await page.getByRole('button', { name: '保存并预览', exact: true }).click();
+  assert.equal((await (await a.request.get(origin + '/api/v2/console/social/posts?scope=drafts')).json()).data.items[0].revision, 2);
+  await page.getByRole('button', { name: '返回修改', exact: true }).click();
+  await page.getByLabel('摘要', { exact: true }).fill('保存响应丢失后再次读取服务端版本，并保留最终确认的公开范围。');
+  await page.route('**/console/social/drafts/*', async (route) => {
+    if (route.request().method() === 'PUT') {
+      await route.fetch();
+      await route.abort('failed');
+    } else await route.continue();
+  }, { times: 1 });
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await page.getByText('草稿已保存，尚未发布。').waitFor();
+  await page.getByRole('button', { name: '保存并预览', exact: true }).click();
+  assert.equal((await (await a.request.get(origin + '/api/v2/console/social/posts?scope=drafts')).json()).data.items[0].revision, 3);
   // Button name follows the production wording; match without relying on a demo label.
   const actualPublish = page.locator('.sw-dialog-footer .sw-primary');
   await actualPublish.waitFor();
@@ -163,6 +192,22 @@ try {
   assert.equal(posts.data.items[0].visibility, 'private');
   assert.ok(posts.data.items[0].document.organization_id);
   assert.equal((await peer.request.get(origin + mediaURL)).status(), 404);
+  for (let i = 0; i < 4; i++) {
+    const created = await a.request.post(origin + '/api/v2/console/social/drafts', {
+      data: {
+        document: { ...posts.data.items[0].document, title: `草稿列表验证内容 ${i}`, identity: 'human', organization_id: '', project_name: '', media: [] },
+        visibility: 'private',
+      },
+    });
+    assert.equal(created.status(), 201);
+  }
+  await page.getByRole('link', { name: '待确认草稿' }).click();
+  await page.locator('.sw-draft-card').nth(3).waitFor();
+  assert.equal(await page.locator('.sw-draft-card').count(), 4);
+  await page.locator('.sw-draft-card').last().click();
+  await page.getByRole('dialog').getByLabel('标题', { exact: true }).waitFor();
+  await page.getByRole('dialog').getByRole('button', { name: '关闭', exact: true }).click();
+  await page.goto(origin + '/dashboard/mine');
   await page.reload();
   await page
     .getByRole('button', {

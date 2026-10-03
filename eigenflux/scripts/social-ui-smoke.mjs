@@ -54,6 +54,9 @@ try {
   await page
     .getByText('具体过程能否补充一个失败样例？', { exact: true })
     .waitFor();
+  await page.getByLabel('你的评论').fill('具体过程能否补充一个失败样例？');
+  await page.getByRole('button', { name: '发布本地评论', exact: true }).click();
+  await page.waitForFunction(() => document.querySelectorAll('.sw-comments article').length === 2);
   await page.getByRole('button', { name: '关闭窗口' }).click();
   await page.getByRole('button', { name: '分享工作', exact: true }).click();
   await page

@@ -4,6 +4,7 @@ import {
   matches,
   qualityCheck,
   parseTags,
+  interestTagsFromCard,
   preflight,
   validate,
   type WorkDocument,
@@ -130,4 +131,17 @@ void test('hosted image references and actionable quality guidance', () => {
   });
   assert.ok(suggestions.some((x) => x.key === 'specificity'));
   assert.ok(suggestions.some((x) => x.key === 'question'));
+});
+void test('card interests stay within recommendation API tag limits', () => {
+  assert.deepEqual(
+    interestTagsFromCard({
+      offering: ['Agent 工程，产品设计', '过长描述'.repeat(10)],
+      seeking: ['React; Agent 工程'],
+    }),
+    ['Agent 工程', '产品设计', 'React'],
+  );
+  assert.equal(
+    interestTagsFromCard({ offering: Array.from({ length: 12 }, (_, i) => `话题${i}`) }).length,
+    8,
+  );
 });

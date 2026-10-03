@@ -158,11 +158,11 @@ export class AgentNetRuntime {
     // complete_command retries with exactly the same fenced proof and result.
     try {
       const receipt = await this.client.complete_command(job.completion);
-      job.phase = 'done';
+      job.phase = receipt?.social_draft_error ? 'draft_pending' : 'done';
       job.receipt = receipt;
       await this.save();
       this.log({
-        event: 'completed',
+        event: job.phase === 'draft_pending' ? 'draft_pending' : 'completed',
         command_id: job.completion.command_id,
         status: job.completion.status,
       });
@@ -179,29 +179,52 @@ export class AgentNetRuntime {
       throw error;
     }
   }
+  async retryDraft(job) {
+    try {
+      const draft = await this.client.record_work({
+        ...job.completion.result.work_report,
+        work_id: `command:${job.completion.command_id}`,
+        status: 'completed',
+      });
+      job.receipt = { ...job.receipt, social_draft: draft };
+      delete job.receipt.social_draft_error;
+      job.phase = 'done';
+      await this.save();
+      this.log({ event: 'draft_created', command_id: job.completion.command_id });
+    } catch (error) {
+      job.receipt.social_draft_error = error.message;
+      await this.save();
+      this.log({ event: 'draft_retry_failed', command_id: job.completion.command_id });
+    }
+  }
   async tick({ signal } = {}) {
     if (!this.locked) throw new Error('Open runtime first');
     if (signal?.aborted) return;
     const context = await this.client.get_context();
     await this.client.heartbeat();
-    for (const job of Object.values(this.journal.jobs))
-      if (job.phase === 'ready') await this.flush(job);
-    const pending = await this.client.pending_commands();
+    for (const job of Object.values(this.journal.jobs)) {
+      if (job.phase === 'ready') {
+        try {
+          await this.flush(job);
+        } catch (error) {
+          if (job.phase !== 'fenced') throw error;
+        }
+      } else if (job.phase === 'draft_pending') await this.retryDraft(job);
+    }
+    const pending = await this.client.pending_commands({
+      command_type: 'human_instruction',
+    });
     if (!Array.isArray(pending.commands))
       throw new Error('Unexpected pending command response');
     const command = pending.commands.find(
       (c) =>
         c.command_type === 'human_instruction' &&
-        !this.journal.jobs[c.command_id],
+        (!this.journal.jobs[c.command_id] ||
+          this.journal.jobs[c.command_id].phase === 'fenced'),
     );
     if (!command || signal?.aborted) return;
     const instruction = command.payload?.instruction;
-    if (
-      typeof instruction !== 'string' ||
-      !instruction.trim() ||
-      instruction.length > 20000
-    )
-      throw new Error('Invalid owner instruction');
+    const previouslyFenced = this.journal.jobs[command.command_id]?.phase === 'fenced';
     const claim = await this.client.claim_command({
       command_id: command.command_id,
     });
@@ -227,6 +250,14 @@ export class AgentNetRuntime {
     this.journal.jobs[command.command_id] = job;
     await this.save();
     try {
+      if (previouslyFenced)
+        throw new Error('Previous claim was fenced; execution was not repeated');
+      if (
+        typeof instruction !== 'string' ||
+        !instruction.trim() ||
+        instruction.length > 20000
+      )
+        throw new Error('Invalid owner instruction');
       let remaining = claim.claim_until - Date.now() - 10000;
       if (remaining < 500)
         throw new Error('Command lease has insufficient execution time');

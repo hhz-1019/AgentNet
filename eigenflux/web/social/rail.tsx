@@ -22,6 +22,7 @@ export function AgentRail({
   demo,
   drafts,
   onDraft,
+  onAllDrafts,
   onCreate,
   onClose,
 }: {
@@ -30,6 +31,7 @@ export function AgentRail({
   demo: boolean;
   drafts: WorkPost[];
   onDraft: (p: WorkPost) => void;
+  onAllDrafts: () => void;
   onCreate: () => void;
   onClose: () => void;
 }) {
@@ -172,6 +174,7 @@ export function AgentRail({
                 <ArrowUpRight size={15} />
               </button>
             ))}
+            <button onClick={onAllDrafts}>查看全部草稿</button>
           </section>
         ) : null}
         <div className="sw-agent-transcript" aria-live="polite">

@@ -152,6 +152,8 @@ try {
           data = { lease_until: Date.now() + 120000 };
           break;
         case '/api/v2/agent-commands/pending':
+          assert.equal(new URL(req.url, 'http://localhost').searchParams.get('command_type'), 'human_instruction');
+          assert.equal(new URL(req.url, 'http://localhost').searchParams.get('limit'), '50');
           data = { commands: completed ? [] : [command] };
           break;
         case '/api/v2/agent-commands/' + command.command_id + '/claim':

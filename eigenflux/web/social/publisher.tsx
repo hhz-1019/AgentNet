@@ -8,6 +8,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Dialog } from './dialog';
+import { ApiError } from '../api';
 import {
   emptyDocument,
   identityLabels,
@@ -26,6 +27,7 @@ import {
   type Kind,
   type PublishingIdentity,
   type Media,
+  type UnusedMedia,
 } from './model';
 import { PostCard } from './post';
 export function Publisher({
@@ -49,6 +51,7 @@ export function Publisher({
       .catch(() => {});
   }, [store]);
   const proposalKey = useRef(crypto.randomUUID());
+  const pendingCreate = useRef<{ document: WorkDocument; visibility: Visibility } | undefined>(undefined);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [review, setReview] = useState<Review>();
   const [step, setStep] = useState(initial ? 'edit' : 'source');
@@ -65,6 +68,9 @@ export function Publisher({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [saved, setSaved] = useState(false);
+  const [conflict, setConflict] = useState<WorkPost>();
+  const [unusedMedia, setUnusedMedia] = useState<UnusedMedia[]>();
+  const [mediaLoading, setMediaLoading] = useState(false);
   const patch = (change: Partial<WorkDocument>) => {
     setDoc((d) => ({ ...d, ...change }));
     setApproved(false);
@@ -76,6 +82,25 @@ export function Publisher({
     step === 'preview' && review ? review.preflight : preflight(current);
   const quality =
     step === 'preview' && review ? review.quality : qualityCheck(current);
+  const sameContent = (p: WorkPost, document: WorkDocument, scope: Visibility) =>
+    p.visibility === scope &&
+    (['title', 'summary', 'body', 'kind', 'tags', 'source', 'evidence',
+      'media', 'identity', 'project_name', 'organization_id'] as const)
+      .every((field) => JSON.stringify(p.document[field]) === JSON.stringify(document[field]));
+  async function finishSave(next: WorkPost, preview: boolean) {
+    setPost(next);
+    setSaved(true);
+    setConflict(undefined);
+    if (preview) {
+      const checked = await store.review(next);
+      if (checked.reviewed_revision !== next.revision)
+        throw new Error('草稿已在其他窗口修改，请重新读取后预览');
+      setReview(checked);
+      setStep('preview');
+      setApproved(false);
+      setProjectAuthorized(false);
+    }
+  }
   async function save(preview: boolean) {
     const errors = validate(
       demo
@@ -95,25 +120,63 @@ export function Publisher({
     }
     setBusy(true);
     setError('');
+    let basePost = post;
     try {
-      const next = post
-        ? await store.update(post, current, visibility)
-        : await store.create(current, visibility, proposalKey.current);
-      setPost(next);
-      setSaved(true);
-      if (preview) {
-        const checked = await store.review(next);
-        if (checked.reviewed_revision !== next.revision)
-          throw new Error('草稿已在其他窗口修改，请重新读取后预览');
-        setReview(checked);
-        setStep('preview');
-        setApproved(false);
-        setProjectAuthorized(false);
+      if (!basePost && pendingCreate.current) {
+        const attempted = pendingCreate.current;
+        basePost = await store.create(
+          attempted.document,
+          attempted.visibility,
+          proposalKey.current,
+        );
+        pendingCreate.current = undefined;
+        if (!sameContent(basePost, attempted.document, attempted.visibility)) {
+          setConflict(basePost);
+          setError('首次保存已完成，但草稿随后在其他窗口变化。请核对后再决定是否覆盖。');
+          return;
+        }
+        setPost(basePost);
       }
+      if (!basePost) {
+        pendingCreate.current = { document: structuredClone(current), visibility };
+        basePost = await store.create(current, visibility, proposalKey.current);
+        pendingCreate.current = undefined;
+        setPost(basePost);
+      }
+      const next = sameContent(basePost, current, visibility)
+        ? basePost
+        : await store.update(basePost, current, visibility);
+      await finishSave(next, preview);
     } catch (e) {
+      if (basePost && e instanceof ApiError && (e.status === 0 || e.status === 409)) {
+        try {
+          const latest = await store.get(basePost.id);
+          if (sameContent(latest, current, visibility)) {
+            await finishSave(latest, preview);
+            return;
+          }
+          setConflict(latest);
+          setError('草稿已在其他窗口变化。核对本地内容后，可基于最新版本重新保存。');
+          return;
+        } catch {
+          // Keep local input and let the owner retry after connectivity returns.
+        }
+      }
+      if (!basePost && e instanceof ApiError && e.status >= 400 && e.status !== 409)
+        pendingCreate.current = undefined;
       setError(e instanceof Error ? e.message : '保存失败');
     } finally {
       setBusy(false);
+    }
+  }
+  async function loadUnusedMedia() {
+    setMediaLoading(true);
+    try {
+      setUnusedMedia(await store.unusedMedia());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '无法读取未使用的图片');
+    } finally {
+      setMediaLoading(false);
     }
   }
   return (
@@ -173,6 +236,7 @@ export function Publisher({
         </div>
       ) : null}
       {step === 'edit' ? (
+        <fieldset disabled={busy} style={{ border: 0, padding: 0, minWidth: 0 }}>
         <div className="sw-editor">
           <div className="sw-form-row">
             <label>
@@ -262,6 +326,7 @@ export function Publisher({
           <label>
             摘要
             <textarea
+              aria-label="摘要"
               rows={2}
               value={doc.summary}
               maxLength={400}
@@ -272,6 +337,7 @@ export function Publisher({
           <label>
             正文
             <textarea
+              aria-label="正文"
               rows={6}
               value={doc.body}
               maxLength={20000}
@@ -283,6 +349,7 @@ export function Publisher({
             <label>
               真实工作来源
               <textarea
+                aria-label="真实工作来源"
                 rows={2}
                 value={doc.source}
                 maxLength={500}
@@ -292,6 +359,7 @@ export function Publisher({
             <label>
               证据 / 结果 / 待验证点
               <textarea
+                aria-label="证据 / 结果 / 待验证点"
                 rows={2}
                 value={doc.evidence}
                 maxLength={2000}
@@ -423,6 +491,26 @@ export function Publisher({
               PNG/JPEG 最多 512 KB、边长 4096
               像素。上传图片随帖子范围控制访问；外部公开链接由原站点控制。代码结果也可粘贴到正文。
             </small>
+            {!demo ? (
+              <div className="sw-unused-media">
+                <button onClick={() => void loadUnusedMedia()}>
+                  {mediaLoading ? '读取中…' : '管理未使用的上传'}
+                </button>
+                {unusedMedia?.filter((m) => !doc.media.some((attached) => attached.url === m.url)).map((m) => (
+                  <div key={m.url} className="sw-media-row">
+                    <img src={m.url} alt="未使用的上传" width={64} height={64} />
+                    <span>{(m.bytes / 1024).toFixed(0)} KB · {new Date(m.created_at).toLocaleDateString()}</span>
+                    <button onClick={() => {
+                      void store.deleteMedia(m.url)
+                        .then(() => loadUnusedMedia())
+                        .catch((e) => setError(e instanceof Error ? e.message : '删除失败'));
+                    }}>删除这张图片</button>
+                  </div>
+                ))}
+                {unusedMedia?.length === 0 ? <small>没有未引用的图片。</small> : null}
+                {unusedMedia?.length === 100 ? <small>显示最近 100 张。删除后重新读取可查看更早的图片。</small> : null}
+              </div>
+            ) : null}
           </fieldset>
           <fieldset>
             <legend>谁可以看到</legend>
@@ -465,6 +553,7 @@ export function Publisher({
             </div>
           ) : null}
         </div>
+        </fieldset>
       ) : null}
       {step === 'preview' && post ? (
         <div className="sw-publish-preview">
@@ -524,6 +613,18 @@ export function Publisher({
         <p className="sw-success">
           <Check size={16} /> 草稿已保存，尚未发布。
         </p>
+      ) : null}
+      {conflict && step === 'edit' ? (
+        <button
+          disabled={busy}
+          onClick={() => {
+            setPost(conflict);
+            setConflict(undefined);
+            setError('已读取最新版本。你的输入仍在编辑器中，请核对后再次保存。');
+          }}
+        >
+          基于最新版本继续编辑
+        </button>
       ) : null}
       {step !== 'source' ? (
         <footer className="sw-dialog-footer">

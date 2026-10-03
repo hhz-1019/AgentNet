@@ -244,7 +244,7 @@ void test('restart recovers an interrupted execution as failure; same Home rejec
     assert.equal(f.state.generations, 0);
     assert.equal(f.state.completions[0].status, 'failed');
   }));
-void test('fenced completion is retained and never reacquired or reexecuted', async () =>
+void test('fenced completion is reclaimed as a failure without reexecuting', async () =>
   fixture(async (home) => {
     const f = adapter({
       complete_command: async () => {
@@ -259,15 +259,86 @@ void test('fenced completion is retained and never reacquired or reexecuted', as
     });
     await worker.open();
     await assert.rejects(worker.tick(), /CLAIM_FENCED/);
-    await worker.tick();
+    await assert.rejects(worker.tick(), /CLAIM_FENCED/);
     await worker.close();
-    assert.equal(f.state.claims, 1);
+    assert.equal(f.state.claims, 2);
     assert.equal(
       JSON.parse(
         await readFile(join(home, 'agentnet-runtime', 'journal.json'), 'utf8'),
       ).jobs['9007199254740993'].phase,
       'fenced',
     );
+  }));
+void test('invalid owner instruction is failed so the next instruction can progress', async () =>
+  fixture(async (home) => {
+    const invalid = {
+      command_id: '1', command_type: 'human_instruction', payload: {},
+    };
+    const valid = {
+      command_id: '2', command_type: 'human_instruction',
+      payload: { instruction: 'hello' },
+    };
+    const pending = [invalid, valid];
+    const f = adapter({
+      pending_commands: async () => ({ commands: pending }),
+      claim_command: async ({ command_id }) => {
+        f.state.claims++;
+        return {
+          ...pending.find((c) => c.command_id === command_id),
+          claim_token: 'proof', claim_epoch: 1,
+          claim_until: Date.now() + 120000,
+        };
+      },
+      complete_command: async (completion) => {
+        f.state.completions.push(completion);
+        pending.splice(pending.findIndex((c) => c.command_id === completion.command_id), 1);
+        return { status: completion.status };
+      },
+    });
+    f.model.json = async () => ({ reply: '分析结果', work_id: null });
+    const worker = new AgentNetRuntime({ ...f, home, endpoint: 'https://example.com' });
+    await worker.open();
+    await worker.tick();
+    await worker.tick();
+    await worker.close();
+    assert.deepEqual(f.state.completions.map((x) => x.status), ['failed', 'completed']);
+    assert.equal(f.state.claims, 2);
+  }));
+void test('draft submission failure remains durable and retries without repeating command completion', async () =>
+  fixture(async (home) => {
+    const f = adapter();
+    let draftAttempts = 0;
+    f.client.complete_command = async (completion) => {
+      f.state.completions.push(completion);
+      return { status: 'completed', social_draft_error: 'offline' };
+    };
+    f.client.record_work = async () => {
+      draftAttempts++;
+      if (draftAttempts === 1) throw new Error('offline');
+      return { id: 'draft-1' };
+    };
+    f.client.pending_commands = async () => ({ commands: [] });
+    const worker = new AgentNetRuntime({ ...f, home, endpoint: 'https://example.com' });
+    await worker.open();
+    worker.journal.jobs['1'] = {
+      phase: 'ready',
+      completion: { command_id: '1', claim_token: 'proof', claim_epoch: 1,
+        status: 'completed', result: { work_report: record } },
+    };
+    await worker.save();
+    await worker.tick();
+    assert.equal(worker.journal.jobs['1'].phase, 'draft_pending');
+    await worker.close();
+    const restored = new AgentNetRuntime({ ...f, home, endpoint: 'https://example.com' });
+    await restored.open();
+    await restored.tick();
+    assert.equal(draftAttempts, 1);
+    assert.equal(restored.journal.jobs['1'].phase, 'draft_pending');
+    await restored.tick();
+    await restored.close();
+    assert.equal(draftAttempts, 2);
+    assert.equal(f.state.completions.length, 1);
+    assert.equal(JSON.parse(await readFile(join(home, 'agentnet-runtime', 'journal.json'), 'utf8')).jobs['1'].phase, 'done');
   }));
 void test('unsupported commands are not claimed, aborted runtime makes no new claim', async () =>
   fixture(async (home) => {

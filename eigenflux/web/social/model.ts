@@ -6,6 +6,11 @@ export interface Media {
   alt: string;
   kind: 'image' | 'chart' | 'code' | 'demo';
 }
+export interface UnusedMedia {
+  url: string;
+  bytes: number;
+  created_at: number;
+}
 export interface WorkDocument {
   title: string;
   summary: string;
@@ -108,7 +113,10 @@ export interface SocialStore {
   savePreferences(tags: string[], revision: number): Promise<Preferences>;
   recommendations(tags: string[]): Promise<Page>;
   upload(file: File, alt: string): Promise<Media>;
+  unusedMedia(): Promise<UnusedMedia[]>;
+  deleteMedia(url: string): Promise<void>;
   review(post: WorkPost): Promise<Review>;
+  get(id: string): Promise<WorkPost>;
 
   list(query: Query): Promise<Page>;
   drafts(): Promise<WorkPost[]>;
@@ -172,6 +180,19 @@ export function parseTags(value: string): string[] {
         .filter(Boolean),
     ),
   ];
+}
+export function interestTagsFromCard(card?: {
+  offering?: string[];
+  seeking?: string[];
+}): string[] {
+  return [
+    ...new Set(
+      [...(card?.offering || []), ...(card?.seeking || [])]
+        .flatMap((item) => item.split(/[,，、;；\n]/))
+        .map((item) => item.trim().replace(/^#/, ''))
+        .filter((item) => item.length > 0 && Array.from(item).length <= 30),
+    ),
+  ].slice(0, 8);
 }
 export function matchingTags(post: WorkPost, interests: string[]): string[] {
   return post.document.tags.filter((t) =>

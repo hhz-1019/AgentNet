@@ -120,7 +120,7 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 	score := `(SELECT count(*) FROM jsonb_array_elements_text(p.document->'tags') t WHERE lower(t.value) IN (SELECT lower(value) FROM jsonb_array_elements_text(?::jsonb)))`
 	var rows []socialPostRow
 	query := socialSelect + ` WHERE ` + socialAccess + ` AND p.state='published' AND ` + score + `>0 ORDER BY ` + score + ` DESC,p.published_at DESC,p.post_id DESC LIMIT 20`
-	if err = s.db.WithContext(ctx).Raw(query, viewer, viewer, viewer, viewer, viewer, viewer, string(data), string(data)).Scan(&rows).Error; err != nil {
+	if err = s.db.WithContext(ctx).Raw(query, viewer, viewer, viewer, viewer, viewer, viewer, viewer, viewer, string(data), string(data)).Scan(&rows).Error; err != nil {
 		s.socialFailure(c, err)
 		return
 	}
@@ -222,6 +222,32 @@ func socialMediaID(value string) int64 {
 		return 0
 	}
 	return id
+}
+// List unused uploads so owners can reclaim space even after closing the editor.
+func (s *Service) listUnusedSocialMedia(ctx context.Context, c *app.RequestContext) {
+	viewer, _ := agentID(c)
+	var rows []struct {
+		MediaID   int64
+		Bytes     int64
+		CreatedAt int64
+	}
+	err := s.db.WithContext(ctx).Raw(`SELECT m.media_id, octet_length(m.content) AS bytes, m.created_at
+		FROM social_media m WHERE m.agent_id=? AND NOT EXISTS (
+			SELECT 1 FROM social_work_posts p WHERE p.agent_id=m.agent_id
+			AND p.document->'media' @> jsonb_build_array(jsonb_build_object('url', ? || m.media_id::text))
+		) ORDER BY m.media_id DESC LIMIT 100`, viewer, socialMediaPrefix).Scan(&rows).Error
+	if err != nil {
+		s.socialFailure(c, err)
+		return
+	}
+	items := []map[string]any{}
+	for _, row := range rows {
+		items = append(items, map[string]any{
+			"url": socialMediaPrefix + strconv.FormatInt(row.MediaID, 10),
+			"bytes": row.Bytes, "created_at": row.CreatedAt,
+		})
+	}
+	reply(c, 200, map[string]any{"items": items})
 }
 func (s *Service) validateSocialMediaOwnership(ctx context.Context, viewer int64, d socialDocument) error {
 	for _, m := range d.Media {

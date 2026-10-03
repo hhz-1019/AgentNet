@@ -8,6 +8,7 @@ import type {
   Preferences,
   Review,
   Media,
+  UnusedMedia,
   Organization,
 } from './model';
 export const liveSocialStore: SocialStore = {
@@ -49,6 +50,8 @@ export const liveSocialStore: SocialStore = {
       `console/social/recommendations?tags=${encodeURIComponent(JSON.stringify(tags))}`,
     ),
   review: (post) => api<Review>(`console/social/posts/${post.id}`),
+  get: async (id) =>
+    (await api<{ post: WorkPost }>(`console/social/posts/${id}`)).post,
   upload: async (file, alt) => {
     if (
       !['image/png', 'image/jpeg'].includes(file.type) ||
@@ -66,6 +69,13 @@ export const liveSocialStore: SocialStore = {
       reader.readAsDataURL(file);
     });
     return api<Media>('console/social/media', { data, alt, kind: 'image' });
+  },
+  unusedMedia: async () =>
+    (await api<{ items: UnusedMedia[] }>('console/social/media')).items,
+  deleteMedia: async (url) => {
+    if (!/^\/api\/v2\/console\/social\/media\/[1-9]\d*$/.test(url))
+      throw new Error('图片地址无效');
+    await api(`console/social/media/${url.split('/').at(-1)}`, undefined, 'DELETE');
   },
   list: (query) => {
     const params = new URLSearchParams({

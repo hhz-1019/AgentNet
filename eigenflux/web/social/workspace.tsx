@@ -33,6 +33,7 @@ import {
   kindLabels,
   matchingTags,
   parseTags,
+  interestTagsFromCard,
   type WorkPost,
   type SocialStore,
   type Page,
@@ -46,6 +47,7 @@ const nav = [
   ['saved', '收藏', Bookmark],
 ] as const;
 const moreNav = [
+  ['drafts', '待确认草稿', FileText],
   ['organizations', '团队与权限', Users],
   ['profile', '我的身份', UserRound],
   ['network-goal', '目标与关注', Target],
@@ -122,10 +124,7 @@ export function SocialWorkspace({
     () => (demo ? demoPeers : discovery.data?.items || []),
     [demo, discovery.data?.items],
   );
-  const cardTags = [
-    ...(identity.data?.card.offering || []),
-    ...(identity.data?.card.seeking || []),
-  ];
+  const cardTags = interestTagsFromCard(identity.data?.card);
   const effectiveInterests =
     interestRevision > 0 ? interests : interests.length ? interests : cardTags;
   const interestQuery = JSON.stringify(effectiveInterests);
@@ -256,7 +255,7 @@ export function SocialWorkspace({
     setError('');
     void store
       .list({
-        scope: route === 'saved' ? 'saved' : route === 'mine' ? 'mine' : 'all',
+        scope: route === 'saved' ? 'saved' : route === 'mine' ? 'mine' : route === 'drafts' ? 'drafts' : 'all',
         q: search,
         kind,
         tags,
@@ -283,7 +282,7 @@ export function SocialWorkspace({
     const notify = () => {
       if (!timer)
         timer = setTimeout(() => {
-          setVersion((v) => v + 1);
+          refreshData();
           timer = undefined;
         }, 1500);
     };
@@ -291,7 +290,7 @@ export function SocialWorkspace({
     source.addEventListener('cursor_reset', notify);
     window.addEventListener('agentnet:refresh', onRefresh);
     const poll = setInterval(() => {
-      if (!document.hidden) setVersion((v) => v + 1);
+      if (!document.hidden) refreshData();
     }, 30000);
     return () => {
       source.close();
@@ -356,7 +355,7 @@ export function SocialWorkspace({
       p.document.kind === 'collab' &&
       matchingTags(p, effectiveInterests).length,
   );
-  const feedRoute = ['explore', 'saved', 'mine'].includes(route);
+  const feedRoute = ['explore', 'saved', 'mine', 'drafts'].includes(route);
   const openInterest = () => {
     setInterestEditRevision(interestRevision);
     setInterestError('');
@@ -491,12 +490,16 @@ export function SocialWorkspace({
                 <h1>
                   {route === 'saved'
                     ? '留给下一次工作。'
+                    : route === 'drafts'
+                      ? '等待你确认的草稿。'
                     : route === 'mine'
                       ? '你分享的工作。'
                       : '好工作，遇见下一位伙伴。'}
                 </h1>
                 <p>
-                  {route === 'saved'
+                  {route === 'drafts'
+                    ? '检查内容和分享范围，决定是否公开。'
+                    : route === 'saved'
                     ? '收藏的结果、方法与问题，随时回来接着做。'
                     : '看看别人完成了什么，找到和你正在做的事有关的连接。'}
                 </p>
@@ -627,8 +630,8 @@ export function SocialWorkspace({
                   <strong>{drafts.length} 份草稿等待你确认</strong>
                   <small>尚未公开 · 先检查来源、附件与范围</small>
                 </span>
-                <button onClick={() => setPublisher(drafts[0])}>
-                  查看草稿 <ArrowRight size={14} />
+                <button onClick={() => go('drafts')}>
+                  查看全部草稿 <ArrowRight size={14} />
                 </button>
               </section>
             ) : null}
@@ -748,7 +751,14 @@ export function SocialWorkspace({
                       key={p.id}
                       className={pending.includes(p.id) ? 'sw-busy-post' : ''}
                     >
-                      <PostCard
+                      {route === 'drafts' ? (
+                        <button className="sw-draft-card" onClick={() => setPublisher(p)}>
+                          <small>私有草稿 · {p.document.kind}</small>
+                          <h3>{p.document.title}</h3>
+                          <p>{p.document.summary}</p>
+                          <span>编辑并预览 <ArrowRight size={15} /></span>
+                        </button>
+                      ) : <PostCard
                         post={p}
                         relevant={matchingTags(p, effectiveInterests)}
                         onOpen={() => setDetail(p)}
@@ -762,7 +772,7 @@ export function SocialWorkspace({
                             ? go('network')
                             : location.assign('/agent/' + p.agent_id)
                         }
-                      />
+                      />}
                     </div>
                   ))}
                 </div>
@@ -775,7 +785,9 @@ export function SocialWorkspace({
                         : '第一份真实工作，就从这里开始。'}
                     </h2>
                     <p>
-                      {route === 'saved'
+                      {route === 'drafts'
+                        ? '目前没有待确认的草稿。'
+                        : route === 'saved'
                         ? '收藏感兴趣的工作后，可以在这里找到。'
                         : query || tags.length
                           ? '试着清除一个筛选条件，或者换个关键词。'
@@ -857,6 +869,7 @@ export function SocialWorkspace({
           demo={demo}
           drafts={drafts}
           onDraft={setPublisher}
+          onAllDrafts={() => go('drafts')}
           onCreate={() => setPublisher(true)}
           onClose={() => setRailOpen(false)}
         />

@@ -28,7 +28,7 @@ RUN go build -o build/migration-preflight scripts/common/migration_preflight.go 
     go build -o build/official-assistant ./scripts/official_assistant && \
     GOBIN=/src/build go install github.com/pressly/goose/v3/cmd/goose@v3.24.3
 WORKDIR /src/cli
-RUN go build -ldflags="-X main.Version=0.0.54-agentnet.3 -X main.Commit=02735b5b" -o /src/build/eigenflux .
+RUN go build -ldflags="-X main.Version=0.0.54-agentnet.4 -X main.Commit=02735b5b" -o /src/build/eigenflux .
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/* && useradd -m -u 10001 agentnet

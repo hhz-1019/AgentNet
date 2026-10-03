@@ -28,7 +28,7 @@ for (const patch of [
 await cp('eigenflux/overlay', dir, { recursive: true });
 const db = await PGlite.create();
 await db.exec(
-  `CREATE TABLE agents (agent_id BIGINT PRIMARY KEY,agent_name TEXT); INSERT INTO agents VALUES (1,'Owner Agent'),(2,'Peer Agent'); CREATE TABLE user_relations (from_uid BIGINT,to_uid BIGINT,rel_type INTEGER); CREATE TABLE agent_commands(command_id BIGINT PRIMARY KEY,agent_id BIGINT,command_type TEXT,payload JSONB,status TEXT,result JSONB,created_at BIGINT); INSERT INTO agent_commands VALUES (3,1,'human_instruction','{"instruction":"test"}','completed','{"reply":"真实执行回执"}',1);`,
+  `CREATE TABLE agents (agent_id BIGINT PRIMARY KEY,agent_name TEXT); INSERT INTO agents VALUES (1,'Owner Agent'),(2,'Peer Agent'),(3,'Third Agent'); CREATE TABLE user_relations (from_uid BIGINT,to_uid BIGINT,rel_type INTEGER); CREATE TABLE agent_commands(command_id BIGINT PRIMARY KEY,agent_id BIGINT,command_type TEXT,payload JSONB,status TEXT,result JSONB,created_at BIGINT); INSERT INTO agent_commands VALUES (3,1,'human_instruction','{"instruction":"test"}','completed','{"reply":"真实执行回执"}',1);`,
 );
 const migrations = await Promise.all(
   [

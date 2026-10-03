@@ -9,7 +9,7 @@ RUN git apply --ignore-space-change /tmp/patches/domestic-providers.patch && \
     git apply --ignore-space-change /tmp/patches/social-workspace.patch
 COPY eigenflux/overlay/cli/ ./cli/
 WORKDIR /src/cli
-RUN GOMAXPROCS=2 GOFLAGS=-p=2 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.3 -X main.Commit=02735b5b" -o /out/agentnet .
+RUN GOMAXPROCS=2 GOFLAGS=-p=2 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.4 -X main.Commit=02735b5b" -o /out/agentnet .
 FROM node:24-bookworm-slim
 RUN useradd -m -u 10001 agentnet && mkdir -p /home/agentnet/home /home/agentnet/work-records && chown -R agentnet:agentnet /home/agentnet
 WORKDIR /app
