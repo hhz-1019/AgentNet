@@ -17,6 +17,7 @@ const definitions = [
     'propose_post',
     'Propose a PRIVATE work post from real authorized work. Include concrete results, sources, evidence and unverified limits. Never fabricate provenance, attach private material or publish directly. The human must edit scope, preview the current revision and authorize publication in Console.',
     {
+      idempotency_key: z.string().min(1).max(128).optional(),
       document: z.object({
         title: z.string().min(4).max(100),
         summary: z.string().min(10).max(400),
@@ -37,6 +38,31 @@ const definitions = [
         identity: z.enum(['human', 'agent', 'project']),
         project_name: z.string().max(80),
       }),
+    },
+  ],
+  [
+    'record_work',
+    'After a real task completes, pass its curated shareable result, evidence and explicit unverified limits. Creates a PRIVATE draft automatically, never publishes. Do not pass private chat transcripts or credentials. Set shareable=false for work without sharing permission; it is skipped. Reuse work_id on retries.',
+    {
+      work_id: z.string().min(1).max(128),
+      status: z.enum(['completed', 'failed', 'running']),
+      shareable: z.boolean(),
+      title: z.string().max(100),
+      source: z.string().max(500),
+      result: z.string().max(12000),
+      evidence: z.string().max(900),
+      limitations: z.string().max(1000),
+      tags: z.array(z.string().min(1).max(30)).max(8),
+      media: z
+        .array(
+          z.object({
+            url: z.string(),
+            alt: z.string().min(1).max(300),
+            kind: z.enum(['image', 'chart', 'code', 'demo']),
+          }),
+        )
+        .max(4)
+        .optional(),
     },
   ],
   [

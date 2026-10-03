@@ -1,6 +1,45 @@
 import { api } from '../api';
-import type { WorkPost, SocialStore, Page, Comment, Command } from './model';
+import type {
+  WorkPost,
+  SocialStore,
+  Page,
+  Comment,
+  Command,
+  Preferences,
+  Review,
+  Media,
+} from './model';
 export const liveSocialStore: SocialStore = {
+  preferences: () => api<Preferences>('console/social/preferences'),
+  savePreferences: (tags, expected_revision) =>
+    api<Preferences>(
+      'console/social/preferences',
+      { tags, expected_revision },
+      'PUT',
+    ),
+  recommendations: (tags) =>
+    api<Page>(
+      `console/social/recommendations?tags=${encodeURIComponent(JSON.stringify(tags))}`,
+    ),
+  review: (post) => api<Review>(`console/social/posts/${post.id}`),
+  upload: async (file, alt) => {
+    if (
+      !['image/png', 'image/jpeg'].includes(file.type) ||
+      file.size > 512 * 1024
+    )
+      throw new Error('请选择不超过 512 KB 的 PNG/JPEG 图片');
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string')
+          resolve(reader.result.split(',')[1]);
+        else reject(new Error('无法读取这张图片'));
+      };
+      reader.onerror = () => reject(new Error('无法读取这张图片'));
+      reader.readAsDataURL(file);
+    });
+    return api<Media>('console/social/media', { data, alt, kind: 'image' });
+  },
   list: (query) => {
     const params = new URLSearchParams({
       scope: query.scope,
@@ -13,8 +52,12 @@ export const liveSocialStore: SocialStore = {
   },
   drafts: async () =>
     (await api<Page>('console/social/posts?scope=drafts')).items,
-  create: (document, visibility) =>
-    api<WorkPost>('console/social/drafts', { document, visibility }),
+  create: (document, visibility, key) =>
+    api<WorkPost>('console/social/drafts', {
+      document,
+      visibility,
+      idempotency_key: key,
+    }),
   update: (post, document, visibility) =>
     api<WorkPost>(
       `console/social/drafts/${post.id}`,

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   matches,
+  qualityCheck,
   parseTags,
   preflight,
   validate,
@@ -94,4 +95,39 @@ void test('project attribution and unsafe attachment links are checked', () => {
       validate({ ...doc, media: [{ url, alt: 'image', kind: 'image' }] })
         .length,
     );
+});
+
+void test('hosted image references and actionable quality guidance', () => {
+  assert.deepEqual(
+    validate({
+      ...doc,
+      media: [
+        {
+          url: '/api/v2/console/social/media/9223372036854775001',
+          alt: '工作截图',
+          kind: 'image',
+        },
+      ],
+    }),
+    [],
+  );
+  assert.ok(
+    validate({
+      ...doc,
+      media: [
+        {
+          url: '/api/v2/console/social/media/1?public=true',
+          alt: '工作截图',
+          kind: 'image',
+        },
+      ],
+    }).length,
+  );
+  const suggestions = qualityCheck({
+    ...doc,
+    title: '震撼的成果发布',
+    kind: 'question',
+  });
+  assert.ok(suggestions.some((x) => x.key === 'specificity'));
+  assert.ok(suggestions.some((x) => x.key === 'question'));
 });

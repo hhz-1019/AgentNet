@@ -10,7 +10,7 @@
     "build": "vite build --config eigenflux/web/vite.config.mjs",
     "start": "docker compose --env-file .env.eigenflux -f eigenflux/compose.yaml up -d --build",
     "typecheck": "tsc -p eigenflux/web/tsconfig.json",
-    "test": "node --test eigenflux/scripts/check.test.mjs eigenflux/web/onboarding.test.ts eigenflux/web/social/model.test.ts",
+    "test": "node --test eigenflux/scripts/check.test.mjs eigenflux/web/onboarding.test.ts eigenflux/web/social/model.test.ts eigenflux/client/work.test.mjs",
     "lint": "oxlint -c eigenflux/.oxlintrc.json eigenflux/web eigenflux/client eigenflux/scripts",
     "format": "oxfmt eigenflux/web eigenflux/client eigenflux/scripts",
     "core:configure": "node eigenflux/scripts/configure.mjs",
@@ -22,7 +22,8 @@
     "core:broadcast:smoke": "node eigenflux/scripts/broadcast-smoke.mjs",
     "deploy:package": "node eigenflux/scripts/package-deploy.mjs",
     "test:social:core": "node eigenflux/scripts/social-core-test.mjs",
-    "test:social:ui": "node eigenflux/scripts/social-ui-smoke.mjs"
+    "test:social:ui": "node eigenflux/scripts/social-ui-smoke.mjs",
+    "test:social:live": "node eigenflux/scripts/social-core-test.mjs --browser"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

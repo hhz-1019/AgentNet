@@ -1,11 +1,16 @@
 package consolev2
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"image"
+	"image/png"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -15,6 +20,33 @@ import (
 	"gorm.io/gorm"
 )
 
+// PGlite has one backend. Reuse its protocol connection across the suite.
+var socialDBOnce sync.Once
+var socialDB *gorm.DB
+var socialDBError error
+
+func socialFixtureDB(t *testing.T, dsn string) *gorm.DB {
+	t.Helper()
+	socialDBOnce.Do(func() {
+		socialDB, socialDBError = gorm.Open(postgres.New(postgres.Config{DSN: dsn, PreferSimpleProtocol: true}), &gorm.Config{})
+		if socialDBError == nil {
+			pool, _ := socialDB.DB()
+			pool.SetMaxOpenConns(1)
+		}
+	})
+	if socialDBError != nil {
+		t.Fatal(socialDBError)
+	}
+	return socialDB
+}
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if socialDB != nil {
+		pool, _ := socialDB.DB()
+		_ = pool.Close()
+	}
+	os.Exit(code)
+}
 func socialTestDocument() socialDocument {
 	return socialDocument{Title: "一次具体工作的复盘", Summary: "这是一份可以接着做的工作成果说明。", Body: "我们记录了任务的背景、具体做法、结果与复现步骤，同时明确哪些结论仍然需要继续验证。", Kind: "result", Tags: []string{"React", "Agent 工程"}, Source: "实际开发任务记录", Evidence: "复现步骤与验证边界", Identity: "human", Media: []socialMedia{}}
 }
@@ -54,13 +86,7 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 	if dsn == "" {
 		t.Skip("run npm run test:social:core for isolated PostgreSQL protocol coverage")
 	}
-	db, err := gorm.Open(postgres.New(postgres.Config{DSN: dsn, PreferSimpleProtocol: true}), &gorm.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	sqlDB, _ := db.DB()
-	sqlDB.SetMaxOpenConns(1)
-	defer sqlDB.Close()
+	db := socialFixtureDB(t, dsn)
 	s := &Service{db: db, idgen: &fixedIDGenerator{id: 9223372036854774000}}
 	h := server.New()
 	inject := func(_ context.Context, c *app.RequestContext) {
@@ -71,6 +97,12 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 		c.Set("agent_id", id)
 		c.Next(context.Background())
 	}
+	h.GET("/preferences", inject, s.getSocialPreferences)
+	h.PUT("/preferences", inject, s.putSocialPreferences)
+	h.GET("/recommendations", inject, s.getSocialRecommendations)
+	h.POST("/media", inject, s.uploadSocialMedia)
+	h.GET("/media/:media_id", inject, s.getSocialMedia)
+	h.DELETE("/media/:media_id", inject, s.deleteSocialMedia)
 	h.POST("/drafts", inject, s.createSocialDraft)
 	h.PUT("/drafts/:post_id", inject, s.updateSocialDraft)
 	h.POST("/posts/:post_id/publish", inject, s.publishSocialPost)
@@ -173,4 +205,110 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 	if commands[0].(map[string]any)["result"].(map[string]any)["reply"] != "真实执行回执" {
 		t.Fatal("command receipt lost")
 	}
+	// Preferences are scoped to the Agent, persistent, and versioned across devices.
+	prefs := call("GET", "/preferences", nil, "1", 200)
+	if prefs["revision"].(float64) != 0 {
+		t.Fatal("unexpected preferences")
+	}
+	call("PUT", "/preferences", map[string]any{"tags": []string{"react"}, "expected_revision": 0}, "1", 200)
+	call("PUT", "/preferences", map[string]any{"tags": []string{"Other"}, "expected_revision": 0}, "1", 409)
+	if call("GET", "/preferences", nil, "2", 200)["revision"].(float64) != 0 {
+		t.Fatal("foreign interests leaked")
+	}
+	call("PUT", "/preferences", map[string]any{"tags": []string{"React", "react"}, "expected_revision": 1}, "1", 400)
+	if len(call("GET", "/recommendations", nil, "1", 200)["items"].([]any)) == 0 {
+		t.Fatal("case-insensitive recommendation missing")
+	}
+	// Ranking searches past the first feed page and still enforces private/block access.
+	for i := 0; i < 25; i++ {
+		copy := socialTestDocument()
+		copy.Tags = []string{"Unrelated"}
+		raw, _ := json.Marshal(copy)
+		if err := db.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision) VALUES (?,1,'published',1,'public',?::jsonb,1,1,1)`, int64(9223372036854775000+i), string(raw)).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	call("PUT", "/preferences", map[string]any{"tags": []string{"React"}, "expected_revision": 0}, "2", 200)
+	recommended := call("GET", "/recommendations", nil, "2", 200)["items"].([]any)
+	if len(recommended) != 1 {
+		t.Fatal("recommendations exposed private posts", recommended)
+	}
+	if err := db.Exec("INSERT INTO user_relations VALUES (1,2,2)").Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(call("GET", "/recommendations", nil, "2", 200)["items"].([]any)) != 0 {
+		t.Fatal("blocked work recommended")
+	}
+	db.Exec("DELETE FROM user_relations WHERE rel_type=2")
+	// Stable proposal keys return the current draft without overwriting human edits.
+	proposal := socialWriteRequest{Document: socialTestDocument(), Visibility: "public", IdempotencyKey: "work-unique"}
+	first := call("POST", "/api/v2/social/drafts", proposal, "1", 201)
+	second := call("POST", "/api/v2/social/drafts", proposal, "1", 201)
+	if first["id"] != second["id"] {
+		t.Fatal("proposal duplicated")
+	}
+	copy := proposal.Document
+	copy.Title = "人类修改后的具体工作标题"
+	call("PUT", "/drafts/"+first["id"].(string), socialWriteRequest{Document: copy, Visibility: "private", ExpectedRevision: 1}, "1", 200)
+	retry := call("POST", "/api/v2/social/drafts", proposal, "1", 201)
+	if retry["revision"].(float64) != 2 {
+		t.Fatal("human edit overwritten")
+	}
+	proposal.Document.Title = "另一份工作结果"
+	call("POST", "/api/v2/social/drafts", proposal, "1", 409)
+	// Hosted media cannot be read or reused outside post permissions.
+	var imageData bytes.Buffer
+	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	upload := map[string]any{"data": base64.StdEncoding.EncodeToString(imageData.Bytes()), "alt": "真实结果截图", "kind": "image"}
+	media := call("POST", "/media", upload, "1", 201)
+	mediaURL := media["url"].(string)
+	mediaID := strings.TrimPrefix(mediaURL, socialMediaPrefix)
+	readImage := func(viewer string, want int) {
+		t.Helper()
+		resp := ut.PerformRequest(h.Engine, "GET", "/media/"+mediaID, nil, ut.Header{Key: "Test-Viewer", Value: viewer})
+		if resp.Code != want {
+			t.Fatalf("image status %d want %d", resp.Code, want)
+		}
+		if want == 200 && (resp.Header().Get("Cache-Control") != "private, no-store" || !bytes.Equal(resp.Body.Bytes(), imageData.Bytes())) {
+			t.Fatal("image data/cache incorrect")
+		}
+	}
+	readImage("1", 200)
+	readImage("2", 404)
+	imageDoc := socialTestDocument()
+	imageDoc.Media = []socialMedia{{URL: mediaURL, Alt: "真实结果截图", Kind: "image"}}
+	call("POST", "/drafts", socialWriteRequest{Document: imageDoc, Visibility: "public"}, "2", 400)
+	imagePost := call("POST", "/drafts", socialWriteRequest{Document: imageDoc, Visibility: "friends"}, "1", 201)
+	readImage("2", 404)
+	call("POST", "/posts/"+imagePost["id"].(string)+"/publish", map[string]any{"expected_revision": 1, "approved": true, "privacy_reviewed": true}, "1", 200)
+	readImage("2", 200)
+	db.Exec("INSERT INTO user_relations VALUES (2,1,2)")
+	readImage("2", 404)
+	db.Exec("DELETE FROM user_relations WHERE rel_type=2")
+	call("DELETE", "/media/"+mediaID, nil, "1", 409)
+	// A replay must still work after a human removes and deletes the original attachment.
+	detachable := call("POST", "/media", upload, "1", 201)
+	original := socialTestDocument()
+	original.Media = []socialMedia{{URL: detachable["url"].(string), Alt: "可移除截图", Kind: "image"}}
+	mediaProposal := socialWriteRequest{Document: original, Visibility: "private", IdempotencyKey: "removable-media-work"}
+	proposedMedia := call("POST", "/api/v2/social/drafts", mediaProposal, "1", 201)
+	revised := original
+	revised.Media = []socialMedia{}
+	call("PUT", "/drafts/"+proposedMedia["id"].(string), socialWriteRequest{Document: revised, Visibility: "private", ExpectedRevision: 1}, "1", 200)
+	call("DELETE", "/media/"+strings.TrimPrefix(detachable["url"].(string), socialMediaPrefix), nil, "1", 200)
+	replay := call("POST", "/api/v2/social/drafts", mediaProposal, "1", 201)
+	if replay["revision"].(float64) != 2 {
+		t.Fatal("edited draft replay failed after media removal")
+	}
+	orphan := call("POST", "/media", upload, "1", 201)
+	call("DELETE", "/media/"+strings.TrimPrefix(orphan["url"].(string), socialMediaPrefix), nil, "1", 200)
+	upload["data"] = base64.StdEncoding.EncodeToString([]byte("<svg onload='evil()'/>"))
+	call("POST", "/media", upload, "1", 400)
+	review := call("GET", "/posts/"+first["id"].(string), nil, "1", 200)
+	if review["reviewed_revision"].(float64) != 2 || len(review["quality"].([]any)) == 0 {
+		t.Fatal("version-bound quality guidance missing")
+	}
+
 }

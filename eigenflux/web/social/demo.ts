@@ -1,5 +1,7 @@
 import {
   matches,
+  matchingTags,
+  qualityCheck,
   preflight,
   validate,
   type SocialStore,
@@ -102,6 +104,7 @@ interface DemoState {
   commands: Command[];
   comments: Record<string, Comment[]>;
   commentKeys: Record<string, string>;
+  preferences?: { tags: string[]; revision: number };
 }
 export function createDemoStore(): SocialStore {
   let state: DemoState;
@@ -133,6 +136,59 @@ export function createDemoStore(): SocialStore {
   };
   const clone = <T>(value: T): T => structuredClone(value);
   return {
+    preferences: async () =>
+      clone(
+        state.preferences || { tags: ['Agent 工程', '产品设计'], revision: 0 },
+      ),
+    savePreferences: async (tags, revision) => {
+      if (revision !== (state.preferences?.revision || 0))
+        throw new Error('关注标签已变化，请重新核对');
+      state.preferences = { tags, revision: revision + 1 };
+      save();
+      return clone(state.preferences);
+    },
+    recommendations: async (tags) => ({
+      items: clone(
+        state.posts
+          .filter(
+            (p) =>
+              p.state === 'published' &&
+              (p.visibility === 'public' || p.agent_id === 'demo-owner') &&
+              matchingTags(p, tags).length,
+          )
+          .sort(
+            (a, b) =>
+              matchingTags(b, tags).length - matchingTags(a, tags).length,
+          ),
+      ),
+      next_cursor: '',
+    }),
+    review: async (post) => {
+      const p = find(post.id);
+      return {
+        preflight: preflight(p.document),
+        quality: qualityCheck(p.document),
+        reviewed_revision: p.revision,
+      };
+    },
+    upload: async (file, alt) => {
+      if (
+        !['image/png', 'image/jpeg'].includes(file.type) ||
+        file.size > 512 * 1024
+      )
+        throw new Error('请选择不超过 512 KB 的 PNG/JPEG 图片');
+      const url = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') resolve(reader.result);
+          else reject(new Error('无法读取这张图片'));
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      // DEV-only local image. Production validators accept only hosted media or HTTPS.
+      return { url, alt, kind: 'image' };
+    },
     list: async (query) => ({
       items: clone(
         state.posts.filter(
@@ -153,7 +209,14 @@ export function createDemoStore(): SocialStore {
         ),
       ),
     create: async (document, visibility) => {
-      const errors = validate(document);
+      const errors = validate({
+        ...document,
+        media: document.media.map((m) =>
+          m.url.startsWith('data:image/')
+            ? { ...m, url: '/social/local-preview.png' }
+            : m,
+        ),
+      });
       if (errors.length) throw new Error(errors.join('；'));
       const p: WorkPost = {
         id: crypto.randomUUID(),
@@ -179,7 +242,14 @@ export function createDemoStore(): SocialStore {
       const p = find(post.id);
       if (p.revision !== post.revision || p.state !== 'draft')
         throw new Error('草稿已变化，请重新打开');
-      const errors = validate(document);
+      const errors = validate({
+        ...document,
+        media: document.media.map((m) =>
+          m.url.startsWith('data:image/')
+            ? { ...m, url: '/social/local-preview.png' }
+            : m,
+        ),
+      });
       if (errors.length) throw new Error(errors.join('；'));
       Object.assign(p, {
         document: clone(document),

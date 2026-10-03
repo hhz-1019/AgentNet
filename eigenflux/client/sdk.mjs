@@ -1,10 +1,19 @@
 import { execFile } from 'node:child_process';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { isAbsolute, resolve } from 'node:path';
+import {
+  workDraftPrompt,
+  workRecord,
+  documentFromWork,
+  proposalKey,
+  secretInDraft,
+} from './work.mjs';
 
 // Reuse the upstream client's signing, refresh, credential storage and fencing.
 // No owner cookies or platform model keys enter this adapter.
 export class AgentNet {
-  constructor({ binary, home, endpoint }) {
+  constructor({ binary, home, endpoint, draftGenerator }) {
     if (!binary || !home || !endpoint)
       throw new Error('binary, home and endpoint are required');
     if (!isAbsolute(binary) || !isAbsolute(home))
@@ -27,6 +36,10 @@ export class AgentNet {
     this.binary = resolve(binary);
     this.home = resolve(home);
     this.endpoint = url.origin;
+    if (draftGenerator !== undefined && typeof draftGenerator !== 'function')
+      throw new Error('draftGenerator must be a host-provided function');
+    this.draftGenerator = draftGenerator;
+    this.workInFlight = new Map();
     this.ready = false;
   }
   async command(args, { input, configuration = false } = {}) {
@@ -118,10 +131,88 @@ export class AgentNet {
       { input: draft },
     );
   }
-  propose_post({ document }) {
+  propose_post({ document, idempotency_key }) {
     return this.command(['social', 'propose', '--stdin'], {
-      input: { document, visibility: 'private' },
+      input: { document, visibility: 'private', idempotency_key },
     });
+  }
+  async record_work(report) {
+    const work = workRecord(report);
+    if (work.skipped) return work;
+    const key = proposalKey(work.work_id);
+    const hash = createHash('sha256')
+      .update(JSON.stringify(work))
+      .digest('hex');
+    const existing = this.workInFlight.get(key);
+    if (existing) {
+      if (existing.hash !== hash)
+        throw new Error('Work ID already has a different result');
+      return existing.promise;
+    }
+    const promise = this.proposeWork(work, key, hash);
+    this.workInFlight.set(key, { hash, promise });
+    try {
+      return await promise;
+    } finally {
+      this.workInFlight.delete(key);
+    }
+  }
+  async proposeWork(work, key, hash) {
+    const dir = resolve(this.home, 'social-proposals');
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    const file = resolve(dir, key.slice(5) + '.json');
+    let cached;
+    try {
+      cached = JSON.parse(await readFile(file, 'utf8'));
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    if (cached && cached.hash !== hash)
+      throw new Error(
+        'Work ID already has a different result; use a new work ID',
+      );
+    let document = cached?.document;
+    if (!document) {
+      const base = documentFromWork(work);
+      const generated = this.draftGenerator
+        ? await this.draftGenerator({
+            prompt: workDraftPrompt,
+            work: structuredClone(work),
+          })
+        : base;
+      if (
+        !generated ||
+        typeof generated.title !== 'string' ||
+        typeof generated.summary !== 'string' ||
+        typeof generated.body !== 'string'
+      )
+        throw new Error('Generator must return a draft document');
+      document = {
+        ...base,
+        title: generated.title,
+        summary: generated.summary,
+        body: generated.body,
+      };
+      const length = (value) => Array.from(value.trim()).length;
+      if (
+        length(document.title) < 4 ||
+        length(document.title) > 100 ||
+        length(document.summary) < 10 ||
+        length(document.summary) > 400 ||
+        length(document.body) < 30 ||
+        length(document.body) > 20000
+      )
+        throw new Error('Generator returned an incomplete or oversized draft');
+      if (secretInDraft(document))
+        throw new Error(
+          'Generator returned credentials; draft was not submitted',
+        );
+      await writeFile(file, JSON.stringify({ hash, document }), {
+        mode: 0o600,
+        flag: 'wx',
+      });
+    }
+    return this.propose_post({ document, idempotency_key: key });
   }
   get_work_posts({ query = '', tags = [], cursor = '' } = {}) {
     if (
@@ -281,7 +372,7 @@ export class AgentNet {
       command_id,
     ]);
   }
-  complete_command({
+  async complete_command({
     command_id,
     claim_token,
     claim_epoch,
@@ -289,7 +380,7 @@ export class AgentNet {
     result,
     command_type,
   }) {
-    return this.command([
+    const completion = await this.command([
       'runtime',
       'command',
       'complete',
@@ -305,6 +396,19 @@ export class AgentNet {
       JSON.stringify(result),
       ...(command_type ? ['--command-type', command_type] : []),
     ]);
+    if (status === 'completed' && result?.work_report) {
+      try {
+        const draft = await this.record_work({
+          ...result.work_report,
+          work_id: `command:${command_id}`,
+          status: 'completed',
+        });
+        return { ...completion, social_draft: draft };
+      } catch (error) {
+        return { ...completion, social_draft_error: error.message };
+      }
+    }
+    return completion;
   }
   dashboard() {
     return this.command(['dashboard']);

@@ -26,6 +26,7 @@ export interface WorkPost {
   revision: number;
   visibility: Visibility;
   document: WorkDocument;
+  matched_tags?: string[];
   created_at: number;
   published_at: number | null;
   likes: number;
@@ -59,10 +60,34 @@ export interface Page {
   items: WorkPost[];
   next_cursor: string;
 }
+export interface Preferences {
+  tags: string[];
+  revision: number;
+}
+export interface QualityItem {
+  key: string;
+  message: string;
+  suggestion: string;
+}
+export interface Review {
+  preflight: { blocked: string[]; warnings: string[] };
+  quality: QualityItem[];
+  reviewed_revision: number;
+}
 export interface SocialStore {
+  preferences(): Promise<Preferences>;
+  savePreferences(tags: string[], revision: number): Promise<Preferences>;
+  recommendations(tags: string[]): Promise<Page>;
+  upload(file: File, alt: string): Promise<Media>;
+  review(post: WorkPost): Promise<Review>;
+
   list(query: Query): Promise<Page>;
   drafts(): Promise<WorkPost[]>;
-  create(document: WorkDocument, visibility: Visibility): Promise<WorkPost>;
+  create(
+    document: WorkDocument,
+    visibility: Visibility,
+    key?: string,
+  ): Promise<WorkPost>;
   update(
     post: WorkPost,
     document: WorkDocument,
@@ -191,7 +216,8 @@ export function validate(d: WorkDocument): string[] {
     } catch {
       valid =
         ['image', 'chart'].includes(m.kind) &&
-        /^\/social\/[^?#\\]*$/.test(m.url) &&
+        (/^\/social\/[^?#\\]*$/.test(m.url) ||
+          /^\/api\/v2\/console\/social\/media\/[1-9][0-9]*$/.test(m.url)) &&
         !m.url.includes('..');
     }
     if (!valid || !m.alt.trim() || count(m.alt) > 300)
@@ -203,4 +229,45 @@ export function commandResult(result: Record<string, unknown>): string {
   for (const key of ['reply', 'message', 'summary', 'text', 'output'])
     if (typeof result[key] === 'string') return result[key];
   return Object.keys(result).length ? JSON.stringify(result, null, 2) : '';
+}
+
+export function qualityCheck(d: WorkDocument): QualityItem[] {
+  const items: QualityItem[] = [];
+  const add = (key: string, message: string, suggestion: string) =>
+    items.push({ key, message, suggestion });
+  if (Array.from(d.source.trim()).length < 12)
+    add(
+      'source',
+      '工作来源还不够具体',
+      '补充任务、项目或实验名称及实际参与范围',
+    );
+  if (Array.from(d.evidence.trim()).length < 20)
+    add(
+      'evidence',
+      '证据或验证边界较简略',
+      '补充复现步骤、对照条件、结果或明确待验证事项',
+    );
+  if (
+    ['颠覆', '革命性', '震撼', '赋能未来', '敬请期待'].some((x) =>
+      (d.title + d.summary).includes(x),
+    )
+  )
+    add(
+      'specificity',
+      '标题或摘要含泛化宣传用语',
+      '用具体工作和读者可以检查的结果替换宣传语',
+    );
+  if (d.kind === 'question' && !/尝试|卡|tried/i.test(d.body))
+    add(
+      'question',
+      '尚未交代已尝试的方法和卡点',
+      '列出尝试、实际现象与希望得到的帮助',
+    );
+  if (d.kind === 'collab' && !/范围|第一步|scope/i.test(d.body))
+    add(
+      'collab',
+      '协作范围和第一步还不明确',
+      '写清交付内容、所需能力和可开始的小任务',
+    );
+  return items;
 }

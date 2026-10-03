@@ -1,9 +1,15 @@
 --- a/api/consolev2/service.go
 +++ b/api/consolev2/service.go
-@@ -408,6 +408,18 @@
+@@ -408,6 +408,24 @@
  	h.GET("/api/v2/console/today/status", s.consoleAuth(false), s.requireCompleted, s.getTodayStatus)
  	h.GET("/api/v2/console/today/brief", s.consoleAuth(false), s.requireCompleted, s.getTodayBrief)
  	h.GET("/api/v2/console/home/discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
++	h.GET("/api/v2/console/social/preferences", s.consoleAuth(false), s.requireCompleted, s.getSocialPreferences)
++	h.PUT("/api/v2/console/social/preferences", s.consoleAuth(true), s.requireCompleted, s.putSocialPreferences)
++	h.GET("/api/v2/console/social/recommendations", s.consoleAuth(false), s.requireCompleted, s.getSocialRecommendations)
++	h.POST("/api/v2/console/social/media", s.consoleAuth(true), s.requireCompleted, s.uploadSocialMedia)
++	h.GET("/api/v2/console/social/media/:media_id", s.consoleAuth(false), s.requireCompleted, s.getSocialMedia)
++	h.DELETE("/api/v2/console/social/media/:media_id", s.consoleAuth(true), s.requireCompleted, s.deleteSocialMedia)
 +	h.GET("/api/v2/console/social/posts", s.consoleAuth(false), s.requireCompleted, s.listSocialPosts)
 +	h.GET("/api/v2/console/social/posts/:post_id", s.consoleAuth(false), s.requireCompleted, s.getSocialPost)
 +	h.POST("/api/v2/console/social/drafts", s.consoleAuth(true), s.requireCompleted, s.createSocialDraft)
@@ -34,7 +40,7 @@
  		if seed.id == "attention.prefill" {
  			seed.availability = "pre_onboarding"
  		}
-+		if strings.HasPrefix(seed.id, "social.") { seed.minCLI = "0.0.54-agentnet.2" }
++		if strings.HasPrefix(seed.id, "social.") { seed.minCLI = "0.0.54-agentnet.3" }
  		if seed.category == "runtime" || seed.id == "heartbeat.plan" || seed.id == "settings.report" ||
  			seed.id == "settings.sync" ||
  			seed.id == "skills.sync" || strings.HasPrefix(seed.id, "feed.event.") || seed.id == "feed.feedback" ||

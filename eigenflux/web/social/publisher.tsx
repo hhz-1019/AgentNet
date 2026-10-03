@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -14,6 +14,8 @@ import {
   kindLabels,
   parseTags,
   preflight,
+  qualityCheck,
+  type Review,
   validate,
   visibilityLabels,
   type WorkPost,
@@ -38,6 +40,9 @@ export function Publisher({
   onPublished: () => void;
   demo: boolean;
 }) {
+  const proposalKey = useRef(crypto.randomUUID());
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const [review, setReview] = useState<Review>();
   const [step, setStep] = useState(initial ? 'edit' : 'source');
   const [post, setPost] = useState(initial);
   const [doc, setDoc] = useState<WorkDocument>(
@@ -59,9 +64,23 @@ export function Publisher({
     setSaved(false);
   };
   const current = { ...doc, tags: parseTags(tags) };
-  const checks = preflight(current);
+  const checks =
+    step === 'preview' && review ? review.preflight : preflight(current);
+  const quality =
+    step === 'preview' && review ? review.quality : qualityCheck(current);
   async function save(preview: boolean) {
-    const errors = validate(current);
+    const errors = validate(
+      demo
+        ? {
+            ...current,
+            media: current.media.map((m) =>
+              m.url.startsWith('data:image/')
+                ? { ...m, url: '/social/local-preview.png' }
+                : m,
+            ),
+          }
+        : current,
+    );
     if (errors.length) {
       setError(errors.join('；'));
       return;
@@ -71,10 +90,14 @@ export function Publisher({
     try {
       const next = post
         ? await store.update(post, current, visibility)
-        : await store.create(current, visibility);
+        : await store.create(current, visibility, proposalKey.current);
       setPost(next);
       setSaved(true);
       if (preview) {
+        const checked = await store.review(next);
+        if (checked.reviewed_revision !== next.revision)
+          throw new Error('草稿已在其他窗口修改，请重新读取后预览');
+        setReview(checked);
         setStep('preview');
         setApproved(false);
         setProjectAuthorized(false);
@@ -312,7 +335,7 @@ export function Publisher({
               </div>
             ))}
             <button
-              disabled={doc.media.length >= 4}
+              disabled={busy || doc.media.length >= 4}
               onClick={() =>
                 patch({
                   media: [...doc.media, { url: '', alt: '', kind: 'image' }],
@@ -321,8 +344,44 @@ export function Publisher({
             >
               <Plus size={16} /> 添加附件链接
             </button>
+            <input
+              ref={uploadRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              hidden
+              aria-label="上传工作图片"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                setBusy(true);
+                setError('');
+                void store
+                  .upload(file, file.name)
+                  .then((media) => {
+                    setDoc((d) => ({
+                      ...d,
+                      media: [...d.media, media].slice(0, 4),
+                    }));
+                    setApproved(false);
+                    setProjectAuthorized(false);
+                    setSaved(false);
+                  })
+                  .catch((e) =>
+                    setError(e instanceof Error ? e.message : '上传失败'),
+                  )
+                  .finally(() => setBusy(false));
+              }}
+            />
+            <button
+              disabled={busy || doc.media.length >= 4}
+              onClick={() => uploadRef.current?.click()}
+            >
+              <Plus size={16} /> 上传图片 / 截图
+            </button>
             <small>
-              目前接收公开附件链接；图片与截图以原图展示，代码结果也可直接粘贴在正文中。
+              PNG/JPEG 最多 512 KB、边长 4096
+              像素。上传图片随帖子范围控制访问；外部公开链接由原站点控制。代码结果也可粘贴到正文。
             </small>
           </fieldset>
           <fieldset>
@@ -353,6 +412,18 @@ export function Publisher({
               整理提示：写清具体工作、可检查的证据与未验证边界。避免空泛总结、编造来源或未经授权的内容。
             </p>
           </div>
+          {quality.length ? (
+            <div className="sw-quality-feedback">
+              <h3>整理建议</h3>
+              {quality.map((x) => (
+                <p key={x.key}>
+                  <b>{x.message}</b>
+                  <br />
+                  {x.suggestion}
+                </p>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {step === 'preview' && post ? (
@@ -376,6 +447,11 @@ export function Publisher({
             {checks.warnings.map((x) => (
               <p className="sw-hint" key={x}>
                 {x}
+              </p>
+            ))}
+            {quality.map((x) => (
+              <p className="sw-hint" key={x.key}>
+                <b>{x.message}</b> · {x.suggestion}
               </p>
             ))}
             <label>

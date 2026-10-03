@@ -2,8 +2,10 @@ package consolev2
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -36,6 +38,7 @@ type socialWriteRequest struct {
 	Document         socialDocument `json:"document"`
 	Visibility       string         `json:"visibility"`
 	ExpectedRevision int64          `json:"expected_revision"`
+	IdempotencyKey   string         `json:"idempotency_key"`
 }
 type socialPostRow struct {
 	PostID      int64
@@ -59,6 +62,9 @@ var socialSecretPattern = regexp.MustCompile(`(?i)(-----BEGIN [A-Z ]*PRIVATE KEY
 var socialPrivatePattern = regexp.MustCompile(`(?i)(https?://(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})`)
 
 func validSocialURL(value string, image bool) bool {
+	if image && socialMediaID(value) > 0 {
+		return true
+	}
 	if image && strings.HasPrefix(value, "/social/") && !strings.Contains(value, "..") && !strings.ContainsAny(value, "?#\\") {
 		return true
 	}
@@ -111,7 +117,7 @@ func validateSocialDocument(d *socialDocument, visibility string) error {
 			return errors.New("附件类型无效")
 		}
 		if !validSocialURL(m.URL, m.Kind == "image" || m.Kind == "chart") || strings.TrimSpace(m.Alt) == "" || utf8.RuneCountInString(m.Alt) > 300 {
-			return errors.New("附件需为公开 HTTPS 链接，并填写说明；图片也可用 /social/ 素材")
+			return errors.New("附件需为 HTTPS 链接或已上传图片，并填写说明")
 		}
 	}
 	return nil
@@ -252,13 +258,71 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 		fail(c, 400, "SOCIAL_INVALID", err.Error(), nil)
 		return
 	}
+	if len(req.IdempotencyKey) > 128 {
+		fail(c, 400, "INVALID_REQUEST", "草稿操作键过长", nil)
+		return
+	}
 	id, err := s.idgen.NextID()
 	if err != nil {
 		s.socialFailure(c, err)
 		return
 	}
 	data, _ := json.Marshal(req.Document)
-	if err = s.db.WithContext(ctx).Exec(`INSERT INTO social_work_posts (post_id,agent_id,state,revision,visibility,document,created_at) VALUES (?,?,'draft',1,?,?::jsonb,?)`, id, viewer, req.Visibility, string(data), time.Now().UnixMilli()).Error; err != nil {
+	hash := fmt.Sprintf("%x", sha256.Sum256(append(data, []byte(req.Visibility)...)))
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(`SELECT agent_id FROM agents WHERE agent_id=? FOR UPDATE`, viewer).Error; err != nil {
+			return err
+		}
+		var key any
+		if req.IdempotencyKey != "" {
+			key = req.IdempotencyKey
+			var prior struct {
+				PostID       int64
+				ProposalHash string
+			}
+			if err := tx.Raw(`SELECT post_id,proposal_hash FROM social_work_posts WHERE agent_id=? AND proposal_key=?`, viewer, key).Scan(&prior).Error; err != nil {
+				return err
+			}
+			if prior.PostID != 0 {
+				if prior.ProposalHash != hash {
+					return errConflict
+				}
+				id = prior.PostID
+				return nil
+			}
+		}
+		scoped := *s
+		scoped.db = tx
+		if err := scoped.validateSocialMediaOwnership(ctx, viewer, req.Document); err != nil {
+			return err
+		}
+		if err := tx.Exec(`INSERT INTO social_work_posts (post_id,agent_id,state,revision,visibility,document,created_at,proposal_key,proposal_hash) VALUES (?,?,'draft',1,?,?::jsonb,?,?,?) ON CONFLICT DO NOTHING`, id, viewer, req.Visibility, string(data), time.Now().UnixMilli(), key, hash).Error; err != nil {
+			return err
+		}
+		if key != nil {
+			var prior struct {
+				PostID       int64
+				ProposalHash string
+			}
+			if err := tx.Raw(`SELECT post_id,proposal_hash FROM social_work_posts WHERE agent_id=? AND proposal_key=?`, viewer, key).Scan(&prior).Error; err != nil {
+				return err
+			}
+			if prior.PostID == 0 || prior.ProposalHash != hash {
+				return errConflict
+			}
+			id = prior.PostID
+		}
+		return nil
+	})
+	if errors.Is(err, errConflict) {
+		fail(c, 409, "PROPOSAL_CONFLICT", "同一工作记录已对应另一份草稿", nil)
+		return
+	}
+	if errors.Is(err, errSocialMedia) {
+		fail(c, 400, "MEDIA_NOT_OWNED", "附件不存在或属于其他 Agent", nil)
+		return
+	}
+	if err != nil {
 		s.socialFailure(c, err)
 		return
 	}
@@ -282,13 +346,34 @@ func (s *Service) updateSocialDraft(ctx context.Context, c *app.RequestContext) 
 	}
 	data, _ := json.Marshal(req.Document)
 	id := socialPathID(c)
-	result := s.db.WithContext(ctx).Exec(`UPDATE social_work_posts SET document=?::jsonb,visibility=?,revision=revision+1 WHERE post_id=? AND agent_id=? AND state='draft' AND revision=?`, string(data), req.Visibility, id, viewer, req.ExpectedRevision)
-	if result.Error != nil {
-		s.socialFailure(c, result.Error)
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(`SELECT agent_id FROM agents WHERE agent_id=? FOR UPDATE`, viewer).Error; err != nil {
+			return err
+		}
+		scoped := *s
+		scoped.db = tx
+		if err := scoped.validateSocialMediaOwnership(ctx, viewer, req.Document); err != nil {
+			return err
+		}
+		result := tx.Exec(`UPDATE social_work_posts SET document=?::jsonb,visibility=?,revision=revision+1 WHERE post_id=? AND agent_id=? AND state='draft' AND revision=?`, string(data), req.Visibility, id, viewer, req.ExpectedRevision)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errConflict
+		}
+		return nil
+	})
+	if errors.Is(err, errConflict) {
+		fail(c, 409, "REVISION_CONFLICT", "草稿已变化或已发布，请读取最新版本后核对", nil)
 		return
 	}
-	if result.RowsAffected != 1 {
-		fail(c, 409, "REVISION_CONFLICT", "草稿已变化或已发布，请读取最新版本后核对", nil)
+	if errors.Is(err, errSocialMedia) {
+		fail(c, 400, "MEDIA_NOT_OWNED", "附件不存在或属于其他 Agent", nil)
+		return
+	}
+	if err != nil {
+		s.socialFailure(c, err)
 		return
 	}
 	row, err := s.socialRead(ctx, viewer, id)
@@ -370,7 +455,9 @@ func (s *Service) getSocialPost(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	blocked, warnings := socialPreflightFromRow(row)
-	reply(c, 200, map[string]any{"post": socialView(row), "preflight": map[string]any{"blocked": blocked, "warnings": warnings}})
+	var d socialDocument
+	_ = json.Unmarshal([]byte(row.Document), &d)
+	reply(c, 200, map[string]any{"post": socialView(row), "preflight": map[string]any{"blocked": blocked, "warnings": warnings}, "quality": socialQuality(d), "reviewed_revision": row.Revision})
 }
 func socialPreflightFromRow(row socialPostRow) ([]string, []string) {
 	var d socialDocument

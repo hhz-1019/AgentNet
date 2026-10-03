@@ -95,21 +95,14 @@ export function SocialWorkspace({
   const [drafts, setDrafts] = useState<WorkPost[]>([]),
     [publisher, setPublisher] = useState<WorkPost | true>(),
     [detail, setDetail] = useState<WorkPost>();
-  const interestKey = `elsewhere:interests:${session.agent_id}`;
-  const [interests, setInterests] = useState<string[]>(() => {
-    try {
-      const data: unknown = JSON.parse(
-        localStorage.getItem(interestKey) || 'null',
-      );
-      return Array.isArray(data) && data.every((x) => typeof x === 'string')
-        ? data
-        : demo
-          ? ['Agent 工程', '产品设计']
-          : [];
-    } catch {
-      return [];
-    }
-  });
+  const [interests, setInterests] = useState<string[]>([]);
+  const [interestRevision, setInterestRevision] = useState(0);
+  const [interestEditRevision, setInterestEditRevision] = useState(0);
+  const [interestLoading, setInterestLoading] = useState(true);
+  const [interestBusy, setInterestBusy] = useState(false);
+  const [interestError, setInterestError] = useState('');
+  const [recommendations, setRecommendations] = useState<WorkPost[]>([]);
+  const [recommendationError, setRecommendationError] = useState('');
   const [interestDialog, setInterestDialog] = useState(false),
     [interestText, setInterestText] = useState('');
   const [packOpen, setPackOpen] = useState(false);
@@ -130,7 +123,9 @@ export function SocialWorkspace({
     ...(identity.data?.card.offering || []),
     ...(identity.data?.card.seeking || []),
   ];
-  const effectiveInterests = interests.length ? interests : cardTags;
+  const effectiveInterests =
+    interestRevision > 0 ? interests : interests.length ? interests : cardTags;
+  const interestQuery = JSON.stringify(effectiveInterests);
   const allTags = useMemo(
     () =>
       [
@@ -152,6 +147,75 @@ export function SocialWorkspace({
   function reload() {
     setVersion((v) => v + 1);
     refreshData();
+  }
+  useEffect(() => {
+    let active = true;
+    void store
+      .preferences()
+      .then((p) => {
+        if (active) {
+          setInterests(p.tags);
+          setInterestRevision(p.revision);
+          setInterestError('');
+        }
+      })
+      .catch((e) => {
+        if (active)
+          setInterestError(e instanceof Error ? e.message : '无法读取关注标签');
+      })
+      .finally(() => {
+        if (active) setInterestLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [store, version]);
+  useEffect(() => {
+    let active = true;
+    setRecommendationError('');
+    void store
+      .recommendations(JSON.parse(interestQuery) as string[])
+      .then((p) => {
+        if (active) setRecommendations(p.items);
+      })
+      .catch((e) => {
+        if (active) {
+          setRecommendations([]);
+          setRecommendationError(
+            e instanceof Error ? e.message : '无法读取推荐内容',
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [store, interestQuery, version]);
+  async function saveInterests() {
+    setInterestBusy(true);
+    setInterestError('');
+    try {
+      const next = await store.savePreferences(
+        parseTags(interestText),
+        interestEditRevision,
+      );
+      setInterests(next.tags);
+      setInterestRevision(next.revision);
+      setInterestDialog(false);
+      setPackOpen(true);
+    } catch (e) {
+      setInterestError(e instanceof Error ? e.message : '保存关注失败');
+      // Refresh the revision for an explicit retry; preserve the user's input.
+      try {
+        const current = await store.preferences();
+        setInterestRevision(current.revision);
+        setInterestEditRevision(current.revision);
+        setInterests(current.tags);
+      } catch {
+        /* original failure stays visible */
+      }
+    } finally {
+      setInterestBusy(false);
+    }
   }
   useEffect(() => {
     const sync = () => setRoute(readRoute(demo));
@@ -269,7 +333,7 @@ export function SocialWorkspace({
       setPending((ids) => ids.filter((x) => x !== post.id));
     }
   }
-  const starterPosts = base
+  const starterPosts = recommendations
     .filter((p) => matchingTags(p, effectiveInterests).length)
     .slice(0, 3);
   const starterPeers = peers
@@ -279,18 +343,20 @@ export function SocialWorkspace({
       ),
     )
     .slice(0, 2);
-  const starterQuestion = base.find(
+  const starterQuestion = recommendations.find(
     (p) =>
       p.document.kind === 'question' &&
       matchingTags(p, effectiveInterests).length,
   );
-  const starterTask = base.find(
+  const starterTask = recommendations.find(
     (p) =>
       p.document.kind === 'collab' &&
       matchingTags(p, effectiveInterests).length,
   );
   const feedRoute = ['explore', 'saved', 'mine'].includes(route);
   const openInterest = () => {
+    setInterestEditRevision(interestRevision);
+    setInterestError('');
     setInterestText(effectiveInterests.join(', '));
     setInterestDialog(true);
   };
@@ -464,7 +530,7 @@ export function SocialWorkspace({
                   </div>
                 </div>
                 <div className="sw-starter-buttons">
-                  <button onClick={openInterest}>
+                  <button disabled={interestLoading} onClick={openInterest}>
                     {effectiveInterests.length ? '调整关注' : '设置关注'}
                   </button>
                   <button
@@ -476,11 +542,24 @@ export function SocialWorkspace({
                 </div>
                 {packOpen ? (
                   <div className="sw-pack-details">
+                    {recommendationError ? (
+                      <p role="alert" className="sw-error">
+                        {recommendationError}
+                      </p>
+                    ) : null}
                     <div>
                       <h3>相关内容 · {starterPosts.length}</h3>
                       {starterPosts.map((p) => (
                         <button key={p.id} onClick={() => setDetail(p)}>
                           {p.document.title}
+                          <small>
+                            {(
+                              p.matched_tags ||
+                              matchingTags(p, effectiveInterests)
+                            )
+                              .map((t) => '#' + t)
+                              .join(' ')}
+                          </small>
                           <ArrowRight size={14} />
                         </button>
                       ))}
@@ -531,8 +610,8 @@ export function SocialWorkspace({
                       )}
                     </div>
                     <small>
-                      按关注标签匹配当前可见的最新 20
-                      条工作和发现页伙伴；匹配原因直接展示。
+                      按匹配标签数与发布时间排序，从全部可见工作中选取 20
+                      条；伙伴仍来自发现页。
                     </small>
                   </div>
                 ) : null}
@@ -833,7 +912,10 @@ export function SocialWorkspace({
           onClose={() => setInterestDialog(false)}
         >
           <p>
-            这些标签用于你的入场内容包和推荐理由，只保存在当前浏览器，不改变公开身份卡。
+            {demo
+              ? '演示标签保存在本地。'
+              : '这些标签随当前 Agent 账号保存，换设备登录也可使用。'}
+            关注标签用于入场内容包，不改变公开身份卡。
           </p>
           <label>
             关注标签（逗号分隔，最多 8 个）
@@ -862,27 +944,29 @@ export function SocialWorkspace({
               </button>
             ))}
           </div>
+          {interestError ? (
+            <p role="alert" className="sw-error">
+              {interestError}
+            </p>
+          ) : null}
           <footer className="sw-dialog-footer">
-            <button onClick={() => setInterestDialog(false)}>取消</button>
+            <button
+              disabled={interestBusy}
+              onClick={() => setInterestDialog(false)}
+            >
+              取消
+            </button>
             <button
               className="sw-primary"
               disabled={
+                interestBusy ||
+                interestLoading ||
                 parseTags(interestText).length > 8 ||
                 parseTags(interestText).some((t) => Array.from(t).length > 30)
               }
-              onClick={() => {
-                const next = parseTags(interestText);
-                setInterests(next);
-                try {
-                  localStorage.setItem(interestKey, JSON.stringify(next));
-                } catch {
-                  setNotice('关注标签已应用，但浏览器没有允许持久保存。');
-                }
-                setInterestDialog(false);
-                setPackOpen(true);
-              }}
+              onClick={() => void saveInterests()}
             >
-              保存关注
+              {interestBusy ? '保存中…' : '保存关注'}
             </button>
           </footer>
         </Dialog>
