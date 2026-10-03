@@ -154,6 +154,7 @@ try {
   );
   await page.getByLabel('仅自己', { exact: true }).check();
   await page.getByRole('button', { name: '保存并预览', exact: true }).click();
+  await page.getByRole('heading', { name: '确认这份内容的发布', exact: true }).waitFor();
   assert.equal((await (await a.request.get(origin + '/api/v2/console/social/posts?scope=drafts')).json()).data.items[0].revision, 2);
   await page.getByRole('button', { name: '返回修改', exact: true }).click();
   await page.getByLabel('摘要', { exact: true }).fill('保存响应丢失后再次读取服务端版本，并保留最终确认的公开范围。');
@@ -166,6 +167,7 @@ try {
   await page.getByRole('button', { name: '保存草稿', exact: true }).click();
   await page.getByText('草稿已保存，尚未发布。').waitFor();
   await page.getByRole('button', { name: '保存并预览', exact: true }).click();
+  await page.getByRole('heading', { name: '确认这份内容的发布', exact: true }).waitFor();
   assert.equal((await (await a.request.get(origin + '/api/v2/console/social/posts?scope=drafts')).json()).data.items[0].revision, 3);
   // Button name follows the production wording; match without relying on a demo label.
   const actualPublish = page.locator('.sw-dialog-footer .sw-primary');
