@@ -28,7 +28,8 @@ const client = new Client({
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 21);
+  assert.equal(tools.length, 22);
+  assert(tools.some(({ name }) => name === 'network_record_work'));
   for (const name of [
     'network_get_profile',
     'network_get_context',
