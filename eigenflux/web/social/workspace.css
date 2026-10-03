@@ -1835,3 +1835,63 @@
     min-height: 46px;
   }
 }
+
+.sw-organizations form {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.sw-organizations label {
+  display: grid;
+  gap: 8px;
+}
+.sw-organizations input,
+.sw-organizations select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  max-width: 100%;
+}
+.sw-org-card {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--sw-paper, #fff);
+  border: 1px solid #e3e5e4;
+  border-radius: 12px;
+}
+.sw-org-card li {
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.sw-org-card button {
+  padding: 6px 12px;
+}
+
+.sw-dot.sw-dot-offline {
+  background: #9aa1a0;
+}
+.sw-draft-permission {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.sw-draft-permission input {
+  width: auto;
+}
+
+.sw-management-menu {
+  display: grid;
+  gap: 8px;
+}
+.sw-management-menu button {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  text-align: left;
+}

@@ -63,6 +63,9 @@ export class AgentNet {
               stderr.trim() || 'elsewhere client command failed',
             );
             failure.exitCode = error.code;
+            failure.apiCode = stderr.match(
+              /\b([A-Z][A-Z_]+) \(HTTP [0-9]+\)/,
+            )?.[1];
             reject(failure);
             return;
           }
@@ -255,8 +258,23 @@ export class AgentNet {
       { input: fields },
     );
   }
-  get_context() {
-    return this.command(['context', 'pull']);
+  async get_context() {
+    const response = await this.command(['context', 'pull']);
+    if (response.unchanged) {
+      const snapshot = JSON.parse(
+        await readFile(
+          resolve(
+            this.home,
+            '.eigenflux/servers/agentnet/control-context.json',
+          ),
+          'utf8',
+        ),
+      );
+      if (snapshot.context_revision !== response.context_revision)
+        throw new Error('Applied context cache revision mismatch');
+      return { ...response, control_context: snapshot.control_context };
+    }
+    return response;
   }
   get_feed({ limit = 20 } = {}) {
     return this.command(['feed', 'poll', '--limit', String(limit)]);

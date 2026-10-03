@@ -23,16 +23,17 @@ type socialMedia struct {
 	Kind string `json:"kind"`
 }
 type socialDocument struct {
-	Title       string        `json:"title"`
-	Summary     string        `json:"summary"`
-	Body        string        `json:"body"`
-	Kind        string        `json:"kind"`
-	Tags        []string      `json:"tags"`
-	Source      string        `json:"source"`
-	Evidence    string        `json:"evidence"`
-	Media       []socialMedia `json:"media"`
-	Identity    string        `json:"identity"`
-	ProjectName string        `json:"project_name"`
+	Title          string        `json:"title"`
+	Summary        string        `json:"summary"`
+	Body           string        `json:"body"`
+	Kind           string        `json:"kind"`
+	Tags           []string      `json:"tags"`
+	Source         string        `json:"source"`
+	Evidence       string        `json:"evidence"`
+	Media          []socialMedia `json:"media"`
+	Identity       string        `json:"identity"`
+	ProjectName    string        `json:"project_name"`
+	OrganizationID string        `json:"organization_id,omitempty"`
 }
 type socialWriteRequest struct {
 	Document         socialDocument `json:"document"`
@@ -76,6 +77,9 @@ func validSocialURL(value string, image bool) bool {
 	return h != "localhost" && !strings.HasSuffix(h, ".local") && !socialPrivatePattern.MatchString(value)
 }
 func validateSocialDocument(d *socialDocument, visibility string) error {
+	if d.OrganizationID != "" && (d.Identity != "project" || socialDecimal(d.OrganizationID) == 0) {
+		return errors.New("团队署名参数无效")
+	}
 	d.Title = strings.TrimSpace(d.Title)
 	d.Summary = strings.TrimSpace(d.Summary)
 	d.Body = strings.TrimSpace(d.Body)
@@ -169,7 +173,9 @@ func socialPathID(c *app.RequestContext) int64 {
 	return id
 }
 func (s *Service) socialFailure(c *app.RequestContext, err error) {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, errSocialOrganization) {
+		fail(c, 403, "ORGANIZATION_FORBIDDEN", "当前成员角色无权使用该团队署名，请刷新并核对权限", nil)
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		fail(c, 404, "SOCIAL_NOT_FOUND", "内容不存在或不在可见范围内", nil)
 	} else {
 		fail(c, 503, "SOCIAL_UNAVAILABLE", "暂时无法读取或保存，请稍后重试", nil)
@@ -270,7 +276,7 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 	data, _ := json.Marshal(req.Document)
 	hash := fmt.Sprintf("%x", sha256.Sum256(append(data, []byte(req.Visibility)...)))
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(`SELECT agent_id FROM agents WHERE agent_id=? FOR UPDATE`, viewer).Error; err != nil {
+		if err := tx.Exec(`SELECT agent_id FROM agents WHERE agent_id=? FOR NO KEY UPDATE`, viewer).Error; err != nil {
 			return err
 		}
 		var key any
@@ -293,6 +299,9 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 		}
 		scoped := *s
 		scoped.db = tx
+		if err := scoped.authorizeSocialOrganization(ctx, viewer, req.Document); err != nil {
+			return err
+		}
 		if err := scoped.validateSocialMediaOwnership(ctx, viewer, req.Document); err != nil {
 			return err
 		}
@@ -347,11 +356,14 @@ func (s *Service) updateSocialDraft(ctx context.Context, c *app.RequestContext) 
 	data, _ := json.Marshal(req.Document)
 	id := socialPathID(c)
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(`SELECT agent_id FROM agents WHERE agent_id=? FOR UPDATE`, viewer).Error; err != nil {
+		if err := tx.Exec(`SELECT agent_id FROM agents WHERE agent_id=? FOR NO KEY UPDATE`, viewer).Error; err != nil {
 			return err
 		}
 		scoped := *s
 		scoped.db = tx
+		if err := scoped.authorizeSocialOrganization(ctx, viewer, req.Document); err != nil {
+			return err
+		}
 		if err := scoped.validateSocialMediaOwnership(ctx, viewer, req.Document); err != nil {
 			return err
 		}
@@ -424,6 +436,11 @@ func (s *Service) publishSocialPost(ctx context.Context, c *app.RequestContext) 
 		if row.State == "published" {
 			return nil
 		} // The same revision may safely retry after a lost response.
+		scoped := *s
+		scoped.db = tx
+		if err := scoped.authorizeSocialOrganization(ctx, viewer, d); err != nil {
+			return err
+		}
 		return tx.Exec(`UPDATE social_work_posts SET state='published',published_at=?,approved_revision=revision WHERE post_id=?`, time.Now().UnixMilli(), id).Error
 	})
 	switch {

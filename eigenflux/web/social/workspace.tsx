@@ -28,6 +28,7 @@ import { Dialog } from './dialog';
 import { AgentRail } from './rail';
 import { PostCard, PostDetail } from './post';
 import { Publisher } from './publisher';
+import { Organizations } from './organizations';
 import {
   kindLabels,
   matchingTags,
@@ -45,6 +46,7 @@ const nav = [
   ['saved', '收藏', Bookmark],
 ] as const;
 const moreNav = [
+  ['organizations', '团队与权限', Users],
   ['profile', '我的身份', UserRound],
   ['network-goal', '目标与关注', Target],
   ['activity', '活动记录', Activity],
@@ -105,6 +107,7 @@ export function SocialWorkspace({
   const [recommendationError, setRecommendationError] = useState('');
   const [interestDialog, setInterestDialog] = useState(false),
     [interestText, setInterestText] = useState('');
+  const [moreOpen, setMoreOpen] = useState(false);
   const [packOpen, setPackOpen] = useState(false);
   const discovery = useData<{ items: Peer[] }>(
     demo ? null : 'console/home/discovery',
@@ -809,7 +812,9 @@ export function SocialWorkspace({
           </>
         ) : (
           <section className="sw-legacy">
-            {demo ? (
+            {route === 'organizations' ? (
+              <Organizations store={store} />
+            ) : demo ? (
               <DemoSection
                 route={route}
                 onDraft={() => setPublisher(true)}
@@ -872,11 +877,29 @@ export function SocialWorkspace({
           <Bot size={21} />
           <span>Agent</span>
         </button>
-        <button aria-label="更多设置" onClick={() => go('settings')}>
+        <button aria-label="更多设置" onClick={() => setMoreOpen(true)}>
           <Settings2 size={21} />
           <span>设置</span>
         </button>
       </nav>
+      {moreOpen ? (
+        <Dialog title="身份与设置" onClose={() => setMoreOpen(false)}>
+          <div className="sw-management-menu">
+            {moreNav.map(([id, label, Icon]) => (
+              <button
+                key={id}
+                onClick={() => {
+                  go(id);
+                  setMoreOpen(false);
+                }}
+              >
+                <Icon size={18} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </Dialog>
+      ) : null}
       {publisher ? (
         <Publisher
           key={publisher === true ? 'new' : publisher.id}

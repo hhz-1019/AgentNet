@@ -37,11 +37,24 @@ export function AgentRail({
     [text, setText] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  const [runtimeStatus, setRuntimeStatus] = useState<{
+    runtime_state: string;
+    fresh_until: number;
+  }>();
+  const [allowDraft, setAllowDraft] = useState(false);
   const [version, setVersion] = useState(0);
-  const op = useRef({ key: crypto.randomUUID(), text: '' });
+  const op = useRef({ key: crypto.randomUUID(), text: '', allowDraft: false });
   useEffect(() => {
     let active = true;
     const reload = () => {
+      void store
+        .runtimeStatus()
+        .then((s) => {
+          if (active) setRuntimeStatus(s);
+        })
+        .catch(() => {
+          if (active) setRuntimeStatus(undefined);
+        });
       void store
         .commands()
         .then((x) => {
@@ -69,12 +82,13 @@ export function AgentRail({
     if (!instruction.trim() || busy) return;
     setBusy(true);
     setError('');
-    if (op.current.text !== instruction)
-      op.current = { key: crypto.randomUUID(), text: instruction };
+    if (op.current.text !== instruction || op.current.allowDraft !== allowDraft)
+      op.current = { key: crypto.randomUUID(), text: instruction, allowDraft };
     try {
-      await store.instruct(instruction, op.current.key);
+      await store.instruct(instruction, op.current.key, allowDraft);
       setText('');
-      op.current = { key: crypto.randomUUID(), text: '' };
+      setAllowDraft(false);
+      op.current = { key: crypto.randomUUID(), text: '', allowDraft: false };
       setVersion((v) => v + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : '发送失败');
@@ -107,11 +121,23 @@ export function AgentRail({
           <p>让我帮你找相关工作、认识伙伴，或整理一份值得分享的结果。</p>
         </div>
         <div className="sw-agent-context">
-          <span className="sw-dot" />
+          <span
+            className={
+              runtimeStatus?.runtime_state === 'active' &&
+              runtimeStatus.fresh_until > Date.now()
+                ? 'sw-dot'
+                : 'sw-dot sw-dot-offline'
+            }
+          />
           <span>
             {demo
               ? '演示指令保存在本机，不会连接真实 Agent'
-              : '指令由你的 Agent 宿主领取并执行'}
+              : runtimeStatus?.runtime_state === 'active' &&
+                  runtimeStatus.fresh_until > Date.now()
+                ? '宿主心跳正常，等待领取指令'
+                : runtimeStatus
+                  ? '宿主当前未在线，指令会保留在队列'
+                  : '暂时无法确认宿主状态'}
           </span>
         </div>
         <div className="sw-quick-prompts">
@@ -125,11 +151,12 @@ export function AgentRail({
             帮我发现相关工作 <ArrowUpRight size={15} />
           </button>
           <button
-            onClick={() =>
+            onClick={() => {
+              setAllowDraft(true);
               setText(
                 '请从已完成且可分享的真实工作中提出一份帖子草稿。说明来源和证据，使用 social propose 提交私有草稿；不要直接广播或发布，等待我的预览和授权。',
-              )
-            }
+              );
+            }}
           >
             整理可分享的成果 <ArrowUpRight size={15} />
           </button>
@@ -157,6 +184,12 @@ export function AgentRail({
                 <p className="sw-command-status">
                   {statusLabels[c.status] || c.status} · {time(c.created_at)}
                 </p>
+                {c.result.execution === 'model_analysis' ? (
+                  <small>
+                    模型分析 ·{' '}
+                    {typeof c.result.model === 'string' ? c.result.model : ''}
+                  </small>
+                ) : null}
                 {commandResult(c.result) ? (
                   <p className="sw-agent-bubble">{commandResult(c.result)}</p>
                 ) : null}
@@ -174,6 +207,14 @@ export function AgentRail({
             <button onClick={() => setVersion((v) => v + 1)}>重试</button>
           </p>
         ) : null}
+        <label className="sw-draft-permission">
+          <input
+            type="checkbox"
+            checked={allowDraft}
+            onChange={(e) => setAllowDraft(e.target.checked)}
+          />
+          允许从已获准分享的工作记录提出私有草稿
+        </label>
         <form
           onSubmit={(e) => {
             e.preventDefault();

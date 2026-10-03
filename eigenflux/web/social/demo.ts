@@ -136,6 +136,17 @@ export function createDemoStore(): SocialStore {
   };
   const clone = <T>(value: T): T => structuredClone(value);
   return {
+    runtimeStatus: async () => ({ runtime_state: 'demo', fresh_until: 0 }),
+    organizations: async () => [],
+    createOrganization: async () => {
+      throw new Error('团队权限需要真实登录账号');
+    },
+    setOrganizationMember: async () => {
+      throw new Error('团队权限需要真实登录账号');
+    },
+    joinOrganization: async () => {
+      throw new Error('团队权限需要真实登录账号');
+    },
     preferences: async () =>
       clone(
         state.preferences || { tags: ['Agent 工程', '产品设计'], revision: 0 },

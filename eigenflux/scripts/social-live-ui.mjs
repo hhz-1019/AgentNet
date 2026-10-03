@@ -68,6 +68,40 @@ try {
     await a.request.get(origin + '/api/v2/console/social/preferences')
   ).json();
   assert.deepEqual(pref.data.tags, ['产品设计']);
+  // Organization UI uses real handlers and DB; session identities remain fixtures.
+  await page.getByRole('link', { name: '团队与权限', exact: true }).click();
+  await page.getByLabel('团队名称').fill('浏览器验证团队');
+  await page.getByRole('button', { name: '创建团队', exact: true }).click();
+  await page
+    .getByRole('heading', { name: '浏览器验证团队', exact: true })
+    .waitFor();
+  await page.getByLabel('邀请 Agent ID').fill('2');
+  await page
+    .getByRole('button', { name: '邀请或调整角色', exact: true })
+    .click();
+  await page.getByText(/Peer Agent · 2 · 编辑 · 待接受/).waitFor();
+  const peerPage = await peer.newPage();
+  await peerPage.goto(origin + '/dashboard/organizations');
+  await peerPage.getByRole('button', { name: '接受邀请', exact: true }).click();
+  await peerPage.getByText('你的角色：编辑 · 已加入').waitFor();
+  await page.getByRole('button', { name: '撤销成员', exact: true }).click();
+  await page.getByRole('alert').waitFor();
+  await page.getByRole('button', { name: '刷新权限', exact: true }).click();
+  await page.getByText(/Peer Agent · 2 · 编辑 · 已加入/).waitFor();
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes('/members/2') &&
+        r.request().method() === 'PUT' &&
+        r.status() === 200,
+    ),
+    page.getByRole('button', { name: '撤销成员', exact: true }).click(),
+  ]);
+  const peerOrganizations = await (
+    await peer.request.get(origin + '/api/v2/console/social/organizations')
+  ).json();
+  assert.deepEqual(peerOrganizations.data.items, []);
+  await page.getByRole('link', { name: '发现', exact: true }).first().click();
   await page.getByRole('button', { name: '分享工作', exact: true }).click();
   await page
     .getByLabel('这次工作的来源')
@@ -88,6 +122,12 @@ try {
     .getByLabel('证据 / 结果 / 待验证点')
     .fill('通过跨浏览器读写与图片权限检查；公网部署未验证。');
   await page.getByLabel('标签（用逗号分隔，最多 8 个）').fill('产品设计');
+  await page.getByLabel('发布身份').selectOption('project');
+  await page.getByLabel('团队空间').selectOption({ label: '浏览器验证团队' });
+  assert.equal(
+    await page.getByLabel('项目名称').inputValue(),
+    '浏览器验证团队',
+  );
   const png = Buffer.from(process.env.AGENTNET_SOCIAL_TEST_IMAGE, 'base64');
   await page
     .getByLabel('上传工作图片')
@@ -111,6 +151,9 @@ try {
       { exact: true },
     )
     .click();
+  await page
+    .getByText('我有权使用「浏览器验证团队」的项目署名。', { exact: true })
+    .click();
   await actualPublish.click();
   await page.getByRole('dialog').waitFor({ state: 'hidden' });
   const posts = await (
@@ -118,6 +161,7 @@ try {
   ).json();
   assert.equal(posts.data.items.length, 1);
   assert.equal(posts.data.items[0].visibility, 'private');
+  assert.ok(posts.data.items[0].document.organization_id);
   assert.equal((await peer.request.get(origin + mediaURL)).status(), 404);
   await page.reload();
   await page
@@ -139,7 +183,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    'PASS live PostgreSQL browser flow: cross-device preferences, explicit conflict retry, upload, saved-revision review, private publication and attachment ACL',
+    'PASS live PostgreSQL browser flow: cross-device preferences, explicit conflict retry, upload, saved-revision review, private publication, organization consent/attribution and attachment ACL',
   );
 } catch (error) {
   console.log(

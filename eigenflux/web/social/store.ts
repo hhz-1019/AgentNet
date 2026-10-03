@@ -8,8 +8,35 @@ import type {
   Preferences,
   Review,
   Media,
+  Organization,
 } from './model';
 export const liveSocialStore: SocialStore = {
+  runtimeStatus: () => api('console/today/status'),
+  organizations: async () =>
+    (await api<{ items: Organization[] }>('console/social/organizations'))
+      .items,
+  createOrganization: async (name, idempotency_key) =>
+    (
+      await api<{ items: Organization[] }>('console/social/organizations', {
+        name,
+        idempotency_key,
+      })
+    ).items,
+  setOrganizationMember: async (org, member, role, action) =>
+    (
+      await api<{ items: Organization[] }>(
+        `console/social/organizations/${org.id}/members/${member}`,
+        { role, action, expected_revision: org.revision },
+        'PUT',
+      )
+    ).items,
+  joinOrganization: async (org, approved) =>
+    (
+      await api<{ items: Organization[] }>(
+        `console/social/organizations/${org.id}/join`,
+        { approved, expected_revision: org.revision },
+      )
+    ).items,
   preferences: () => api<Preferences>('console/social/preferences'),
   savePreferences: (tags, expected_revision) =>
     api<Preferences>(
@@ -88,10 +115,10 @@ export const liveSocialStore: SocialStore = {
   },
   commands: async () =>
     (await api<{ items: Command[] }>('console/social/commands')).items,
-  instruct: async (instruction, key) => {
+  instruct: async (instruction, key, allowDraft = false) => {
     await api('agent-commands', {
       command_type: 'human_instruction',
-      payload: { instruction },
+      payload: { instruction, allow_draft: allowDraft },
       idempotency_key: key,
     });
   },

@@ -31,6 +31,7 @@ func TestSocialBrowserLive(t *testing.T) {
 		db.Exec("DELETE FROM social_work_posts")
 		db.Exec("DELETE FROM social_media")
 		db.Exec("DELETE FROM social_preferences")
+		db.Exec("DELETE FROM social_organizations")
 	}()
 	if err := db.Exec("DELETE FROM social_work_posts").Error; err != nil {
 		t.Fatal(err)
@@ -49,6 +50,10 @@ func TestSocialBrowserLive(t *testing.T) {
 		c.Next(ctx)
 	}
 	root := "/api/v2/console/social"
+	h.GET(root+"/organizations", auth, s.getSocialOrganizations)
+	h.POST(root+"/organizations", auth, s.createSocialOrganization)
+	h.PUT(root+"/organizations/:organization_id/members/:member_id", auth, s.setSocialOrganizationMember)
+	h.POST(root+"/organizations/:organization_id/join", auth, s.joinSocialOrganization)
 	h.GET(root+"/preferences", auth, s.getSocialPreferences)
 	h.PUT(root+"/preferences", auth, s.putSocialPreferences)
 	h.GET(root+"/recommendations", auth, s.getSocialRecommendations)
@@ -63,6 +68,9 @@ func TestSocialBrowserLive(t *testing.T) {
 	h.GET("/api/v2/console/session", auth, func(_ context.Context, c *app.RequestContext) {
 		id, _ := agentID(c)
 		reply(c, 200, map[string]any{"agent_id": strconv.FormatInt(id, 10), "agent_name": "Browser Agent", "short_id": "TEST", "owner_uid": "fixture", "owner_bound": true, "onboarding": map[string]any{"state": "completed", "current_step": 4, "revision": 1}})
+	})
+	h.GET("/api/v2/console/today/status", func(_ context.Context, c *app.RequestContext) {
+		reply(c, 200, map[string]any{"runtime_state": "not_started", "fresh_until": 0})
 	})
 	h.GET("/api/v2/console/home/discovery", func(_ context.Context, c *app.RequestContext) { reply(c, 200, map[string]any{"items": []any{}}) })
 	h.GET("/api/v2/console/accounts", func(_ context.Context, c *app.RequestContext) { reply(c, 200, map[string]any{"accounts": []any{}}) })

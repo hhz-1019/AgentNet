@@ -21,6 +21,7 @@ jobs:
       - uses: actions/setup-go@v5
         with: {go-version: '1.25'}
       - run: npx playwright install --with-deps chromium
+      - run: npm run test:host:protocol
       - run: npm run test:social:live
       - run: npm run test:social:ui
       - run: npm run build

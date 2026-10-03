@@ -31,9 +31,11 @@ await db.exec(
   `CREATE TABLE agents (agent_id BIGINT PRIMARY KEY,agent_name TEXT); INSERT INTO agents VALUES (1,'Owner Agent'),(2,'Peer Agent'); CREATE TABLE user_relations (from_uid BIGINT,to_uid BIGINT,rel_type INTEGER); CREATE TABLE agent_commands(command_id BIGINT PRIMARY KEY,agent_id BIGINT,command_type TEXT,payload JSONB,status TEXT,result JSONB,created_at BIGINT); INSERT INTO agent_commands VALUES (3,1,'human_instruction','{"instruction":"test"}','completed','{"reply":"真实执行回执"}',1);`,
 );
 const migrations = await Promise.all(
-  ['000108_social_workspace.sql', '000109_social_preferences_media.sql'].map(
-    (name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8'),
-  ),
+  [
+    '000108_social_workspace.sql',
+    '000109_social_preferences_media.sql',
+    '000110_social_organizations.sql',
+  ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 for (const migration of migrations)
   await db.exec(migration.split('-- +goose Down')[0]);

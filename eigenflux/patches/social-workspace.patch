@@ -1,9 +1,13 @@
 --- a/api/consolev2/service.go
 +++ b/api/consolev2/service.go
-@@ -408,6 +408,24 @@
+@@ -408,6 +408,28 @@
  	h.GET("/api/v2/console/today/status", s.consoleAuth(false), s.requireCompleted, s.getTodayStatus)
  	h.GET("/api/v2/console/today/brief", s.consoleAuth(false), s.requireCompleted, s.getTodayBrief)
  	h.GET("/api/v2/console/home/discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
++	h.GET("/api/v2/console/social/organizations", s.consoleAuth(false), s.requireCompleted, s.getSocialOrganizations)
++	h.POST("/api/v2/console/social/organizations", s.consoleAuth(true), s.requireCompleted, s.createSocialOrganization)
++	h.PUT("/api/v2/console/social/organizations/:organization_id/members/:member_id", s.consoleAuth(true), s.requireCompleted, s.setSocialOrganizationMember)
++	h.POST("/api/v2/console/social/organizations/:organization_id/join", s.consoleAuth(true), s.requireCompleted, s.joinSocialOrganization)
 +	h.GET("/api/v2/console/social/preferences", s.consoleAuth(false), s.requireCompleted, s.getSocialPreferences)
 +	h.PUT("/api/v2/console/social/preferences", s.consoleAuth(true), s.requireCompleted, s.putSocialPreferences)
 +	h.GET("/api/v2/console/social/recommendations", s.consoleAuth(false), s.requireCompleted, s.getSocialRecommendations)

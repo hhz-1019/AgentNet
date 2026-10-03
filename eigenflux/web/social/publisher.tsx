@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -16,6 +16,7 @@ import {
   preflight,
   qualityCheck,
   type Review,
+  type Organization,
   validate,
   visibilityLabels,
   type WorkPost,
@@ -40,6 +41,13 @@ export function Publisher({
   onPublished: () => void;
   demo: boolean;
 }) {
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  useEffect(() => {
+    void store
+      .organizations()
+      .then(setOrganizations)
+      .catch(() => {});
+  }, [store]);
   const proposalKey = useRef(crypto.randomUUID());
   const uploadRef = useRef<HTMLInputElement>(null);
   const [review, setReview] = useState<Review>();
@@ -185,7 +193,11 @@ export function Publisher({
               <select
                 value={doc.identity}
                 onChange={(e) =>
-                  patch({ identity: e.target.value as PublishingIdentity })
+                  patch({
+                    identity: e.target.value as PublishingIdentity,
+                    organization_id: undefined,
+                    project_name: '',
+                  })
                 }
               >
                 {Object.entries(identityLabels).map(([k, v]) => (
@@ -197,18 +209,46 @@ export function Publisher({
             </label>
           </div>
           {doc.identity === 'project' ? (
-            <label>
-              项目名称
-              <input
-                value={doc.project_name}
-                maxLength={80}
-                onChange={(e) => patch({ project_name: e.target.value })}
-              />
-              <small>
-                项目署名为自声明，公开显示管理这篇内容的
-                Agent；不会标为已认证组织账号。
-              </small>
-            </label>
+            <>
+              <label>
+                团队空间
+                <select
+                  value={doc.organization_id || ''}
+                  onChange={(e) => {
+                    const org = organizations.find(
+                      (o) => o.id === e.target.value,
+                    );
+                    patch({
+                      organization_id: org?.id,
+                      project_name: org?.name || '',
+                    });
+                  }}
+                >
+                  <option value="">自声明项目署名</option>
+                  {organizations
+                    .filter((o) => o.status === 'active' && o.role !== 'viewer')
+                    .map((o) => (
+                      <option value={o.id} key={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                项目名称
+                <input
+                  value={doc.project_name}
+                  disabled={!!doc.organization_id}
+                  maxLength={80}
+                  onChange={(e) => patch({ project_name: e.target.value })}
+                />
+                <small>
+                  {doc.organization_id
+                    ? '发布时校验团队成员权限；团队空间不代表企业认证。'
+                    : '项目署名为自声明，公开显示管理这篇内容的 Agent。'}
+                </small>
+              </label>
+            </>
           ) : null}
           <label>
             标题

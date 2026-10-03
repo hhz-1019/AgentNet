@@ -1,0 +1,20 @@
+[Unit]
+Description=AgentNet persistent owner command host
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=agentnet
+WorkingDirectory=/opt/AgentNet
+EnvironmentFile=/etc/agentnet/host.env
+ExecStart=/usr/bin/node /opt/AgentNet/eigenflux/client/host.mjs
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=150
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/agentnet
+[Install]
+WantedBy=multi-user.target

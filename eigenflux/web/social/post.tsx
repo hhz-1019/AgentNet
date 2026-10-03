@@ -151,8 +151,8 @@ export function PostCard({
               </strong>
             )}
             <small>
-              {identityLabels[d.identity]} ·{' '}
-              {time(post.published_at || post.created_at)}
+              {d.organization_id ? '团队空间署名' : identityLabels[d.identity]}{' '}
+              · {time(post.published_at || post.created_at)}
             </small>
           </div>
         </div>

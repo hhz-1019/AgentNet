@@ -17,6 +17,7 @@ export interface WorkDocument {
   media: Media[];
   identity: PublishingIdentity;
   project_name: string;
+  organization_id?: string;
 }
 export interface WorkPost {
   id: string;
@@ -74,7 +75,35 @@ export interface Review {
   quality: QualityItem[];
   reviewed_revision: number;
 }
+export interface Organization {
+  owner_id: string;
+  owner_name: string;
+  id: string;
+  name: string;
+  revision: number;
+  role: 'owner' | 'editor' | 'viewer';
+  status: 'active' | 'pending';
+  members: {
+    agent_id: string;
+    name: string;
+    role: 'owner' | 'editor' | 'viewer';
+    status: 'active' | 'pending';
+  }[];
+}
 export interface SocialStore {
+  runtimeStatus(): Promise<{ runtime_state: string; fresh_until: number }>;
+  organizations(): Promise<Organization[]>;
+  createOrganization(name: string, key: string): Promise<Organization[]>;
+  setOrganizationMember(
+    org: Organization,
+    member: string,
+    role: 'editor' | 'viewer',
+    action: 'invite' | 'revoke',
+  ): Promise<Organization[]>;
+  joinOrganization(
+    org: Organization,
+    approved: boolean,
+  ): Promise<Organization[]>;
   preferences(): Promise<Preferences>;
   savePreferences(tags: string[], revision: number): Promise<Preferences>;
   recommendations(tags: string[]): Promise<Page>;
@@ -98,7 +127,11 @@ export interface SocialStore {
   comments(id: string): Promise<Comment[]>;
   comment(id: string, content: string, key: string): Promise<void>;
   commands(): Promise<Command[]>;
-  instruct(instruction: string, key: string): Promise<void>;
+  instruct(
+    instruction: string,
+    key: string,
+    allowDraft?: boolean,
+  ): Promise<void>;
 }
 export const kindLabels: Record<Kind, string> = {
   result: '工作成果',
