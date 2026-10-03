@@ -1,0 +1,40 @@
+--- a/api/consolev2/service.go
++++ b/api/consolev2/service.go
+@@ -408,6 +408,18 @@
+ 	h.GET("/api/v2/console/today/status", s.consoleAuth(false), s.requireCompleted, s.getTodayStatus)
+ 	h.GET("/api/v2/console/today/brief", s.consoleAuth(false), s.requireCompleted, s.getTodayBrief)
+ 	h.GET("/api/v2/console/home/discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
++	h.GET("/api/v2/console/social/posts", s.consoleAuth(false), s.requireCompleted, s.listSocialPosts)
++	h.GET("/api/v2/console/social/posts/:post_id", s.consoleAuth(false), s.requireCompleted, s.getSocialPost)
++	h.POST("/api/v2/console/social/drafts", s.consoleAuth(true), s.requireCompleted, s.createSocialDraft)
++	h.PUT("/api/v2/console/social/drafts/:post_id", s.consoleAuth(true), s.requireCompleted, s.updateSocialDraft)
++	h.POST("/api/v2/console/social/posts/:post_id/publish", s.consoleAuth(true), s.requireCompleted, s.publishSocialPost)
++	h.PUT("/api/v2/console/social/posts/:post_id/reaction", s.consoleAuth(true), s.requireCompleted, s.setSocialReaction)
++	h.GET("/api/v2/console/social/posts/:post_id/comments", s.consoleAuth(false), s.requireCompleted, s.listSocialComments)
++	h.POST("/api/v2/console/social/posts/:post_id/comments", s.consoleAuth(true), s.requireCompleted, s.createSocialComment)
++	h.GET("/api/v2/console/social/commands", s.consoleAuth(false), s.requireCompleted, s.listSocialCommands)
++	h.GET("/api/v2/social/posts", s.agentAuth("profile:read"), s.requireCompleted, s.listSocialPosts)
++	h.POST("/api/v2/social/drafts", s.agentAuth("broadcast:write"), s.requireCompleted, s.createSocialDraft)
++
+ 	h.GET("/api/v2/console/home/activity", s.consoleAuth(false), s.requireCompleted, s.getHomeActivity)
+ 	h.GET("/api/v2/console/home/worth-watching", s.consoleAuth(false), s.requireCompleted, s.getHomeWorthWatching)
+ 	h.POST("/api/v2/telemetry/events:batch", s.consoleAuth(true), s.recordTelemetryBatch)
+--- a/api/consolev2/capability_registry.go
++++ b/api/consolev2/capability_registry.go
+@@ -82,6 +82,8 @@
+ 		capability("identity.legacy_login", "eigenflux auth login", "identity", "write", "旧版邮箱登录", "Legacy email login"),
+ 		capability("identity.legacy_verify", "eigenflux auth verify", "identity", "write", "验证旧版邮箱登录", "Verify legacy email login"),
+ 		capability("identity.logout", "eigenflux auth logout", "identity", "write", "退出旧版登录", "Log out of legacy authentication"),
++		capability("social.posts", "eigenflux social posts", "network", "read", "发现真实工作成果", "Read visible work posts"),
++		capability("social.propose", "eigenflux social propose", "network", "write", "提交私有成果草稿供主人确认", "Propose a private work draft for owner approval"),
+ 		capability("profile.read", "eigenflux profile show", "profile", "read", "查看 Agent 资料", "View Agent profile"),
+ 		capability("profile.update", "eigenflux profile patch", "profile", "write", "修改 Agent Card", "Update Agent Card"),
+ 		capability("profile.legacy_update", "eigenflux profile update", "profile", "write", "兼容更新 Agent 资料", "Update the Agent profile through the compatibility command"),
+@@ -203,6 +205,7 @@
+ 		if seed.id == "attention.prefill" {
+ 			seed.availability = "pre_onboarding"
+ 		}
++		if strings.HasPrefix(seed.id, "social.") { seed.minCLI = "0.0.54-agentnet.2" }
+ 		if seed.category == "runtime" || seed.id == "heartbeat.plan" || seed.id == "settings.report" ||
+ 			seed.id == "settings.sync" ||
+ 			seed.id == "skills.sync" || strings.HasPrefix(seed.id, "feed.event.") || seed.id == "feed.feedback" ||

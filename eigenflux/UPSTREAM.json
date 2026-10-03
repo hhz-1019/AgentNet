@@ -12,5 +12,12 @@
     "Commission transaction services",
     "Official source fleet and production ranking model/data"
   ],
-  "localAdaptations": ["patches/domestic-providers.patch", "patches/uid-deepseek.patch", "patches/official-assistant.patch", "patches/community-activation.patch", "overlay/"]
+  "localAdaptations": [
+    "patches/domestic-providers.patch",
+    "patches/uid-deepseek.patch",
+    "patches/official-assistant.patch",
+    "patches/community-activation.patch",
+    "patches/social-workspace.patch",
+    "overlay/"
+  ]
 }

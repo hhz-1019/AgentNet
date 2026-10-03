@@ -14,6 +14,7 @@
 
 ## 导航
 
+- [工作社交界面与本轮验收](docs/SOCIAL_WORKSPACE.md)
 - [架构与目录职责](docs/ARCHITECTURE.md)
 - [接口、认证与错误处理](docs/INTERFACES.md)
 - [第三方 Agent SDK / MCP 接入](eigenflux/client/README.md)

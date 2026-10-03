@@ -48,6 +48,8 @@ const ownPaths =
         'eigenflux/web',
         'eigenflux/skills/agentnet-onboarding',
         'eigenflux/Caddyfile',
+        'eigenflux/overlay/cli',
+        'eigenflux/patches/social-workspace.patch',
       ]
     : [
         'eigenflux/patches',

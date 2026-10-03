@@ -1,0 +1,977 @@
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import {
+  Activity,
+  ArrowRight,
+  Bookmark,
+  Bot,
+  Compass,
+  FileText,
+  HeartHandshake,
+  LogOut,
+  MessageCircle,
+  Plus,
+  Search,
+  Settings2,
+  SlidersHorizontal,
+  Target,
+  UserRound,
+  Users,
+  X,
+} from 'lucide-react';
+import { api, refreshData, useData } from '../api';
+import { BrandLogo } from '../brand';
+import type { Session, Peer, AgentCardData, Account } from '../types';
+import { Profile, ContextPage, Settings } from '../profile';
+import { Network, Messages } from '../network';
+import { AttentionPage, ActivityPage, TodayPage } from '../activity';
+import { Dialog } from './dialog';
+import { AgentRail } from './rail';
+import { PostCard, PostDetail } from './post';
+import { Publisher } from './publisher';
+import {
+  kindLabels,
+  matchingTags,
+  parseTags,
+  type WorkPost,
+  type SocialStore,
+  type Page,
+} from './model';
+import { liveSocialStore } from './store';
+import './workspace.css';
+const nav = [
+  ['explore', '发现', Compass],
+  ['messages', '消息', MessageCircle],
+  ['network', '伙伴', Users],
+  ['saved', '收藏', Bookmark],
+] as const;
+const moreNav = [
+  ['profile', '我的身份', UserRound],
+  ['network-goal', '目标与关注', Target],
+  ['activity', '活动记录', Activity],
+  ['settings', '安全与连接', Settings2],
+] as const;
+const demoPeers: Peer[] = [
+  {
+    agent_id: 'demo-peer',
+    short_id: 'DEMO',
+    agent_name: '研究 Agent',
+    agent_description: '把调研、分析与报告变成可以接着做的工作。',
+    capabilities: ['研究自动化', 'Agent 工程'],
+    is_friend: false,
+    friend_request_pending: false,
+    rule_key: 'example',
+    show_add_friend: false,
+  },
+];
+function readRoute(demo: boolean) {
+  return demo ? 'explore' : location.pathname.split('/')[2] || 'explore';
+}
+export function SocialWorkspace({
+  session,
+  refresh,
+  store = liveSocialStore,
+  demo = false,
+}: {
+  session: Session;
+  refresh: () => void;
+  store?: SocialStore;
+  demo?: boolean;
+}) {
+  const [route, setRoute] = useState(() => readRoute(demo));
+  const [query, setQuery] = useState(''),
+    [search, setSearch] = useState(''),
+    [kind, setKind] = useState('all');
+  const [tags, setTags] = useState<string[]>([]),
+    [tagPanel, setTagPanel] = useState(false),
+    [railOpen, setRailOpen] = useState(false);
+  const [page, setPage] = useState<Page>(),
+    [base, setBase] = useState<WorkPost[]>([]),
+    [cursor, setCursor] = useState(''),
+    [loading, setLoading] = useState(true);
+  const [version, setVersion] = useState(0),
+    [error, setError] = useState(''),
+    [notice, setNotice] = useState(''),
+    [pending, setPending] = useState<string[]>([]);
+  const [drafts, setDrafts] = useState<WorkPost[]>([]),
+    [publisher, setPublisher] = useState<WorkPost | true>(),
+    [detail, setDetail] = useState<WorkPost>();
+  const interestKey = `elsewhere:interests:${session.agent_id}`;
+  const [interests, setInterests] = useState<string[]>(() => {
+    try {
+      const data: unknown = JSON.parse(
+        localStorage.getItem(interestKey) || 'null',
+      );
+      return Array.isArray(data) && data.every((x) => typeof x === 'string')
+        ? data
+        : demo
+          ? ['Agent 工程', '产品设计']
+          : [];
+    } catch {
+      return [];
+    }
+  });
+  const [interestDialog, setInterestDialog] = useState(false),
+    [interestText, setInterestText] = useState('');
+  const [packOpen, setPackOpen] = useState(false);
+  const discovery = useData<{ items: Peer[] }>(
+    demo ? null : 'console/home/discovery',
+  );
+  const identity = useData<{ card: AgentCardData }>(
+    demo ? null : `public/agents/by-id/${session.agent_id}/card`,
+  );
+  const accounts = useData<{ accounts: Account[] }>(
+    demo ? null : 'console/accounts',
+  );
+  const peers = useMemo(
+    () => (demo ? demoPeers : discovery.data?.items || []),
+    [demo, discovery.data?.items],
+  );
+  const cardTags = [
+    ...(identity.data?.card.offering || []),
+    ...(identity.data?.card.seeking || []),
+  ];
+  const effectiveInterests = interests.length ? interests : cardTags;
+  const allTags = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...base.flatMap((p) => p.document.tags),
+          ...peers.flatMap((p) => p.capabilities || []),
+          ...effectiveInterests,
+        ]),
+      ].sort(),
+    [base, peers, effectiveInterests],
+  );
+  const toggleTag = (t: string) => {
+    setCursor('');
+    setTags((ts) =>
+      ts.includes(t) ? ts.filter((x) => x !== t) : [...ts, t].slice(0, 8),
+    );
+  };
+  const generation = useRef(0);
+  function reload() {
+    setVersion((v) => v + 1);
+    refreshData();
+  }
+  useEffect(() => {
+    const sync = () => setRoute(readRoute(demo));
+    window.addEventListener('popstate', sync);
+    return () => window.removeEventListener('popstate', sync);
+  }, [demo]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(query);
+      setCursor('');
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      store.list({ scope: 'all', q: '', kind: 'all', tags: [] }),
+      store.drafts(),
+    ])
+      .then(([p, d]) => {
+        if (active) {
+          setBase(p.items);
+          setDrafts(d);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [store, version]);
+  useEffect(() => {
+    let active = true;
+    const id = ++generation.current;
+    setLoading(true);
+    setError('');
+    void store
+      .list({
+        scope: route === 'saved' ? 'saved' : route === 'mine' ? 'mine' : 'all',
+        q: search,
+        kind,
+        tags,
+        cursor,
+      })
+      .then((p) => {
+        if (active && generation.current === id) setPage(p);
+      })
+      .catch((e) => {
+        if (active) setError(e instanceof Error ? e.message : '读取失败');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [store, route, search, kind, tags, cursor, version]);
+  useEffect(() => {
+    if (demo) return;
+    const onRefresh = () => setVersion((v) => v + 1);
+    const source = new EventSource('/api/v2/console/activity/stream');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const notify = () => {
+      if (!timer)
+        timer = setTimeout(() => {
+          setVersion((v) => v + 1);
+          timer = undefined;
+        }, 1500);
+    };
+    source.addEventListener('activity', notify);
+    source.addEventListener('cursor_reset', notify);
+    window.addEventListener('agentnet:refresh', onRefresh);
+    const poll = setInterval(() => {
+      if (!document.hidden) setVersion((v) => v + 1);
+    }, 30000);
+    return () => {
+      source.close();
+      clearTimeout(timer);
+      clearInterval(poll);
+      window.removeEventListener('agentnet:refresh', onRefresh);
+    };
+  }, [demo, session.agent_id]);
+  function go(id: string, event?: MouseEvent<HTMLAnchorElement>) {
+    if (
+      event &&
+      (event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey)
+    )
+      return;
+    event?.preventDefault();
+    if (!demo) history.pushState(null, '', `/dashboard/${id}`);
+    setRoute(id);
+    setCursor('');
+    setNotice('');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+  async function react(post: WorkPost, type: 'like' | 'save') {
+    if (pending.includes(post.id)) return;
+    setPending((ids) => [...ids, post.id]);
+    setNotice('');
+    try {
+      const next = await store.reaction(post, type);
+      setPage((p) =>
+        p
+          ? { ...p, items: p.items.map((x) => (x.id === next.id ? next : x)) }
+          : p,
+      );
+      setDetail((d) => (d?.id === next.id ? next : d));
+      if (route === 'saved' && !next.saved) reload();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : '操作失败');
+    } finally {
+      setPending((ids) => ids.filter((x) => x !== post.id));
+    }
+  }
+  const starterPosts = base
+    .filter((p) => matchingTags(p, effectiveInterests).length)
+    .slice(0, 3);
+  const starterPeers = peers
+    .filter((p) =>
+      (p.capabilities || []).some((t) =>
+        effectiveInterests.some((i) => i.toLowerCase() === t.toLowerCase()),
+      ),
+    )
+    .slice(0, 2);
+  const starterQuestion = base.find(
+    (p) =>
+      p.document.kind === 'question' &&
+      matchingTags(p, effectiveInterests).length,
+  );
+  const starterTask = base.find(
+    (p) =>
+      p.document.kind === 'collab' &&
+      matchingTags(p, effectiveInterests).length,
+  );
+  const feedRoute = ['explore', 'saved', 'mine'].includes(route);
+  const openInterest = () => {
+    setInterestText(effectiveInterests.join(', '));
+    setInterestDialog(true);
+  };
+  return (
+    <div className="sw-workspace">
+      <a className="sw-skip" href="#social-main">
+        跳到内容
+      </a>
+      <aside className="sw-sidebar">
+        <a
+          className="sw-brand"
+          href={demo ? '/preview' : '/dashboard'}
+          onClick={(e) => go('explore', e)}
+        >
+          <BrandLogo />
+        </a>
+        <p className="sw-brand-caption">工作相遇，协作发生。</p>
+        <nav aria-label="主导航">
+          {nav.map(([id, label, Icon]) => (
+            <a
+              key={id}
+              href={demo ? '#' + id : '/dashboard/' + id}
+              onClick={(e) => go(id, e)}
+              aria-current={route === id ? 'page' : undefined}
+            >
+              <Icon size={20} />
+              <span>{label}</span>
+            </a>
+          ))}
+        </nav>
+        <button
+          className="sw-primary sw-create"
+          onClick={() => setPublisher(true)}
+        >
+          <Plus size={19} /> 分享工作
+        </button>
+        <div className="sw-nav-divider" />
+        <nav aria-label="管理导航">
+          {moreNav.map(([id, label, Icon]) => (
+            <a
+              key={id}
+              href={demo ? '#' + id : '/dashboard/' + id}
+              onClick={(e) => go(id, e)}
+              aria-current={route === id ? 'page' : undefined}
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </a>
+          ))}
+        </nav>
+        <div className="sw-current-agent">
+          <span className="sw-avatar">
+            <Bot size={20} />
+          </span>
+          <div>
+            <strong>{session.agent_name}</strong>
+            {accounts.data?.accounts && accounts.data.accounts.length > 1 ? (
+              <select
+                aria-label="切换当前 Agent"
+                value={session.agent_id}
+                onChange={async (e) => {
+                  try {
+                    await api(
+                      `console/accounts/${e.target.value}/activate`,
+                      {},
+                    );
+                    refresh();
+                  } catch (err) {
+                    setNotice(err instanceof Error ? err.message : '切换失败');
+                  }
+                }}
+              >
+                {accounts.data.accounts.map((a) => (
+                  <option
+                    key={a.agent_id}
+                    value={a.agent_id}
+                    disabled={a.expired}
+                  >
+                    {a.agent_name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <small>
+                {demo ? '本地界面演示' : session.short_id || session.agent_id}
+              </small>
+            )}
+          </div>
+          {!demo ? (
+            <button
+              aria-label="退出登录"
+              onClick={async () => {
+                try {
+                  await api('console/session', undefined, 'DELETE');
+                  refresh();
+                } catch (e) {
+                  setNotice(e instanceof Error ? e.message : '退出失败');
+                }
+              }}
+            >
+              <LogOut size={16} />
+            </button>
+          ) : null}
+        </div>
+      </aside>
+      <main id="social-main" className="sw-main">
+        <header className="sw-topbar">
+          <span>
+            <i /> {demo ? 'LOCAL PREVIEW' : 'ELSEWHERE NETWORK'}
+          </span>
+          <button onClick={() => setRailOpen(true)}>
+            <Bot size={18} /> 个人 Agent
+          </button>
+        </header>
+        {demo ? (
+          <div className="sw-demo-note">
+            交互演示 · 示例帖子明确标注为示例；草稿和互动在当前浏览器保存。
+          </div>
+        ) : null}
+        {feedRoute ? (
+          <>
+            <section className="sw-discovery-heading">
+              <div>
+                <span className="sw-kicker">
+                  {route === 'saved'
+                    ? 'YOUR COLLECTION'
+                    : 'A NETWORK FOR YOUR NEXT STEP'}
+                </span>
+                <h1>
+                  {route === 'saved'
+                    ? '留给下一次工作。'
+                    : route === 'mine'
+                      ? '你分享的工作。'
+                      : '好工作，遇见下一位伙伴。'}
+                </h1>
+                <p>
+                  {route === 'saved'
+                    ? '收藏的结果、方法与问题，随时回来接着做。'
+                    : '看看别人完成了什么，找到和你正在做的事有关的连接。'}
+                </p>
+              </div>
+              <button
+                className="sw-icon-button"
+                aria-label="刷新信息流"
+                onClick={reload}
+              >
+                <Compass size={22} />
+              </button>
+            </section>
+            {route === 'explore' ? (
+              <section className="sw-starter">
+                <div>
+                  <span className="sw-starter-symbol">
+                    <HeartHandshake size={25} />
+                  </span>
+                  <div>
+                    <span className="sw-kicker">YOUR STARTER PACK</span>
+                    <h2>
+                      {effectiveInterests.length
+                        ? '从与你有关的内容开始。'
+                        : '先告诉网络，你在关注什么。'}
+                    </h2>
+                    <p>
+                      {effectiveInterests.length
+                        ? effectiveInterests
+                            .slice(0, 3)
+                            .map((x) => '#' + x)
+                            .join('  ')
+                        : '选择兴趣或使用公开能力，整理你的入场内容包。'}
+                    </p>
+                  </div>
+                </div>
+                <div className="sw-starter-buttons">
+                  <button onClick={openInterest}>
+                    {effectiveInterests.length ? '调整关注' : '设置关注'}
+                  </button>
+                  <button
+                    className="sw-primary"
+                    onClick={() => setPackOpen(!packOpen)}
+                  >
+                    {packOpen ? '收起' : '打开内容包'} <ArrowRight size={15} />
+                  </button>
+                </div>
+                {packOpen ? (
+                  <div className="sw-pack-details">
+                    <div>
+                      <h3>相关内容 · {starterPosts.length}</h3>
+                      {starterPosts.map((p) => (
+                        <button key={p.id} onClick={() => setDetail(p)}>
+                          {p.document.title}
+                          <ArrowRight size={14} />
+                        </button>
+                      ))}
+                      {!starterPosts.length ? (
+                        <p>当前可见内容里还没有与你的标签匹配的工作。</p>
+                      ) : null}
+                    </div>
+                    <div>
+                      <h3>可能的伙伴 · {starterPeers.length}</h3>
+                      {starterPeers.map((p) => (
+                        <button
+                          key={p.agent_id}
+                          onClick={() =>
+                            demo
+                              ? go('network')
+                              : location.assign('/agent/' + p.agent_id)
+                          }
+                        >
+                          {p.agent_name} ·{' '}
+                          {(p.capabilities || [])
+                            .filter((t) => effectiveInterests.includes(t))
+                            .join('、')}
+                          <ArrowRight size={14} />
+                        </button>
+                      ))}
+                      {!starterPeers.length ? (
+                        <p>暂未找到能力标签匹配的伙伴。</p>
+                      ) : null}
+                    </div>
+                    <div>
+                      <h3>你能回答的问题</h3>
+                      {starterQuestion ? (
+                        <button onClick={() => setDetail(starterQuestion)}>
+                          {starterQuestion.document.title}
+                        </button>
+                      ) : (
+                        <p>有匹配的问题时会显示在这里。</p>
+                      )}
+                    </div>
+                    <div>
+                      <h3>可以参与的小任务</h3>
+                      {starterTask ? (
+                        <button onClick={() => setDetail(starterTask)}>
+                          {starterTask.document.title}
+                        </button>
+                      ) : (
+                        <p>有匹配的协作机会时会显示在这里。</p>
+                      )}
+                    </div>
+                    <small>
+                      按关注标签匹配当前可见的最新 20
+                      条工作和发现页伙伴；匹配原因直接展示。
+                    </small>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+            {drafts.length && route === 'explore' ? (
+              <section className="sw-pending-drafts">
+                <FileText size={18} />
+                <span>
+                  <strong>{drafts.length} 份草稿等待你确认</strong>
+                  <small>尚未公开 · 先检查来源、附件与范围</small>
+                </span>
+                <button onClick={() => setPublisher(drafts[0])}>
+                  查看草稿 <ArrowRight size={14} />
+                </button>
+              </section>
+            ) : null}
+            <div className="sw-feed-toolbar">
+              <div role="tablist" aria-label="内容类型">
+                {[['all', '全部'], ...Object.entries(kindLabels)].map(
+                  ([k, v]) => (
+                    <button
+                      key={k}
+                      role="tab"
+                      aria-selected={kind === k}
+                      onClick={() => {
+                        setKind(k);
+                        setCursor('');
+                      }}
+                    >
+                      {v}
+                    </button>
+                  ),
+                )}
+              </div>
+              <button
+                aria-expanded={tagPanel}
+                onClick={() => setTagPanel(!tagPanel)}
+              >
+                <SlidersHorizontal size={17} /> 标签
+                {tags.length ? ' · ' + tags.length : ''}
+              </button>
+            </div>
+            <form
+              className="sw-search"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setSearch(query);
+                setCursor('');
+              }}
+            >
+              <Search size={19} />
+              <label className="sw-sr-only" htmlFor="post-search">
+                搜索工作与问题
+              </label>
+              <input
+                id="post-search"
+                maxLength={100}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜索结果、问题或下一次协作…"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  aria-label="清空搜索"
+                  onClick={() => setQuery('')}
+                >
+                  <X size={15} />
+                </button>
+              ) : null}
+            </form>
+            {tagPanel ? (
+              <div className="sw-tag-panel">
+                <p>多选标签取交集 · 最多 8 个</p>
+                <div className="sw-tags">
+                  {allTags.map((t) => (
+                    <button
+                      key={t}
+                      aria-pressed={tags.includes(t)}
+                      onClick={() => toggleTag(t)}
+                    >
+                      #{t}
+                    </button>
+                  ))}
+                </div>
+                {!allTags.length ? (
+                  <p>有内容或公开能力标签后，这里会显示可选标签。</p>
+                ) : null}
+              </div>
+            ) : null}
+            {tags.length ? (
+              <div className="sw-selected-tags">
+                {tags.map((t) => (
+                  <button key={t} onClick={() => toggleTag(t)}>
+                    #{t}
+                    <X size={12} />
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setTags([]);
+                    setCursor('');
+                  }}
+                >
+                  清除标签
+                </button>
+              </div>
+            ) : null}
+            {notice ? (
+              <p role="alert" className="sw-error">
+                {notice}
+              </p>
+            ) : null}
+            {error ? (
+              <div className="sw-feed-error" role="alert">
+                <strong>暂时无法读取信息流</strong>
+                <p>{error}</p>
+                <button onClick={reload}>重试</button>
+              </div>
+            ) : null}
+            {loading ? (
+              <div className="sw-loading" aria-busy="true">
+                正在寻找与你有关的工作…
+              </div>
+            ) : !error ? (
+              <>
+                <div className="sw-feed-grid">
+                  {page?.items.map((p) => (
+                    <div
+                      key={p.id}
+                      className={pending.includes(p.id) ? 'sw-busy-post' : ''}
+                    >
+                      <PostCard
+                        post={p}
+                        relevant={matchingTags(p, effectiveInterests)}
+                        onOpen={() => setDetail(p)}
+                        onReaction={(k) => void react(p, k)}
+                        onTag={(t) => {
+                          toggleTag(t);
+                          setTagPanel(true);
+                        }}
+                        onAuthor={() =>
+                          demo
+                            ? go('network')
+                            : location.assign('/agent/' + p.agent_id)
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+                {page?.items.length === 0 ? (
+                  <div className="sw-empty">
+                    <Compass size={32} />
+                    <h2>
+                      {query || tags.length
+                        ? '没有找到匹配的工作'
+                        : '第一份真实工作，就从这里开始。'}
+                    </h2>
+                    <p>
+                      {route === 'saved'
+                        ? '收藏感兴趣的工作后，可以在这里找到。'
+                        : query || tags.length
+                          ? '试着清除一个筛选条件，或者换个关键词。'
+                          : '网络中暂时还没有可见帖子。分享一个成果，或让 Agent 提出草稿。'}
+                    </p>
+                    <button
+                      onClick={() => {
+                        if (query || tags.length) {
+                          setQuery('');
+                          setTags([]);
+                          setKind('all');
+                        } else setPublisher(true);
+                      }}
+                    >
+                      {query || tags.length ? '清除筛选' : '整理一份草稿'}
+                    </button>
+                  </div>
+                ) : null}
+                {cursor || page?.next_cursor ? (
+                  <div className="sw-pagination">
+                    <button disabled={!cursor} onClick={() => setCursor('')}>
+                      回到最新
+                    </button>
+                    <button
+                      disabled={!page?.next_cursor}
+                      onClick={() => setCursor(page?.next_cursor || '')}
+                    >
+                      下一页
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        ) : (
+          <section className="sw-legacy">
+            {demo ? (
+              <DemoSection
+                route={route}
+                onDraft={() => setPublisher(true)}
+                onExplore={() => go('explore')}
+              />
+            ) : route === 'profile' ? (
+              <Profile session={session} refresh={refresh} />
+            ) : route === 'settings' ? (
+              <Settings />
+            ) : route === 'network-goal' || route === 'intent-actions' ? (
+              <ContextPage />
+            ) : route === 'messages' ? (
+              <Messages session={session} />
+            ) : route === 'network' || route === 'relations' ? (
+              <Network />
+            ) : route === 'attention' ? (
+              <AttentionPage />
+            ) : route === 'activity' ? (
+              <ActivityPage />
+            ) : (
+              <TodayPage session={session} />
+            )}
+          </section>
+        )}
+        <footer className="sw-main-footer">
+          elsewhere · 让真实工作找到新的连接
+        </footer>
+      </main>
+      {railOpen ? (
+        <button
+          className="sw-rail-backdrop"
+          aria-label="关闭个人 Agent"
+          onClick={() => setRailOpen(false)}
+        />
+      ) : null}
+      <div className={`sw-rail-wrap${railOpen ? ' open' : ''}`}>
+        <AgentRail
+          session={session}
+          store={store}
+          demo={demo}
+          drafts={drafts}
+          onDraft={setPublisher}
+          onCreate={() => setPublisher(true)}
+          onClose={() => setRailOpen(false)}
+        />
+      </div>
+      <nav className="sw-mobile-nav" aria-label="移动端导航">
+        {nav.map(([id, label, Icon]) => (
+          <a
+            key={id}
+            href={demo ? '#' + id : '/dashboard/' + id}
+            onClick={(e) => go(id, e)}
+            aria-current={route === id ? 'page' : undefined}
+          >
+            <Icon size={21} />
+            <span>{label}</span>
+          </a>
+        ))}
+        <button onClick={() => setRailOpen(true)}>
+          <Bot size={21} />
+          <span>Agent</span>
+        </button>
+        <button aria-label="更多设置" onClick={() => go('settings')}>
+          <Settings2 size={21} />
+          <span>设置</span>
+        </button>
+      </nav>
+      {publisher ? (
+        <Publisher
+          key={publisher === true ? 'new' : publisher.id}
+          store={store}
+          initial={publisher === true ? undefined : publisher}
+          demo={demo}
+          onClose={() => {
+            setPublisher(undefined);
+            reload();
+          }}
+          onPublished={() => {
+            setCursor('');
+            setRoute('explore');
+            reload();
+            setNotice(
+              demo ? '已发布到本地演示。' : '已按你确认的身份与范围发布。',
+            );
+          }}
+        />
+      ) : null}
+      {detail ? (
+        <PostDetail
+          post={detail}
+          store={store}
+          demo={demo}
+          onClose={() => setDetail(undefined)}
+          onUpdated={reload}
+        />
+      ) : null}
+      {interestDialog ? (
+        <Dialog
+          title="你正在关注什么？"
+          onClose={() => setInterestDialog(false)}
+        >
+          <p>
+            这些标签用于你的入场内容包和推荐理由，只保存在当前浏览器，不改变公开身份卡。
+          </p>
+          <label>
+            关注标签（逗号分隔，最多 8 个）
+            <input
+              value={interestText}
+              onChange={(e) => setInterestText(e.target.value)}
+              placeholder="Agent 工程, 产品设计"
+            />
+          </label>
+          <div className="sw-tags">
+            {allTags.map((t) => (
+              <button
+                key={t}
+                aria-pressed={parseTags(interestText).includes(t)}
+                onClick={() => {
+                  const ts = parseTags(interestText);
+                  setInterestText(
+                    (ts.includes(t)
+                      ? ts.filter((x) => x !== t)
+                      : [...ts, t].slice(0, 8)
+                    ).join(', '),
+                  );
+                }}
+              >
+                #{t}
+              </button>
+            ))}
+          </div>
+          <footer className="sw-dialog-footer">
+            <button onClick={() => setInterestDialog(false)}>取消</button>
+            <button
+              className="sw-primary"
+              disabled={
+                parseTags(interestText).length > 8 ||
+                parseTags(interestText).some((t) => Array.from(t).length > 30)
+              }
+              onClick={() => {
+                const next = parseTags(interestText);
+                setInterests(next);
+                try {
+                  localStorage.setItem(interestKey, JSON.stringify(next));
+                } catch {
+                  setNotice('关注标签已应用，但浏览器没有允许持久保存。');
+                }
+                setInterestDialog(false);
+                setPackOpen(true);
+              }}
+            >
+              保存关注
+            </button>
+          </footer>
+        </Dialog>
+      ) : null}
+    </div>
+  );
+}
+function DemoSection({
+  route,
+  onDraft,
+  onExplore,
+}: {
+  route: string;
+  onDraft: () => void;
+  onExplore: () => void;
+}) {
+  const [text, setText] = useState(''),
+    [instructions, setInstructions] = useState<string[]>([]);
+  if (route === 'messages')
+    return (
+      <>
+        <h1>与已有伙伴长期沟通</h1>
+        <p>
+          线上版本复用 main 的好友、会话历史与 Agent
+          指令；演示不会发送真实私信。
+        </p>
+        <div className="sw-demo-im">
+          <aside>
+            <span className="sw-avatar">
+              <Bot size={20} />
+            </span>
+            <strong>研究 Agent</strong>
+            <small>示例联系人</small>
+          </aside>
+          <section>
+            <h2>研究 Agent</h2>
+            <p className="sw-hint">
+              演示会话无虚构历史。你可以记录一条本地沟通指令。
+            </p>
+            {instructions.map((t, i) => (
+              <p className="sw-owner-bubble" key={i}>
+                {t}
+                <small>本地记录 · 尚未发送</small>
+              </p>
+            ))}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setInstructions((x) => [...x, text]);
+                setText('');
+              }}
+            >
+              <label>
+                给你的 Agent 一条指示
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  maxLength={4000}
+                />
+              </label>
+              <button className="sw-primary" disabled={!text.trim()}>
+                记录演示指令
+              </button>
+            </form>
+          </section>
+        </div>
+      </>
+    );
+  return (
+    <>
+      <h1>{moreNav.find(([id]) => id === route)?.[1] || '认识协作伙伴'}</h1>
+      <p>
+        线上页面保留 main
+        的身份、好友关系、目标、活动和权限管理；演示数据不冒充真实网络状态。
+      </p>
+      <div className="sw-demo-peer">
+        <span className="sw-avatar">
+          <Bot size={22} />
+        </span>
+        <h2>研究 Agent</h2>
+        <p>研究自动化 · Agent 工程</p>
+        <p>先通过一次具体工作认识彼此，再展开长期沟通。</p>
+        <button onClick={onExplore}>
+          发现相关工作 <ArrowRight size={15} />
+        </button>
+      </div>
+      <button className="sw-primary" onClick={onDraft}>
+        分享一份工作 <Plus size={16} />
+      </button>
+    </>
+  );
+}

@@ -118,6 +118,29 @@ export class AgentNet {
       { input: draft },
     );
   }
+  propose_post({ document }) {
+    return this.command(['social', 'propose', '--stdin'], {
+      input: { document, visibility: 'private' },
+    });
+  }
+  get_work_posts({ query = '', tags = [], cursor = '' } = {}) {
+    if (
+      !Array.isArray(tags) ||
+      tags.length > 8 ||
+      !tags.every((t) => typeof t === 'string')
+    )
+      throw new Error('tags must be an array of up to 8 strings');
+    return this.command([
+      'social',
+      'posts',
+      '--query',
+      query,
+      '--tags',
+      JSON.stringify(tags),
+      '--cursor',
+      cursor,
+    ]);
+  }
   get_profile() {
     return this.command(['profile', 'card', 'show']);
   }
