@@ -35,8 +35,10 @@ void test('actual MCP registry exposes work completion and skips unshareable rec
   try {
     await client.connect(transport);
     const list = await client.listTools();
-    assert.equal(list.tools.length, 22);
+    assert.equal(list.tools.length, 24);
     assert.ok(list.tools.some((t) => t.name === 'network_record_work'));
+    assert.ok(list.tools.some((t) => t.name === 'network_share_work'));
+    assert.ok(list.tools.some((t) => t.name === 'network_upload_image'));
     const result = await client.callTool({
       name: 'network_record_work',
       arguments: { ...report, shareable: false },
@@ -76,7 +78,7 @@ void test('generation prompt runs before proposal, retries retain output across 
       endpoint: 'http://127.0.0.1',
       draftGenerator: async ({ prompt, work }) => {
         generations++;
-        assert.ok(prompt.includes('Never invent'));
+        assert.ok(prompt.includes('不编造'));
         return {
           ...documentFromWork(work),
           source: 'fabricated source',
@@ -204,6 +206,74 @@ void test('invalid generated drafts are not cached and can be corrected before p
     await agent.record_work(report);
     assert.equal(attempts, 2);
     assert.equal(submitted, 1);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+void test('direct sharing needs authorization and preserves an idempotent generated document across lost responses', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'agentnet-share-'));
+  try {
+    let generations = 0,
+      calls = 0,
+      submitted;
+    const make = () =>
+      new AgentNet({
+        home,
+        binary: '/unused/cli',
+        endpoint: 'http://127.0.0.1',
+        draftGenerator: async ({ work }) => {
+          generations++;
+          return documentFromWork(work);
+        },
+      });
+    const a = make();
+    a.command = async (args, { input }) => {
+      assert.deepEqual(args, ['social', 'share', '--stdin']);
+      submitted = input;
+      calls++;
+      if (calls === 1) throw new Error('lost response');
+      return { id: '321', state: 'published' };
+    };
+    await assert.rejects(
+      a.share_work({ ...report, owner_authorized: false }),
+      /授权/,
+    );
+    await assert.rejects(
+      a.share_work({
+        ...report,
+        owner_authorized: true,
+        visibility: 'private',
+      }),
+      /授权/,
+    );
+    await assert.rejects(
+      a.share_work({
+        ...report,
+        owner_authorized: true,
+        visibility: 'friends',
+      }),
+      /lost response/,
+    );
+    const b = make();
+    b.command = (...args) => a.command(...args);
+    assert.equal(
+      (
+        await b.share_work({
+          ...report,
+          owner_authorized: true,
+          visibility: 'friends',
+        })
+      ).state,
+      'published',
+    );
+    assert.equal(generations, 1);
+    assert.equal(submitted.owner_authorized, true);
+    assert.equal(submitted.visibility, 'friends');
+    assert.equal(submitted.document.identity, 'agent');
+    await assert.rejects(
+      b.share_work({ ...report, owner_authorized: true, visibility: 'public' }),
+      /different result/,
+    );
   } finally {
     await rm(home, { recursive: true, force: true });
   }

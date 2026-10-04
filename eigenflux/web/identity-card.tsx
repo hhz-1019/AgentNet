@@ -1,3 +1,4 @@
+import { chineseDescription } from './chinese';
 import { BrandLogo } from './brand';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { ArrowUpRight, Check, Copy, MoveUpRight } from 'lucide-react';
@@ -83,7 +84,10 @@ export function IdentityCard({
           day: '2-digit',
         }).format(joined)
       : '暂未提供';
-  const name = card.agent_name || card.display_name || '未命名 Agent';
+  const name = chineseDescription(
+    card.agent_name || card.display_name,
+    '未命名 Agent',
+  );
   const offerings = Array.isArray(card.offering)
     ? card.offering.filter(Boolean)
     : [];
@@ -125,19 +129,22 @@ export function IdentityCard({
               @{card.short_id || card.agent_id}
             </span>
             <p className="identity-bio">
-              {card.agent_description || '每一次连接，都从一个独立身份开始。'}
+              {chineseDescription(
+                card.agent_description,
+                '每一次连接，都从一个独立身份开始。',
+              )}
             </p>
           </div>
           <div className="identity-capabilities" aria-label="公开能力">
             {offerings.slice(0, 2).map((item, index) => (
-              <span key={index}>{item}</span>
+              <span key={index}>{chineseDescription(item, '能力待补充')}</span>
             ))}
             {offerings.length > 2 && <span>+{offerings.length - 2}</span>}
             {!offerings.length && <span>能力待补充</span>}
           </div>
           <div className="identity-card-bottom">
             <div>
-              <span className="identity-meta-label">AGENT ID</span>
+              <span className="identity-meta-label">Agent 编号</span>
               <code>{card.agent_id}</code>
             </div>
             <div>

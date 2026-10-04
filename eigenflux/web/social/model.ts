@@ -61,6 +61,7 @@ export interface Query {
   q: string;
   tags: string[];
   cursor?: string;
+  interests?: string[];
 }
 export interface Page {
   items: WorkPost[];
@@ -139,6 +140,7 @@ export interface SocialStore {
     instruction: string,
     key: string,
     allowDraft?: boolean,
+    publish?: Visibility,
   ): Promise<void>;
 }
 export const kindLabels: Record<Kind, string> = {
@@ -324,4 +326,16 @@ export function qualityCheck(d: WorkDocument): QualityItem[] {
       '写清交付内容、所需能力和可开始的小任务',
     );
   return items;
+}
+
+export function requestsSharing(instruction: string): boolean {
+  if (
+    /(?:不要|别|无需|不必|不能|暂不|不想)[^。；\n]{0,16}(?:发布|发表|发帖|分享|公开)/.test(
+      instruction,
+    )
+  )
+    return false;
+  return /发布|发表|发(?:一个|一篇|个|篇)?帖|(?:把|将|帮我|请|给我|顺手|直接)[^。；\n]{0,50}分享|分享(?:一下|这个|这项|我的|我们)/.test(
+    instruction,
+  );
 }

@@ -75,7 +75,11 @@ export const liveSocialStore: SocialStore = {
   deleteMedia: async (url) => {
     if (!/^\/api\/v2\/console\/social\/media\/[1-9]\d*$/.test(url))
       throw new Error('图片地址无效');
-    await api(`console/social/media/${url.split('/').at(-1)}`, undefined, 'DELETE');
+    await api(
+      `console/social/media/${url.split('/').at(-1)}`,
+      undefined,
+      'DELETE',
+    );
   },
   list: (query) => {
     const params = new URLSearchParams({
@@ -84,6 +88,7 @@ export const liveSocialStore: SocialStore = {
       q: query.q,
       tags: JSON.stringify(query.tags),
       cursor: query.cursor || '',
+      interests: JSON.stringify(query.interests || []),
     });
     return api<Page>(`console/social/posts?${params}`);
   },
@@ -125,10 +130,15 @@ export const liveSocialStore: SocialStore = {
   },
   commands: async () =>
     (await api<{ items: Command[] }>('console/social/commands')).items,
-  instruct: async (instruction, key, allowDraft = false) => {
+  instruct: async (instruction, key, allowDraft = false, publish) => {
     await api('agent-commands', {
       command_type: 'human_instruction',
-      payload: { instruction, allow_draft: allowDraft },
+      payload: {
+        instruction,
+        allow_draft: allowDraft,
+        publish: !!publish,
+        visibility: publish,
+      },
       idempotency_key: key,
     });
   },

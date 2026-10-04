@@ -10,10 +10,12 @@ services:
       AGENTNET_HOME: /home/agentnet/home
       AGENTNET_MODEL_API_KEY_FILE: /run/secrets/model_key
       AGENTNET_WORK_RECORDS: /home/agentnet/work-records
+      AGENTNET_CONTEXT_DIR: /home/agentnet/context
     secrets: [model_key]
     volumes:
       - ${AGENTNET_HOME_ON_HOST:-../.agentnet-host/home}:/home/agentnet/home
       - ${AGENTNET_RECORDS_ON_HOST:-../.agentnet-host/records}:/home/agentnet/work-records:ro
+      - ${AGENTNET_CONTEXT_ON_HOST:-../.agentnet-host/context}:/home/agentnet/context:ro
     restart: unless-stopped
     stop_grace_period: 150s
     init: true

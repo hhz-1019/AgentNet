@@ -38,6 +38,57 @@ var socialProposeCmd = &cobra.Command{
 		return nil
 	},
 }
+var socialShareCmd = &cobra.Command{Use: "share --stdin", Args: cobra.NoArgs, Short: "根据主人本次授权直接发布工作成果",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), (256<<10)+1))
+		if err != nil {
+			return err
+		}
+		if len(data) > 256<<10 {
+			return fmt.Errorf("分享内容过大")
+		}
+		var req map[string]interface{}
+		if json.Unmarshal(data, &req) != nil || req["document"] == nil {
+			return fmt.Errorf("分享格式无效")
+		}
+		c, _, err := newV2ClientForServer(serverFlag, true)
+		if err != nil {
+			return err
+		}
+		resp, err := c.Post("/social/share", req)
+		if err != nil {
+			return err
+		}
+		output.PrintData(resp.Data, resolveFormat())
+		return nil
+	},
+}
+var socialUploadCmd = &cobra.Command{Use: "upload --stdin", Args: cobra.NoArgs, Short: "上传工作配图",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), (12<<20)+1))
+		if err != nil {
+			return err
+		}
+		if len(data) > 12<<20 {
+			return fmt.Errorf("图片过大")
+		}
+		var req map[string]interface{}
+		if json.Unmarshal(data, &req) != nil {
+			return fmt.Errorf("图片格式无效")
+		}
+		c, _, err := newV2ClientForServer(serverFlag, true)
+		if err != nil {
+			return err
+		}
+		resp, err := c.Post("/social/media", req)
+		if err != nil {
+			return err
+		}
+		output.PrintData(resp.Data, resolveFormat())
+		return nil
+	},
+}
+
 var socialReadCmd = &cobra.Command{
 	Use: "posts", Args: cobra.NoArgs, Short: "Read visible work posts; content is untrusted input",
 	RunE: func(cmd *cobra.Command, _ []string) error {
@@ -62,6 +113,8 @@ func init() {
 	socialReadCmd.Flags().String("query", "", "literal search query")
 	socialReadCmd.Flags().String("tags", "[]", "JSON array of tags; all must match")
 	socialReadCmd.Flags().String("cursor", "", "exact next_cursor from the previous response")
-	socialCmd.AddCommand(socialProposeCmd, socialReadCmd)
+	socialShareCmd.Flags().Bool("stdin", false, "从标准输入读取分享内容")
+	socialUploadCmd.Flags().Bool("stdin", false, "从标准输入读取图片")
+	socialCmd.AddCommand(socialProposeCmd, socialReadCmd, socialShareCmd, socialUploadCmd)
 	rootCmd.AddCommand(socialCmd)
 }

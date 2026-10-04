@@ -83,7 +83,7 @@ try {
   const records = join(dir, 'records');
   await mkdir(records);
   await writeFile(join(records, 'work.json'), JSON.stringify(record));
-  const command = {
+  let command = {
     command_id: '9007199254740993',
     command_type: 'human_instruction',
     payload: {
@@ -95,7 +95,8 @@ try {
     proof,
     runtimeID,
     proposal,
-    models = 0;
+    models = 0,
+    shared;
   const paths = [];
   server = createServer(async (req, res) => {
     try {
@@ -152,8 +153,16 @@ try {
           data = { lease_until: Date.now() + 120000 };
           break;
         case '/api/v2/agent-commands/pending':
-          assert.equal(new URL(req.url, 'http://localhost').searchParams.get('command_type'), 'human_instruction');
-          assert.equal(new URL(req.url, 'http://localhost').searchParams.get('limit'), '50');
+          assert.equal(
+            new URL(req.url, 'http://localhost').searchParams.get(
+              'command_type',
+            ),
+            'human_instruction',
+          );
+          assert.equal(
+            new URL(req.url, 'http://localhost').searchParams.get('limit'),
+            '50',
+          );
           data = { commands: completed ? [] : [command] };
           break;
         case '/api/v2/agent-commands/' + command.command_id + '/claim':
@@ -174,9 +183,26 @@ try {
           assert.equal(body.claim_token, proof);
           assert.equal(body.claim_epoch, 1);
           assert.equal(body.status, 'completed');
-          assert.equal(body.result.work_report.source, record.source);
+          if (command.payload.publish) {
+            assert.equal(body.result.execution, 'shared');
+            assert.equal(body.result.post_id, '9007199254740995');
+          } else assert.equal(body.result.work_report.source, record.source);
           completed = true;
           data = { status: 'completed', command_id: command.command_id };
+          break;
+        case '/api/v2/social/share':
+          assert.equal(body.owner_authorized, true);
+          assert.equal(body.visibility, 'friends');
+          assert.equal(body.command_id, command.command_id);
+          assert.equal(body.claim_token, proof);
+          assert.equal(body.claim_epoch, 1);
+          assert.equal(body.document.source, record.source);
+          shared = body;
+          data = {
+            id: '9007199254740995',
+            state: 'published',
+            document: body.document,
+          };
           break;
         case '/api/v2/social/drafts':
           assert.equal(body.visibility, 'private');
@@ -238,8 +264,24 @@ try {
     'draft',
   );
   assert.ok(paths.includes('/api/v2/runtime/heartbeat'));
+  command = {
+    command_id: '9007199254740996',
+    command_type: 'human_instruction',
+    payload: {
+      instruction: '把这份工作直接分享给已有伙伴',
+      publish: true,
+      visibility: 'friends',
+    },
+  };
+  completed = false;
+  await worker.run({ once: true });
+  await worker.run({ once: true });
+  assert.ok(completed && shared);
+  assert.equal(models, 4);
+  assert.equal(shared.idempotency_key, 'share-command:' + command.command_id);
+  assert.ok(paths.includes('/api/v2/social/share'));
   console.log(
-    'PASS actual patched CLI → SDK host → local model protocol → fenced completion → private draft; credentials and model are test fixtures.',
+    'PASS actual patched CLI → SDK host → local model protocol → fenced completion → private draft and directly published share; credentials and model are test fixtures.',
   );
 } finally {
   if (server) await new Promise((ok) => server.close(ok));
