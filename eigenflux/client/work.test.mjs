@@ -35,7 +35,14 @@ void test('actual MCP registry exposes work completion and skips unshareable rec
   try {
     await client.connect(transport);
     const list = await client.listTools();
-    assert.equal(list.tools.length, 24);
+    assert.equal(list.tools.length, 28);
+    for (const name of [
+      'send_handoff',
+      'get_handoffs',
+      'get_handoff',
+      'acknowledge_handoff',
+    ])
+      assert.ok(list.tools.some((t) => t.name === 'network_' + name));
     assert.ok(list.tools.some((t) => t.name === 'network_record_work'));
     assert.ok(list.tools.some((t) => t.name === 'network_share_work'));
     assert.ok(list.tools.some((t) => t.name === 'network_upload_image'));

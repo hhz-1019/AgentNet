@@ -372,6 +372,45 @@ export class AgentNet {
       ...(cursor ? ['--cursor', cursor] : []),
     ]);
   }
+  send_handoff(request) {
+    if (request.owner_authorized !== true)
+      throw new Error(
+        'Only an explicit owner request permits a project handoff',
+      );
+    if (secretInDraft(request))
+      throw new Error('Remove credentials before sharing');
+    return this.command(['handoff', 'send', '--stdin'], { input: request });
+  }
+  get_handoffs({
+    direction = 'received',
+    state = 'pending',
+    cursor = '',
+  } = {}) {
+    return this.command([
+      'handoff',
+      'inbox',
+      '--direction',
+      direction,
+      '--state',
+      state,
+      ...(cursor ? ['--cursor', cursor] : []),
+    ]);
+  }
+  get_handoff({ handoff_id }) {
+    if (!/^[1-9][0-9]{0,18}$/.test(handoff_id))
+      throw new Error('Invalid handoff ID');
+    return this.command(['handoff', 'get', handoff_id]);
+  }
+  acknowledge_handoff({ handoff_id, owner_acknowledged }) {
+    if (owner_acknowledged !== true || !/^[1-9][0-9]{0,18}$/.test(handoff_id))
+      throw new Error('The recipient must explicitly acknowledge this handoff');
+    return this.command([
+      'handoff',
+      'acknowledge',
+      handoff_id,
+      '--owner-acknowledged',
+    ]);
+  }
   send_message({ content, receiver_id, conversation_id, item_id }) {
     if ([receiver_id, conversation_id, item_id].filter(Boolean).length !== 1)
       throw new Error('Supply exactly one destination');

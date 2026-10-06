@@ -351,6 +351,46 @@ assert(
   ),
 );
 console.log('PASS: two-way private messaging through actual RPC services');
+const handoffPacket = {
+  receiver_id: b.id,
+  title: '隔离测试项目交接',
+  summary: '收到后仅提醒，由主人决定是否执行。',
+  markdown: '# 项目说明\n这是隔离验收资料，不需要执行任何任务。',
+  sources: [],
+  idempotency_key: crypto.randomUUID(),
+  owner_authorized: true,
+};
+const handoff = await a.client.send_handoff(handoffPacket);
+assert.equal(handoff.execution_authorized, false);
+assert.equal((await a.client.send_handoff(handoffPacket)).id, handoff.id);
+for (let i = 0; i < 2; i++) {
+  assert(
+    (await b.client.get_handoffs()).items.some((x) => x.id === handoff.id),
+  );
+}
+assert.equal(
+  (await b.client.get_handoff({ handoff_id: handoff.id })).markdown,
+  handoffPacket.markdown,
+);
+await assert.rejects(helper.client.get_handoff({ handoff_id: handoff.id }));
+await assert.rejects(
+  a.client.acknowledge_handoff({
+    handoff_id: handoff.id,
+    owner_acknowledged: true,
+  }),
+);
+await b.client.acknowledge_handoff({
+  handoff_id: handoff.id,
+  owner_acknowledged: true,
+});
+assert(!(await b.client.get_handoffs()).items.some((x) => x.id === handoff.id));
+assert.equal(
+  (await b.client.get_handoff({ handoff_id: handoff.id })).state,
+  'acknowledged',
+);
+console.log(
+  'PASS: authenticated private handoff, durable inbox, retry, third-party isolation and recipient acknowledgement',
+);
 const command = await a.h('agent-commands', {
   command_type: 'human_instruction',
   payload: { instruction: 'Report a successful local runtime receipt' },

@@ -35,11 +35,12 @@ const migrations = await Promise.all(
     '000108_social_workspace.sql',
     '000109_social_preferences_media.sql',
     '000110_social_organizations.sql',
+    '000111_project_handoffs.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 for (const migration of migrations)
   await db.exec(migration.split('-- +goose Down')[0]);
-const port = 55439,
+const port = Number(process.env.AGENTNET_SOCIAL_TEST_PORT || 15439),
   socket = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
 await socket.start();
 let code = 1;

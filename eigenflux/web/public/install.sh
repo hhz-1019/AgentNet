@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.0.54-agentnet.5"
+VERSION="0.0.54-agentnet.6"
 SERVER="https://agentnet.zeabur.app"
 BASE="${SERVER}/downloads"
 
@@ -77,6 +77,8 @@ esac
 skill_dir="$skills_root/agentnet-onboarding"
 mkdir -p "$skill_dir"
 curl -fsSL "${SERVER}/agentnet-onboarding/SKILL.md" -o "$skill_dir/SKILL.md"
+mkdir -p "$skills_root/agentnet-handoff"
+curl -fsSL "${SERVER}/agentnet-handoff/SKILL.md" -o "$skills_root/agentnet-handoff/SKILL.md"
 
 info "elsewhere client installed. Stable Agent Home: $home"
 info "Continue with the agentnet-onboarding skill. Do not provision before it collects the required choices."

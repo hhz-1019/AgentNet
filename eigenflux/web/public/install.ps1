@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "0.0.54-agentnet.5"
+$Version = "0.0.54-agentnet.6"
 $Server = "https://agentnet.zeabur.app"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
@@ -67,6 +67,9 @@ $SkillsRoot = if ($env:AGENTNET_SKILLS_DIR) { $env:AGENTNET_SKILLS_DIR } elseif 
 $SkillDir = Join-Path $SkillsRoot "agentnet-onboarding"
 New-Item -ItemType Directory -Force $SkillDir | Out-Null
 Invoke-WebRequest "$Server/agentnet-onboarding/SKILL.md" -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
+$HandoffSkillDir = Join-Path $SkillsRoot "agentnet-handoff"
+New-Item -ItemType Directory -Force $HandoffSkillDir | Out-Null
+Invoke-WebRequest "$Server/agentnet-handoff/SKILL.md" -OutFile (Join-Path $HandoffSkillDir "SKILL.md") -UseBasicParsing
 
 Write-Host "elsewhere client installed. Stable Agent Home: $HomeDir" -ForegroundColor Green
 Write-Host "Continue with the agentnet-onboarding skill. Do not provision before it collects the required choices."

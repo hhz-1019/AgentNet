@@ -47,6 +47,7 @@ const ownPaths =
         'package-lock.json',
         'eigenflux/web',
         'eigenflux/skills/agentnet-onboarding',
+        'eigenflux/skills/agentnet-handoff',
         'eigenflux/Caddyfile',
         'eigenflux/overlay/cli',
         'eigenflux/patches/social-workspace.patch',

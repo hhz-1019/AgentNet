@@ -42,7 +42,15 @@ try {
       dir,
     );
   await cp('eigenflux/overlay/cli', join(dir, 'cli'), { recursive: true });
-  const binary = join(dir, 'agentnet');
+  await run(
+    process.env.AGENTNET_GO_BINARY || 'go',
+    ['test', './cmd', '-run', 'TestHandoff', '-count=1'],
+    join(dir, 'cli'),
+  );
+  const binary = join(
+    dir,
+    process.platform === 'win32' ? 'agentnet.exe' : 'agentnet',
+  );
   await run(
     process.env.AGENTNET_GO_BINARY || 'go',
     ['build', '-o', binary, '.'],
@@ -98,6 +106,8 @@ try {
     models = 0,
     shared;
   const paths = [];
+  let handoff,
+    acknowledged = false;
   server = createServer(async (req, res) => {
     try {
       let raw = '';
@@ -132,6 +142,29 @@ try {
       }
       assert.equal(req.headers.authorization, 'Bearer local-fixture-access');
       switch (path) {
+        case '/api/v2/handoffs':
+          if (req.method === 'POST') {
+            assert.equal(body.owner_authorized, true);
+            handoff = { ...body, id: '9007199254740998' };
+            data = {
+              id: handoff.id,
+              delivered: true,
+              execution_authorized: false,
+            };
+          } else
+            data = {
+              items: handoff && !acknowledged ? [handoff] : [],
+              next_cursor: '',
+            };
+          break;
+        case '/api/v2/handoffs/9007199254740998':
+          data = handoff;
+          break;
+        case '/api/v2/handoffs/9007199254740998/acknowledge':
+          assert.equal(body.owner_acknowledged, true);
+          acknowledged = true;
+          data = { id: handoff.id, state: 'acknowledged' };
+          break;
         case '/api/v2/agent-context':
           data =
             new URL(req.url, 'http://localhost').searchParams.get(
@@ -280,8 +313,101 @@ try {
   assert.equal(models, 4);
   assert.equal(shared.idempotency_key, 'share-command:' + command.command_id);
   assert.ok(paths.includes('/api/v2/social/share'));
+  const priorPaths = paths.length;
+  const packet = {
+    receiver_id: '2',
+    title: '收到后先提醒主人',
+    summary: '请人工决定',
+    markdown: 'EXTERNAL_TEXT_MUST_NOT_ENTER_HOOK_CONTEXT',
+    sources: [],
+    idempotency_key: 'fixture-handoff',
+    owner_authorized: true,
+  };
+  const sent = await client.send_handoff(packet);
+  assert.equal(sent.execution_authorized, false);
+  assert.equal((await client.get_handoffs()).items.length, 1);
+  assert.equal(
+    (await client.get_handoff({ handoff_id: sent.id })).markdown,
+    packet.markdown,
+  );
+  const notify = (session) =>
+    client.command(['handoff', 'notify'], {
+      input: { session_id: session, hook_event_name: 'SessionStart' },
+    });
+  const notice = await notify('one');
+  assert.equal(notice.continue, true);
+  assert.equal(notice.hookSpecificOutput.hookEventName, 'SessionStart');
+  assert.ok(!JSON.stringify(notice).includes(packet.markdown));
+  assert.equal((await notify('one')).message, '');
+  assert.equal((await notify('two')).continue, true);
+  assert.equal((await client.get_handoffs()).items.length, 1);
+  const codexHome = join(dir, 'isolated-codex-home');
+  await mkdir(codexHome);
+  const existingHooks = {
+    hooks: {
+      Stop: [{ hooks: [{ type: 'command', command: 'echo preserve-me' }] }],
+    },
+  };
+  await writeFile(join(codexHome, 'hooks.json'), JSON.stringify(existingHooks));
+  for (let i = 0; i < 2; i++) {
+    const setup = await client.command([
+      'handoff',
+      'setup-codex',
+      '--enable',
+      '--codex-home',
+      codexHome,
+    ]);
+    assert.equal(setup.active, false);
+    assert.equal(setup.requires_hook_trust, true);
+  }
+  const hooks = JSON.parse(
+    await readFile(join(codexHome, 'hooks.json'), 'utf8'),
+  ).hooks;
+  assert.deepEqual(hooks.Stop, existingHooks.hooks.Stop);
+  assert.equal(hooks.SessionStart.length, 1);
+  assert.equal(hooks.UserPromptSubmit.length, 1);
+  // Run the exact generated shell command, including paths with spaces/unicode.
+  const hookResult = await new Promise((ok, fail) => {
+    const windows = process.platform === 'win32';
+    const hook = hooks.SessionStart[0].hooks[0];
+    const child = spawn(
+      windows ? 'powershell.exe' : '/bin/sh',
+      windows
+        ? ['-NoProfile', '-Command', hook.commandWindows]
+        : ['-c', hook.command],
+      { windowsHide: true },
+    );
+    let stdout = '',
+      stderr = '';
+    child.stdout.on('data', (x) => {
+      stdout += x;
+    });
+    child.stderr.on('data', (x) => {
+      stderr += x;
+    });
+    child.on('error', fail);
+    child.on('exit', (code) =>
+      code === 0 ? ok(JSON.parse(stdout)) : fail(new Error(stderr)),
+    );
+    child.stdin.end(
+      JSON.stringify({
+        session_id: 'shell-run',
+        hook_event_name: 'SessionStart',
+      }),
+    );
+  });
+  assert.equal(hookResult.continue, true);
+  await client.acknowledge_handoff({
+    handoff_id: sent.id,
+    owner_acknowledged: true,
+  });
+  assert.equal((await notify('after-ack')).message, '');
+  assert.equal(models, 4);
+  assert.ok(
+    paths.slice(priorPaths).every((p) => p.startsWith('/api/v2/handoffs')),
+  );
   console.log(
-    'PASS actual patched CLI → SDK host → local model protocol → fenced completion → private draft and directly published share; credentials and model are test fixtures.',
+    'PASS actual patched CLI → SDK host → local model protocol → fenced completion → private draft/share; handoff delivery/read/ack, isolated Codex hook setup and real shell reminder without execution. Credentials/model/server are test fixtures.',
   );
 } finally {
   if (server) await new Promise((ok) => server.close(ok));

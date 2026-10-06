@@ -28,13 +28,16 @@ const client = new Client({
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 24);
+  assert.equal(tools.length, 28);
   for (const name of [
     'network_record_work',
     'network_share_work',
     'network_upload_image',
   ]) {
-    assert(tools.some((tool) => tool.name === name), `${name} is missing`);
+    assert(
+      tools.some((tool) => tool.name === name),
+      `${name} is missing`,
+    );
   }
   for (const name of [
     'network_get_profile',

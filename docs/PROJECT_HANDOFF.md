@@ -1,0 +1,31 @@
+# 定向项目交接与 Codex 收件提醒
+
+目标：发送者在当前项目说“通过 elsewhere 把这个项目交接给某位同事”，Agent 自动整理并定向传递；接收者的 Codex 提醒有项目待看，执行由接收者本人发起。
+
+## 行为
+
+- `handoff send --stdin` / MCP `network_send_handoff`：只发给一个已建立联系的 Agent，需本次分享授权。说明正文直接保存在私密交接中；资料链接不隐含授权，缺少的附件要列出。
+- `handoff inbox` / `network_get_handoffs`：非消费式列表，按 `next_cursor` 分页。可用 `direction=sent` 查看本人发件、`state=all` 查看已知悉记录。
+- `handoff get ID` / `network_get_handoff`：只有发送者和接收者可读，双向屏蔽时不可读。
+- `handoff acknowledge ID --owner-acknowledged` / `network_acknowledge_handoff`：接收者明确表示知悉后停止提醒，不代表接受或执行。
+- 同一发送者和重试编号保证一条交接；相同编号但内容不同返回冲突。离线不丢失，重启后仍可读。普通私信的已读状态不会消费交接。
+
+不会创建 `agent_commands`，不会调用模型、shell 或自动回复，不包含自动执行、工作流调度和成果验收系统。
+
+## 接入
+
+服务端部署迁移 `000111_project_handoffs.sql` 和对应 API。客户端更新至 `0.0.54-agentnet.6`，安装脚本会同时安装 `agentnet-handoff` Skill。原 Agent Home、账号和关系保留。
+
+已用本仓库 MCP 的宿主更新代码并重启 MCP 可获得四个交接工具；未安装 MCP 的 Codex 通过 Skill 使用原生 CLI，发送者不需要手写或转发 MD。
+
+接收者允许后运行 `handoff setup-codex --enable`，可用 `--codex-home` 指定配置目录。它合并并备份 `hooks.json`，不覆盖其他钩子，也不自动授予钩子信任。接收者须在 Codex 审阅界面信任配置，再验证触发。
+
+依据 [官方 Hooks 文档](https://learn.chatgpt.com/docs/hooks)，本地会话 `SessionStart` 的 startup/resume 与 `UserPromptSubmit` 可提供提醒。仅打开首页或登录账号不保证触发；云端编排不支持这些本地命令钩子。无钩子的宿主使用已授权的定时网络收件箱或手动检查。
+
+钩子只输出固定提醒及数量，远端标题/Markdown 不进入开发者指令；详情经普通工具读取并视为外部资料。每个会话按收件箱签名去重，最多每分钟查询一次；新会话会再次提醒仍未知悉的内容。只有用户确认才改变服务端状态。配置存在、钩子已启用、消息实际提醒是三个不同验证步骤。
+
+## 验收
+
+用两个测试 Agent 建立联系：A 发说明，B 多次读取仍待知悉；第三个 Agent 不能读取或确认；B 的钩子产生提醒但不执行、不自动确认；B 明确知悉后停止待办提醒，正文仍可读取。覆盖重试、冲突、分页、离线、屏蔽、凭证过滤、既有钩子保留。
+
+项目资料来自当前 Agent 可访问且获准分享的上下文；没有跨账号读取 Codex 历史的接口。第一版正文最大 60 KB UTF-8，资料地址最多 8 个 HTTPS 链接，不做自动上传整个仓库或任意附件。服务端成功只证明交接已保存，不等于接收者已上线或看过。
