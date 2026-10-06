@@ -1,6 +1,6 @@
 {
-  "release": "elsewhere-handoff-20261006",
-  "cli_version": "0.0.54-agentnet.6",
+  "release": "elsewhere-handoff-20261007",
+  "cli_version": "0.0.54-agentnet.7",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
   "human_auth": "uid",

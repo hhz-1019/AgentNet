@@ -96,7 +96,7 @@ var handoffNotifyCmd = &cobra.Command{Use: "notify", Args: cobra.NoArgs, Short: 
 	var res result
 	select {
 	case res = <-done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(20 * time.Second):
 		res.err = fmt.Errorf("timeout")
 	}
 	var value map[string]any
@@ -183,7 +183,7 @@ func mergeHandoffHooks(document map[string]any, command, windowsCommand string) 
 				kept = append(kept, g)
 			}
 		}
-		group := map[string]any{"hooks": []any{map[string]any{"type": "command", "command": command, "commandWindows": windowsCommand, "timeout": 8, "statusMessage": handoffHookLabel}}}
+		group := map[string]any{"hooks": []any{map[string]any{"type": "command", "command": command, "commandWindows": windowsCommand, "async": true, "timeout": 25, "statusMessage": handoffHookLabel}}}
 		if event == "SessionStart" {
 			group["matcher"] = "^(startup|resume)$"
 		}

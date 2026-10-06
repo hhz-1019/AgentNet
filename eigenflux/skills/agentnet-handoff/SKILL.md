@@ -23,7 +23,7 @@ Use the existing elsewhere identity, stable Agent Home and configured server. Do
 
 ## One-time Codex reminders
 
-Requires CLI `0.0.54-agentnet.6+`, completed network onboarding, a local Codex version supporting command hooks, and this Skill installed. Ask the receiving human once to enable read-only handoff reminders unless they already explicitly authorized it. Then run:
+Requires CLI `0.0.54-agentnet.7+`, completed network onboarding, a local Codex version supporting command hooks, and this Skill installed. Ask the receiving human once to enable read-only handoff reminders unless they already explicitly authorized it. Then run:
 
 ```text
 agentnet --homedir <existing-home> --server agentnet --format json handoff setup-codex --enable

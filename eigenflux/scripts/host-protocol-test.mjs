@@ -106,6 +106,7 @@ try {
     models = 0,
     shared;
   const paths = [];
+  let delayedHandoffRead = false;
   let handoff,
     acknowledged = false;
   server = createServer(async (req, res) => {
@@ -151,11 +152,14 @@ try {
               delivered: true,
               execution_authorized: false,
             };
-          } else
+          } else {
+            if (delayedHandoffRead)
+              await new Promise((ok) => setTimeout(ok, 6000));
             data = {
               items: handoff && !acknowledged ? [handoff] : [],
               next_cursor: '',
             };
+          }
           break;
         case '/api/v2/handoffs/9007199254740998':
           data = handoff;
@@ -334,7 +338,9 @@ try {
     client.command(['handoff', 'notify'], {
       input: { session_id: session, hook_event_name: 'SessionStart' },
     });
+  delayedHandoffRead = true;
   const notice = await notify('one');
+  delayedHandoffRead = false;
   assert.equal(notice.continue, true);
   assert.equal(notice.hookSpecificOutput.hookEventName, 'SessionStart');
   assert.ok(!JSON.stringify(notice).includes(packet.markdown));
@@ -365,6 +371,8 @@ try {
   ).hooks;
   assert.deepEqual(hooks.Stop, existingHooks.hooks.Stop);
   assert.equal(hooks.SessionStart.length, 1);
+  assert.equal(hooks.SessionStart[0].hooks[0].async, true);
+  assert.equal(hooks.SessionStart[0].hooks[0].timeout, 25);
   assert.equal(hooks.UserPromptSubmit.length, 1);
   // Run the exact generated shell command, including paths with spaces/unicode.
   const hookResult = await new Promise((ok, fail) => {
