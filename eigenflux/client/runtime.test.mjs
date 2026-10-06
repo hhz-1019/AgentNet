@@ -272,10 +272,13 @@ void test('fenced completion is reclaimed as a failure without reexecuting', asy
 void test('invalid owner instruction is failed so the next instruction can progress', async () =>
   fixture(async (home) => {
     const invalid = {
-      command_id: '1', command_type: 'human_instruction', payload: {},
+      command_id: '1',
+      command_type: 'human_instruction',
+      payload: {},
     };
     const valid = {
-      command_id: '2', command_type: 'human_instruction',
+      command_id: '2',
+      command_type: 'human_instruction',
       payload: { instruction: 'hello' },
     };
     const pending = [invalid, valid];
@@ -285,23 +288,34 @@ void test('invalid owner instruction is failed so the next instruction can progr
         f.state.claims++;
         return {
           ...pending.find((c) => c.command_id === command_id),
-          claim_token: 'proof', claim_epoch: 1,
+          claim_token: 'proof',
+          claim_epoch: 1,
           claim_until: Date.now() + 120000,
         };
       },
       complete_command: async (completion) => {
         f.state.completions.push(completion);
-        pending.splice(pending.findIndex((c) => c.command_id === completion.command_id), 1);
+        pending.splice(
+          pending.findIndex((c) => c.command_id === completion.command_id),
+          1,
+        );
         return { status: completion.status };
       },
     });
     f.model.json = async () => ({ reply: '分析结果', work_id: null });
-    const worker = new AgentNetRuntime({ ...f, home, endpoint: 'https://example.com' });
+    const worker = new AgentNetRuntime({
+      ...f,
+      home,
+      endpoint: 'https://example.com',
+    });
     await worker.open();
     await worker.tick();
     await worker.tick();
     await worker.close();
-    assert.deepEqual(f.state.completions.map((x) => x.status), ['failed', 'completed']);
+    assert.deepEqual(
+      f.state.completions.map((x) => x.status),
+      ['failed', 'completed'],
+    );
     assert.equal(f.state.claims, 2);
   }));
 void test('draft submission failure remains durable and retries without repeating command completion', async () =>
@@ -318,18 +332,31 @@ void test('draft submission failure remains durable and retries without repeatin
       return { id: 'draft-1' };
     };
     f.client.pending_commands = async () => ({ commands: [] });
-    const worker = new AgentNetRuntime({ ...f, home, endpoint: 'https://example.com' });
+    const worker = new AgentNetRuntime({
+      ...f,
+      home,
+      endpoint: 'https://example.com',
+    });
     await worker.open();
     worker.journal.jobs['1'] = {
       phase: 'ready',
-      completion: { command_id: '1', claim_token: 'proof', claim_epoch: 1,
-        status: 'completed', result: { work_report: record } },
+      completion: {
+        command_id: '1',
+        claim_token: 'proof',
+        claim_epoch: 1,
+        status: 'completed',
+        result: { work_report: record },
+      },
     };
     await worker.save();
     await worker.tick();
     assert.equal(worker.journal.jobs['1'].phase, 'draft_pending');
     await worker.close();
-    const restored = new AgentNetRuntime({ ...f, home, endpoint: 'https://example.com' });
+    const restored = new AgentNetRuntime({
+      ...f,
+      home,
+      endpoint: 'https://example.com',
+    });
     await restored.open();
     await restored.tick();
     assert.equal(draftAttempts, 1);
@@ -338,7 +365,12 @@ void test('draft submission failure remains durable and retries without repeatin
     await restored.close();
     assert.equal(draftAttempts, 2);
     assert.equal(f.state.completions.length, 1);
-    assert.equal(JSON.parse(await readFile(join(home, 'agentnet-runtime', 'journal.json'), 'utf8')).jobs['1'].phase, 'done');
+    assert.equal(
+      JSON.parse(
+        await readFile(join(home, 'agentnet-runtime', 'journal.json'), 'utf8'),
+      ).jobs['1'].phase,
+      'done',
+    );
   }));
 void test('unsupported commands are not claimed, aborted runtime makes no new claim', async () =>
   fixture(async (home) => {
@@ -357,4 +389,124 @@ void test('unsupported commands are not claimed, aborted runtime makes no new cl
     await worker.tick({ signal: AbortSignal.abort() });
     await worker.close();
     assert.equal(f.state.claims, 0);
+  }));
+void test('console sharing retrieves project context and images, then retries a lost share receipt without running the model again', async () =>
+  fixture(async (home) => {
+    const directory = join(home, 'context');
+    await mkdir(directory);
+    await writeFile(
+      join(directory, '社会模拟.md'),
+      '# 社会模拟验证\n已完成两个孤独感干预方案的对照，尚未验证长期效果。\n![干预比较](chart.png)',
+    );
+    await writeFile(join(directory, 'chart.png'), Buffer.from('fixture-image'));
+    let shares = 0,
+      uploads = 0;
+    const { client, model, state } = adapter({
+      pending_commands: async () => ({
+        commands: [
+          {
+            command_id: '700',
+            command_type: 'human_instruction',
+            payload: {
+              instruction: '分享社会模拟工作',
+              publish: true,
+              visibility: 'friends',
+            },
+          },
+        ],
+      }),
+      claim_command: async () => ({
+        command_id: '700',
+        claim_token: 'proof',
+        claim_epoch: 1,
+        claim_until: Date.now() + 120000,
+        payload: { publish: true, visibility: 'friends' },
+      }),
+      upload_image: async ({ local_path }) => {
+        assert.equal(local_path, join(directory, 'chart.png'));
+        uploads++;
+        return {
+          url: '/api/v2/console/social/media/71',
+          alt: '干预比较',
+          kind: 'image',
+        };
+      },
+      share_work: async (report) => {
+        shares++;
+        assert.equal(report.visibility, 'friends');
+        assert.equal(report.command_id, '700');
+        assert.equal(report.media[0].url, '/api/v2/console/social/media/71');
+        if (shares === 1) throw new Error('lost share response');
+        return { id: '72', state: 'published' };
+      },
+    });
+    model.json = async (prompt, input) => {
+      state.generations++;
+      assert.ok(prompt.includes('简体中文'));
+      assert.ok(input.records[0].result.includes('长期效果'));
+      return {
+        reply: '正在整理社会模拟工作。',
+        work_ids: [input.records[0].work_id],
+      };
+    };
+    let worker = new AgentNetRuntime({
+      client,
+      model,
+      home,
+      endpoint: 'local',
+      contextDirectory: directory,
+    });
+    await worker.open();
+    await assert.rejects(worker.tick(), /lost share response/);
+    await worker.close();
+    worker = new AgentNetRuntime({
+      client,
+      model,
+      home,
+      endpoint: 'local',
+      contextDirectory: directory,
+    });
+    await worker.open();
+    try {
+      await worker.tick();
+      assert.equal(shares, 2);
+      assert.equal(uploads, 1);
+      assert.equal(state.generations, 1);
+      assert.equal(state.completions[0].result.post_id, '72');
+      assert.equal(state.completions[0].result.execution, 'shared');
+      assert.equal(state.completions[0].result.work_report, undefined);
+    } finally {
+      await worker.close();
+    }
+  }));
+void test('share request without connected supporting context is not published', async () =>
+  fixture(async (home) => {
+    let published = false;
+    const { client, model, state } = adapter({
+      claim_command: async () => ({
+        command_id: '9007199254740993',
+        claim_token: 'proof',
+        claim_epoch: 1,
+        claim_until: Date.now() + 120000,
+        payload: { publish: true, visibility: 'public' },
+      }),
+      share_work: async () => {
+        published = true;
+      },
+    });
+    model.json = async () => ({ reply: '没有相关工作记录。', work_ids: [] });
+    const worker = new AgentNetRuntime({
+      client,
+      model,
+      home,
+      endpoint: 'local',
+    });
+    await worker.open();
+    try {
+      await worker.tick();
+      assert.equal(published, false);
+      assert.ok(state.completions[0].result.reply.includes('没有发布'));
+    } finally {
+      await worker.close();
+    }
   }));

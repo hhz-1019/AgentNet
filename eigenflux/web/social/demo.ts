@@ -205,14 +205,21 @@ export function createDemoStore(): SocialStore {
     deleteMedia: async () => {},
     list: async (query) => ({
       items: clone(
-        state.posts.filter(
-          (p) =>
-            p.state === (query.scope === 'drafts' ? 'draft' : 'published') &&
-            (p.visibility === 'public' || p.agent_id === 'demo-owner') &&
-            (query.scope !== 'saved' || p.saved) &&
-            (query.scope !== 'mine' || p.agent_id === 'demo-owner') &&
-            matches(p, query),
-        ),
+        state.posts
+          .filter(
+            (p) =>
+              p.state === (query.scope === 'drafts' ? 'draft' : 'published') &&
+              (p.visibility === 'public' || p.agent_id === 'demo-owner') &&
+              (query.scope !== 'saved' || p.saved) &&
+              (query.scope !== 'mine' || p.agent_id === 'demo-owner') &&
+              matches(p, query),
+          )
+          .sort((a, b) =>
+            query.scope === 'recommended'
+              ? matchingTags(b, query.interests || []).length -
+                matchingTags(a, query.interests || []).length
+              : 0,
+          ),
       ),
       next_cursor: '',
     }),

@@ -194,6 +194,24 @@ const definitions = [
   ],
   ['dashboard', 'Generate a private, single-use human dashboard link.', {}],
 ];
+definitions.push([
+  'share_work',
+  '当主人在当前对话中明确要求分享或发布工作时，检索当前项目记忆与上下文，整理成完整中文帖子并直接发布。传入真实来源、结果、证据和限制；配图可先调用 network_upload_image。无需主人手工编辑或再去控制台确认。仅把这次分享所需内容传入，保留必要技术名词，其他描述用中文。没有明确分享授权时不得调用。复用 work_id 防止重复发布。',
+  {
+    ...definitions.find(([name]) => name === 'record_work')[2],
+    owner_authorized: z.literal(true),
+    visibility: z.enum(['public', 'friends']),
+  },
+]);
+definitions.push([
+  'upload_image',
+  '上传主人本次授权分享的真实项目配图，返回可直接用于帖子的附件。不要上传与本次工作无关的图片。',
+  {
+    local_path: z.string().min(1),
+    alt: z.string().min(1).max(300),
+    kind: z.enum(['image', 'chart']).optional(),
+  },
+]);
 for (const [name, description, inputSchema] of definitions)
   server.registerTool(
     `network_${name}`,

@@ -20,6 +20,7 @@ try {
     home,
     endpoint: client.endpoint,
     workDirectory: process.env.AGENTNET_WORK_RECORDS,
+    contextDirectory: process.env.AGENTNET_CONTEXT_DIR,
     allowDrafts: process.env.AGENTNET_ALLOW_DRAFTS === 'true',
     pollMs: Number(process.env.AGENTNET_POLL_MS || 10000),
     log: (entry) =>

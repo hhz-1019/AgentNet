@@ -1906,5 +1906,25 @@
   text-align: left;
   cursor: pointer;
 }
-.sw-draft-card h3 { margin: 16px 0 8px; }
-.sw-draft-card span { display: inline-flex; align-items: center; gap: 6px; }
+.sw-draft-card h3 {
+  margin: 16px 0 8px;
+}
+.sw-draft-card span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sw-draft-permission {
+  flex-wrap: wrap;
+}
+.sw-draft-permission select {
+  width: auto;
+  flex: 1;
+  padding: 7px;
+  font-size: 11px;
+}
+.sw-draft-permission > span {
+  width: 100%;
+  color: #64795c;
+}

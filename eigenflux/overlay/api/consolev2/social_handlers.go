@@ -40,22 +40,27 @@ type socialWriteRequest struct {
 	Visibility       string         `json:"visibility"`
 	ExpectedRevision int64          `json:"expected_revision"`
 	IdempotencyKey   string         `json:"idempotency_key"`
+	OwnerAuthorized  bool           `json:"owner_authorized"`
+	CommandID        string         `json:"command_id"`
+	ClaimToken       string         `json:"claim_token"`
+	ClaimEpoch       int64          `json:"claim_epoch"`
 }
 type socialPostRow struct {
-	PostID      int64
-	AgentID     int64
-	AgentName   string
-	State       string
-	Revision    int64
-	Visibility  string
-	Document    string
-	CreatedAt   int64
-	PublishedAt *int64
-	Likes       int64
-	Saves       int64
-	Comments    int64
-	Liked       bool
-	Saved       bool
+	PostID         int64
+	AgentID        int64
+	AgentName      string
+	State          string
+	Revision       int64
+	Visibility     string
+	Document       string
+	CreatedAt      int64
+	RecommendScore int64
+	PublishedAt    *int64
+	Likes          int64
+	Saves          int64
+	Comments       int64
+	Liked          bool
+	Saved          bool
 }
 
 // This is a deterministic preflight, not a claim that a classifier removed all private data.
@@ -188,6 +193,10 @@ func (s *Service) listSocialPosts(ctx context.Context, c *app.RequestContext) {
 	where := " WHERE " + socialAccess
 	args := []any{viewer, viewer, viewer, viewer, viewer, viewer, viewer, viewer}
 	scope := c.Query("scope")
+	if scope == "recommended" {
+		s.getSocialRecommendations(ctx, c)
+		return
+	}
 	if scope == "drafts" {
 		where += " AND p.agent_id=? AND p.state='draft'"
 		args = append(args, viewer)
@@ -259,7 +268,21 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 		fail(c, 400, "INVALID_REQUEST", "草稿格式无效", nil)
 		return
 	}
-	if strings.HasPrefix(string(c.Path()), "/api/v2/social/") {
+	sharing := string(c.Path()) == "/api/v2/social/share"
+	if sharing {
+		if !req.OwnerAuthorized || req.IdempotencyKey == "" || (req.Visibility != "public" && req.Visibility != "friends") {
+			fail(c, 400, "SHARE_AUTHORIZATION_REQUIRED", "请在本次指令中明确授权发布范围", nil)
+			return
+		}
+		req.Document.Identity = "agent"
+		req.Document.OrganizationID = ""
+		req.Document.ProjectName = ""
+		blocked, _ := socialPreflight(req.Document)
+		if len(blocked) > 0 {
+			fail(c, 400, "SOCIAL_SECRET", blocked[0], nil)
+			return
+		}
+	} else if strings.HasPrefix(string(c.Path()), "/api/v2/social/") {
 		req.Visibility = "private"
 	}
 	if err := validateSocialDocument(&req.Document, req.Visibility); err != nil {
@@ -295,8 +318,33 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 				if prior.ProposalHash != hash {
 					return errConflict
 				}
+				if sharing {
+					var published int64
+					if err := tx.Raw(`SELECT post_id FROM social_work_posts WHERE post_id=? AND state='published' AND revision=approved_revision`, prior.PostID).Scan(&published).Error; err != nil {
+						return err
+					}
+					if published == 0 {
+						return errConflict
+					}
+				}
 				id = prior.PostID
 				return nil
+			}
+		}
+		if sharing && req.CommandID != "" {
+			var authorized int64
+			err := tx.Raw(`SELECT command_id FROM agent_commands WHERE command_id=? AND agent_id=?
+    AND command_type='human_instruction' AND status='claimed' AND claim_epoch=? AND claim_token_hash=?
+    AND claim_until>? AND payload->>'publish'='true' AND payload->>'visibility'=? FOR UPDATE`,
+				socialDecimal(req.CommandID), viewer, req.ClaimEpoch, hashString(req.ClaimToken), time.Now().UnixMilli(), req.Visibility).Scan(&authorized).Error
+			if err != nil {
+				return err
+			}
+			if authorized == 0 {
+				return errors.New("CLAIM_FENCED")
+			}
+			if req.IdempotencyKey != "share-command:"+req.CommandID {
+				return errors.New("CLAIM_FENCED")
 			}
 		}
 		scoped := *s
@@ -323,8 +371,15 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 			}
 			id = prior.PostID
 		}
+		if sharing {
+			return tx.Exec(`UPDATE social_work_posts SET state='published',published_at=?,approved_revision=revision WHERE post_id=?`, time.Now().UnixMilli(), id).Error
+		}
 		return nil
 	})
+	if err != nil && err.Error() == "CLAIM_FENCED" {
+		fail(c, 409, "CLAIM_FENCED", "发布指令未授权、已过期或已被其他宿主领取", nil)
+		return
+	}
 	if errors.Is(err, errConflict) {
 		fail(c, 409, "PROPOSAL_CONFLICT", "同一工作记录已对应另一份草稿", nil)
 		return

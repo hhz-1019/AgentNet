@@ -56,60 +56,34 @@ try {
     .waitFor();
   await page.getByLabel('你的评论').fill('具体过程能否补充一个失败样例？');
   await page.getByRole('button', { name: '发布本地评论', exact: true }).click();
-  await page.waitForFunction(() => document.querySelectorAll('.sw-comments article').length === 2);
+  await page.waitForFunction(
+    () => document.querySelectorAll('.sw-comments article').length === 2,
+  );
   await page.getByRole('button', { name: '关闭窗口' }).click();
   await page.getByRole('button', { name: '分享工作', exact: true }).click();
+  assert.equal(await page.locator('.sw-starter').count(), 0);
+  await page.getByLabel('你想分享什么？').fill('分享社会模拟项目的验证工作');
+  await page.getByLabel('发布范围').selectOption('friends');
+  await page.screenshot({ path: '.agentnet-audit/agent-share-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: '.agentnet-audit/agent-share-mobile.png' });
+  await page.setViewportSize({ width: 1440, height: 1040 });
+  assert.equal(await page.getByLabel('标题', { exact: true }).count(), 0);
   await page
-    .getByLabel('这次工作的来源')
-    .fill('这一次 AgentNet 社交工作台的开发与验证记录。');
-  await page.getByRole('button', { name: '开始整理', exact: true }).click();
-  await page
-    .getByLabel('标题', { exact: true })
-    .fill('从实际开发任务整理一份可验证的成果');
-  await page
-    .getByLabel('摘要', { exact: true })
-    .fill('分享工作来源、关键决策、测试方式与尚待验证的边界。');
-  await page
-    .getByLabel('正文', { exact: true })
-    .fill(
-      '我们从主分支合并旧的前端预览，重新设计了三栏首页、标签探索与确认发布流程，并对真实服务接口进行了回归验证。这份内容仅用于本地交互测试，不发布到真实网络。',
-    );
-  await page
-    .getByLabel('证据 / 结果 / 待验证点')
-    .fill('本地演示验证：搜索、交集标签、草稿预览、评论和持久保存。');
-  await page
-    .getByLabel('标签（用逗号分隔，最多 8 个）')
-    .fill('Agent 工程, React');
-  await page.getByRole('button', { name: '保存并预览' }).click();
-  await page.getByRole('button', { name: '确认发布到本地演示' }).waitFor();
-  assert.ok(
-    await page.getByRole('button', { name: '确认发布到本地演示' }).isDisabled(),
-  );
-  await page
-    .getByText(
-      '我已预览当前版本，确认内容可分享，并授权按所选身份与范围发布。',
-      { exact: true },
-    )
+    .getByRole('button', { name: '授权 Agent 整理并发布', exact: true })
     .click();
-  await page.getByRole('button', { name: '确认发布到本地演示' }).click();
   await page
-    .getByRole('button', {
-      name: '从实际开发任务整理一份可验证的成果',
+    .getByText('请整理并发布以下工作的中文分享：分享社会模拟项目的验证工作', {
       exact: true,
     })
     .waitFor();
+  assert.equal(await page.locator('.sw-post').count(), 4);
   await page.reload();
-  await page
-    .getByRole('button', {
-      name: '从实际开发任务整理一份可验证的成果',
-      exact: true,
-    })
-    .waitFor();
   await page
     .getByLabel('给个人 Agent 的指令')
     .fill('请检查这份工作能否补充一个失败样例。');
   await page.getByRole('button', { name: '发送给个人 Agent' }).click();
-  await page.getByText('已排队，等待宿主', { exact: false }).waitFor();
+  await page.getByText('已排队，等待宿主', { exact: false }).first().waitFor();
   assert.equal(await page.locator('.sw-agent-bubble').count(), 0);
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });
@@ -124,7 +98,7 @@ try {
   await page.getByRole('button', { name: '关闭 Agent 面板' }).click();
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: desktop/mobile layout, tag intersection, likes, saves, comments, revision preview/approval, persistence, real queued-state UI; no browser errors',
+    'PASS: desktop/mobile layout, tag intersection, likes, saves, comments, Agent sharing instruction, no manual editor, persistence, real queued-state UI; no browser errors',
   );
 } finally {
   await browser.close();

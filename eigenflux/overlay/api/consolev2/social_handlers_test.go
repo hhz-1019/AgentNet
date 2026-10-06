@@ -5,13 +5,16 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/png"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -340,4 +343,164 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 		t.Fatal("version-bound quality guidance missing")
 	}
 
+}
+
+func TestSocialAgentShareAuthorizationAndRetry(t *testing.T) {
+	dsn := os.Getenv("AGENTNET_SOCIAL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("run npm run test:social:core")
+	}
+	db := socialFixtureDB(t, dsn)
+	s := &Service{db: db, idgen: &fixedIDGenerator{id: 9223372036854775500}}
+	h := server.New()
+	inject := func(ctx context.Context, c *app.RequestContext) { c.Set("agent_id", int64(1)); c.Next(ctx) }
+	h.POST("/api/v2/social/share", inject, s.createSocialDraft)
+	call := func(req socialWriteRequest, want int) map[string]any {
+		t.Helper()
+		data, _ := json.Marshal(req)
+		response := ut.PerformRequest(h.Engine, "POST", "/api/v2/social/share", &ut.Body{Body: strings.NewReader(string(data)), Len: len(data)}, ut.Header{Key: "Content-Type", Value: "application/json"})
+		if response.Code != want {
+			t.Fatalf("share got %d want %d: %s", response.Code, want, response.Body.String())
+		}
+		var result map[string]any
+		json.Unmarshal(response.Body.Bytes(), &result)
+		out, _ := result["data"].(map[string]any)
+		return out
+	}
+	req := socialWriteRequest{Document: socialTestDocument(), Visibility: "public", IdempotencyKey: "share:mcp-test"}
+	call(req, 400)
+	req.OwnerAuthorized = true
+	first := call(req, 201)
+	retry := call(req, 201)
+	if first["state"] != "published" || first["id"] != retry["id"] {
+		t.Fatal("sharing was not published idempotently", first, retry)
+	}
+	if first["document"].(map[string]any)["identity"] != "agent" {
+		t.Fatal("share did not use Agent identity")
+	}
+	req.Document.Title = "同一编号对应不同工作时不得重复发布"
+	call(req, 409)
+	req = socialWriteRequest{Document: socialTestDocument(), Visibility: "friends", IdempotencyKey: "share-command:701", OwnerAuthorized: true, CommandID: "701", ClaimToken: "proof", ClaimEpoch: 1}
+	err := db.Exec(`INSERT INTO agent_commands(command_id,agent_id,command_type,payload,status,result,created_at,claim_epoch,claim_token_hash,claim_until) VALUES(701,1,'human_instruction','{"publish":false,"visibility":"friends"}','claimed','{}',1,1,?,?)`, hashString("proof"), time.Now().UnixMilli()+120000).Error
+	if err != nil {
+		t.Fatal(err)
+	}
+	call(req, 409)
+	db.Exec(`UPDATE agent_commands SET payload='{"publish":true,"visibility":"public"}' WHERE command_id=701`)
+	call(req, 409)
+	db.Exec(`UPDATE agent_commands SET payload='{"publish":true,"visibility":"friends"}' WHERE command_id=701`)
+	accepted := call(req, 201)
+	db.Exec(`UPDATE agent_commands SET claim_until=0 WHERE command_id=701`)
+	if call(req, 201)["id"] != accepted["id"] {
+		t.Fatal("lost response retry duplicated published share")
+	}
+	req.IdempotencyKey = "share-command:702"
+	req.CommandID = "702"
+	call(req, 409)
+}
+
+func TestSocialAgentImageResize(t *testing.T) {
+	dsn := os.Getenv("AGENTNET_SOCIAL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("run npm run test:social:core")
+	}
+	db := socialFixtureDB(t, dsn)
+	s := &Service{db: db, idgen: &fixedIDGenerator{id: 9223372036854775600}}
+	h := server.New()
+	h.POST("/api/v2/social/media", func(ctx context.Context, c *app.RequestContext) { c.Set("agent_id", int64(1)); c.Next(ctx) }, s.uploadSocialMedia)
+	img := image.NewRGBA(image.Rect(0, 0, 800, 800))
+	rng := rand.New(rand.NewSource(42))
+	rng.Read(img.Pix)
+	var source bytes.Buffer
+	png.Encode(&source, img)
+	if source.Len() <= socialMediaMaxBytes {
+		t.Fatal("fixture must exceed manual image limit")
+	}
+	data, _ := json.Marshal(map[string]any{"data": base64.StdEncoding.EncodeToString(source.Bytes()), "alt": "真实工作图像", "kind": "image"})
+	resp := ut.PerformRequest(h.Engine, "POST", "/api/v2/social/media", &ut.Body{Body: bytes.NewReader(data), Len: len(data)}, ut.Header{Key: "Content-Type", Value: "application/json"})
+	if resp.Code != 201 {
+		t.Fatalf("automatic resize failed: %s", resp.Body.String())
+	}
+	var result struct{ Data socialMedia }
+	json.Unmarshal(resp.Body.Bytes(), &result)
+	var stored []byte
+	db.Raw(`SELECT content FROM social_media WHERE media_id=?`, socialMediaID(result.Data.URL)).Row().Scan(&stored)
+	if len(stored) == 0 || len(stored) > socialMediaMaxBytes {
+		t.Fatal("stored image exceeds quota")
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(stored))
+	if err != nil || cfg.Width >= 800 {
+		t.Fatal("image was not resized", err)
+	}
+}
+
+func TestSocialRecommendationsRankAndPagination(t *testing.T) {
+	dsn := os.Getenv("AGENTNET_SOCIAL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("run npm run test:social:core")
+	}
+	db := socialFixtureDB(t, dsn)
+	db.Exec(`INSERT INTO agents VALUES(99,'推荐测试 Agent'),(100,'来源 Agent')`)
+	defer func() {
+		db.Exec(`DELETE FROM social_work_posts WHERE agent_id=100`)
+		db.Exec(`DELETE FROM user_relations WHERE from_uid=99 OR to_uid=99`)
+		db.Exec(`DELETE FROM social_preferences WHERE agent_id=99`)
+		db.Exec(`DELETE FROM agents WHERE agent_id IN(99,100)`)
+	}()
+	db.Exec(`INSERT INTO social_preferences VALUES(99,'["论文"]',1)`)
+	for i := 1; i <= 23; i++ {
+		d := socialTestDocument()
+		d.Title = fmt.Sprintf("排名专项工作记录%02d", i)
+		d.Tags = []string{"其他工作"}
+		if i <= 5 {
+			d.Tags = []string{"论文"}
+		}
+		visibility := "public"
+		if i == 23 {
+			visibility = "private"
+		}
+		raw, _ := json.Marshal(d)
+		if err := db.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision) VALUES(?,100,'published',1,?,?::jsonb,1,?,1)`, 500000+i, visibility, string(raw), i).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := &Service{db: db}
+	h := server.New()
+	h.GET("/posts", func(ctx context.Context, c *app.RequestContext) { c.Set("agent_id", int64(99)); c.Next(ctx) }, s.listSocialPosts)
+	call := func(path string) map[string]any {
+		t.Helper()
+		r := ut.PerformRequest(h.Engine, "GET", path, nil)
+		if r.Code != 200 {
+			t.Fatal(r.Body.String())
+		}
+		var e map[string]any
+		json.Unmarshal(r.Body.Bytes(), &e)
+		return e["data"].(map[string]any)
+	}
+	page := call("/posts?scope=recommended&q=排名专项")
+	items := page["items"].([]any)
+	if len(items) != 20 || len(items[0].(map[string]any)["matched_tags"].([]any)) != 1 {
+		t.Fatal("profile interests did not rank first", page)
+	}
+	cursor := page["next_cursor"].(string)
+	next := call("/posts?scope=recommended&q=排名专项&cursor=" + cursor)["items"].([]any)
+	if len(next) != 2 {
+		t.Fatal("ranked page lost or leaked posts", next)
+	}
+	seen := map[string]bool{}
+	for _, v := range append(items, next...) {
+		id := v.(map[string]any)["id"].(string)
+		if seen[id] {
+			t.Fatal("duplicate ranked page", id)
+		}
+		seen[id] = true
+	}
+	filtered := call(`/posts?scope=recommended&q=排名专项&tags=%5B%22论文%22%5D`)["items"].([]any)
+	if len(filtered) != 5 {
+		t.Fatal("ranked tag filter failed", filtered)
+	}
+	db.Exec(`INSERT INTO user_relations VALUES(100,99,2)`)
+	if len(call("/posts?scope=recommended&q=排名专项")["items"].([]any)) != 0 {
+		t.Fatal("ranking leaked blocked author")
+	}
 }

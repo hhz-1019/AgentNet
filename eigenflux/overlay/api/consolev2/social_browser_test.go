@@ -69,7 +69,7 @@ func TestSocialBrowserLive(t *testing.T) {
 	h.GET(root+"/commands", auth, s.listSocialCommands)
 	h.GET("/api/v2/console/session", auth, func(_ context.Context, c *app.RequestContext) {
 		id, _ := agentID(c)
-		reply(c, 200, map[string]any{"agent_id": strconv.FormatInt(id, 10), "agent_name": "Browser Agent", "short_id": "TEST", "owner_uid": "fixture", "owner_bound": true, "onboarding": map[string]any{"state": "completed", "current_step": 4, "revision": 1}})
+		reply(c, 200, map[string]any{"agent_id": strconv.FormatInt(id, 10), "agent_name": "浏览器验证 Agent", "short_id": "TEST", "owner_uid": "fixture", "owner_bound": true, "onboarding": map[string]any{"state": "completed", "current_step": 4, "revision": 1}})
 	})
 	h.GET("/api/v2/console/today/status", func(_ context.Context, c *app.RequestContext) {
 		reply(c, 200, map[string]any{"runtime_state": "not_started", "fresh_until": 0})

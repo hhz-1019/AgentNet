@@ -141,7 +141,51 @@ void test('card interests stay within recommendation API tag limits', () => {
     ['Agent 工程', '产品设计', 'React'],
   );
   assert.equal(
-    interestTagsFromCard({ offering: Array.from({ length: 12 }, (_, i) => `话题${i}`) }).length,
+    interestTagsFromCard({
+      offering: Array.from({ length: 12 }, (_, i) => `话题${i}`),
+    }).length,
     8,
+  );
+});
+void test('Chinese sharing intent grants publishing only for an actual sharing request', async () => {
+  const { requestsSharing } = await import('./model.ts');
+  for (const text of [
+    '把论文工作分享一下',
+    '请整理社会模拟项目并发布',
+    '帮我发个帖子',
+    '分享一下这个工作',
+  ])
+    assert.equal(requestsSharing(text), true, text);
+  for (const text of [
+    '不要发布，先给我看看草稿',
+    '帮我发现相关工作',
+    '查找分享论文的方法',
+    '暂不公开这个项目',
+  ])
+    assert.equal(requestsSharing(text), false, text);
+});
+void test('old English deployment descriptions are displayed in Chinese without inventing translations', async () => {
+  const { chineseDescription } = await import('../chinese.ts');
+  assert.equal(
+    chineseDescription(
+      'Real local test instruction processed',
+      '未提供中文版本',
+    ),
+    '已处理真实的本地测试指令',
+  );
+  assert.equal(
+    chineseDescription('Acceptance Atlas 1790370074255', '我的 Agent'),
+    '验收测试 Agent 1790370074255',
+  );
+  assert.equal(
+    chineseDescription(
+      'An unknown long English description',
+      '尚未提供中文介绍',
+    ),
+    '尚未提供中文介绍',
+  );
+  assert.equal(
+    chineseDescription('使用 React 构建的工作台', ''),
+    '使用 React 构建的工作台',
   );
 });

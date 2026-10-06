@@ -10,12 +10,12 @@ COPY eigenflux/patches/social-workspace.patch /tmp/social-workspace.patch
 RUN git apply --ignore-space-change /tmp/social-workspace.patch
 WORKDIR /src/cli
 RUN mkdir -p /out && \
-    GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.4 -X main.Commit=02735b5b" -o /out/agentnet-linux-amd64 . && \
-    GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.4 -X main.Commit=02735b5b" -o /out/agentnet-linux-arm64 . && \
-    GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.4 -X main.Commit=02735b5b" -o /out/agentnet-darwin-amd64 . && \
-    GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.4 -X main.Commit=02735b5b" -o /out/agentnet-darwin-arm64 . && \
-    GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.4 -X main.Commit=02735b5b" -o /out/agentnet-windows-amd64.exe . && \
-    GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.4 -X main.Commit=02735b5b" -o /out/agentnet-windows-arm64.exe . && \
+    GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.5 -X main.Commit=02735b5b" -o /out/agentnet-linux-amd64 . && \
+    GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.5 -X main.Commit=02735b5b" -o /out/agentnet-linux-arm64 . && \
+    GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.5 -X main.Commit=02735b5b" -o /out/agentnet-darwin-amd64 . && \
+    GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.5 -X main.Commit=02735b5b" -o /out/agentnet-darwin-arm64 . && \
+    GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.5 -X main.Commit=02735b5b" -o /out/agentnet-windows-amd64.exe . && \
+    GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.5 -X main.Commit=02735b5b" -o /out/agentnet-windows-arm64.exe . && \
     cd /out && for file in agentnet-*; do sha256sum "$file" > "$file.sha256"; done && \
     cp /src/LICENSE /out/LICENSE-EigenFlux.txt && \
     printf '%s\n' 'elsewhere independently distributes this CLI from https://github.com/phronesis-io/eigenflux at 02735b5b6954503e1e1caa1f8e1eda6cfcc669b6 with AgentNet social CLI overlay and capability additions.' > /out/SOURCE.txt

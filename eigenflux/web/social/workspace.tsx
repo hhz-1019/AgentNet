@@ -6,7 +6,6 @@ import {
   Bot,
   Compass,
   FileText,
-  HeartHandshake,
   LogOut,
   MessageCircle,
   Plus,
@@ -28,6 +27,7 @@ import { Dialog } from './dialog';
 import { AgentRail } from './rail';
 import { PostCard, PostDetail } from './post';
 import { Publisher } from './publisher';
+import { ShareComposer } from './share';
 import { Organizations } from './organizations';
 import {
   kindLabels,
@@ -105,12 +105,9 @@ export function SocialWorkspace({
   const [interestLoading, setInterestLoading] = useState(true);
   const [interestBusy, setInterestBusy] = useState(false);
   const [interestError, setInterestError] = useState('');
-  const [recommendations, setRecommendations] = useState<WorkPost[]>([]);
-  const [recommendationError, setRecommendationError] = useState('');
   const [interestDialog, setInterestDialog] = useState(false),
     [interestText, setInterestText] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
-  const [packOpen, setPackOpen] = useState(false);
   const discovery = useData<{ items: Peer[] }>(
     demo ? null : 'console/home/discovery',
   );
@@ -128,6 +125,7 @@ export function SocialWorkspace({
   const effectiveInterests =
     interestRevision > 0 ? interests : interests.length ? interests : cardTags;
   const interestQuery = JSON.stringify(effectiveInterests);
+  useEffect(() => setCursor(''), [interestQuery]);
   const allTags = useMemo(
     () =>
       [
@@ -172,26 +170,6 @@ export function SocialWorkspace({
       active = false;
     };
   }, [store, version]);
-  useEffect(() => {
-    let active = true;
-    setRecommendationError('');
-    void store
-      .recommendations(JSON.parse(interestQuery) as string[])
-      .then((p) => {
-        if (active) setRecommendations(p.items);
-      })
-      .catch((e) => {
-        if (active) {
-          setRecommendations([]);
-          setRecommendationError(
-            e instanceof Error ? e.message : '无法读取推荐内容',
-          );
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [store, interestQuery, version]);
   async function saveInterests() {
     setInterestBusy(true);
     setInterestError('');
@@ -203,7 +181,6 @@ export function SocialWorkspace({
       setInterests(next.tags);
       setInterestRevision(next.revision);
       setInterestDialog(false);
-      setPackOpen(true);
     } catch (e) {
       setInterestError(e instanceof Error ? e.message : '保存关注失败');
       // Refresh the revision for an explicit retry; preserve the user's input.
@@ -255,11 +232,21 @@ export function SocialWorkspace({
     setError('');
     void store
       .list({
-        scope: route === 'saved' ? 'saved' : route === 'mine' ? 'mine' : route === 'drafts' ? 'drafts' : 'all',
+        scope:
+          route === 'saved'
+            ? 'saved'
+            : route === 'mine'
+              ? 'mine'
+              : route === 'drafts'
+                ? 'drafts'
+                : route === 'explore'
+                  ? 'recommended'
+                  : 'all',
         q: search,
         kind,
         tags,
         cursor,
+        interests: JSON.parse(interestQuery) as string[],
       })
       .then((p) => {
         if (active && generation.current === id) setPage(p);
@@ -273,7 +260,7 @@ export function SocialWorkspace({
     return () => {
       active = false;
     };
-  }, [store, route, search, kind, tags, cursor, version]);
+  }, [store, route, search, kind, tags, cursor, version, interestQuery]);
   useEffect(() => {
     if (demo) return;
     const onRefresh = () => setVersion((v) => v + 1);
@@ -335,26 +322,6 @@ export function SocialWorkspace({
       setPending((ids) => ids.filter((x) => x !== post.id));
     }
   }
-  const starterPosts = recommendations
-    .filter((p) => matchingTags(p, effectiveInterests).length)
-    .slice(0, 3);
-  const starterPeers = peers
-    .filter((p) =>
-      (p.capabilities || []).some((t) =>
-        effectiveInterests.some((i) => i.toLowerCase() === t.toLowerCase()),
-      ),
-    )
-    .slice(0, 2);
-  const starterQuestion = recommendations.find(
-    (p) =>
-      p.document.kind === 'question' &&
-      matchingTags(p, effectiveInterests).length,
-  );
-  const starterTask = recommendations.find(
-    (p) =>
-      p.document.kind === 'collab' &&
-      matchingTags(p, effectiveInterests).length,
-  );
   const feedRoute = ['explore', 'saved', 'mine', 'drafts'].includes(route);
   const openInterest = () => {
     setInterestEditRevision(interestRevision);
@@ -467,7 +434,7 @@ export function SocialWorkspace({
       <main id="social-main" className="sw-main">
         <header className="sw-topbar">
           <span>
-            <i /> {demo ? 'LOCAL PREVIEW' : 'ELSEWHERE NETWORK'}
+            <i /> {demo ? '本地演示' : 'Agent 协作网络'}
           </span>
           <button onClick={() => setRailOpen(true)}>
             <Bot size={18} /> 个人 Agent
@@ -483,25 +450,23 @@ export function SocialWorkspace({
             <section className="sw-discovery-heading">
               <div>
                 <span className="sw-kicker">
-                  {route === 'saved'
-                    ? 'YOUR COLLECTION'
-                    : 'A NETWORK FOR YOUR NEXT STEP'}
+                  {route === 'saved' ? '我的收藏' : '与你的工作有关'}
                 </span>
                 <h1>
                   {route === 'saved'
                     ? '留给下一次工作。'
                     : route === 'drafts'
                       ? '等待你确认的草稿。'
-                    : route === 'mine'
-                      ? '你分享的工作。'
-                      : '好工作，遇见下一位伙伴。'}
+                      : route === 'mine'
+                        ? '你分享的工作。'
+                        : '好工作，遇见下一位伙伴。'}
                 </h1>
                 <p>
                   {route === 'drafts'
                     ? '检查内容和分享范围，决定是否公开。'
                     : route === 'saved'
-                    ? '收藏的结果、方法与问题，随时回来接着做。'
-                    : '看看别人完成了什么，找到和你正在做的事有关的连接。'}
+                      ? '收藏的结果、方法与问题，随时回来接着做。'
+                      : '看看别人完成了什么，找到和你正在做的事有关的连接。'}
                 </p>
               </div>
               <button
@@ -512,117 +477,6 @@ export function SocialWorkspace({
                 <Compass size={22} />
               </button>
             </section>
-            {route === 'explore' ? (
-              <section className="sw-starter">
-                <div>
-                  <span className="sw-starter-symbol">
-                    <HeartHandshake size={25} />
-                  </span>
-                  <div>
-                    <span className="sw-kicker">YOUR STARTER PACK</span>
-                    <h2>
-                      {effectiveInterests.length
-                        ? '从与你有关的内容开始。'
-                        : '先告诉网络，你在关注什么。'}
-                    </h2>
-                    <p>
-                      {effectiveInterests.length
-                        ? effectiveInterests
-                            .slice(0, 3)
-                            .map((x) => '#' + x)
-                            .join('  ')
-                        : '选择兴趣或使用公开能力，整理你的入场内容包。'}
-                    </p>
-                  </div>
-                </div>
-                <div className="sw-starter-buttons">
-                  <button disabled={interestLoading} onClick={openInterest}>
-                    {effectiveInterests.length ? '调整关注' : '设置关注'}
-                  </button>
-                  <button
-                    className="sw-primary"
-                    onClick={() => setPackOpen(!packOpen)}
-                  >
-                    {packOpen ? '收起' : '打开内容包'} <ArrowRight size={15} />
-                  </button>
-                </div>
-                {packOpen ? (
-                  <div className="sw-pack-details">
-                    {recommendationError ? (
-                      <p role="alert" className="sw-error">
-                        {recommendationError}
-                      </p>
-                    ) : null}
-                    <div>
-                      <h3>相关内容 · {starterPosts.length}</h3>
-                      {starterPosts.map((p) => (
-                        <button key={p.id} onClick={() => setDetail(p)}>
-                          {p.document.title}
-                          <small>
-                            {(
-                              p.matched_tags ||
-                              matchingTags(p, effectiveInterests)
-                            )
-                              .map((t) => '#' + t)
-                              .join(' ')}
-                          </small>
-                          <ArrowRight size={14} />
-                        </button>
-                      ))}
-                      {!starterPosts.length ? (
-                        <p>当前可见内容里还没有与你的标签匹配的工作。</p>
-                      ) : null}
-                    </div>
-                    <div>
-                      <h3>可能的伙伴 · {starterPeers.length}</h3>
-                      {starterPeers.map((p) => (
-                        <button
-                          key={p.agent_id}
-                          onClick={() =>
-                            demo
-                              ? go('network')
-                              : location.assign('/agent/' + p.agent_id)
-                          }
-                        >
-                          {p.agent_name} ·{' '}
-                          {(p.capabilities || [])
-                            .filter((t) => effectiveInterests.includes(t))
-                            .join('、')}
-                          <ArrowRight size={14} />
-                        </button>
-                      ))}
-                      {!starterPeers.length ? (
-                        <p>暂未找到能力标签匹配的伙伴。</p>
-                      ) : null}
-                    </div>
-                    <div>
-                      <h3>你能回答的问题</h3>
-                      {starterQuestion ? (
-                        <button onClick={() => setDetail(starterQuestion)}>
-                          {starterQuestion.document.title}
-                        </button>
-                      ) : (
-                        <p>有匹配的问题时会显示在这里。</p>
-                      )}
-                    </div>
-                    <div>
-                      <h3>可以参与的小任务</h3>
-                      {starterTask ? (
-                        <button onClick={() => setDetail(starterTask)}>
-                          {starterTask.document.title}
-                        </button>
-                      ) : (
-                        <p>有匹配的协作机会时会显示在这里。</p>
-                      )}
-                    </div>
-                    <small>
-                      按匹配标签数与发布时间排序，从全部可见工作中选取 20
-                      条；伙伴仍来自发现页。
-                    </small>
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
             {drafts.length && route === 'explore' ? (
               <section className="sw-pending-drafts">
                 <FileText size={18} />
@@ -661,6 +515,14 @@ export function SocialWorkspace({
                 {tags.length ? ' · ' + tags.length : ''}
               </button>
             </div>
+            {route === 'explore' ? (
+              <p className="sw-hint">
+                根据你的 Agent 画像和关注推荐 ·{' '}
+                <button disabled={interestLoading} onClick={openInterest}>
+                  调整关注
+                </button>
+              </p>
+            ) : null}
             <form
               className="sw-search"
               onSubmit={(e) => {
@@ -752,27 +614,36 @@ export function SocialWorkspace({
                       className={pending.includes(p.id) ? 'sw-busy-post' : ''}
                     >
                       {route === 'drafts' ? (
-                        <button className="sw-draft-card" onClick={() => setPublisher(p)}>
-                          <small>私有草稿 · {p.document.kind}</small>
+                        <button
+                          className="sw-draft-card"
+                          onClick={() => setPublisher(p)}
+                        >
+                          <small>
+                            私有草稿 · {kindLabels[p.document.kind]}
+                          </small>
                           <h3>{p.document.title}</h3>
                           <p>{p.document.summary}</p>
-                          <span>编辑并预览 <ArrowRight size={15} /></span>
+                          <span>
+                            编辑并预览 <ArrowRight size={15} />
+                          </span>
                         </button>
-                      ) : <PostCard
-                        post={p}
-                        relevant={matchingTags(p, effectiveInterests)}
-                        onOpen={() => setDetail(p)}
-                        onReaction={(k) => void react(p, k)}
-                        onTag={(t) => {
-                          toggleTag(t);
-                          setTagPanel(true);
-                        }}
-                        onAuthor={() =>
-                          demo
-                            ? go('network')
-                            : location.assign('/agent/' + p.agent_id)
-                        }
-                      />}
+                      ) : (
+                        <PostCard
+                          post={p}
+                          relevant={matchingTags(p, effectiveInterests)}
+                          onOpen={() => setDetail(p)}
+                          onReaction={(k) => void react(p, k)}
+                          onTag={(t) => {
+                            toggleTag(t);
+                            setTagPanel(true);
+                          }}
+                          onAuthor={() =>
+                            demo
+                              ? go('network')
+                              : location.assign('/agent/' + p.agent_id)
+                          }
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -788,10 +659,10 @@ export function SocialWorkspace({
                       {route === 'drafts'
                         ? '目前没有待确认的草稿。'
                         : route === 'saved'
-                        ? '收藏感兴趣的工作后，可以在这里找到。'
-                        : query || tags.length
-                          ? '试着清除一个筛选条件，或者换个关键词。'
-                          : '网络中暂时还没有可见帖子。分享一个成果，或让 Agent 提出草稿。'}
+                          ? '收藏感兴趣的工作后，可以在这里找到。'
+                          : query || tags.length
+                            ? '试着清除一个筛选条件，或者换个关键词。'
+                            : '网络中暂时还没有可见帖子。分享一个成果，或让 Agent 提出草稿。'}
                     </p>
                     <button
                       onClick={() => {
@@ -913,11 +784,20 @@ export function SocialWorkspace({
           </div>
         </Dialog>
       ) : null}
-      {publisher ? (
-        <Publisher
-          key={publisher === true ? 'new' : publisher.id}
+      {publisher === true ? (
+        <ShareComposer
           store={store}
-          initial={publisher === true ? undefined : publisher}
+          demo={demo}
+          onClose={() => {
+            setPublisher(undefined);
+            reload();
+          }}
+        />
+      ) : publisher ? (
+        <Publisher
+          key={publisher.id}
+          store={store}
+          initial={publisher}
           demo={demo}
           onClose={() => {
             setPublisher(undefined);
@@ -951,7 +831,7 @@ export function SocialWorkspace({
             {demo
               ? '演示标签保存在本地。'
               : '这些标签随当前 Agent 账号保存，换设备登录也可使用。'}
-            关注标签用于入场内容包，不改变公开身份卡。
+            关注标签和初始 Agent 画像直接用于信息流推荐。
           </p>
           <label>
             关注标签（逗号分隔，最多 8 个）

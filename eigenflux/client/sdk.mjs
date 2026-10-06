@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { isAbsolute, resolve } from 'node:path';
 import {
@@ -8,6 +8,7 @@ import {
   documentFromWork,
   proposalKey,
   secretInDraft,
+  assertChineseContent,
 } from './work.mjs';
 
 // Reuse the upstream client's signing, refresh, credential storage and fencing.
@@ -160,10 +161,13 @@ export class AgentNet {
       this.workInFlight.delete(key);
     }
   }
-  async proposeWork(work, key, hash) {
+  async proposeWork(work, key, hash, sharing) {
     const dir = resolve(this.home, 'social-proposals');
     await mkdir(dir, { recursive: true, mode: 0o700 });
-    const file = resolve(dir, key.slice(5) + '.json');
+    const file = resolve(
+      dir,
+      (sharing ? proposalKey(key).slice(5) : key.slice(5)) + '.json',
+    );
     let cached;
     try {
       cached = JSON.parse(await readFile(file, 'utf8'));
@@ -195,7 +199,21 @@ export class AgentNet {
         title: generated.title,
         summary: generated.summary,
         body: generated.body,
+        tags: generated.tags || base.tags,
       };
+      if (
+        !Array.isArray(document.tags) ||
+        !document.tags.length ||
+        document.tags.length > 8 ||
+        document.tags.some(
+          (t) =>
+            typeof t !== 'string' || !t.trim() || Array.from(t).length > 30,
+        ) ||
+        new Set(document.tags.map((t) => t.trim().toLowerCase())).size !==
+          document.tags.length
+      )
+        throw new Error('生成的工作标签无效');
+      document.tags = document.tags.map((t) => t.trim());
       const length = (value) => Array.from(value.trim()).length;
       if (
         length(document.title) < 4 ||
@@ -206,6 +224,9 @@ export class AgentNet {
         length(document.body) > 20000
       )
         throw new Error('Generator returned an incomplete or oversized draft');
+      assertChineseContent(document.title);
+      assertChineseContent(document.summary);
+      assertChineseContent(document.body);
       if (secretInDraft(document))
         throw new Error(
           'Generator returned credentials; draft was not submitted',
@@ -215,7 +236,60 @@ export class AgentNet {
         flag: 'wx',
       });
     }
+    if (sharing)
+      return this.command(['social', 'share', '--stdin'], {
+        input: { document, idempotency_key: key, ...sharing },
+      });
     return this.propose_post({ document, idempotency_key: key });
+  }
+  async share_work({
+    owner_authorized,
+    visibility = 'public',
+    command_id,
+    claim_token,
+    claim_epoch,
+    ...report
+  }) {
+    if (
+      owner_authorized !== true ||
+      !['public', 'friends'].includes(visibility)
+    )
+      throw new Error('请明确授权本次分享和可见范围');
+    const work = workRecord(report);
+    if (work.skipped) throw new Error('缺少可分享的真实工作上下文');
+    const key = command_id
+      ? 'share-command:' + command_id
+      : 'share:' + proposalKey(work.work_id).slice(5);
+    const sharing = {
+      owner_authorized: true,
+      visibility,
+      ...(command_id ? { command_id, claim_token, claim_epoch } : {}),
+    };
+    const hash = createHash('sha256')
+      .update(JSON.stringify({ work, visibility }))
+      .digest('hex');
+    const existing = this.workInFlight.get(key);
+    if (existing) {
+      if (existing.hash !== hash) throw new Error('分享编号已对应另一份内容');
+      return existing.promise;
+    }
+    const promise = this.proposeWork(work, key, hash, sharing);
+    this.workInFlight.set(key, { hash, promise });
+    try {
+      return await promise;
+    } finally {
+      this.workInFlight.delete(key);
+    }
+  }
+  async upload_image({ local_path, alt, kind = 'image' }) {
+    if (!isAbsolute(local_path) || !alt?.trim())
+      throw new Error('提供真实图片的绝对路径和中文说明');
+    if ((await stat(local_path)).size > 8 * 1024 * 1024)
+      throw new Error('工作配图最多 8 MB');
+    const content = await readFile(local_path);
+    return this.command(['social', 'upload', '--stdin'], {
+      input: { data: content.toString('base64'), alt, kind },
+    });
   }
   get_work_posts({ query = '', tags = [], cursor = '' } = {}) {
     if (
@@ -380,7 +454,11 @@ export class AgentNet {
   }
   pending_commands({ command_type = '' } = {}) {
     return this.command([
-      'runtime', 'command', 'pending', '--limit', '50',
+      'runtime',
+      'command',
+      'pending',
+      '--limit',
+      '50',
       ...(command_type ? ['--command-type', command_type] : []),
     ]);
   }

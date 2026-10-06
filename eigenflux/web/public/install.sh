@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.0.54-agentnet.4"
+VERSION="0.0.54-agentnet.5"
 SERVER="https://agentnet.zeabur.app"
 BASE="${SERVER}/downloads"
 

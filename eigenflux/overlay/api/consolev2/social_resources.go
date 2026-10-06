@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -101,7 +102,11 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 		return
 	}
 	tags := prefs.Tags
-	if raw := c.Query("tags"); raw != "" {
+	raw := c.Query("tags")
+	if c.Query("scope") == "recommended" {
+		raw = c.Query("interests")
+	}
+	if raw != "" {
 		if json.Unmarshal([]byte(raw), &tags) != nil || len(tags) > 8 {
 			fail(c, 400, "INVALID_TAGS", "关注标签无效", nil)
 			return
@@ -119,10 +124,67 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 	data, _ := json.Marshal(tags)
 	score := `(SELECT count(*) FROM jsonb_array_elements_text(p.document->'tags') t WHERE lower(t.value) IN (SELECT lower(value) FROM jsonb_array_elements_text(?::jsonb)))`
 	var rows []socialPostRow
-	query := socialSelect + ` WHERE ` + socialAccess + ` AND p.state='published' AND ` + score + `>0 ORDER BY ` + score + ` DESC,p.published_at DESC,p.post_id DESC LIMIT 20`
-	if err = s.db.WithContext(ctx).Raw(query, viewer, viewer, viewer, viewer, viewer, viewer, viewer, viewer, string(data), string(data)).Scan(&rows).Error; err != nil {
+	where := ` WHERE ` + socialAccess + ` AND p.state='published'`
+	args := []any{string(data), viewer, viewer, viewer, viewer, viewer, viewer, viewer, viewer}
+	if c.Query("scope") != "recommended" {
+		where += ` AND ranked.match_score>0`
+	}
+	if q := strings.TrimSpace(c.Query("q")); q != "" {
+		if utf8.RuneCountInString(q) > 100 {
+			fail(c, 400, "INVALID_QUERY", "搜索内容过长", nil)
+			return
+		}
+		where += ` AND strpos(lower(p.document::text),lower(?))>0`
+		args = append(args, q)
+	}
+	if kind := c.Query("kind"); kind != "" && kind != "all" {
+		where += ` AND p.document->>'kind'=?`
+		args = append(args, kind)
+	}
+	if c.Query("scope") == "recommended" {
+		var filter []string
+		if raw := c.Query("tags"); raw != "" {
+			if json.Unmarshal([]byte(raw), &filter) != nil || len(filter) > 8 {
+				fail(c, 400, "INVALID_TAGS", "筛选标签无效", nil)
+				return
+			}
+			if len(filter) > 0 {
+				b, _ := json.Marshal(filter)
+				where += ` AND p.document->'tags' @> ?::jsonb`
+				args = append(args, string(b))
+			}
+		}
+	}
+	if cursor := c.Query("cursor"); cursor != "" {
+		parts := strings.Split(cursor, ":")
+		if len(parts) != 3 {
+			fail(c, 400, "INVALID_CURSOR", "分页参数无效", nil)
+			return
+		}
+		values := []int64{}
+		for _, part := range parts {
+			v, e := strconv.ParseInt(part, 10, 64)
+			if e != nil || v < 0 {
+				fail(c, 400, "INVALID_CURSOR", "分页参数无效", nil)
+				return
+			}
+			values = append(values, v)
+		}
+		where += ` AND (ranked.match_score,p.published_at,p.post_id)<(?,?,?)`
+		args = append(args, values[0], values[1], values[2])
+	}
+	query := `WITH ranked AS (SELECT p.post_id,` + score + ` AS match_score FROM social_work_posts p) ` +
+		strings.Replace(socialSelect, "SELECT p.*", "SELECT p.*, ranked.match_score AS recommend_score", 1) +
+		` JOIN ranked ON ranked.post_id=p.post_id ` + where + ` ORDER BY ranked.match_score DESC,p.published_at DESC,p.post_id DESC LIMIT 21`
+	if err = s.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
 		s.socialFailure(c, err)
 		return
+	}
+	next := ""
+	if len(rows) > 20 {
+		rows = rows[:20]
+		last := rows[len(rows)-1]
+		next = fmt.Sprintf("%d:%d:%d", last.RecommendScore, *last.PublishedAt, last.PostID)
 	}
 	items := []map[string]any{}
 	for _, row := range rows {
@@ -141,7 +203,7 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 		item["matched_tags"] = matched
 		items = append(items, item)
 	}
-	reply(c, 200, map[string]any{"items": items, "next_cursor": ""})
+	reply(c, 200, map[string]any{"items": items, "next_cursor": next})
 }
 
 // Accept only real, bounded raster data. Re-encoding strips metadata and appended payloads.
@@ -152,14 +214,18 @@ func (s *Service) uploadSocialMedia(ctx context.Context, c *app.RequestContext) 
 		Alt  string `json:"alt"`
 		Kind string `json:"kind"`
 	}
+	maxInput := socialMediaMaxBytes
+	if string(c.Path()) == "/api/v2/social/media" {
+		maxInput = 8 << 20
+	}
 	raw, err := c.Body()
-	if err != nil || len(raw) > ((socialMediaMaxBytes*4/3)+2048) || json.Unmarshal(raw, &req) != nil || (req.Kind != "image" && req.Kind != "chart") || strings.TrimSpace(req.Alt) == "" || utf8.RuneCountInString(req.Alt) > 300 {
-		fail(c, 400, "INVALID_MEDIA", "上传 PNG/JPEG 图片并填写说明，文件最多 512 KB", nil)
+	if err != nil || len(raw) > ((maxInput*4/3)+2048) || json.Unmarshal(raw, &req) != nil || (req.Kind != "image" && req.Kind != "chart") || strings.TrimSpace(req.Alt) == "" || utf8.RuneCountInString(req.Alt) > 300 {
+		fail(c, 400, "INVALID_MEDIA", "请提供符合大小限制的 PNG/JPEG 图片，并填写说明", nil)
 		return
 	}
 	content, err := base64.StdEncoding.DecodeString(req.Data)
-	if err != nil || len(content) == 0 || len(content) > socialMediaMaxBytes {
-		fail(c, 400, "INVALID_MEDIA", "图片需为有效 PNG/JPEG，最多 512 KB", nil)
+	if err != nil || len(content) == 0 || len(content) > maxInput {
+		fail(c, 400, "INVALID_MEDIA", "图片需为有效 PNG/JPEG，且不超过允许的输入大小", nil)
 		return
 	}
 	cfg, format, err := image.DecodeConfig(bytes.NewReader(content))
@@ -174,14 +240,36 @@ func (s *Service) uploadSocialMedia(ctx context.Context, c *app.RequestContext) 
 	}
 	var clean bytes.Buffer
 	mime := "image/png"
-	if format == "jpeg" {
-		mime = "image/jpeg"
-		err = jpeg.Encode(&clean, img, &jpeg.Options{Quality: 90})
-	} else {
-		err = png.Encode(&clean, img)
+	// Agent-picked source images are reduced automatically; no manual attachment editing.
+	for {
+		clean.Reset()
+		if format == "jpeg" {
+			mime = "image/jpeg"
+			err = jpeg.Encode(&clean, img, &jpeg.Options{Quality: 85})
+		} else {
+			err = png.Encode(&clean, img)
+		}
+		if err != nil {
+			break
+		}
+		if clean.Len() <= socialMediaMaxBytes {
+			break
+		}
+		bounds := img.Bounds()
+		w, h := bounds.Dx()*3/4, bounds.Dy()*3/4
+		if maxInput == socialMediaMaxBytes || w < 64 || h < 64 {
+			break
+		}
+		scaled := image.NewRGBA(image.Rect(0, 0, w, h))
+		for y := 0; y < h; y++ {
+			for x := 0; x < w; x++ {
+				scaled.Set(x, y, img.At(bounds.Min.X+x*bounds.Dx()/w, bounds.Min.Y+y*bounds.Dy()/h))
+			}
+		}
+		img = scaled
 	}
 	if err != nil || clean.Len() > socialMediaMaxBytes {
-		fail(c, 400, "INVALID_MEDIA", "处理后的图片超过 512 KB，请压缩后重试", nil)
+		fail(c, 400, "INVALID_MEDIA", "图片处理失败或仍然过大，请换一张工作配图", nil)
 		return
 	}
 	id, err := s.idgen.NextID()
@@ -223,6 +311,7 @@ func socialMediaID(value string) int64 {
 	}
 	return id
 }
+
 // List unused uploads so owners can reclaim space even after closing the editor.
 func (s *Service) listUnusedSocialMedia(ctx context.Context, c *app.RequestContext) {
 	viewer, _ := agentID(c)
@@ -243,7 +332,7 @@ func (s *Service) listUnusedSocialMedia(ctx context.Context, c *app.RequestConte
 	items := []map[string]any{}
 	for _, row := range rows {
 		items = append(items, map[string]any{
-			"url": socialMediaPrefix + strconv.FormatInt(row.MediaID, 10),
+			"url":   socialMediaPrefix + strconv.FormatInt(row.MediaID, 10),
 			"bytes": row.Bytes, "created_at": row.CreatedAt,
 		})
 	}

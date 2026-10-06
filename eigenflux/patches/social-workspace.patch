@@ -1,6 +1,6 @@
 --- a/api/consolev2/service.go
 +++ b/api/consolev2/service.go
-@@ -408,6 +408,29 @@
+@@ -408,6 +408,31 @@
  	h.GET("/api/v2/console/today/status", s.consoleAuth(false), s.requireCompleted, s.getTodayStatus)
  	h.GET("/api/v2/console/today/brief", s.consoleAuth(false), s.requireCompleted, s.getTodayBrief)
  	h.GET("/api/v2/console/home/discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
@@ -25,6 +25,8 @@
 +	h.POST("/api/v2/console/social/posts/:post_id/comments", s.consoleAuth(true), s.requireCompleted, s.createSocialComment)
 +	h.GET("/api/v2/console/social/commands", s.consoleAuth(false), s.requireCompleted, s.listSocialCommands)
 +	h.GET("/api/v2/social/posts", s.agentAuth("profile:read"), s.requireCompleted, s.listSocialPosts)
++	h.POST("/api/v2/social/share", s.agentAuth("broadcast:write"), s.requireCompleted, s.createSocialDraft)
++	h.POST("/api/v2/social/media", s.agentAuth("broadcast:write"), s.requireCompleted, s.uploadSocialMedia)
 +	h.POST("/api/v2/social/drafts", s.agentAuth("broadcast:write"), s.requireCompleted, s.createSocialDraft)
 +
  	h.GET("/api/v2/console/home/activity", s.consoleAuth(false), s.requireCompleted, s.getHomeActivity)
@@ -32,20 +34,23 @@
  	h.POST("/api/v2/telemetry/events:batch", s.consoleAuth(true), s.recordTelemetryBatch)
 --- a/api/consolev2/capability_registry.go
 +++ b/api/consolev2/capability_registry.go
-@@ -82,6 +82,8 @@
+@@ -82,6 +82,10 @@
  		capability("identity.legacy_login", "eigenflux auth login", "identity", "write", "旧版邮箱登录", "Legacy email login"),
  		capability("identity.legacy_verify", "eigenflux auth verify", "identity", "write", "验证旧版邮箱登录", "Verify legacy email login"),
  		capability("identity.logout", "eigenflux auth logout", "identity", "write", "退出旧版登录", "Log out of legacy authentication"),
++		capability("social.share", "eigenflux social share", "network", "write", "按主人本次授权分享工作", "Share owner-authorized work"),
++		capability("social.upload", "eigenflux social upload", "network", "write", "上传真实工作配图", "Upload work images"),
 +		capability("social.posts", "eigenflux social posts", "network", "read", "发现真实工作成果", "Read visible work posts"),
 +		capability("social.propose", "eigenflux social propose", "network", "write", "提交私有成果草稿供主人确认", "Propose a private work draft for owner approval"),
  		capability("profile.read", "eigenflux profile show", "profile", "read", "查看 Agent 资料", "View Agent profile"),
  		capability("profile.update", "eigenflux profile patch", "profile", "write", "修改 Agent Card", "Update Agent Card"),
  		capability("profile.legacy_update", "eigenflux profile update", "profile", "write", "兼容更新 Agent 资料", "Update the Agent profile through the compatibility command"),
-@@ -203,6 +205,7 @@
+@@ -203,6 +207,8 @@
  		if seed.id == "attention.prefill" {
  			seed.availability = "pre_onboarding"
  		}
 +		if strings.HasPrefix(seed.id, "social.") { seed.minCLI = "0.0.54-agentnet.3" }
++		if seed.id == "social.share" || seed.id == "social.upload" { seed.minCLI = "0.0.54-agentnet.5" }
  		if seed.category == "runtime" || seed.id == "heartbeat.plan" || seed.id == "settings.report" ||
  			seed.id == "settings.sync" ||
  			seed.id == "skills.sync" || strings.HasPrefix(seed.id, "feed.event.") || seed.id == "feed.feedback" ||
@@ -83,3 +88,11 @@
  	runtimeV2CommandPendingCmd.Flags().Int("limit", 20, "maximum commands to return (1-50)")
 +	runtimeV2CommandPendingCmd.Flags().String("command-type", "", "optional command type filter")
  	runtimeV2CommandClaimCmd.Flags().String("command-id", "", "command ID to claim")
+--- a/api/main.go
++++ b/api/main.go
+@@ -255,4 +255,5 @@
+ 	h := server.Default(
+ 		server.WithHostPorts(listenAddr),
++		server.WithMaxRequestBodySize(12 << 20),
+ 		tracer,
+ 	)

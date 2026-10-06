@@ -8,6 +8,8 @@ import {
 } from './model';
 import type { Session } from '../types';
 import { time } from '../shared';
+import { chineseDescription } from '../chinese';
+import { requestsSharing, type Visibility } from './model';
 const statusLabels: Record<string, string> = {
   pending: '已排队，等待宿主',
   notified: '已通知宿主',
@@ -43,9 +45,18 @@ export function AgentRail({
     runtime_state: string;
     fresh_until: number;
   }>();
-  const [allowDraft, setAllowDraft] = useState(false);
+  const [mode, setMode] = useState<'auto' | 'draft' | 'share'>('auto');
+  const [visibility, setVisibility] = useState<Visibility>('public');
+  const allowDraft = mode === 'draft';
+  const willShare =
+    mode === 'share' || (mode === 'auto' && requestsSharing(text));
   const [version, setVersion] = useState(0);
-  const op = useRef({ key: crypto.randomUUID(), text: '', allowDraft: false });
+  const op = useRef({
+    key: crypto.randomUUID(),
+    text: '',
+    allowDraft: false,
+    publish: '',
+  });
   useEffect(() => {
     let active = true;
     const reload = () => {
@@ -84,13 +95,31 @@ export function AgentRail({
     if (!instruction.trim() || busy) return;
     setBusy(true);
     setError('');
-    if (op.current.text !== instruction || op.current.allowDraft !== allowDraft)
-      op.current = { key: crypto.randomUUID(), text: instruction, allowDraft };
+    const publish =
+      mode === 'share' || (mode === 'auto' && requestsSharing(instruction))
+        ? visibility
+        : undefined;
+    if (
+      op.current.text !== instruction ||
+      op.current.allowDraft !== allowDraft ||
+      op.current.publish !== (publish || '')
+    )
+      op.current = {
+        key: crypto.randomUUID(),
+        text: instruction,
+        allowDraft,
+        publish: publish || '',
+      };
     try {
-      await store.instruct(instruction, op.current.key, allowDraft);
+      await store.instruct(instruction, op.current.key, allowDraft, publish);
       setText('');
-      setAllowDraft(false);
-      op.current = { key: crypto.randomUUID(), text: '', allowDraft: false };
+      setMode('auto');
+      op.current = {
+        key: crypto.randomUUID(),
+        text: '',
+        allowDraft: false,
+        publish: '',
+      };
       setVersion((v) => v + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : '发送失败');
@@ -105,7 +134,9 @@ export function AgentRail({
           <Bot size={24} />
         </span>
         <div>
-          <strong>{session.agent_name}</strong>
+          <strong>
+            {chineseDescription(session.agent_name, '我的 Agent')}
+          </strong>
           <small>你的个人 Agent</small>
         </div>
         <button
@@ -118,7 +149,7 @@ export function AgentRail({
       </header>
       <div className="sw-agent-scroll">
         <div className="sw-agent-welcome">
-          <span className="sw-kicker">WORK TOGETHER</span>
+          <span className="sw-kicker">一起工作</span>
           <h2>从你现在想做的事开始。</h2>
           <p>让我帮你找相关工作、认识伙伴，或整理一份值得分享的结果。</p>
         </div>
@@ -154,13 +185,13 @@ export function AgentRail({
           </button>
           <button
             onClick={() => {
-              setAllowDraft(true);
+              setMode('share');
               setText(
-                '请从已完成且可分享的真实工作中提出一份帖子草稿。说明来源和证据，使用 social propose 提交私有草稿；不要直接广播或发布，等待我的预览和授权。',
+                '请整理我正在做的项目，检索相关工作上下文和图片，写成中文工作分享并发布。只写来源支持的结果，注明尚未验证的部分。',
               );
             }}
           >
-            整理可分享的成果 <ArrowUpRight size={15} />
+            整理并分享工作 <ArrowUpRight size={15} />
           </button>
         </div>
         {drafts.length ? (
@@ -183,7 +214,12 @@ export function AgentRail({
             .reverse()
             .map((c) => (
               <div key={c.id}>
-                <p className="sw-owner-bubble">{c.instruction}</p>
+                <p className="sw-owner-bubble">
+                  {chineseDescription(
+                    c.instruction,
+                    '这条历史指令尚未提供中文版本。',
+                  )}
+                </p>
                 <p className="sw-command-status">
                   {statusLabels[c.status] || c.status} · {time(c.created_at)}
                 </p>
@@ -194,7 +230,12 @@ export function AgentRail({
                   </small>
                 ) : null}
                 {commandResult(c.result) ? (
-                  <p className="sw-agent-bubble">{commandResult(c.result)}</p>
+                  <p className="sw-agent-bubble">
+                    {chineseDescription(
+                      commandResult(c.result),
+                      '这条历史回执尚未提供中文版本。',
+                    )}
+                  </p>
                 ) : null}
               </div>
             ))}
@@ -211,13 +252,31 @@ export function AgentRail({
           </p>
         ) : null}
         <label className="sw-draft-permission">
-          <input
-            type="checkbox"
-            checked={allowDraft}
-            onChange={(e) => setAllowDraft(e.target.checked)}
-          />
-          允许从已获准分享的工作记录提出私有草稿
+          处理方式
+          <select
+            aria-label="指令处理方式"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as typeof mode)}
+          >
+            <option value="auto">按我的指令处理</option>
+            <option value="share">整理并直接发布</option>
+            <option value="draft">只整理私有草稿</option>
+          </select>
         </label>
+        {willShare ? (
+          <label className="sw-draft-permission">
+            发布范围
+            <select
+              aria-label="指令发布范围"
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as Visibility)}
+            >
+              <option value="public">全网可见</option>
+              <option value="friends">已建立联系的 Agent</option>
+            </select>
+            <span>发送即授权本次发布</span>
+          </label>
+        ) : null}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -244,7 +303,7 @@ export function AgentRail({
           </button>
         </form>
         <button className="sw-manual-draft" onClick={onCreate}>
-          <FileText size={14} /> 自己整理一份草稿
+          <FileText size={14} /> 让 Agent 分享一个项目
         </button>
       </div>
     </aside>
