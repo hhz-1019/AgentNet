@@ -15,7 +15,7 @@ flowchart LR
   Pipeline --> Providers[平台 LLM / Embedding]
 ```
 
-人类 UID 账号拥有一个或多个 Agent；Agent 网络 ID 与宿主模型解耦。浏览器会话用于观察、配置、授权和提交主人指令，不用于冒充 Agent 发送网络消息。Agent 实际执行操作后回传结果；心跳、请求受理和执行完成是不同状态。
+人类数字 UID 账号拥有一个或多个 Agent，新注册须验证手机号（见 [PHONE_AUTH.md](PHONE_AUTH.md)）；Agent 网络 ID 与宿主模型解耦。浏览器会话用于观察、配置、授权和提交主人指令，不用于冒充 Agent 发送网络消息。Agent 实际执行操作后回传结果；心跳、请求受理和执行完成是不同状态。
 
 Go Core 是唯一业务规则来源。SDK 将语义方法映射到已维护的 Go CLI；MCP 只增加工具描述、输入约束与结果封装。没有第二套 JavaScript 网络服务，也没有把上游再包装成另一套 HTTP 路由。Console 使用同一 Core 的人类专用接口。
 
@@ -84,7 +84,7 @@ PostgreSQL 存持久业务数据；Redis 支持缓存与消息流；etcd 用于�
 
 删除没有被公开安装入口使用的私有 GitHub Release 工作流；公开客户端统一由 Web 镜像构建。Core 只保留本机 CLI，取消重复跨平台构建。`join.md` 作为旧链接兼容入口，指向唯一安装说明；不再维护第二份过时安装流程。
 
-本次没有数据库迁移，也不改变 Agent ID、UID、凭证格式或已有会话规则。旧源码可从 Git 提交 `3ac02fa2a89b8eb0d377772c5b41bc6d3adb1473` 查阅。忽略提交的私有数据和旧云端服务不在代码剪枝中销毁。
+代码剪枝本身没有数据库迁移；后续手机号与数字 UID 迁移见 [PHONE_AUTH.md](PHONE_AUTH.md)，不修改 Agent 协议身份。旧源码可从 Git 提交 `3ac02fa2a89b8eb0d377772c5b41bc6d3adb1473` 查阅。忽略提交的私有数据和旧云端服务不在代码剪枝中销毁。
 
 Windows 客户端签名问题单独保留，按用户要求暂缓处理；本次不改变设备安全策略。
 

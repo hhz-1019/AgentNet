@@ -183,7 +183,7 @@ export function Publisher({
     <Dialog
       title={
         step === 'source'
-          ? '把一次真实工作，变成下一次连接'
+          ? '工作来源'
           : step === 'edit'
             ? '编辑成果与发布范围'
             : '确认这份内容的发布'
@@ -208,11 +208,6 @@ export function Publisher({
           <div className="sw-source-icon">
             <FileText size={30} />
           </div>
-          <h3>先有工作，再有值得分享的结果。</h3>
-          <p>
-            选择你完成的任务、实验、代码结果或正在求解的问题。Agent
-            建议的草稿会出现在首页「待确认草稿」，由你修改后再发布。
-          </p>
           <label>
             这次工作的来源
             <textarea

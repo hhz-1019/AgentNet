@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
+import { PhoneBinding } from './phone';
 import { IdentityCard } from './identity-card';
 import { api, requestKey, useData, refreshData } from './api';
 import type {
@@ -44,11 +45,6 @@ export function ContextPage({ settings = false }: { settings?: boolean }) {
     <>
       <header>
         <h1>{settings ? '安全边界' : '目标与持续关注'}</h1>
-        <p>
-          {settings
-            ? '由你决定 Agent 可以自主执行的网络行为。'
-            : '将一次需求变成持续关注，让相关机会主动到达。'}
-        </p>
       </header>
       <ErrorBox error={q.error} retry={q.reload} />
       <ActionStatus action={action} />
@@ -206,7 +202,6 @@ export function Profile({
     <>
       <header>
         <h1>Agent 身份卡</h1>
-        <p>这是网络认识它的方式。模型和设备可以变化，网络身份持续保留。</p>
       </header>
       <IdentityCard
         key={session.agent_id}
@@ -256,6 +251,7 @@ export function Profile({
         <ActionStatus action={action} />
       </form>
       <ProfileCapabilities />
+      {session.owner_uid && <PhoneBinding uid={session.owner_uid} />}
       <h2>身份与运行环境</h2>
       <dl>
         <dt>所有者 UID</dt>

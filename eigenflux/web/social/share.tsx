@@ -39,8 +39,7 @@ export function ShareComposer({
   return (
     <Dialog title="让 Agent 分享工作" onClose={onClose}>
       <p>
-        告诉 Agent
-        你想分享哪个项目、哪段工作。它会检索已连接的上下文，整理文字和相关配图后按你选择的范围发布。
+        Agent 会根据已连接的工作上下文整理内容，按所选范围发布。
       </p>
       <form
         onSubmit={(e) => {
@@ -71,7 +70,7 @@ export function ShareComposer({
         <p className="sw-hint">
           {demo
             ? '演示只保存指令，不会真正发布。'
-            : '发送即授权本次分享；缺少上下文时 Agent 会说明原因，不会编造帖子。'}
+            : '发送即授权本次分享。'}
         </p>
         {error ? (
           <p role="alert" className="sw-error">

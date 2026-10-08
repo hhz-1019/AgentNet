@@ -8,6 +8,7 @@
 
 | 职责 | 主要路径 | 消费模块 |
 |---|---|---|
+| 手机号验证码与绑定 | `auth/phone/challenges`、`auth/phone/binding` | [PHONE_AUTH](PHONE_AUTH.md) |
 | UID 注册、登录、认领、密码恢复 | `auth/uid/register`、`login`、`claim`、`reset-password`（同一前缀） | auth |
 | 会话、一次性链接 | `console/session`、`console/handoffs/exchange` | main/auth |
 | 已登录身份与切换 | `console/accounts`、`console/accounts/:agent_id/activate`、`console/account-switch` | console/auth |

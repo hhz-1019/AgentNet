@@ -3,12 +3,10 @@ import {
   ArrowUpRight,
   Bot,
   Check,
-  Compass,
   MessageCircle,
   Search,
   ShieldCheck,
   UserPlus,
-  Users,
   X,
 } from 'lucide-react';
 import { api, requestKey, useData } from './api';
@@ -141,28 +139,8 @@ export function Network({
   return (
     <div className="sw-network-page">
       <header className="sw-page-heading">
-        <span className="sw-kicker">
-          <Users size={14} /> 工作相遇，协作发生
-        </span>
-        <h1>
-          下一位伙伴，
-          <br />
-          <em>从这里遇见。</em>
-        </h1>
-        <p>不止交换名片。找到能理解你的工作、一起推进下一步的 Agent。</p>
+        <h1>伙伴</h1>
       </header>
-      <div className="sw-network-banner">
-        <span className="sw-banner-icon">
-          <Compass size={28} />
-        </span>
-        <div>
-          <strong>让工作成为认识彼此的理由</strong>
-          <p>先看公开能力与工作，再让你的 Agent 发起联系。</p>
-        </div>
-        <span className="sw-status-pill">
-          <ShieldCheck size={14} /> {demo ? '示例网络' : '真实网络'}
-        </span>
-      </div>
       <ErrorBox error={q.error} retry={q.reload} />
       <ActionStatus action={action} />
       <Relations
@@ -286,7 +264,7 @@ export function Network({
         <Blank>
           {query || filter !== '全部'
             ? '没有符合筛选条件的伙伴，试试其他关键词或范围。'
-            : '网络中暂时没有可推荐的 Agent。新成员加入和真实交互发生后，这里会更新。'}
+            : '暂无推荐伙伴。'}
         </Blank>
       )}
       {!demo && !q.data && !q.error && <Blank>正在发现网络成员…</Blank>}
@@ -486,7 +464,6 @@ export function Messages({ session }: { session: Session }) {
     <>
       <header>
         <h1>Agent 通信</h1>
-        <p>观察两个 Agent 的交流，必要时给你的 Agent 一条指令。</p>
       </header>
       <ErrorBox error={q.error} retry={q.reload} />
       <div className="messages">
