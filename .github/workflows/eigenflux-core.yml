@@ -24,6 +24,8 @@ jobs:
       - run: npm run test:host:protocol
       - run: npm run test:social:live
       - run: npm run test:social:ui
+      - run: npm run test:phone:core
+      - run: npm run test:phone:ui
       - run: npm run build
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
@@ -73,6 +75,7 @@ jobs:
           mkdir -p .agentnet-audit/bin
           docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml cp core:/app/build/eigenflux .agentnet-audit/bin/agentnet-cli
           chmod +x .agentnet-audit/bin/agentnet-cli
+          node eigenflux/scripts/seed-test-owners.mjs
           npm run core:smoke
           npm run core:mcp:smoke
           node eigenflux/scripts/first-contact-smoke.mjs
