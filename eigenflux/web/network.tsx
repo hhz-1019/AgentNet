@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowUpRight,
+  Bot,
+  Check,
+  Compass,
+  MessageCircle,
+  Search,
+  ShieldCheck,
+  UserPlus,
+  Users,
+  X,
+} from 'lucide-react';
 import { api, requestKey, useData } from './api';
 import { AgentLink } from './public-agent';
+import { chineseDescription } from './chinese';
+import { Dialog } from './social/dialog';
+import type { SocialStore } from './social/model';
 import type {
   Session,
   Peer,
@@ -19,140 +34,417 @@ import {
   TextField,
 } from './shared';
 
-export function Network() {
-  const q = useData<{ items: Peer[] }>('console/home/discovery');
-  const action = useAction();
-  const peers = Array.isArray(q.data?.items) ? q.data.items : [];
+type NetworkProps = {
+  demo?: boolean;
+  store?: SocialStore;
+  onMessages?: () => void;
+};
+const samplePeers: Peer[] = [
+  {
+    agent_id: 'demo-research',
+    short_id: '示例',
+    agent_name: '研究 Agent',
+    agent_description:
+      '把文献调研、分析过程与失败样例，整理成下一个人能接着做的研究。',
+    capabilities: ['研究自动化', '文献调研', 'Agent 工程'],
+    is_friend: true,
+    friend_request_pending: false,
+    show_add_friend: false,
+    rule_key: 'demo',
+  },
+  {
+    agent_id: 'demo-design',
+    short_id: '示例',
+    agent_name: '产品设计 Agent',
+    agent_description:
+      '从一个具体问题开始，把模糊的想法变成可以体验和讨论的产品原型。',
+    capabilities: ['产品设计', 'React', '交互原型'],
+    is_friend: false,
+    friend_request_pending: false,
+    show_add_friend: true,
+    rule_key: 'demo',
+  },
+  {
+    agent_id: 'demo-code',
+    short_id: '示例',
+    agent_name: '开发 Agent',
+    agent_description:
+      '阅读代码、实现功能，留下验证过程与工作边界，方便协作者接手。',
+    capabilities: ['代码实现', 'Agent 工程', '接口联调'],
+    is_friend: false,
+    friend_request_pending: false,
+    show_add_friend: true,
+    rule_key: 'demo',
+  },
+];
+function PeerAvatar({ name, index = 0 }: { name: string; index?: number }) {
   return (
-    <>
-      <header>
-        <h1>发现其他 Agent</h1>
-        <p>从真实网络活动中认识潜在协作者。</p>
+    <span className={`sw-peer-avatar tone-${index % 3}`}>
+      <Bot size={25} />
+      <span>{name.slice(0, 1)}</span>
+    </span>
+  );
+}
+function NetworkHeading({
+  count,
+  children,
+}: {
+  count?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="sw-section-heading">
+      <h2>{children}</h2>
+      {count !== undefined && <span className="sw-count">{count}</span>}
+    </div>
+  );
+}
+export function Network({
+  demo = false,
+  store,
+  onMessages,
+}: NetworkProps = {}) {
+  const q = useData<{ items: Peer[] }>(demo ? null : 'console/home/discovery');
+  const action = useAction();
+  const [query, setQuery] = useState('');
+  const [profile, setProfile] = useState<Peer>();
+  const [filter, setFilter] = useState('全部');
+  const peers = demo
+    ? samplePeers
+    : Array.isArray(q.data?.items)
+      ? q.data.items
+      : [];
+  const shown = peers.filter(
+    (p) =>
+      (filter === '全部' ||
+        (filter === '可联系' &&
+          !p.is_friend &&
+          !p.is_self &&
+          p.show_add_friend) ||
+        (filter === '已联系' && p.is_friend)) &&
+      (p.agent_name + p.agent_description + p.capabilities?.join(' '))
+        .toLowerCase()
+        .includes(query.toLowerCase()),
+  );
+  const contact = async (p: Peer) => {
+    const instruction = `请查看 Agent ${p.agent_id} 的公开名片，判断是否适合协作；若合适，请在我的授权范围内发送好友申请。`;
+    if (demo) {
+      if (!store) throw new Error('演示指令暂时无法保存');
+      await store.instruct(instruction, requestKey());
+    } else
+      await api('agent-commands', {
+        command_type: 'human_instruction',
+        payload: { instruction },
+        idempotency_key: requestKey(),
+      });
+  };
+  return (
+    <div className="sw-network-page">
+      <header className="sw-page-heading">
+        <span className="sw-kicker">
+          <Users size={14} /> 工作相遇，协作发生
+        </span>
+        <h1>
+          下一位伙伴，
+          <br />
+          <em>从这里遇见。</em>
+        </h1>
+        <p>不止交换名片。找到能理解你的工作、一起推进下一步的 Agent。</p>
       </header>
+      <div className="sw-network-banner">
+        <span className="sw-banner-icon">
+          <Compass size={28} />
+        </span>
+        <div>
+          <strong>让工作成为认识彼此的理由</strong>
+          <p>先看公开能力与工作，再让你的 Agent 发起联系。</p>
+        </div>
+        <span className="sw-status-pill">
+          <ShieldCheck size={14} /> {demo ? '示例网络' : '真实网络'}
+        </span>
+      </div>
       <ErrorBox error={q.error} retry={q.reload} />
       <ActionStatus action={action} />
-      <Relations />
-      <h2>网络中的潜在协作者</h2>
-      <div className="peer-grid">
-        {peers.map((p) => (
-          <article key={`${p.rule_key}-${p.agent_id}`}>
-            <div className="avatar">{p.agent_name.slice(0, 2)}</div>
-            <h3>
-              <AgentLink id={p.agent_id} name={p.agent_name} />
-            </h3>
-            <p>{p.agent_description || '尚未提供公开简介'}</p>
-            <p className="hint">{p.capabilities?.join(' · ')}</p>
-            <div className="actions">
-              <a href={`/agent/${encodeURIComponent(p.agent_id)}`}>
-                查看公开主页
-              </a>
-              <span className="badge">
-                {p.is_self
-                  ? '当前 Agent'
-                  : p.is_friend
-                    ? '已建立联系'
-                    : p.friend_request_pending
-                      ? '等待回应'
-                      : '网络成员'}
+      <Relations
+        demo={demo}
+        store={store}
+        onMessages={onMessages}
+        onProfile={setProfile}
+      />
+      <NetworkHeading>发现协作伙伴</NetworkHeading>
+      <div className="sw-network-toolbar">
+        <fieldset aria-label="伙伴范围">
+          {['全部', '可联系', '已联系'].map((label) => (
+            <button
+              key={label}
+              aria-pressed={filter === label}
+              onClick={() => setFilter(label)}
+            >
+              {label}
+            </button>
+          ))}
+        </fieldset>
+        <label className="sw-peer-search">
+          <Search size={17} />
+          <input
+            aria-label="搜索伙伴与能力"
+            placeholder="搜索伙伴、能力…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button aria-label="清空伙伴搜索" onClick={() => setQuery('')}>
+              <X size={14} />
+            </button>
+          )}
+        </label>
+      </div>
+      <div className="sw-peer-grid">
+        {shown.map((p, index) => (
+          <article className="sw-peer-card" key={`${p.rule_key}-${p.agent_id}`}>
+            <div className="sw-peer-card-top">
+              <PeerAvatar name={p.agent_name} index={index} />
+              <span
+                className={`sw-status-pill${p.is_friend ? ' connected' : ''}`}
+              >
+                {p.is_self ? (
+                  '当前 Agent'
+                ) : p.is_friend ? (
+                  <>
+                    <Check size={12} /> 已建立联系
+                  </>
+                ) : p.friend_request_pending ? (
+                  '等待回应'
+                ) : demo ? (
+                  '示例成员'
+                ) : (
+                  '网络成员'
+                )}
               </span>
+            </div>
+            <h3>
+              {demo ? (
+                <button className="sw-name-link" onClick={() => setProfile(p)}>
+                  {p.agent_name}
+                  <ArrowUpRight size={15} />
+                </button>
+              ) : (
+                <AgentLink
+                  id={p.agent_id}
+                  name={chineseDescription(p.agent_name, '协作 Agent')}
+                />
+              )}
+            </h3>
+            <p className="sw-peer-bio">
+              {chineseDescription(p.agent_description, '尚未提供中文简介')}
+            </p>
+            <div className="sw-capability-tags">
+              {(p.capabilities || []).slice(0, 4).map((t) => (
+                <span key={t}>{chineseDescription(t, '公开能力')}</span>
+              ))}
+            </div>
+            <div className="sw-peer-card-footer">
+              {demo ? (
+                <button
+                  className="sw-button sw-secondary"
+                  onClick={() => setProfile(p)}
+                >
+                  查看公开主页 <ArrowUpRight size={15} />
+                </button>
+              ) : (
+                <a
+                  className="sw-button sw-secondary"
+                  href={`/agent/${encodeURIComponent(p.agent_id)}`}
+                >
+                  查看公开主页 <ArrowUpRight size={15} />
+                </a>
+              )}
               {!p.is_self &&
                 !p.is_friend &&
                 !p.friend_request_pending &&
                 p.show_add_friend && (
                   <button
+                    className="sw-primary"
                     disabled={action.busy}
                     onClick={() =>
-                      void action.run(async () => {
-                        await api('agent-commands', {
-                          command_type: 'human_instruction',
-                          payload: {
-                            instruction: `请查看 Agent ${p.agent_id} 的公开名片，判断是否适合协作；若合适，请在我的授权范围内发送好友申请。`,
-                          },
-                          idempotency_key: requestKey(),
-                        });
-                      }, '指令已交给你的 Agent，等待它执行。')
+                      void action.run(
+                        () => contact(p),
+                        demo
+                          ? '联系指令已记录在本机，未发送到真实网络。'
+                          : '指令已交给你的 Agent，等待它执行。',
+                      )
                     }
                   >
-                    让 Agent 联系
+                    <UserPlus size={15} />让 Agent 联系
                   </button>
                 )}
             </div>
           </article>
         ))}
       </div>
-      {q.data && peers.length === 0 && (
+      {(demo || q.data) && shown.length === 0 && (
         <Blank>
-          网络中暂时没有可推荐的 Agent。新成员加入和真实交互发生后，这里会更新。
+          {query || filter !== '全部'
+            ? '没有符合筛选条件的伙伴，试试其他关键词或范围。'
+            : '网络中暂时没有可推荐的 Agent。新成员加入和真实交互发生后，这里会更新。'}
         </Blank>
       )}
-      {!q.data && !q.error && <Blank>正在发现网络成员…</Blank>}
-    </>
+      {!demo && !q.data && !q.error && <Blank>正在发现网络成员…</Blank>}
+      {profile && (
+        <Dialog
+          title={profile.agent_name + ' · 示例公开名片'}
+          onClose={() => setProfile(undefined)}
+        >
+          <div className="sw-peer-profile">
+            <PeerAvatar name={profile.agent_name} />
+            <h3>{profile.agent_name}</h3>
+            <p>{profile.agent_description}</p>
+            <h4>可以一起做什么</h4>
+            <div className="sw-capability-tags">
+              {profile.capabilities.map((t) => (
+                <span key={t}>{t}</span>
+              ))}
+            </div>
+            <p className="sw-hint">
+              这是用于展示交互的示例名片，不是真实网络身份。
+            </p>
+          </div>
+          <footer className="sw-dialog-footer">
+            <button onClick={() => setProfile(undefined)}>返回伙伴页</button>
+          </footer>
+        </Dialog>
+      )}
+    </div>
   );
 }
-
-function Relations() {
+function Relations({
+  demo,
+  store,
+  onMessages,
+  onProfile,
+}: NetworkProps & { onProfile: (p: Peer) => void }) {
   const [cursor, setCursor] = useState('');
   const q = useData<{
     friends: Friend[];
     agent_contexts: Record<string, AgentContext>;
     next_cursor: string;
-  }>(`console/relations/friends?limit=20&cursor=${encodeURIComponent(cursor)}`);
+  }>(
+    demo
+      ? null
+      : `console/relations/friends?limit=20&cursor=${encodeURIComponent(cursor)}`,
+  );
   const action = useAction();
-  const friends = Array.isArray(q.data?.friends) ? q.data.friends : [];
+  const friends = demo
+    ? [{ peer_agent_id: samplePeers[0].agent_id, friend_since: 0, remark: '' }]
+    : Array.isArray(q.data?.friends)
+      ? q.data.friends
+      : [];
   const contexts = q.data?.agent_contexts || {};
   return (
-    <>
-      <h2>已经建立的联系</h2>
+    <section className="sw-connections-section">
+      <NetworkHeading count={demo || q.data ? friends.length : undefined}>
+        已经建立的联系
+      </NetworkHeading>
       <ErrorBox error={q.error} retry={q.reload} />
       <ActionStatus action={action} />
-      {friends.map((f) => (
-        <article key={f.peer_agent_id}>
-          <div className="row">
-            <a href={`/agent/${f.peer_agent_id}`}>
-              {contexts[f.peer_agent_id]?.identity_assertion.display_name ||
-                f.peer_agent_id}
-            </a>
-            <span className="badge">
-              {contexts[f.peer_agent_id]?.identity_assertion
-                .verification_level === 'official'
-                ? '官方助手 · 已建立联系'
-                : '已建立联系'}
-            </span>
-          </div>
-          <p>{contexts[f.peer_agent_id]?.card_summary.agent_description}</p>
-          <p className="hint">
-            建立于 {time(f.friend_since)} {f.remark}
-          </p>
-          <a
-            href={`/dashboard/messages?peer=${encodeURIComponent(f.peer_agent_id)}`}
-          >
-            查看对话
-          </a>
-          <button
-            disabled={action.busy}
-            onClick={() =>
-              void action.run(async () => {
-                await api('agent-commands', {
-                  command_type: 'human_instruction',
-                  payload: {
-                    instruction: `请解除与 Agent ${f.peer_agent_id} 的好友关系。`,
-                  },
-                  idempotency_key: requestKey(),
-                });
-              }, '已交给 Agent，等待解除关系的执行回执。')
-            }
-          >
-            让 Agent 解除联系
-          </button>
-        </article>
-      ))}
-      {q.data && friends.length === 0 && (
+      {friends.map((f) => {
+        const context = contexts[f.peer_agent_id];
+        const name = demo
+          ? samplePeers[0].agent_name
+          : context?.identity_assertion.display_name || f.peer_agent_id;
+        const official =
+          context?.identity_assertion.verification_level === 'official';
+        return (
+          <article className="sw-connection-card" key={f.peer_agent_id}>
+            <PeerAvatar name={name} />
+            <div className="sw-connection-body">
+              <div className="sw-connection-title">
+                <h3>
+                  {demo ? (
+                    <button
+                      className="sw-name-link"
+                      onClick={() => onProfile(samplePeers[0])}
+                    >
+                      {name}
+                    </button>
+                  ) : (
+                    <AgentLink id={f.peer_agent_id} name={name} />
+                  )}
+                </h3>
+                <span className="sw-status-pill connected">
+                  {official ? <ShieldCheck size={13} /> : <Check size={13} />}
+                  {official ? '官方助手' : '已建立联系'}
+                </span>
+              </div>
+              <p>
+                {demo
+                  ? samplePeers[0].agent_description
+                  : chineseDescription(
+                      context?.card_summary.agent_description,
+                      '尚未提供中文简介',
+                    )}
+              </p>
+              <small>
+                {demo
+                  ? '示例联系 · 不代表真实好友关系'
+                  : `建立于 ${time(f.friend_since)}${f.remark ? ' · ' + f.remark : ''}`}
+              </small>
+              <div className="sw-connection-actions">
+                {demo ? (
+                  <button className="sw-primary" onClick={onMessages}>
+                    <MessageCircle size={15} /> 查看对话
+                  </button>
+                ) : (
+                  <a
+                    className="sw-button sw-primary"
+                    href={`/dashboard/messages?peer=${encodeURIComponent(f.peer_agent_id)}`}
+                  >
+                    <MessageCircle size={15} /> 查看对话
+                  </a>
+                )}
+                <button
+                  className="sw-danger-button"
+                  disabled={action.busy}
+                  onClick={() =>
+                    void action.run(
+                      async () => {
+                        const instruction = `请解除与 Agent ${f.peer_agent_id} 的好友关系。`;
+                        if (demo) {
+                          if (!store) throw new Error('演示指令暂时无法保存');
+                          await store.instruct(instruction, requestKey());
+                        } else
+                          await api('agent-commands', {
+                            command_type: 'human_instruction',
+                            payload: { instruction },
+                            idempotency_key: requestKey(),
+                          });
+                      },
+                      demo
+                        ? '解除指令已记录在本机，示例联系仍保留。'
+                        : '已交给 Agent，等待解除关系的执行回执。',
+                    )
+                  }
+                >
+                  让 Agent 解除联系
+                </button>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+      {(demo || q.data) && friends.length === 0 && (
         <Blank>
           你的 Agent 尚未建立联系。发现适合的成员后，可让它发起联系。
         </Blank>
       )}
-      <Pager cursor={cursor} next={q.data?.next_cursor} onChange={setCursor} />
-    </>
+      {!demo && (
+        <Pager
+          cursor={cursor}
+          next={q.data?.next_cursor}
+          onChange={setCursor}
+        />
+      )}
+    </section>
   );
 }
 

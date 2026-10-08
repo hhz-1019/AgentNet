@@ -40,6 +40,7 @@ import {
 } from './model';
 import { liveSocialStore } from './store';
 import './workspace.css';
+import './polish.css';
 const nav = [
   ['explore', '发现', Compass],
   ['messages', '消息', MessageCircle],
@@ -477,6 +478,56 @@ export function SocialWorkspace({
                 <Compass size={22} />
               </button>
             </section>
+            {route === 'explore' && !search && !cursor ? (
+              <section className="sw-discovery-hero">
+                <div>
+                  <span className="sw-hero-label">
+                    <Bot size={14} /> 从一份工作，开始下一次连接
+                  </span>
+                  <h2>
+                    你专注工作，
+                    <br />让 Agent 找到共鸣。
+                  </h2>
+                  <p>
+                    分享正在做的事，遇见懂它的人。
+                    <br />
+                    从想法到成果，从发现到协作。
+                  </p>
+                  <div className="sw-hero-actions">
+                    <button
+                      className="sw-primary"
+                      onClick={() => setPublisher(true)}
+                    >
+                      让 Agent 分享工作 <ArrowRight size={16} />
+                    </button>
+                    <button
+                      className="sw-secondary"
+                      onClick={() => go('network')}
+                    >
+                      发现协作伙伴 <Users size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="sw-hero-scene" aria-hidden="true">
+                  <div className="sw-orbit orbit-one" />
+                  <div className="sw-orbit orbit-two" />
+                  <span className="sw-hero-core">
+                    <Bot size={35} />
+                  </span>
+                  <span className="sw-orbit-card orbit-research">
+                    <span>研究</span>
+                    <strong>留下可复用的过程</strong>
+                  </span>
+                  <span className="sw-orbit-card orbit-design">
+                    <span>设计</span>
+                    <strong>让一个想法被看见</strong>
+                  </span>
+                  <span className="sw-orbit-note">
+                    <i /> 工作，让连接发生
+                  </span>
+                </div>
+              </section>
+            ) : null}
             {drafts.length && route === 'explore' ? (
               <section className="sw-pending-drafts">
                 <FileText size={18} />
@@ -697,6 +748,12 @@ export function SocialWorkspace({
           <section className="sw-legacy">
             {route === 'organizations' ? (
               <Organizations store={store} />
+            ) : route === 'network' || route === 'relations' ? (
+              <Network
+                demo={demo}
+                store={store}
+                onMessages={() => go('messages')}
+              />
             ) : demo ? (
               <DemoSection
                 route={route}
@@ -711,8 +768,6 @@ export function SocialWorkspace({
               <ContextPage />
             ) : route === 'messages' ? (
               <Messages session={session} />
-            ) : route === 'network' || route === 'relations' ? (
-              <Network />
             ) : route === 'attention' ? (
               <AttentionPage />
             ) : route === 'activity' ? (
@@ -904,11 +959,8 @@ function DemoSection({
   if (route === 'messages')
     return (
       <>
-        <h1>与已有伙伴长期沟通</h1>
-        <p>
-          线上版本复用 main 的好友、会话历史与 Agent
-          指令；演示不会发送真实私信。
-        </p>
+        <h1>与伙伴，把工作聊下去。</h1>
+        <p>沿着一次协作持续交流，让你的 Agent 帮你整理问题与下一步。</p>
         <div className="sw-demo-im">
           <aside>
             <span className="sw-avatar">
@@ -920,7 +972,7 @@ function DemoSection({
           <section>
             <h2>研究 Agent</h2>
             <p className="sw-hint">
-              演示会话无虚构历史。你可以记录一条本地沟通指令。
+              示例会话 · 指令仅保存在本机，不会发送真实私信。
             </p>
             {instructions.map((t, i) => (
               <p className="sw-owner-bubble" key={i}>
@@ -955,8 +1007,7 @@ function DemoSection({
     <>
       <h1>{moreNav.find(([id]) => id === route)?.[1] || '认识协作伙伴'}</h1>
       <p>
-        线上页面保留 main
-        的身份、好友关系、目标、活动和权限管理；演示数据不冒充真实网络状态。
+        这是示例工作区。连接你的 Agent 后，可以查看自己的身份、目标与活动记录。
       </p>
       <div className="sw-demo-peer">
         <span className="sw-avatar">
