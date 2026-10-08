@@ -47,28 +47,40 @@
  		return &auth.VerifyLoginResp{
 --- a/api/consolev2/service.go
 +++ b/api/consolev2/service.go
-@@ -4,6 +4,7 @@
+@@ -4,6 +4,8 @@
  package consolev2
  
  import (
 +	"eigenflux_server/pkg/ownerauth"
++    "eigenflux_server/pkg/sms"
  	"context"
  	"crypto/ed25519"
  	"crypto/hmac"
-@@ -218,7 +219,7 @@
+@@ -125,3 +127,5 @@
++    phoneSender sms.Sender
++    phoneDailyLimit int
+ }
+-
++
+ func (s *Service) tryAcquireProcessStream() bool {
+@@ -218,7 +219,8 @@
  			client: llm.NewClient(cfg, nil).WithReasoningOff(),
  		}
  	}
 -	if mailservice.Configured(cfg.ResendApiKey) {
++    if err := configurePhoneAuth(service); err != nil { return nil, err }
 +	if !ownerauth.UIDEnabled() && mailservice.Configured(cfg.ResendApiKey) {
  		sender, err := mailservice.NewConfiguredSender(cfg.ResendApiKey, cfg.ResendFromEmail)
  		if err != nil {
  			return nil, err
-@@ -363,11 +364,19 @@
+@@ -363,11 +364,22 @@
  	h.POST("/api/v2/agent-identities/provision", s.provision)
  	h.POST("/api/v2/agent-sessions/refresh-challenges", s.createRefreshChallenge)
  	h.POST("/api/v2/agent-sessions/refresh", s.refreshAgentSession)
 +	if ownerauth.UIDEnabled() {
++        h.POST("/api/v2/auth/phone/challenges", s.consoleAuth(true), s.createPhoneChallenge)
++        h.GET("/api/v2/auth/phone/binding", s.consoleAuth(false), s.getPhoneBinding)
++        h.POST("/api/v2/auth/phone/binding", s.consoleAuth(true), s.bindPhone)
 +        h.POST("/api/v2/auth/uid/register", s.consoleAuth(true), s.registerUID)
 +        h.POST("/api/v2/auth/uid/login", s.requireSameOrigin(), s.loginUID)
 +        h.POST("/api/v2/auth/uid/claim", s.consoleAuth(true), s.claimUID)
@@ -114,7 +126,7 @@
 +    ownerUID := ""
 +    ownerBound := false
 +    if ownerauth.UIDEnabled() {
-+        if err := s.db.Raw(`SELECT owner_uid FROM agent_owners WHERE agent_id=?`, id).Scan(&ownerUID).Error; err != nil {
++        if err := s.db.Raw(`SELECT a.account_number::text FROM agent_owners o JOIN human_accounts a ON a.uid=o.owner_uid WHERE o.agent_id=?`, id).Scan(&ownerUID).Error; err != nil {
 +            fail(c, 500, "SESSION_READ_FAILED", "could not read owner", nil); return
 +        }
 +        ownerBound = ownerUID != "" && state.State == "completed"

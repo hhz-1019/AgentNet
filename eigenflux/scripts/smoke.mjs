@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { AgentNet } from '../client/sdk.mjs';
 import { normalizeDraft, saveOnboardingStep } from '../web/onboarding.ts';
@@ -9,6 +9,23 @@ import {
 } from './acceptance-target.mjs';
 const endpoint = process.env.AGENTNET_TEST_URL || 'http://127.0.0.1:4321';
 assertAcceptanceTarget(endpoint);
+// Full-service smoke uses pre-created test owners. Registration/OTP behavior is
+// exercised separately by test:phone:core, without adding a production bypass.
+let testOwners;
+try {
+  testOwners = JSON.parse(
+    await readFile(
+      process.env.AGENTNET_SMOKE_OWNERS_FILE ||
+        '.agentnet-audit/test-owners.json',
+      'utf8',
+    ),
+  );
+} catch {
+  throw Error(
+    'Provide verified test owners via AGENTNET_SMOKE_OWNERS_FILE; isolated CI runs seed-test-owners.mjs first.',
+  );
+}
+
 const run = Date.now().toString();
 const directory = resolve('.agentnet-audit', 'core-' + run);
 await mkdir(directory, { recursive: true });
@@ -86,12 +103,15 @@ async function join(name, existingOwner) {
     identity.agent_id,
     'replayed ticket must not destroy the existing browser session',
   );
-  const password = existingOwner?.password || `test-${crypto.randomUUID()}`;
-  const owner = existingOwner
-    ? await h('auth/uid/claim', { uid: existingOwner.uid, password })
-    : await h('auth/uid/register', { password });
-  assert(owner.uid.startsWith('u_'));
-  if (!existingOwner) assert(owner.recovery_key.startsWith('rk_'));
+  const credential = existingOwner || testOwners[name];
+  assert(
+    credential?.uid && credential.password && credential.recoveryKey,
+    'Missing isolated test owner credentials',
+  );
+  const password = credential.password;
+  const owner = await h('auth/uid/claim', { uid: credential.uid, password });
+  owner.recovery_key = credential.recoveryKey;
+  assert.match(owner.uid, /^[1-9]\d{4,}$/);
   let draft = await h('agents/me/onboarding-draft');
   // A corrected prefill must update the existing draft, not allocate a new identity.
   const prefill = {
@@ -603,5 +623,5 @@ await writeFile(
   ),
 );
 console.log(
-  'Real model processing was NOT tested. UID authentication used ordinary passwords without OTP or mail services.',
+  'Real model processing was NOT tested. UID login used pre-created isolated owner fixtures; run test:phone:core for OTP registration coverage.',
 );

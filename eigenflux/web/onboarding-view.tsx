@@ -74,7 +74,6 @@ export function Onboard({
           '确认安全边界',
         ][step] || '完成接入'}
       </h1>
-      <p>检查 Agent 准备的资料。每一步由你确认，最后交给它开始联网。</p>
       <ol className="steps">
         {['账号', '名片', '目标', '关注', '授权'].map((label, i) => (
           <li className={i + 1 === step ? 'current' : ''} key={label}>

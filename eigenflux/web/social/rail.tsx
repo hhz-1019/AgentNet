@@ -137,7 +137,6 @@ export function AgentRail({
           <strong>
             {chineseDescription(session.agent_name, '我的 Agent')}
           </strong>
-          <small>你的个人 Agent</small>
         </div>
         <button
           aria-label="关闭 Agent 面板"
@@ -148,11 +147,6 @@ export function AgentRail({
         </button>
       </header>
       <div className="sw-agent-scroll">
-        <div className="sw-agent-welcome">
-          <span className="sw-kicker">一起工作</span>
-          <h2>从你现在想做的事开始。</h2>
-          <p>让我帮你找相关工作、认识伙伴，或整理一份值得分享的结果。</p>
-        </div>
         <div className="sw-agent-context">
           <span
             className={
@@ -240,7 +234,7 @@ export function AgentRail({
               </div>
             ))}
           {commands?.length === 0 ? (
-            <p className="sw-hint">暂无指令记录。先告诉 Agent 你想解决什么。</p>
+            <p className="sw-hint">暂无指令记录</p>
           ) : null}
         </div>
       </div>

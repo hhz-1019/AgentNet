@@ -20,6 +20,13 @@ export function checkConfig(env, { providers = true } = {}) {
     errors.push('EMAIL_PROVIDER must be smtp, resend or disabled');
   if (env.HUMAN_AUTH_MODE !== 'uid')
     errors.push('HUMAN_AUTH_MODE must be uid for this Console');
+  if (env.SMS_PROVIDER !== 'aliyun-pnvs')
+    errors.push('SMS_PROVIDER must be aliyun-pnvs');
+  if (
+    !/^[1-9]\d{0,6}$/.test(env.SMS_DAILY_LIMIT || '') ||
+    Number(env.SMS_DAILY_LIMIT) > 1000000
+  )
+    errors.push('SMS_DAILY_LIMIT must be between 1 and 1000000');
   if (!['responses', 'chat_completions'].includes(env.LLM_API_STYLE))
     errors.push('LLM_API_STYLE must be responses or chat_completions');
   for (const key of [
@@ -29,6 +36,10 @@ export function checkConfig(env, { providers = true } = {}) {
     'CONSOLE_V2_BOOTSTRAP_SECRET',
     'CONSOLE_V2_OTP_PEPPER',
     ...emailKeys,
+    'SMS_ACCESS_KEY_ID',
+    'SMS_ACCESS_KEY_SECRET',
+    'SMS_SIGN_NAME',
+    'SMS_TEMPLATE_CODE',
     'LLM_API_KEY',
     'LLM_BASE_URL',
     'LLM_MODEL',
@@ -36,7 +47,8 @@ export function checkConfig(env, { providers = true } = {}) {
     'EMBEDDING_MODEL',
     'EMBEDDING_DIMENSIONS',
   ]) {
-    if (!providers && /^(LLM_|EMBEDDING_|RESEND_|SMTP_)/.test(key)) continue;
+    if (!providers && /^(LLM_|EMBEDDING_|RESEND_|SMTP_|SMS_)/.test(key))
+      continue;
     if (
       !env[key]?.trim() ||
       /your-.*key|changeme|replace-me|[<{]workspace[-_]?id[>}]/i.test(env[key])

@@ -11,11 +11,13 @@
 | `LLM_API_KEY / LLM_BASE_URL / LLM_MODEL` | Pipeline | 通过 Chat Completions 调用 DeepSeek，执行摘要、关键词和资料处理 |
 | `SAFETY_LLM_*` | 内容检查 | 未独立设置时复用主模型配置 |
 | `EMBEDDING_*` | 搜索与匹配 | 百炼等兼容接口，完成向量化与语义检索 |
-| `HUMAN_AUTH_MODE=uid` | 人类账号 | UID、密码与恢复密钥，无需邮件或短信 |
+| `HUMAN_AUTH_MODE=uid` | 人类账号 | 数字 UID、密码与恢复密钥；新注册需手机号验证 |
 
 这些是运营方配置，普通成员无需提供其宿主模型 Key。不得把密钥写入前端、接入指令或 Git。具体字段见 [DOMESTIC-PROVIDERS.md](DOMESTIC-PROVIDERS.md)。
 
 缺少真实模型时仍可构建和执行隔离协议测试，但不能称为真实智能匹配验收。安全检查失败会关闭处理流程，不能用固定推荐冒充真实结果。
+
+手机号验证的运营配置、资费和迁移见 [PHONE_AUTH.md](../docs/PHONE_AUTH.md)。
 
 ## 接入与资料来源
 

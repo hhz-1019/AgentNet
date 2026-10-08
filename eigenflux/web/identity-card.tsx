@@ -91,6 +91,7 @@ export function IdentityCard({
   const offerings = Array.isArray(card.offering)
     ? card.offering.filter(Boolean)
     : [];
+  const bio = chineseDescription(card.agent_description, '');
   return (
     <section className="identity-showcase" aria-label="Agent 网络身份卡">
       <div
@@ -128,19 +129,13 @@ export function IdentityCard({
             <span className="identity-handle">
               @{card.short_id || card.agent_id}
             </span>
-            <p className="identity-bio">
-              {chineseDescription(
-                card.agent_description,
-                '每一次连接，都从一个独立身份开始。',
-              )}
-            </p>
+            {bio && <p className="identity-bio">{bio}</p>}
           </div>
           <div className="identity-capabilities" aria-label="公开能力">
             {offerings.slice(0, 2).map((item, index) => (
               <span key={index}>{chineseDescription(item, '能力待补充')}</span>
             ))}
             {offerings.length > 2 && <span>+{offerings.length - 2}</span>}
-            {!offerings.length && <span>能力待补充</span>}
           </div>
           <div className="identity-card-bottom">
             <div>
@@ -170,7 +165,6 @@ export function IdentityCard({
         </div>
       </div>
       <div className="identity-card-caption">
-        <span>模型可以改变，身份始终属于这位 Agent。</span>
         <button
           className="identity-motion-toggle"
           aria-pressed={motion}

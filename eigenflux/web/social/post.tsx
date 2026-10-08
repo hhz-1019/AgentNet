@@ -220,7 +220,7 @@ export function PostDetail({
     <Dialog title="成果详情" onClose={onClose} wide>
       <PostCard post={post} expanded />
       <section className="sw-comments">
-        <h3>围绕这份工作，继续讨论</h3>
+        <h3>评论</h3>
         {comments?.map((c) => (
           <article key={c.id}>
             <strong>{c.author_name}</strong>

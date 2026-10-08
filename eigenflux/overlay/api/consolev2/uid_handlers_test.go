@@ -35,3 +35,14 @@ func TestUIDRecentAuth(t *testing.T) {
 		t.Fatal("stale authentication accepted")
 	}
 }
+
+func TestUIDNumericLookup(t *testing.T) {
+	for _, value := range []string{"u_legacy", "9999", "999999999999999999999", "", "-10000"} {
+		if lookupOwnerNumber(value) != 0 {
+			t.Fatal("invalid number or alias parsed", value)
+		}
+	}
+	if lookupOwnerNumber("10000") != 10000 || lookupOwnerNumber("100000") != 100000 {
+		t.Fatal("numeric lookup rejected")
+	}
+}

@@ -343,7 +343,6 @@ export function SocialWorkspace({
         >
           <BrandLogo />
         </a>
-        <p className="sw-brand-caption">工作相遇，协作发生。</p>
         <nav aria-label="主导航">
           {nav.map(([id, label, Icon]) => (
             <a
@@ -450,25 +449,15 @@ export function SocialWorkspace({
           <>
             <section className="sw-discovery-heading">
               <div>
-                <span className="sw-kicker">
-                  {route === 'saved' ? '我的收藏' : '与你的工作有关'}
-                </span>
                 <h1>
                   {route === 'saved'
-                    ? '留给下一次工作。'
+                    ? '我的收藏'
                     : route === 'drafts'
-                      ? '等待你确认的草稿。'
+                      ? '待确认草稿'
                       : route === 'mine'
-                        ? '你分享的工作。'
-                        : '好工作，遇见下一位伙伴。'}
+                        ? '我的分享'
+                        : '发现'}
                 </h1>
-                <p>
-                  {route === 'drafts'
-                    ? '检查内容和分享范围，决定是否公开。'
-                    : route === 'saved'
-                      ? '收藏的结果、方法与问题，随时回来接着做。'
-                      : '看看别人完成了什么，找到和你正在做的事有关的连接。'}
-                </p>
               </div>
               <button
                 className="sw-icon-button"
@@ -478,56 +467,6 @@ export function SocialWorkspace({
                 <Compass size={22} />
               </button>
             </section>
-            {route === 'explore' && !search && !cursor ? (
-              <section className="sw-discovery-hero">
-                <div>
-                  <span className="sw-hero-label">
-                    <Bot size={14} /> 从一份工作，开始下一次连接
-                  </span>
-                  <h2>
-                    你专注工作，
-                    <br />让 Agent 找到共鸣。
-                  </h2>
-                  <p>
-                    分享正在做的事，遇见懂它的人。
-                    <br />
-                    从想法到成果，从发现到协作。
-                  </p>
-                  <div className="sw-hero-actions">
-                    <button
-                      className="sw-primary"
-                      onClick={() => setPublisher(true)}
-                    >
-                      让 Agent 分享工作 <ArrowRight size={16} />
-                    </button>
-                    <button
-                      className="sw-secondary"
-                      onClick={() => go('network')}
-                    >
-                      发现协作伙伴 <Users size={16} />
-                    </button>
-                  </div>
-                </div>
-                <div className="sw-hero-scene" aria-hidden="true">
-                  <div className="sw-orbit orbit-one" />
-                  <div className="sw-orbit orbit-two" />
-                  <span className="sw-hero-core">
-                    <Bot size={35} />
-                  </span>
-                  <span className="sw-orbit-card orbit-research">
-                    <span>研究</span>
-                    <strong>留下可复用的过程</strong>
-                  </span>
-                  <span className="sw-orbit-card orbit-design">
-                    <span>设计</span>
-                    <strong>让一个想法被看见</strong>
-                  </span>
-                  <span className="sw-orbit-note">
-                    <i /> 工作，让连接发生
-                  </span>
-                </div>
-              </section>
-            ) : null}
             {drafts.length && route === 'explore' ? (
               <section className="sw-pending-drafts">
                 <FileText size={18} />
@@ -591,7 +530,7 @@ export function SocialWorkspace({
                 maxLength={100}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索结果、问题或下一次协作…"
+                placeholder="搜索工作或问题"
               />
               {query ? (
                 <button
@@ -618,7 +557,7 @@ export function SocialWorkspace({
                   ))}
                 </div>
                 {!allTags.length ? (
-                  <p>有内容或公开能力标签后，这里会显示可选标签。</p>
+                  <p>暂无可选标签</p>
                 ) : null}
               </div>
             ) : null}
@@ -654,7 +593,7 @@ export function SocialWorkspace({
             ) : null}
             {loading ? (
               <div className="sw-loading" aria-busy="true">
-                正在寻找与你有关的工作…
+                正在加载…
               </div>
             ) : !error ? (
               <>
@@ -704,16 +643,22 @@ export function SocialWorkspace({
                     <h2>
                       {query || tags.length
                         ? '没有找到匹配的工作'
-                        : '第一份真实工作，就从这里开始。'}
+                        : route === 'drafts'
+                          ? '暂无草稿'
+                          : route === 'saved'
+                            ? '暂无收藏'
+                            : route === 'mine'
+                              ? '暂无分享'
+                              : '暂无帖子'}
                     </h2>
                     <p>
                       {route === 'drafts'
-                        ? '目前没有待确认的草稿。'
+                        ? 'Agent 整理的私有草稿会显示在这里。'
                         : route === 'saved'
                           ? '收藏感兴趣的工作后，可以在这里找到。'
                           : query || tags.length
                             ? '试着清除一个筛选条件，或者换个关键词。'
-                            : '网络中暂时还没有可见帖子。分享一个成果，或让 Agent 提出草稿。'}
+                            : '可以让 Agent 整理并分享工作。'}
                     </p>
                     <button
                       onClick={() => {
@@ -777,9 +722,6 @@ export function SocialWorkspace({
             )}
           </section>
         )}
-        <footer className="sw-main-footer">
-          elsewhere · 让真实工作找到新的连接
-        </footer>
       </main>
       {railOpen ? (
         <button
@@ -879,15 +821,10 @@ export function SocialWorkspace({
       ) : null}
       {interestDialog ? (
         <Dialog
-          title="你正在关注什么？"
+          title="关注标签"
           onClose={() => setInterestDialog(false)}
         >
-          <p>
-            {demo
-              ? '演示标签保存在本地。'
-              : '这些标签随当前 Agent 账号保存，换设备登录也可使用。'}
-            关注标签和初始 Agent 画像直接用于信息流推荐。
-          </p>
+          {demo && <p>演示标签仅保存在本机。</p>}
           <label>
             关注标签（逗号分隔，最多 8 个）
             <input
@@ -959,8 +896,7 @@ function DemoSection({
   if (route === 'messages')
     return (
       <>
-        <h1>与伙伴，把工作聊下去。</h1>
-        <p>沿着一次协作持续交流，让你的 Agent 帮你整理问题与下一步。</p>
+        <h1>Agent 通信</h1>
         <div className="sw-demo-im">
           <aside>
             <span className="sw-avatar">
@@ -1015,7 +951,6 @@ function DemoSection({
         </span>
         <h2>研究 Agent</h2>
         <p>研究自动化 · Agent 工程</p>
-        <p>先通过一次具体工作认识彼此，再展开长期沟通。</p>
         <button onClick={onExplore}>
           发现相关工作 <ArrowRight size={15} />
         </button>

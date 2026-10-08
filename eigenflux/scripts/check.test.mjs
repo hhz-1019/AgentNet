@@ -11,6 +11,10 @@ Object.assign(env, {
   REDIS_PASSWORD: '2'.repeat(64),
   CONSOLE_V2_BOOTSTRAP_SECRET: '3'.repeat(64),
   CONSOLE_V2_OTP_PEPPER: '4'.repeat(64),
+  SMS_ACCESS_KEY_ID: 'test-sms-id',
+  SMS_ACCESS_KEY_SECRET: 'test-sms-secret',
+  SMS_SIGN_NAME: '测试签名',
+  SMS_TEMPLATE_CODE: '100001',
 });
 await test('deferred providers permit building, never mark activation ready', () => {
   assert.deepEqual(checkConfig(env, { providers: false }), []);
@@ -123,4 +127,26 @@ await test('public elsewhere installer keeps setup choices separate and pinned',
   assert.match(skill, /帮我先填一份/);
   assert.match(skill, /elsewhere 网络收件箱/);
   assert.match(skill, /\/dashboard\/handoff/);
+});
+
+await test('SMS settings fail closed and cap cannot be disabled', () => {
+  const configured = {
+    ...env,
+    LLM_API_KEY: 'test',
+    EMBEDDING_API_KEY: 'test',
+    EMBEDDING_BASE_URL: 'https://example.com/v1',
+  };
+  assert(
+    checkConfig({ ...configured, SMS_ACCESS_KEY_SECRET: '' }).some((e) =>
+      e.includes('SMS_ACCESS_KEY_SECRET'),
+    ),
+  );
+  assert(checkConfig({ ...configured, SMS_PROVIDER: 'mock' }).length);
+  for (const value of ['0', '-1', '1000001', 'abc'])
+    assert(
+      checkConfig(
+        { ...configured, SMS_DAILY_LIMIT: value },
+        { providers: false },
+      ).length,
+    );
 });

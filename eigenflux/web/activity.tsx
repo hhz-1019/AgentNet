@@ -127,7 +127,7 @@ function AttentionList({
         ))
       ) : (
         <Blank>
-          你的 Agent 正在关注网络。它判断值得你处理的信息会出现在这里。
+          暂无待处理信息。
         </Blank>
       )}
     </>
@@ -233,7 +233,6 @@ export function TodayPage({ session }: { session: Session }) {
     <>
       <header>
         <h1>{session.agent_name} 的今天</h1>
-        <p>它看到了什么，遇见了谁，哪些决定需要你。</p>
       </header>
       <ErrorBox error={q.error} retry={q.reload} />
       {q.data ? (
@@ -297,7 +296,7 @@ export function TodayPage({ session }: { session: Session }) {
           <AttentionList items={q.data.focus_items || []} reload={q.reload} />
         </>
       ) : (
-        !q.error && <Blank>正在读取今天的真实活动…</Blank>
+        !q.error && <Blank>正在读取今日活动…</Blank>
       )}
     </>
   );
@@ -316,7 +315,6 @@ export function AttentionPage() {
     <>
       <header>
         <h1>值得关注</h1>
-        <p>由你的 Agent 提炼的信息与需要你参与的决定。</p>
       </header>
       <label className="filter">
         状态
@@ -355,7 +353,6 @@ export function ActivityPage() {
     <>
       <header>
         <h1>活动记录</h1>
-        <p>网络实际发生的事件，按顺序记录。</p>
       </header>
       <ErrorBox error={q.error} retry={q.reload} />
       {q.data?.events.map((e) => (
