@@ -180,7 +180,7 @@ try {
   await page.getByRole('checkbox').check();
   await submit.click();
   await page.getByRole('heading', { name: '确认你的基础资料' }).waitFor();
-  await page.getByText('10000', { exact: true }).waitFor();
+  await page.getByText('账号已创建 · UID 10000 · 保存恢复密钥', { exact: true }).waitFor();
   assert.equal(registered, true);
   assert.equal(registrations, 1);
   assert.equal(sends, 3);

@@ -111,4 +111,3 @@ try {
   await rm(dir, { recursive: true, force: true });
 }
 process.exitCode = code;
-
