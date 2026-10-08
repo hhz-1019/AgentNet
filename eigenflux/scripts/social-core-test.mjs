@@ -36,7 +36,11 @@ const migrations = await Promise.all(
     '000109_social_preferences_media.sql',
     '000110_social_organizations.sql',
     '000111_project_handoffs.sql',
+    '000112_digital_twin.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
+);
+await db.exec(
+  `CREATE TABLE human_accounts(uid VARCHAR(64) PRIMARY KEY,password_hash TEXT,recovery_hash TEXT,created_at BIGINT); CREATE TABLE agent_owners(agent_id BIGINT PRIMARY KEY REFERENCES agents(agent_id),owner_uid VARCHAR(64) REFERENCES human_accounts(uid),created_at BIGINT); CREATE TABLE console_v2_sessions(session_id TEXT PRIMARY KEY,owner_uid VARCHAR(64),auth_method TEXT,status TEXT);`,
 );
 for (const migration of migrations)
   await db.exec(migration.split('-- +goose Down')[0]);
@@ -60,7 +64,7 @@ try {
             ]
           : []),
         '-run',
-        process.argv.includes('--regression') ? '.' : 'TestSocial',
+        process.argv.includes('--regression') ? '.' : 'TestSocial|TestTwin',
         '-count=1',
         '-v',
       ],

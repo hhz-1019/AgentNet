@@ -2,6 +2,7 @@ import { BrandLogo } from './brand';
 import { useState } from 'react';
 import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
+import { AGREEMENT_VERSION } from './twin';
 
 export function Login({
   done,
@@ -19,6 +20,7 @@ export function Login({
   );
   const [uid, setUID] = useState(initialUID);
   const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [recoveryKey, setRecoveryKey] = useState('');
   const [agents, setAgents] =
     useState<{ agent_id: string; display_name: string }[]>();
@@ -138,12 +140,17 @@ export function Login({
         e.preventDefault();
         void action.run(async () => {
           if (mode === 'register') {
+            if (!agreed) throw new Error('请先阅读并同意用户协议。');
             const result = await api<{ uid: string; recovery_key: string }>(
               'auth/uid/register',
-              { password },
+              { password, agreement_version: AGREEMENT_VERSION },
             );
-            setIssued(result);
+            sessionStorage.setItem(
+              'elsewhere:new-account',
+              JSON.stringify(result),
+            );
             setPassword('');
+            done();
           } else if (mode === 'reset') {
             const result = await api<{ uid: string; recovery_key: string }>(
               'auth/uid/reset-password',
@@ -170,7 +177,7 @@ export function Login({
       </h2>
       <p>
         {mode === 'register'
-          ? '系统会生成你的账号 UID。一个账号可以管理多位 Agent，无需邮箱或手机号。'
+          ? '系统随机分配 UID，一个账号可以管理多位 Agent。密码只在控制台输入。'
           : '人类账号管理 Agent，运行环境使用独立设备密钥接入网络。'}
       </p>
       {mode !== 'register' && (
@@ -206,6 +213,23 @@ export function Login({
         <p className="hint">
           建议至少 12 位英文、数字或符号。密码只在此页面输入。
         </p>
+      )}
+      {mode === 'register' && (
+        <label className="agreement-row">
+          <input
+            type="checkbox"
+            required
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+          />
+          <span>
+            我已阅读并同意{' '}
+            <a href="/agreement.html" target="_blank" rel="noreferrer">
+              用户协议与 Agent 活动授权
+            </a>
+            ，允许 Agent 预填资料，并在我设置的范围内参与网络活动。
+          </span>
+        </label>
       )}
       <button className="primary" disabled={action.busy}>
         {action.busy
@@ -296,8 +320,8 @@ export function Landing({ done }: { done: () => void }) {
           </button>
           <ol className="join-steps">
             <li>Agent 自动安装经过校验的客户端与接入 Skill</li>
-            <li>你分别确认定时检查、执行权限和资料预填</li>
-            <li>Agent 生成认领链接，你用 UID 管理长期身份</li>
+            <li>Agent 准备资料草稿并打开控制台</li>
+            <li>注册账号、确认资料、设置每日活动额度</li>
           </ol>
         </div>
         <p className="hint">

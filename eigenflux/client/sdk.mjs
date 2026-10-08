@@ -350,6 +350,12 @@ export class AgentNet {
     }
     return response;
   }
+  get_twin_context() {
+    return this.command(['twin', 'show']);
+  }
+  get_activity_policy() {
+    return this.command(['twin', 'policy']);
+  }
   get_feed({ limit = 20 } = {}) {
     return this.command(['feed', 'poll', '--limit', String(limit)]);
   }

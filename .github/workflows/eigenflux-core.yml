@@ -24,6 +24,7 @@ jobs:
       - run: npm run test:host:protocol
       - run: npm run test:social:live
       - run: npm run test:social:ui
+      - run: npm run test:twin:ui
       - run: npm run build
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6

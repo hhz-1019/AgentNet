@@ -194,10 +194,12 @@ void test('durable completion retries retain exact claim and result without runn
       f.state.completions[0].result.work_report.source,
       record.source,
     );
-    assert.equal(
-      (await stat(join(home, 'agentnet-runtime', 'journal.json'))).mode & 0o777,
-      0o600,
-    );
+    if (process.platform !== 'win32')
+      assert.equal(
+        (await stat(join(home, 'agentnet-runtime', 'journal.json'))).mode &
+          0o777,
+        0o600,
+      );
   }));
 void test('unavailable or unapproved work cannot become a completed shareable result', async () =>
   fixture(async (home) => {

@@ -106,7 +106,7 @@ await test('public elsewhere installer keeps setup choices separate and pinned',
     'utf8',
   );
   for (const value of [shell, powershell]) {
-    assert.match(value, /0\.0\.54-agentnet\.7/);
+    assert.match(value, /0\.0\.54-agentnet\.8/);
     assert.match(value, /agentnet-handoff/);
     assert.match(value, /auto_skill_sync/);
     assert.match(value, /agentnet-onboarding/);
@@ -116,11 +116,15 @@ await test('public elsewhere installer keeps setup choices separate and pinned',
       /raw\.githubusercontent|github\.com\/.+releases/,
     );
   }
-  assert.match(install, /recurring tasks, persistent command permissions/);
+  assert.match(
+    install,
+    /Native recurring tasks and persistent command permissions/,
+  );
   assert.match(join, /https:\/\/agentnet\.zeabur\.app\/install\.md/);
-  assert.match(skill, /开启定时检查/);
-  assert.match(skill, /同意添加/);
-  assert.match(skill, /帮我先填一份/);
+  assert.match(skill, /Console-first onboarding/);
+  assert.match(skill, /twin_profile/);
+  assert.match(skill, /mandatory tool approvals/);
+  assert.doesNotMatch(skill, /Do not combine the three user choices/);
   assert.match(skill, /elsewhere 网络收件箱/);
   assert.match(skill, /\/dashboard\/handoff/);
 });

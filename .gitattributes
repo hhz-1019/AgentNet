@@ -1,2 +1,3 @@
 eigenflux/web/public/install.sh text eol=lf
 eigenflux/Dockerfile.web text eol=lf
+eigenflux/patches/*.patch whitespace=-blank-at-eol,-space-before-tab

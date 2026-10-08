@@ -18,10 +18,11 @@ import (
 )
 
 type uidRequest struct {
-	UID         string `json:"uid"`
-	Password    string `json:"password"`
-	AgentID     string `json:"agent_id"`
-	RecoveryKey string `json:"recovery_key"`
+	AgreementVersion string `json:"agreement_version"`
+	UID              string `json:"uid"`
+	Password         string `json:"password"`
+	AgentID          string `json:"agent_id"`
+	RecoveryKey      string `json:"recovery_key"`
 }
 type uidAccount struct {
 	UID          string
@@ -210,6 +211,10 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
+	if req.AgreementVersion != twinAgreementVersion {
+		fail(c, 400, "AGREEMENT_REQUIRED", "请阅读并勾选用户协议后注册", nil)
+		return
+	}
 	if !validOwnerPassword(req.Password) {
 		fail(c, 400, "PASSWORD_INVALID", "密码需要 12–72 字节，建议使用至少 12 位英文、数字或符号", nil)
 		return
@@ -237,6 +242,12 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 			return err
 		}
 		if err := claimUIDAgent(tx, id, uid, now); err != nil {
+			return err
+		}
+		if err := ensureTwinUser(tx, uid, now); err != nil {
+			return err
+		}
+		if err := tx.Exec(`INSERT INTO twin_agreement_acceptances(user_id,version,accepted_at) VALUES(?,?,?)`, uid, twinAgreementVersion, now).Error; err != nil {
 			return err
 		}
 		var err error

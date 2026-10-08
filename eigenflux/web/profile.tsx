@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { IdentityCard } from './identity-card';
+import { TwinSettings } from './twin-view';
 import { api, requestKey, useData, refreshData } from './api';
 import type {
   Session,
@@ -357,7 +358,7 @@ function ProfileCapabilities() {
   );
 }
 
-export function Settings() {
+export function Settings({ runtime = '' }: { runtime?: string }) {
   const q = useData<{ principals: Principal[] }>('agents/me/principals');
   const preferences = useData<{ official_pm_optout: boolean }>(
     'console/community-preferences',
@@ -366,6 +367,7 @@ export function Settings() {
   const action = useAction();
   return (
     <>
+      <TwinSettings runtime={runtime} />
       <ContextPage settings />
       <h2>官方助手与社区推荐</h2>
       <p>

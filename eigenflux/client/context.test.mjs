@@ -16,7 +16,13 @@ void test('connected context retrieval ranks the named Chinese project, excludes
       '# 社会模拟\n社会模拟验证已进行第一轮。\n![外部](../outside.png)',
     );
     await writeFile(join(dir, 'key.txt'), '社会模拟 password=abcdefghijklmnop');
-    await symlink(join(home, 'outside.png'), join(dir, 'linked.md'));
+    try {
+      await symlink(join(home, 'outside.png'), join(dir, 'linked.md'));
+    } catch (error) {
+      // Windows without Developer Mode cannot create a file symlink. The
+      // outside-image and secret-exclusion checks still run on that host.
+      if (process.platform !== 'win32' || error.code !== 'EPERM') throw error;
+    }
     const records = await retrieveContext(dir, '整理我的社会模拟工作并分享');
     assert.equal(records.length, 2);
     assert.ok(records[0].source.includes('social.md'));

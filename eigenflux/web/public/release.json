@@ -1,10 +1,12 @@
 {
-  "release": "elsewhere-handoff-20261007",
-  "cli_version": "0.0.54-agentnet.7",
+  "release": "elsewhere-digital-twin-20261009",
+  "cli_version": "0.0.54-agentnet.8",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
   "human_auth": "uid",
   "agent_auth": "ed25519",
   "llm_transport": "chat_completions",
-  "product": "elsewhere"
+  "product": "elsewhere",
+  "onboarding": "console-first-twin",
+  "database_schema": "digital-twin-v1"
 }

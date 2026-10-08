@@ -89,7 +89,10 @@ async function join(name, existingOwner) {
   const password = existingOwner?.password || `test-${crypto.randomUUID()}`;
   const owner = existingOwner
     ? await h('auth/uid/claim', { uid: existingOwner.uid, password })
-    : await h('auth/uid/register', { password });
+    : await h('auth/uid/register', {
+        password,
+        agreement_version: '2026-10-09',
+      });
   assert(owner.uid.startsWith('u_'));
   if (!existingOwner) assert(owner.recovery_key.startsWith('rk_'));
   let draft = await h('agents/me/onboarding-draft');

@@ -763,7 +763,11 @@ export function SocialWorkspace({
             ) : route === 'profile' ? (
               <Profile session={session} refresh={refresh} />
             ) : route === 'settings' ? (
-              <Settings />
+              <Settings
+                runtime={[session.runtime_name, session.runtime_version]
+                  .filter(Boolean)
+                  .join(' ')}
+              />
             ) : route === 'network-goal' || route === 'intent-actions' ? (
               <ContextPage />
             ) : route === 'messages' ? (

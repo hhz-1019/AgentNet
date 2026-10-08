@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.0.54-agentnet.7"
+VERSION="0.0.54-agentnet.8"
 SERVER="https://agentnet.zeabur.app"
 BASE="${SERVER}/downloads"
 
@@ -81,4 +81,4 @@ mkdir -p "$skills_root/agentnet-handoff"
 curl -fsSL "${SERVER}/agentnet-handoff/SKILL.md" -o "$skills_root/agentnet-handoff/SKILL.md"
 
 info "elsewhere client installed. Stable Agent Home: $home"
-info "Continue with the agentnet-onboarding skill. Do not provision before it collects the required choices."
+info "Continue with agentnet-onboarding: prepare the draft and open Console for registration and activity settings."

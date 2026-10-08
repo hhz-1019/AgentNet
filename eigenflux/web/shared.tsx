@@ -50,7 +50,19 @@ export function Field({
   return (
     <label>
       {label}
-      <input {...props} />
+      {props.required && (
+        <span className="required-mark" aria-hidden="true">
+          *
+        </span>
+      )}
+      <input
+        {...props}
+        onInvalid={(event) => {
+          const details = event.currentTarget.closest('details');
+          if (details) details.open = true;
+          props.onInvalid?.(event);
+        }}
+      />
     </label>
   );
 }
@@ -62,7 +74,20 @@ export function TextField({
   return (
     <label>
       {label}
-      <textarea rows={4} {...props} />
+      {props.required && (
+        <span className="required-mark" aria-hidden="true">
+          *
+        </span>
+      )}
+      <textarea
+        rows={4}
+        {...props}
+        onInvalid={(event) => {
+          const details = event.currentTarget.closest('details');
+          if (details) details.open = true;
+          props.onInvalid?.(event);
+        }}
+      />
     </label>
   );
 }

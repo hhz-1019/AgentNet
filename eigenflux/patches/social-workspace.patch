@@ -105,3 +105,95 @@
 +		server.WithMaxRequestBodySize(12 << 20),
  		tracer,
  	)
+--- a/api/consolev2/service.go
++++ b/api/consolev2/service.go
+@@ -356,6 +356,7 @@
+ 	if s.enablePublicRegistration {
+ 		h.POST("/api/v2/agent-identities/registration-challenges", s.issuePublicRegistrationChallenge)
+ 	}
++	s.registerTwinRoutes(h)
+ 	h.POST("/api/v2/agent-identities/provision", s.provision)
+ 	h.POST("/api/v2/agent-sessions/refresh-challenges", s.createRefreshChallenge)
+ 	h.POST("/api/v2/agent-sessions/refresh", s.refreshAgentSession)
+@@ -412,10 +413,10 @@
+ 	h.GET("/api/v2/console/home/worth-watching", s.consoleAuth(false), s.requireCompleted, s.getHomeWorthWatching)
+ 	h.POST("/api/v2/telemetry/events:batch", s.consoleAuth(true), s.recordTelemetryBatch)
+ 	if s.enableFeed {
+-		h.POST("/api/v2/feed", s.agentAuth("feed:read"), s.pullFeedV2)
++		h.POST("/api/v2/feed", s.agentAuth("feed:read"), s.twinQuota("searches"), s.pullFeedV2)
+ 		h.GET("/api/v2/feed/items/:source_type/:source_id", s.agentAuth("feed:read"), s.getFeedSourceItem)
+-		h.POST("/api/v2/feed/feedback", s.agentAuth("feed:feedback"), s.requireCompleted, apihandler.BatchFeedback)
+-		h.POST("/api/v2/feed/events:batch", s.agentAuth("feed:feedback"), s.requireCompleted, apihandler.PushFeedEvents)
++		h.POST("/api/v2/feed/feedback", s.agentAuth("feed:feedback"), s.requireCompleted, s.twinQuota("feedback"), apihandler.BatchFeedback)
++		h.POST("/api/v2/feed/events:batch", s.agentAuth("feed:feedback"), s.requireCompleted, s.twinQuota("feedback"), apihandler.PushFeedEvents)
+ 		h.GET("/api/v2/notifications/pending", s.agentAuth("feed:read"), s.listPendingNotifications)
+ 		h.POST("/api/v2/notifications/ack", s.agentAuth("notifications:ack"), s.ackPendingNotifications)
+ 	}
+@@ -429,7 +430,7 @@
+ 	}
+ 	if s.enableAttentionV1 {
+ 		h.POST("/api/v2/agent-attention-items/prefill", s.agentAuth("attention:prefill"), s.requireIncomplete, s.prefillAttentionItems)
+-		h.POST("/api/v2/agent-attention-items:publish", s.agentAuth("attention:write"), s.requireCompleted, s.publishAttentionItems)
++		h.POST("/api/v2/agent-attention-items:publish", s.agentAuth("attention:write"), s.requireCompleted, s.twinQuota("feedback"), s.publishAttentionItems)
+ 		h.GET("/api/v2/console/attention-items", s.consoleAuth(false), s.requireCompleted, s.listAttentionItems)
+ 		h.GET("/api/v2/console/attention-items/:attention_id", s.consoleAuth(false), s.requireCompleted, s.getAttentionItem)
+ 		h.GET("/api/v2/console/attention-items/:attention_id/source", s.consoleAuth(false), s.requireCompleted, s.getAttentionSource)
+@@ -464,7 +465,7 @@
+ 		h.GET("/api/v2/console/events/ws", s.consoleAuth(false), s.requireCompleted, s.streamCommunicationEvents)
+ 	}
+ 
+-	h.POST("/api/v2/broadcasts", s.agentAuth("broadcast:write"), s.requireCompleted, apihandler.Publish)
++	h.POST("/api/v2/broadcasts", s.agentAuth("broadcast:write"), s.requireCompleted, s.twinQuota("posts"), apihandler.Publish)
+ 	h.DELETE("/api/v2/broadcasts/:item_id", s.agentAuth("broadcast:write"), s.requireCompleted, apihandler.DeleteMyItem)
+ 	h.GET("/api/v2/agents/me/broadcasts", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMyItems)
+ 	h.GET("/api/v2/agent-profile", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMe)
+@@ -476,9 +477,9 @@
+ 	// V2 aliases preserve the stable CLI request/response bodies while the CLI
+ 	// transitions to the canonical routes above. They use Agent V2 auth only.
+ 	h.GET("/api/v2/items/:item_id", s.agentAuth("feed:read"), s.requireCompleted, apihandler.GetItem)
+-	h.POST("/api/v2/items/feedback", s.agentAuth("feed:feedback"), s.requireCompleted, apihandler.BatchFeedback)
+-	h.POST("/api/v2/items/events", s.agentAuth("feed:feedback"), s.requireCompleted, apihandler.PushFeedEvents)
+-	h.POST("/api/v2/items/publish", s.agentAuth("broadcast:write"), s.requireCompleted, apihandler.Publish)
++	h.POST("/api/v2/items/feedback", s.agentAuth("feed:feedback"), s.requireCompleted, s.twinQuota("feedback"), apihandler.BatchFeedback)
++	h.POST("/api/v2/items/events", s.agentAuth("feed:feedback"), s.requireCompleted, s.twinQuota("feedback"), apihandler.PushFeedEvents)
++	h.POST("/api/v2/items/publish", s.agentAuth("broadcast:write"), s.requireCompleted, s.twinQuota("posts"), apihandler.Publish)
+ 	h.GET("/api/v2/pm/fetch", s.agentAuth("communication:read"), s.requireCompleted, apihandler.FetchPM)
+ 	h.POST("/api/v2/pm/send", s.agentAuth("communication:write"), s.requireCompleted, apihandler.SendPM)
+ 	h.GET("/api/v2/pm/history", s.agentAuth("communication:read"), s.requireCompleted, apihandler.GetConvHistory)
+--- a/api/consolev2/onboarding_handlers.go
++++ b/api/consolev2/onboarding_handlers.go
+@@ -452,6 +452,7 @@
+ }
+ 
+ type draftPayload struct {
++ TwinProfile *twinProfile `json:"twin_profile,omitempty"`
+ 	IdentityCard     identityCardDraft `json:"identity_card"`
+ 	SecurityBoundary struct {
+ 		RecurringPublish bool `json:"recurring_publish"`
+@@ -475,6 +476,7 @@
+ )
+ 
+ func validateDraftPayload(payload draftPayload) error {
++ if payload.TwinProfile != nil { if err := validateTwinProfile(*payload.TwinProfile, false); err != nil { return err } }
+ 	if utf8.RuneCountInString(payload.IdentityCard.AgentName) > 100 || utf8.RuneCountInString(payload.IdentityCard.Bio) > 2000 {
+ 		return errors.New("identity card exceeds its length limit")
+ 	}
+--- a/api/consolev2/onboarding_provenance.go
++++ b/api/consolev2/onboarding_provenance.go
+@@ -52,6 +52,7 @@
+ 	"security_boundary.show_add_friend",
+ 	"network_goal",
+ 	"intent_actions",
++	"twin_profile",
+ }
+ 
+ func decodeJSONObject(raw json.RawMessage) (map[string]interface{}, error) {
+@@ -310,7 +311,7 @@
+ 	paths := onboardingDraftFieldPaths
+ 	switch step {
+ 	case 2:
+-		paths = onboardingDraftFieldPaths[:12]
++		paths = append(append([]string{}, onboardingDraftFieldPaths[:12]...), "twin_profile")
+ 	case 3:
+ 		paths = onboardingDraftFieldPaths[16:17]
+ 	case 4:

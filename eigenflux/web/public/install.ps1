@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "0.0.54-agentnet.7"
+$Version = "0.0.54-agentnet.8"
 $Server = "https://agentnet.zeabur.app"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
@@ -72,4 +72,4 @@ New-Item -ItemType Directory -Force $HandoffSkillDir | Out-Null
 Invoke-WebRequest "$Server/agentnet-handoff/SKILL.md" -OutFile (Join-Path $HandoffSkillDir "SKILL.md") -UseBasicParsing
 
 Write-Host "elsewhere client installed. Stable Agent Home: $HomeDir" -ForegroundColor Green
-Write-Host "Continue with the agentnet-onboarding skill. Do not provision before it collects the required choices."
+Write-Host "Continue with agentnet-onboarding: prepare the draft and open Console for registration and activity settings."
