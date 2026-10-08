@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,13 +19,17 @@ import (
 )
 
 type uidRequest struct {
-	AgreementVersion string `json:"agreement_version"`
 	UID              string `json:"uid"`
 	Password         string `json:"password"`
 	AgentID          string `json:"agent_id"`
 	RecoveryKey      string `json:"recovery_key"`
+	Phone            string `json:"phone"`
+	ChallengeID      string `json:"challenge_id"`
+	Code             string `json:"code"`
+	AgreementVersion string `json:"agreement_version"`
 }
 type uidAccount struct {
+	Number       string
 	UID          string
 	PasswordHash string
 	RecoveryHash string
@@ -64,7 +69,7 @@ func (s *Service) uidRate(ctx context.Context, c *app.RequestContext, uid string
 
 func (s *Service) readUIDRequest(ctx context.Context, c *app.RequestContext) (uidRequest, bool) {
 	var req uidRequest
-	if err := decodeBody(c, &req); err != nil || len(req.UID) > 64 || len(req.Password) > 72 || len(req.RecoveryKey) > 128 {
+	if err := decodeBody(c, &req); err != nil || len(req.UID) > 64 || len(req.Password) > 72 || len(req.RecoveryKey) > 128 || len(req.Phone) > 32 || len(req.ChallengeID) > 64 || len(req.Code) > 6 {
 		fail(c, 400, "INVALID_REQUEST", "请检查 UID 和密码格式", nil)
 		return req, false
 	}
@@ -75,9 +80,19 @@ func (s *Service) readUIDRequest(ctx context.Context, c *app.RequestContext) (ui
 // Use a valid dummy bcrypt hash so unknown UIDs do not skip password work.
 var dummyUIDHash, _ = bcrypt.GenerateFromPassword([]byte("not-a-user-password"), bcrypt.DefaultCost)
 
+// Parse numeric lookups in Go so PostgreSQL can use the unique number index;
+// malformed/legacy aliases must not trigger bigint casts or scan every account.
+func lookupOwnerNumber(value string) int64 {
+	number, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || number < 10000 {
+		return 0
+	}
+	return number
+}
+
 func (s *Service) authenticateUID(req uidRequest) (uidAccount, error) {
 	var account uidAccount
-	if err := s.db.Raw(`SELECT uid, password_hash, recovery_hash FROM human_accounts WHERE uid = ?`, req.UID).Scan(&account).Error; err != nil {
+	if err := s.db.Raw(`SELECT uid, account_number::text AS number, password_hash, recovery_hash FROM human_accounts WHERE account_number = ? OR uid = ?`, lookupOwnerNumber(req.UID), req.UID).Scan(&account).Error; err != nil {
 		return account, err
 	}
 	hash := []byte(account.PasswordHash)
@@ -219,11 +234,16 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 		fail(c, 400, "PASSWORD_INVALID", "密码需要 12–72 字节，建议使用至少 12 位英文、数字或符号", nil)
 		return
 	}
-	uid, err := randomToken("u_", 12)
-	if err != nil {
-		uidFailure(c, err)
+	phone, valid := normalizePhone(req.Phone)
+	if !valid {
+		fail(c, 400, "PHONE_REQUIRED", "创建账号需要验证手机号", nil)
 		return
 	}
+	if err := s.checkPhoneCode(c, phone, "register", req.ChallengeID, req.Code); err != nil {
+		phoneFailure(c, err)
+		return
+	}
+	uid := ""
 	recovery, err := randomToken("rk_", 32)
 	if err != nil {
 		uidFailure(c, err)
@@ -238,8 +258,29 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 	now := time.Now().UnixMilli()
 	var session uidSession
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(`INSERT INTO human_accounts(uid,password_hash,recovery_hash,created_at) VALUES (?, ?, ?, ?)`, uid, string(hash), keyedHash(s.otpPepper, recovery), now).Error; err != nil {
+		if err := s.consumePhoneCode(tx, c, phone, "register", req.ChallengeID, req.Code, now); err != nil {
 			return err
+		}
+		// Random public UID; retain legacy numbers and retry the unique index on collision.
+		created := false
+		for attempt := 0; attempt < 8; attempt++ {
+			random, err := rand.Int(rand.Reader, big.NewInt(900000000))
+			if err != nil {
+				return err
+			}
+			number := random.Int64() + 100000000
+			uid = strconv.FormatInt(number, 10)
+			result := tx.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,phone_hash,phone_last4,phone_verified_at,created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(account_number) DO NOTHING`, uid, number, string(hash), keyedHash(s.otpPepper, recovery), s.phoneHash(phone), phone[len(phone)-4:], now, now)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 1 {
+				created = true
+				break
+			}
+		}
+		if !created {
+			return errors.New("random UID allocation exhausted")
 		}
 		if err := claimUIDAgent(tx, id, uid, now); err != nil {
 			return err
@@ -255,7 +296,11 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 		return err
 	})
 	if err != nil {
-		uidFailure(c, err)
+		if errors.Is(err, errPhoneChallenge) || isUniqueViolation(err) {
+			phoneFailure(c, err)
+		} else {
+			uidFailure(c, err)
+		}
 		return
 	}
 	s.issueUIDSession(c, session)
@@ -282,7 +327,7 @@ func (s *Service) loginUID(ctx context.Context, c *app.RequestContext) {
 	}
 	c.Header("Cache-Control", "no-store")
 	if req.AgentID == "" {
-		reply(c, 200, map[string]interface{}{"uid": account.UID, "agents": agents})
+		reply(c, 200, map[string]interface{}{"uid": account.Number, "agents": agents})
 		return
 	}
 	id, err := strconv.ParseInt(req.AgentID, 10, 64)
@@ -313,7 +358,7 @@ func (s *Service) loginUID(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	s.issueUIDSession(c, session)
-	reply(c, 200, map[string]interface{}{"uid": account.UID, "agent_id": req.AgentID})
+	reply(c, 200, map[string]interface{}{"uid": account.Number, "agent_id": req.AgentID})
 }
 
 func (s *Service) claimUID(ctx context.Context, c *app.RequestContext) {
@@ -428,7 +473,7 @@ func (s *Service) claimUID(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	s.issueUIDSession(c, session)
-	reply(c, 200, map[string]interface{}{"uid": account.UID, "agent_id": fmt.Sprint(id), "refresh_required": id != source})
+	reply(c, 200, map[string]interface{}{"uid": account.Number, "agent_id": fmt.Sprint(id), "refresh_required": id != source})
 }
 
 func (s *Service) resetUIDPassword(ctx context.Context, c *app.RequestContext) {
@@ -450,23 +495,25 @@ func (s *Service) resetUIDPassword(ctx context.Context, c *app.RequestContext) {
 		uidFailure(c, err)
 		return
 	}
+	publicUID := ""
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		var stored string
-		if err := tx.Raw(`SELECT recovery_hash FROM human_accounts WHERE uid=? FOR UPDATE`, req.UID).Scan(&stored).Error; err != nil {
+		var stored struct{ UID, RecoveryHash, Number string }
+		if err := tx.Raw(`SELECT uid,recovery_hash,account_number::text AS number FROM human_accounts WHERE account_number=? OR uid=? FOR UPDATE`, lookupOwnerNumber(req.UID), req.UID).Scan(&stored).Error; err != nil {
 			return err
 		}
-		if stored == "" || subtle.ConstantTimeCompare([]byte(stored), []byte(keyedHash(s.otpPepper, req.RecoveryKey))) != 1 {
+		if stored.UID == "" || subtle.ConstantTimeCompare([]byte(stored.RecoveryHash), []byte(keyedHash(s.otpPepper, req.RecoveryKey))) != 1 {
 			return errUnauthorized
 		}
-		if err := tx.Exec(`UPDATE human_accounts SET password_hash=?, recovery_hash=? WHERE uid=?`, string(hash), keyedHash(s.otpPepper, recovery), req.UID).Error; err != nil {
+		publicUID = stored.Number
+		if err := tx.Exec(`UPDATE human_accounts SET password_hash=?, recovery_hash=? WHERE uid=?`, string(hash), keyedHash(s.otpPepper, recovery), stored.UID).Error; err != nil {
 			return err
 		}
-		return tx.Exec(`UPDATE console_v2_sessions SET status='revoked',revoked_at=? WHERE agent_id IN (SELECT agent_id FROM agent_owners WHERE owner_uid=?) AND status='active'`, time.Now().UnixMilli(), req.UID).Error
+		return tx.Exec(`UPDATE console_v2_sessions SET status='revoked',revoked_at=? WHERE agent_id IN (SELECT agent_id FROM agent_owners WHERE owner_uid=?) AND status='active'`, time.Now().UnixMilli(), stored.UID).Error
 	})
 	if err != nil {
 		uidFailure(c, err)
 		return
 	}
 	c.Header("Cache-Control", "no-store")
-	reply(c, 200, map[string]interface{}{"uid": req.UID, "recovery_key": recovery})
+	reply(c, 200, map[string]interface{}{"uid": publicUID, "recovery_key": recovery})
 }

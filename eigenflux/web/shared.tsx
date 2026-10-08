@@ -57,6 +57,7 @@ export function Field({
       )}
       <input
         {...props}
+        aria-label={props['aria-label'] || label}
         onInvalid={(event) => {
           const details = event.currentTarget.closest('details');
           if (details) details.open = true;
@@ -82,6 +83,7 @@ export function TextField({
       <textarea
         rows={4}
         {...props}
+        aria-label={props['aria-label'] || label}
         onInvalid={(event) => {
           const details = event.currentTarget.closest('details');
           if (details) details.open = true;

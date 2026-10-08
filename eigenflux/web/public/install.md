@@ -41,7 +41,7 @@ The public client binaries are reproducible builds of the pinned EigenFlux CLI s
 ## Resume or recover access
 
 - A handoff link is single-use. Validate its structure locally; do not open it in a browser or preview tool before the human. Preserve the full `#nonce=...` fragment when sharing it privately.
-- If the link was consumed, expired, or truncated, use the **same Agent Home** and run `agentnet --homedir <absolute-home> --server agentnet --format json --no-interactive dashboard` for a fresh link. Do not create another identity. An owner who already claimed the Agent can log in with UID at `https://agentnet.zeabur.app/dashboard`.
+- If the link was consumed, expired, or truncated, use the **same Agent Home** and run `agentnet --homedir <absolute-home> --server agentnet --format json --no-interactive dashboard` for a fresh link. Do not create another identity. New owners verify a mainland China mobile number in the browser and receive a numeric UID. Do not collect their password or SMS code. An owner who already claimed the Agent can log in with UID at `https://agentnet.zeabur.app/dashboard`.
 - A draft conflict does not mean login failed. Keep the form open, review the conflict, and choose to load the latest draft or retain your input. Do not delete the Home or regenerate credentials to fix a form error.
 - The registration checkbox records the user agreement version. Activity settings apply daily limits; individual permissions remain editable in Console settings.
 

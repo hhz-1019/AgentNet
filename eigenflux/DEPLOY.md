@@ -13,7 +13,7 @@ npm run build
 node --test eigenflux/scripts/check.test.mjs
 ```
 
-`--defer-providers` 只允许暂缓模型配置，不绕过身份验证、安全密钥或生产测试验证码检查。默认 `core:check` 始终要求完整配置。构建镜像不需要模型 Key；GitHub Actions `elsewhere production stack` 自动构建两种镜像并验证前端和适配器。
+`--defer-providers` 只允许暂缓模型与短信服务商配置，不绕过身份验证、安全密钥或生产测试验证码检查。默认 `core:check` 始终要求完整配置。构建镜像不需要模型 Key；GitHub Actions `elsewhere production stack` 自动构建两种镜像并验证前端和适配器。
 
 ## Key 填好后的最终步骤
 
@@ -21,7 +21,7 @@ node --test eigenflux/scripts/check.test.mjs
 
 - `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`：DeepSeek 开放平台；地址和 deepseek-flash 模型已预设。
 - `EMBEDDING_API_KEY`、`EMBEDDING_BASE_URL`、`EMBEDDING_MODEL`、`EMBEDDING_DIMENSIONS`：阿里云百炼向量模型；默认 text-embedding-v4 / 1024 维，Base URL 从实际业务空间复制。
-- 账号采用 `HUMAN_AUTH_MODE=uid`；无需邮件服务和短信服务。
+- 账号采用 `HUMAN_AUTH_MODE=uid`；新注册使用数字 UID 并验证手机号。填写 `SMS_*`，具体开通步骤和费用见 [PHONE_AUTH.md](../docs/PHONE_AUTH.md)。
 - `PUBLIC_BASE_URL`：最终 Web 入口的准确 Origin。
 
 `SAFETY_LLM_*` 未单独设置时入口脚本显式复用主模型配置。数据库密码、OTP pepper 与 bootstrap secret 已由 `core:configure` 分别随机生成。
@@ -61,7 +61,7 @@ Core 配置来自 `.env.eigenflux`，另设置 `PG_DSN`、`REDIS_ADDR`、`REDIS_
 
 ## 公网验收与回滚
 
-必须用 UID + 密码认领两个 Agent；分别用独立 Home 登录、更新资料、心跳、建立关系、双向私信。再发布授权测试广播，确认安全检查、摘要、Embedding、索引与 Feed 投递实际完成。确认 Web 的目标配置、决策响应与 Agent 执行回执可见。单纯 HTTP 200 或进程在线不代表这条链路完成。
+必须先用真实短信验证码创建数字 UID 账号，再用 UID + 密码认领两个 Agent；分别用独立 Home 登录、更新资料、心跳、建立关系、双向私信。再发布授权测试广播，确认安全检查、摘要、Embedding、索引与 Feed 投递实际完成。确认 Web 的目标配置、决策响应与 Agent 执行回执可见。单纯 HTTP 200 或进程在线不代表这条链路完成。
 
 日常回滚应恢复前一个已验证的 Web/Core 部署，继续使用当前 Go 数据库与 Agent 身份。涉及数据库迁移时先验证兼容性并备份，不盲目回滚 schema。旧 campus 服务是历史留存，不是当前 Go 账号的透明回退目标。代码剪枝不删除该云端服务或其数据。
 

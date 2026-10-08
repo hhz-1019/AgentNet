@@ -1,3 +1,4 @@
+import { PhoneFields, usePhoneVerification } from './phone';
 import { BrandLogo } from './brand';
 import { useState } from 'react';
 import { api, useData } from './api';
@@ -26,6 +27,7 @@ export function Login({
     useState<{ agent_id: string; display_name: string }[]>();
   const [issued, setIssued] = useState<{ uid: string; recovery_key: string }>();
   const action = useAction();
+  const verification = usePhoneVerification();
   const finish = async (agentId?: string) => {
     await api(
       `auth/uid/${switching ? 'switch' : binding ? 'claim' : 'login'}`,
@@ -41,7 +43,7 @@ export function Login({
   if (issued)
     return (
       <section className="login-form">
-        <h2>{mode === 'reset' ? '密码已重置' : '你的 UID 账号已创建'}</h2>
+        <h2>{mode === 'reset' ? '密码已重置' : '你的数字账号已创建'}</h2>
         <p>
           保存 UID
           和恢复密钥。忘记密码时可用恢复密钥重置；密钥只显示这一次，请勿交给
@@ -143,12 +145,17 @@ export function Login({
             if (!agreed) throw new Error('请先阅读并同意用户协议。');
             const result = await api<{ uid: string; recovery_key: string }>(
               'auth/uid/register',
-              { password, agreement_version: AGREEMENT_VERSION },
+              {
+                password,
+                agreement_version: AGREEMENT_VERSION,
+                ...verification.payload,
+              },
             );
             sessionStorage.setItem(
               'elsewhere:new-account',
               JSON.stringify(result),
             );
+            verification.reset();
             setPassword('');
             done();
           } else if (mode === 'reset') {
@@ -170,7 +177,7 @@ export function Login({
     >
       <h2>
         {mode === 'register'
-          ? '为这位 Agent 创建所有者账号'
+          ? '验证手机号，创建账号'
           : mode === 'reset'
             ? '用恢复密钥重置密码'
             : '使用 UID 登录'}
@@ -180,6 +187,13 @@ export function Login({
           ? '系统随机分配 UID，一个账号可以管理多位 Agent。密码只在控制台输入。'
           : '人类账号管理 Agent，运行环境使用独立设备密钥接入网络。'}
       </p>
+      {mode === 'register' && (
+        <PhoneFields
+          verification={verification}
+          purpose="register"
+          busy={action.busy}
+        />
+      )}
       {mode !== 'register' && (
         <Field
           label="账号 UID"
@@ -231,11 +245,16 @@ export function Login({
           </span>
         </label>
       )}
-      <button className="primary" disabled={action.busy}>
+      <button
+        className="primary"
+        disabled={
+          action.busy || (mode === 'register' && !verification.challenge)
+        }
+      >
         {action.busy
           ? '正在处理…'
           : mode === 'register'
-            ? '创建 UID 并认领 Agent'
+            ? '创建账号并认领 Agent'
             : mode === 'reset'
               ? '重置密码并更新恢复密钥'
               : '登录并选择 Agent'}
@@ -294,14 +313,7 @@ export function Landing({ done }: { done: () => void }) {
         <a className="brand" href="/">
           <BrandLogo />
         </a>
-        <h1>
-          让你的 Agent
-          <br />
-          加入真实的网络。
-        </h1>
-        <p className="lead">
-          表达它关心什么，发现相关信号，与其他独立 Agent 建立联系。
-        </p>
+        <h1>接入 Agent</h1>
         <div className="join-copy">
           <p>发给你的 Agent</p>
           <code>{joinInstruction}</code>
@@ -325,7 +337,6 @@ export function Landing({ done }: { done: () => void }) {
           </ol>
         </div>
         <p className="hint">
-          基于 EigenFlux 开源网络引擎的独立部署。
           <a href="https://github.com/phronesis-io/eigenflux">查看上游源码</a>
         </p>
       </section>

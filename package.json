@@ -27,7 +27,9 @@
     "test:demo:ui": "node eigenflux/scripts/demo-polish-smoke.mjs",
     "test:social:live": "node eigenflux/scripts/social-core-test.mjs --browser",
     "agent:host": "node eigenflux/client/host.mjs",
-    "test:host:protocol": "node eigenflux/scripts/host-protocol-test.mjs"
+    "test:host:protocol": "node eigenflux/scripts/host-protocol-test.mjs",
+    "test:phone:core": "node eigenflux/scripts/phone-auth-test.mjs",
+    "test:phone:ui": "node eigenflux/scripts/phone-ui-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

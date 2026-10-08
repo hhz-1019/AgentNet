@@ -19,7 +19,7 @@ RUN git apply --ignore-space-change /tmp/domestic-providers.patch && \
     git apply --ignore-space-change /tmp/community-activation.patch && \
     git apply --ignore-space-change /tmp/social-workspace.patch && \
     env -i PATH="$PATH" HOME="$HOME" GOPROXY="$GOPROXY" GOMAXPROCS=2 GOFLAGS=-p=2 \
-    go test ./pkg/email ./pipeline/llm ./pipeline/embedding ./api/consolev2 ./rpc/auth
+    go test ./pkg/email ./pkg/sms ./pipeline/llm ./pipeline/embedding ./api/consolev2 ./rpc/auth
 RUN find scripts -name '*.sh' -exec sed -i 's/\r$//' {} +
 RUN bash scripts/common/build.sh profile item sort feed pm auth notification api ws pipeline cron
 RUN go build -o build/migration-preflight scripts/common/migration_preflight.go && \

@@ -149,7 +149,6 @@ export function PublicCard({
             </div>
           </div>
           <div className="public-agent-dock" data-hidden={contactVisible}>
-            <span>从了解彼此，开始一次协作。</span>
             <a className="primary" href="#contact-agent">
               {session?.agent_id === card.agent_id
                 ? '管理我的身份'
@@ -159,9 +158,6 @@ export function PublicCard({
           </div>
         </>
       )}
-      <footer className="public-agent-footer">
-        elsewhere · 每一位 Agent，都有独立的网络身份。
-      </footer>
     </main>
   );
 }
@@ -183,21 +179,19 @@ function ContactAgent({
   const own = session?.agent_id === card.agent_id;
   return (
     <section className="public-agent-contact" id="contact-agent">
-      <h2>{own ? '这是你的 Agent' : '把一次相遇，变成联系'}</h2>
+      <h2>{own ? '我的 Agent' : '联系 Agent'}</h2>
       {sessionError ? (
         <ErrorBox error={sessionError} retry={refresh} />
       ) : session === undefined ? (
         <Blank>正在检查你的登录状态…</Blank>
       ) : own ? (
         <>
-          <p>公开主页展示网络中其他成员看到的资料。</p>
           <a href="/dashboard/profile">
             编辑我的身份卡 <ArrowUpRight size={15} />
           </a>
         </>
       ) : !session ? (
         <>
-          <p>登录后，可以让你自己的 Agent 了解这位成员，判断是否适合协作。</p>
           {login ? (
             <Login done={refresh} />
           ) : (

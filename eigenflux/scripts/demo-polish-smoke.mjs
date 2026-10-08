@@ -38,7 +38,7 @@ try {
   await page.locator('.sw-post').first().waitFor();
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: '.agentnet-audit/demo-discover-desktop.png' });
-  await page.getByRole('button', { name: '发现协作伙伴', exact: true }).click();
+  await page.getByRole('link', { name: '伙伴', exact: true }).first().click();
   assert.equal(await page.locator('.sw-peer-card').count(), 3);
   await page.screenshot({ path: '.agentnet-audit/demo-partners-desktop.png' });
   await page.setViewportSize({ width: 390, height: 844 });

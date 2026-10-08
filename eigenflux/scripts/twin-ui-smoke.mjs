@@ -74,7 +74,7 @@ try {
           agent_id: '1',
           short_id: 'TEST',
           agent_name: 'Codex',
-          owner_uid: registered ? 'u_random_fixture' : '',
+          owner_uid: registered ? '731482905' : '',
           owner_bound: registered,
           runtime_name: 'Codex',
           runtime_version: '',
@@ -84,11 +84,13 @@ try {
           device_name: '',
           onboarding: state,
         };
+      else if (path === 'auth/phone/challenges')
+        data = { challenge_id: 'fixture-challenge', retry_after: 60 };
       else if (path === 'auth/uid/register') {
         assert.equal(body.agreement_version, '2026-10-09');
         assert.equal(body.uid, undefined);
         registered = true;
-        data = { uid: 'u_random_fixture', recovery_key: 'fixture-only-key' };
+        data = { uid: '731482905', recovery_key: 'fixture-only-key' };
       } else if (path === 'agents/me/onboarding-draft')
         data = {
           onboarding: state,
@@ -158,17 +160,21 @@ try {
     await page.goto('http://127.0.0.1:4324/dashboard');
     // Start from an unowned handoff session; the first page is registration.
     // App's session fixture has an unclaimed owner but an incomplete identity.
+    await page.getByLabel('手机号', { exact: false }).fill('13800138000');
+    await page.getByRole('button', { name: '获取验证码' }).click();
+    await page.getByText('验证码已发送，5 分钟内有效', {exact:true}).waitFor();
+    await page.getByLabel('短信验证码', { exact: false }).fill('123456');
     await page
       .getByLabel('账号密码', { exact: false })
       .fill('fixture-password-123');
-    await page.getByRole('button', { name: '创建 UID 并认领 Agent' }).click();
+    await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
     assert.equal(registered, false);
     await page.getByRole('checkbox').check();
     await page.screenshot({
       path: `${dir}/registration-${width}.png`,
       fullPage: true,
     });
-    await page.getByRole('button', { name: '创建 UID 并认领 Agent' }).click();
+    await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
     await page.getByRole('heading', { name: '确认你的基础资料' }).waitFor();
     assert.equal(
       await page.getByLabel('你的昵称', { exact: false }).inputValue(),
@@ -215,17 +221,36 @@ try {
     assert.equal(policy.daily_searches, 12);
     assert.equal(policy.daily_feedback, 6);
     await page.goto('http://127.0.0.1:4324/dashboard/settings');
-    await page.getByRole('heading', { name: '个人资料与 Agent 活动' }).waitFor();
-    assert.equal(await page.getByLabel('你的昵称', { exact: false }).inputValue(), '修改后的昵称');
-    await page.getByLabel('你的昵称', { exact: false }).fill('设置中修改的昵称');
-    await page.getByRole('button', { name: '保存个人资料', exact: true }).click();
+    await page
+      .getByRole('heading', { name: '个人资料与 Agent 活动' })
+      .waitFor();
+    assert.equal(
+      await page.getByLabel('你的昵称', { exact: false }).inputValue(),
+      '修改后的昵称',
+    );
+    await page
+      .getByLabel('你的昵称', { exact: false })
+      .fill('设置中修改的昵称');
+    await page
+      .getByRole('button', { name: '保存个人资料', exact: true })
+      .click();
     await page.getByLabel('每日发帖上限', { exact: false }).fill('1');
-    await page.getByRole('button', { name: '保存活动额度', exact: true }).click();
+    await page
+      .getByRole('button', { name: '保存活动额度', exact: true })
+      .click();
     await page.reload();
-    await page.getByRole('heading', { name: '个人资料与 Agent 活动' }).waitFor();
+    await page
+      .getByRole('heading', { name: '个人资料与 Agent 活动' })
+      .waitFor();
     await page.getByLabel('你的昵称', { exact: false }).waitFor();
-    assert.equal(await page.getByLabel('你的昵称', { exact: false }).inputValue(), '设置中修改的昵称');
-    assert.equal(await page.getByLabel('每日发帖上限', { exact: false }).inputValue(), '1');
+    assert.equal(
+      await page.getByLabel('你的昵称', { exact: false }).inputValue(),
+      '设置中修改的昵称',
+    );
+    assert.equal(
+      await page.getByLabel('每日发帖上限', { exact: false }).inputValue(),
+      '1',
+    );
     assert.deepEqual(errors, []);
     await page.close();
   }

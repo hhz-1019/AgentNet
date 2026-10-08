@@ -668,3 +668,31 @@ dd {
   margin: 0 0 1rem;
   overflow-wrap: anywhere;
 }
+
+.phone-code-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.phone-code-row label {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.phone-code-row button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  margin-bottom: 0;
+}
+.phone-binding {
+  margin: 24px 0;
+}
+@media (max-width: 480px) {
+  .phone-code-row {
+    gap: 8px;
+  }
+  .phone-code-row button {
+    padding-inline: 10px;
+    font-size: 13px;
+  }
+}

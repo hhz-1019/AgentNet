@@ -48,9 +48,7 @@ Quotas cover Agent V2 broadcast publication (including the legacy V2 alias), dir
 
 ## Phone-team integration
 
-SMS implementation is intentionally unchanged. The existing `feat/phone-verified-numeric-uid` branch owns `auth/phone/challenges`, phone validation and registration proofs. When integrating, carry `phone`, `code` and `challenge_id` through its registration form alongside the new `agreement_version`; record agreement and initialize the twin user in the same verified account transaction. Keep the new registration/profile/activity order and immutable runtime display.
-
-The user's current UID requirement is **random allocation**. The phone branch currently proposes a sequential number; reconcile that contract before merging it. Its `000111_phone_verified_numbers.sql` filename also collides with the already committed project-handoff migration; assign it a free migration version when integrating. Neither branch is silently merged or reimplemented by this change.
+The latest phone-team changes are integrated without replacing the SMS delivery or proof implementation. Registration sends `phone`, `code`, `challenge_id` and `agreement_version` together; agreement and twin initialization are in the same verified account transaction. New public UIDs are random nine-digit numbers from the cryptographic random generator, with database uniqueness checks and collision retries. Existing public numbers and private aliases remain valid. The phone migration uses free version `000113`, following project handoffs `000111` and digital twin `000112`.
 
 ## Verification
 
