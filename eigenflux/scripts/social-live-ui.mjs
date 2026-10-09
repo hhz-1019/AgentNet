@@ -30,46 +30,15 @@ const page = await a.newPage(),
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 second.on('pageerror', (e) => errors.push(e.message));
-const interestLabel = '关注标签（逗号分隔，最多 8 个）';
-const openInterests = async (p) => {
-  await p.getByRole('button', { name: /^(设置关注|调整关注)$/ }).click();
-};
 try {
   await page.goto(origin + '/dashboard');
-  await openInterests(page);
-  await page.getByLabel(interestLabel).fill('React, Agent 工程');
-  await page.getByRole('button', { name: '保存关注', exact: true }).click();
-  await page.getByRole('dialog').waitFor({ state: 'hidden' });
-  await second.goto(origin + '/dashboard');
-  await openInterests(second);
-  assert.equal(
-    await second.getByLabel(interestLabel).inputValue(),
-    'React, Agent 工程',
-  );
-  await second.getByLabel(interestLabel).fill('产品设计');
-  // A second browser must not silently overwrite a concurrent preference update.
-  await openInterests(page);
-  await page.getByLabel(interestLabel).fill('研究自动化');
-  await page.getByRole('button', { name: '保存关注', exact: true }).click();
-  await Promise.all([
-    second.waitForResponse(
-      (r) =>
-        r.url().includes('/social/preferences') &&
-        r.request().method() === 'GET',
-    ),
-    second.evaluate(() => window.dispatchEvent(new Event('agentnet:refresh'))),
-  ]);
-  await second.getByRole('button', { name: '保存关注', exact: true }).click();
-  await second.getByRole('alert').waitFor();
-  assert.equal(await second.getByLabel(interestLabel).inputValue(), '产品设计');
-  await second.getByRole('button', { name: '保存关注', exact: true }).click();
-  await second.getByRole('dialog').waitFor({ state: 'hidden' });
-  const pref = await (
-    await a.request.get(origin + '/api/v2/console/social/preferences')
-  ).json();
-  assert.deepEqual(pref.data.tags, ['产品设计']);
+  // The manual-interest editor was removed from the social flow. Preference
+  // persistence/concurrency remains covered by the existing backend tests.
+  await page.getByRole('link', { name: '我的', exact: true }).first().click();
+  await page.getByRole('button', { name: '打开设置', exact: true }).click();
   // Organization UI uses real handlers and DB; session identities remain fixtures.
-  await page.getByRole('link', { name: '团队与权限', exact: true }).click();
+  // Legacy organization UI is no longer exposed in settings.
+  await page.goto(origin + '/dashboard/organizations');
   await page.getByLabel('团队名称').fill('浏览器验证团队');
   await page.getByRole('button', { name: '创建团队', exact: true }).click();
   await page
@@ -184,7 +153,9 @@ try {
     );
   await page.getByLabel('仅自己', { exact: true }).check();
   await page.getByRole('button', { name: '保存并预览', exact: true }).click();
-  await page.getByRole('heading', { name: '确认这份内容的发布', exact: true }).waitFor();
+  await page
+    .getByRole('heading', { name: '确认这份内容的发布', exact: true })
+    .waitFor();
   assert.equal(
     (
       await (
@@ -212,7 +183,9 @@ try {
   await page.getByRole('button', { name: '保存草稿', exact: true }).click();
   await page.getByText('草稿已保存，尚未发布。').waitFor();
   await page.getByRole('button', { name: '保存并预览', exact: true }).click();
-  await page.getByRole('heading', { name: '确认这份内容的发布', exact: true }).waitFor();
+  await page
+    .getByRole('heading', { name: '确认这份内容的发布', exact: true })
+    .waitFor();
   assert.equal(
     (
       await (
@@ -267,7 +240,7 @@ try {
     );
     assert.equal(created.status(), 201);
   }
-  await page.getByRole('link', { name: '待确认草稿' }).click();
+  await page.getByRole('link', { name: '草稿', exact: true }).click();
   await page.locator('.sw-draft-card').nth(3).waitFor();
   assert.equal(await page.locator('.sw-draft-card').count(), 4);
   await page.locator('.sw-draft-card').last().click();
@@ -295,11 +268,83 @@ try {
     images.length && images.every(Boolean),
     'hosted images loaded after refresh',
   );
+  await page.goto(origin + '/dashboard/profile');
+  await page.getByLabel('昵称', { exact: false }).fill('浏览器真实画像');
+  await page.getByLabel('生活中的身份', { exact: true }).fill('私密测试身份');
+  await page.getByRole('button', { name: '保存资料', exact: true }).click();
+  await page.getByText('资料已保存。', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '记一件事', exact: true }).click();
+  await page
+    .getByLabel('记忆内容', { exact: true })
+    .fill('真实数据库中的私密事件记忆');
+  await page.getByRole('button', { name: '保存这条记忆', exact: true }).click();
+  await page.getByText('记忆已保存。', { exact: true }).waitFor();
+  const person = (
+    await (await peer.request.get(origin + '/api/v2/console/people/1')).json()
+  ).data;
+  assert.equal(person.fields.role, undefined);
+  assert.equal(person.memories.length, 0);
+  await page.goto(origin + '/dashboard/messages');
+  await page.getByRole('button', { name: '发起群聊' }).click();
+  await page.getByLabel('群聊名称', { exact: true }).fill('数据库联调群');
+  await page.getByRole('checkbox', { name: '伙伴 Agent' }).check();
+  await page.getByRole('button', { name: '创建群聊', exact: true }).click();
+  await page
+    .getByRole('heading', { name: '数据库联调群', exact: true })
+    .waitFor();
+  await page
+    .getByRole('textbox', { name: '输入消息' })
+    .fill('本人发送的群消息');
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.request().method() === 'POST' &&
+        r.url().includes('/messages') &&
+        r.status() === 201,
+    ),
+    page.getByRole('button', { name: '发送', exact: true }).click(),
+  ]);
+  await page.getByText('本人发送的群消息', { exact: true }).waitFor();
+  await page.reload();
+  await page.getByRole('button', { name: /数据库联调群/ }).click();
+  await page.getByText('本人发送的群消息', { exact: true }).waitFor();
+  const groupsResponse = await (
+    await peer.request.get(origin + '/api/v2/console/groups')
+  ).json();
+  const newGroupId = groupsResponse.data.items.find(
+    (g) => g.name === '数据库联调群',
+  ).group_id;
+  const incoming = await peer.request.post(
+    origin + '/api/v2/console/groups/' + newGroupId + '/messages',
+    {
+      data: {
+        content: '另一位成员的新消息',
+        idempotency_key: 'browser-incoming-group-message',
+      },
+    },
+  );
+  assert.equal(incoming.status(), 201);
+  await page
+    .getByText('另一位成员的新消息', { exact: true })
+    .waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: '发布', exact: true }).first().click();
+  await page
+    .getByRole('textbox', { name: /正文|想分享/ })
+    .fill('本人直接发布的普通动态');
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: '发布', exact: true })
+    .click();
+  await page
+    .getByText('本人直接发布的普通动态', { exact: true })
+    .first()
+    .waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    'PASS live PostgreSQL browser flow: cross-device preferences, explicit conflict retry, upload, saved-revision review, private publication, organization consent/attribution and attachment ACL',
+    'PASS live PostgreSQL browser flow: personal settings navigation, upload, saved-revision review, private publication, organization consent/attribution and attachment ACL',
   );
 } catch (error) {
+  console.log('DOM:', await page.locator('body').innerText());
   console.log(
     'Visible errors:',
     await page.locator('.sw-error').allTextContents(),

@@ -1,10 +1,10 @@
-export type Kind = 'result' | 'question' | 'collab' | 'tool';
+export type Kind = 'result' | 'question' | 'collab' | 'tool' | 'social';
 export type Visibility = 'public' | 'friends' | 'private';
 export type PublishingIdentity = 'human' | 'agent' | 'project';
 export interface Media {
   url: string;
   alt: string;
-  kind: 'image' | 'chart' | 'code' | 'demo';
+  kind: 'image' | 'chart' | 'code' | 'demo' | 'video';
 }
 export interface UnusedMedia {
   url: string;
@@ -146,6 +146,7 @@ export interface SocialStore {
   ): Promise<void>;
 }
 export const kindLabels: Record<Kind, string> = {
+  social: '动态',
   result: '工作成果',
   question: '提问',
   collab: '协作机会',
@@ -153,12 +154,12 @@ export const kindLabels: Record<Kind, string> = {
 };
 export const visibilityLabels: Record<Visibility, string> = {
   public: '全网可见',
-  friends: '已建立联系的 Agent',
+  friends: '好友可见',
   private: '仅自己',
 };
 export const identityLabels: Record<PublishingIdentity, string> = {
   human: '本人发布',
-  agent: 'Agent 代表我',
+  agent: 'Agent 发布',
   project: '项目署名（自声明）',
 };
 export function emptyDocument(): WorkDocument {

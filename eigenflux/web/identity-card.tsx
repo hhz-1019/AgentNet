@@ -1,8 +1,8 @@
 import { chineseDescription } from './chinese';
-import { BrandLogo } from './brand';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { ArrowUpRight, Check, Copy, MoveUpRight } from 'lucide-react';
+import { ArrowUpRight, Check, Copy } from 'lucide-react';
 import type { AgentCardData } from './types';
+import { SocialIdentity } from './social/social-identity';
 import './identity-card.css';
 
 export function IdentityCard({
@@ -16,7 +16,6 @@ export function IdentityCard({
 }) {
   const surface = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
-  const [motion, setMotion] = useState(true);
   const [copied, setCopied] = useState('');
   const [error, setError] = useState('');
   const uid = publicView ? undefined : ownerUID;
@@ -36,7 +35,6 @@ export function IdentityCard({
   };
   const move = (event: PointerEvent<HTMLDivElement>) => {
     if (
-      !motion ||
       event.pointerType !== 'mouse' ||
       !matchMedia(
         '(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)',
@@ -56,8 +54,8 @@ export function IdentityCard({
     frame.current = requestAnimationFrame(() => {
       const style = surface.current?.style;
       if (!style) return;
-      style.setProperty('--rx', `${(0.5 - y) * 9}deg`);
-      style.setProperty('--ry', `${(x - 0.5) * 11}deg`);
+      style.setProperty('--rx', `${(0.5 - y) * 4}deg`);
+      style.setProperty('--ry', `${(x - 0.5) * 5}deg`);
       style.setProperty('--px', `${x * 100}%`);
       style.setProperty('--py', `${y * 100}%`);
       style.setProperty('--sheen', '1');
@@ -90,7 +88,7 @@ export function IdentityCard({
           month: '2-digit',
           day: '2-digit',
         }).format(joined)
-      : '暂未提供';
+      : '';
   const name = chineseDescription(
     card.agent_name || card.display_name,
     '未命名 Agent',
@@ -107,80 +105,38 @@ export function IdentityCard({
         onPointerLeave={reset}
         onPointerCancel={reset}
       >
-        <div className="agent-id-card" ref={surface}>
-          <div className="identity-guilloche" aria-hidden="true">
-            <svg viewBox="0 0 360 420" fill="none">
-              {Array.from({ length: 15 }, (_, i) => (
-                <ellipse
-                  key={i}
-                  cx="180"
-                  cy="210"
-                  rx={44 + i * 8}
-                  ry={92 + i * 6}
-                  transform={`rotate(${i * 7 - 49} 180 210)`}
-                />
-              ))}
-              <circle cx="180" cy="210" r="5" />
-            </svg>
-          </div>
-          <div className="identity-card-top">
-            <span className="identity-wordmark">
-              <BrandLogo inverse />
-            </span>
-            <span className="identity-card-kind">网络身份卡</span>
-          </div>
-          <div className="identity-card-person">
-            <h2 className={name.length > 22 ? 'identity-long-name' : ''}>
-              {name}
-            </h2>
-            {bio && <p className="identity-bio">{bio}</p>}
-          </div>
-          <div className="identity-capabilities" aria-label="公开能力">
-            {offerings.slice(0, 2).map((item, index) => (
-              <span key={index}>{chineseDescription(item, '能力待补充')}</span>
-            ))}
-            {offerings.length > 2 && <span>+{offerings.length - 2}</span>}
-          </div>
-          <div className="identity-card-bottom">
-            {uid && (
-              <div>
-                <span className="identity-meta-label">账号 UID</span>
-                <code>{uid}</code>
-              </div>
-            )}
-            <div>
-              <span className="identity-meta-label">加入网络</span>
-              <time
-                dateTime={
-                  joined && Number.isFinite(joined.getTime())
-                    ? joined.toISOString()
-                    : undefined
-                }
-              >
-                {joinedLabel}
-              </time>
-            </div>
-            <MoveUpRight
-              className="identity-corner"
-              size={25}
-              strokeWidth={1.25}
-              aria-hidden="true"
-            />
-          </div>
+        <div className="identity-surface" ref={surface}>
+          <SocialIdentity
+            name={name}
+            bio={bio}
+            headingAs="h2"
+            accessibleName={`${name}的公开身份`}
+            official={card.verification_level === 'official'}
+            interests={offerings
+              .slice(0, 2)
+              .map((item) => chineseDescription(item, ''))}
+            meta={
+              uid || joinedLabel ? (
+                <>
+                  {uid && (
+                    <span>
+                      账号 UID <code>{uid}</code>
+                    </span>
+                  )}
+                  {joinedLabel && (
+                    <span>
+                      加入网络{' '}
+                      <time dateTime={joined!.toISOString()}>
+                        {joinedLabel}
+                      </time>
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
+          />
           <div className="identity-sheen" aria-hidden="true" />
         </div>
-      </div>
-      <div className="identity-card-caption">
-        <button
-          className="identity-motion-toggle"
-          aria-pressed={motion}
-          onClick={() => {
-            setMotion(!motion);
-            reset();
-          }}
-        >
-          动态效果：{motion ? '开启' : '关闭'}
-        </button>
       </div>
       <div className="identity-share-actions">
         {uid && (

@@ -15,13 +15,13 @@ import {
 import type { AgentCardData, Session } from './types';
 import './public-agent.css';
 
-export function AgentLink({ id, name }: { id: string; name?: string }) {
+export function AgentLink({ id, name, onProfile }: { id: string; name?: string; onProfile?: (id: string) => void }) {
   const q = useData<{ card: AgentCardData }>(
     !name && id ? `public/agents/by-id/${encodeURIComponent(id)}/card` : null,
     { live: false },
   );
   return (
-    <a className="agent-name-link" href={`/agent/${encodeURIComponent(id)}`}>
+    <a className="agent-name-link" href={`/agent/${encodeURIComponent(id)}`} onClick={(e)=>{if(onProfile && !e.ctrlKey && !e.metaKey && !e.shiftKey){e.preventDefault();onProfile(id);}}}>
       {name || q.data?.card.agent_name || `Agent ${id}`}
     </a>
   );
@@ -64,7 +64,7 @@ export function PublicCard({
           <BrandLogo />
         </a>
         <a href="/dashboard">
-          <ArrowLeft size={15} /> {session ? '我的控制台' : '进入 elsewhere'}
+          <ArrowLeft size={17} /> 进入 elsewhere
         </a>
       </nav>
       <ErrorBox
@@ -101,36 +101,34 @@ export function PublicCard({
                     : '已验证邮箱'}
                 </p>
               )}
-              <section className="public-agent-about">
-                <h2>关于这位 Agent</h2>
-                <p className="prewrap">
-                  {card.agent_description || '这位 Agent 还没有填写公开简介。'}
-                </p>
-              </section>
-              <div className="public-agent-exchange">
-                {(['offering', 'seeking'] as const).map((key) => (
-                  <section key={key}>
-                    <h2>{key === 'offering' ? '可以提供' : '正在寻找'}</h2>
-                    {card[key]?.length ? (
-                      <ul>
-                        {card[key]?.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="hint">
-                        {key === 'offering'
-                          ? '公开能力仍在完善中。'
-                          : '暂未公开协作需求。'}
-                      </p>
-                    )}
-                  </section>
-                ))}
-              </div>
-              <section className="public-agent-language">
-                <h2>工作语言</h2>
-                <p>{card.working_languages?.join(' · ') || '尚未公开'}</p>
-              </section>
+              {card.agent_description?.trim() && (
+                <section className="public-agent-about">
+                  <h2>关于我</h2>
+                  <p className="prewrap">{card.agent_description}</p>
+                </section>
+              )}
+              {!!(card.offering?.length || card.seeking?.length) && (
+                <div className="public-agent-exchange">
+                  {(['offering', 'seeking'] as const).map((key) =>
+                    card[key]?.length ? (
+                      <section key={key}>
+                        <h2>{key === 'offering' ? '可以提供' : '正在寻找'}</h2>
+                        <ul>
+                          {card[key]?.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </section>
+                    ) : null,
+                  )}
+                </div>
+              )}
+              {!!card.working_languages?.length && (
+                <section className="public-agent-language">
+                  <h2>工作语言</h2>
+                  <p>{card.working_languages.join(' · ')}</p>
+                </section>
+              )}
               <ContactAgent
                 key={`${card.agent_id}:${session?.agent_id || 'guest'}`}
                 card={card}

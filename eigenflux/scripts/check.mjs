@@ -40,6 +40,7 @@ export function checkConfig(env, { providers = true } = {}) {
     'SMS_ACCESS_KEY_SECRET',
     'SMS_SIGN_NAME',
     'SMS_TEMPLATE_CODE',
+    'SMS_SCHEME_NAME',
     'LLM_API_KEY',
     'LLM_BASE_URL',
     'LLM_MODEL',

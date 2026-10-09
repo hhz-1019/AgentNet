@@ -1,0 +1,77 @@
+.ew-entry-content {
+  display: contents;
+}
+.ew-brand-entry {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  z-index: 10000;
+  overflow: hidden;
+  color: #f5f1e8;
+  outline: none;
+  font-family: 'Iowan Old Style', 'Songti SC', 'Noto Serif SC', SimSun, serif;
+}
+.ew-entry-progress {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.ew-brand-entry canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.ew-brand-entry[data-entry-phase='loading'] {
+  background: #302c26;
+}
+.ew-entry-status {
+  position: absolute;
+  top: 26px;
+  left: 28px;
+  font-size: 18px;
+  line-height: 1.8;
+}
+.ew-brand-entry .ew-entry-skip {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  min-height: 44px;
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #f5f1e8;
+  font: inherit;
+  mix-blend-mode: difference;
+  font-size: 17px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+.ew-brand-entry .ew-entry-skip:focus-visible {
+  outline: 2px solid #f5f1e8;
+  outline-offset: 5px;
+}
+.ew-brand-entry[data-entry-phase='reveal'] .ew-entry-status {
+  visibility: hidden;
+}
+@media (max-width: 600px) {
+  .ew-entry-status {
+    left: 20px;
+    top: 20px;
+  }
+  .ew-brand-entry .ew-entry-skip {
+    right: 20px;
+    top: 12px;
+  }
+}

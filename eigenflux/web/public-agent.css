@@ -1,25 +1,25 @@
 .public-agent-page {
-  max-width: 1040px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 28px 32px 0;
+  padding: 26px 32px 0;
 }
 .public-agent-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 .public-agent-nav > a:last-child {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 16px;
 }
 .public-agent-sheet {
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  background: white;
+  border: 1px solid #cfc5b5;
+  border-radius: 5px;
+  background: #fffdf8;
   overflow: clip;
 }
 .public-agent-sheet .identity-showcase {
@@ -29,65 +29,62 @@
 .public-agent-sheet .identity-stage {
   padding: 0;
 }
-.public-agent-sheet .agent-id-card {
-  border-radius: 21px 21px 0 0;
-  padding: 40px 48px 34px;
-  box-shadow: none;
-}
-.public-agent-sheet .identity-card-person {
-  margin-top: 52px;
-}
-.public-agent-sheet .identity-card-person h2 {
-  font-size: clamp(38px, 6vw, 76px);
-}
-.public-agent-sheet .identity-card-person h2.identity-long-name {
-  font-size: clamp(30px, 4vw, 48px);
+.public-agent-sheet .elsewhere-identity {
+  min-height: 250px;
+  border-radius: 4px 4px 0 0;
+  padding: 25px 32px 23px;
 }
 .public-agent-sheet .identity-card-caption {
-  padding: 20px 48px 0;
+  padding: 3px 32px 0;
 }
 .public-agent-sheet .identity-share-actions {
-  margin-top: 12px;
+  margin-top: 0;
+  padding: 0 32px 16px;
 }
 .public-agent-sheet .identity-feedback {
+  margin-left: 32px;
+  margin-right: 32px;
   margin-bottom: 0;
 }
 .public-agent-body {
-  padding: 0 48px 42px;
+  padding: 0 32px 30px;
 }
 .public-agent-facts {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 24px;
-  padding: 26px 0;
+  padding: 20px 0;
   border-block: 1px solid var(--line);
-  margin: 4px 0 40px;
+  margin: 0 0 26px;
 }
 .public-agent-facts dt {
   color: var(--muted);
-  font-size: 12px;
-  margin-bottom: 10px;
+  font-size: 16px;
+  margin-bottom: 7px;
 }
 .public-agent-facts dd {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
 }
 .public-agent-body h2 {
-  font-size: 23px;
-  margin: 0 0 18px;
+  font-size: 24px;
+  font-weight: 500;
+  margin: 0 0 14px;
 }
 .public-agent-about p {
   max-width: 70ch;
   overflow-wrap: anywhere;
+  font-size: 18px;
+  line-height: 1.9;
 }
 .public-agent-exchange {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 48px;
-  margin-top: 42px;
-  padding-top: 32px;
+  gap: 32px;
+  margin-top: 28px;
+  padding-top: 24px;
   border-top: 1px solid var(--line);
 }
 .public-agent-exchange ul {
@@ -95,21 +92,22 @@
   margin: 0;
 }
 .public-agent-exchange li {
-  padding: 0 0 12px 4px;
-  line-height: 1.8;
+  padding: 0 0 10px 4px;
+  line-height: 1.9;
+  font-size: 18px;
   overflow-wrap: anywhere;
 }
 .public-agent-language {
-  margin-top: 32px;
+  margin-top: 24px;
 }
 .public-agent-language h2 {
-  font-size: 15px;
+  font-size: 17px;
   margin-bottom: 8px;
   color: var(--muted);
 }
 .public-agent-contact {
-  margin-top: 42px;
-  padding-top: 32px;
+  margin-top: 28px;
+  padding-top: 24px;
   border-top: 1px solid var(--line);
   scroll-margin-top: 25px;
 }
@@ -129,13 +127,13 @@
   padding: 14px 18px;
   margin: 20px 0 0;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #f6f7f4;
+  border-radius: 3px;
+  background: #e9e0d0;
   z-index: 3;
-  box-shadow: 0 10px 25px -18px #153b354d;
+  box-shadow: none;
 }
 .public-agent-dock span {
-  font-size: 13px;
+  font-size: 16px;
   color: var(--muted);
 }
 .public-agent-dock[data-hidden='true'] {
@@ -147,14 +145,14 @@
   align-items: center;
   gap: 8px;
   padding: 12px 18px;
-  border-radius: 6px;
+  border-radius: 3px;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 16px;
 }
 .public-agent-footer {
   color: var(--muted);
   text-align: center;
-  font-size: 12px;
+  font-size: 16px;
   padding: 30px 0 36px;
 }
 .agent-name-link {
@@ -177,7 +175,7 @@
   margin: 18px 0;
 }
 .attention-source > button {
-  font-size: 13px;
+  font-size: 16px;
 }
 .attention-source-content {
   margin-top: 18px;
@@ -196,21 +194,15 @@
   .public-agent-nav {
     margin-bottom: 22px;
   }
-  .public-agent-sheet {
-    border-radius: 18px;
-  }
-  .public-agent-sheet .agent-id-card {
-    padding: 28px 24px;
-    border-radius: 17px 17px 0 0;
-  }
-  .public-agent-sheet .identity-card-person {
-    margin-top: 38px;
-  }
-  .public-agent-sheet .identity-card-person h2 {
-    font-size: clamp(34px, 10vw, 56px);
+  .public-agent-sheet .elsewhere-identity {
+    min-height: 230px;
+    padding: 22px 24px;
   }
   .public-agent-sheet .identity-card-caption {
-    padding: 18px 24px 0;
+    padding: 4px 24px 0;
+  }
+  .public-agent-sheet .identity-share-actions {
+    padding: 0 24px 18px;
   }
   .public-agent-body {
     padding: 0 24px 28px;
@@ -229,7 +221,7 @@
     margin: 0;
   }
   .public-agent-body h2 {
-    font-size: 21px;
+    font-size: 24px;
   }
   .public-agent-exchange {
     grid-template-columns: 1fr;
@@ -238,7 +230,7 @@
     padding-top: 24px;
   }
   .public-agent-language h2 {
-    font-size: 15px;
+    font-size: 17px;
   }
   .public-agent-dock {
     bottom: 8px;
@@ -250,5 +242,69 @@
   .public-agent-dock a {
     justify-content: center;
     width: 100%;
+  }
+}
+
+.public-agent-page {
+  color: var(--ew-ink, #302c26);
+  font-family: var(--ew-serif);
+  font-size: 18px;
+}
+.public-agent-sheet {
+  border-color: #cfc5b5;
+  box-shadow: 0 4px 0 #e9e0d066;
+}
+.public-agent-sheet .identity-share-actions {
+  padding: 18px 32px;
+}
+.public-agent-body {
+  padding-top: 8px;
+}
+.public-agent-body h2 {
+  font-weight: 400;
+  line-height: 1.5;
+}
+.public-agent-facts {
+  padding-block: 20px;
+  border-color: #cfc5b5;
+}
+.public-agent-facts dd {
+  font-size: 18px;
+  line-height: 1.85;
+}
+.public-agent-about p,
+.public-agent-contact p,
+.public-agent-language p {
+  font-size: 18px;
+  line-height: 1.9;
+}
+.public-agent-exchange {
+  gap: 32px 40px;
+}
+.public-agent-contact .hint {
+  font-size: 16px;
+}
+.public-agent-contact :is(label, button, .error, .success) {
+  font-size: 16px;
+}
+.public-agent-contact textarea {
+  background: #fffdf8;
+  border: 1px solid #cfc5b5;
+  border-radius: 3px;
+  font-size: 18px;
+  line-height: 1.85;
+  min-height: 136px;
+}
+.public-agent-contact button,
+.public-agent-dock a,
+.public-agent-nav > a:last-child {
+  min-height: 44px;
+}
+.public-agent-dock a {
+  font-size: 17px;
+}
+@media (max-width: 720px) {
+  .public-agent-sheet .identity-share-actions {
+    padding: 16px 24px;
   }
 }

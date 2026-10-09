@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#dbd5c8"/>
+  <g transform="translate(124 63) rotate(-7 231 230)">
+    <rect x="7" y="10" width="439" height="452" fill="#302c2615"/>
+    <rect width="439" height="452" fill="#fffdf8" stroke="#cfc5b5"/>
+    <path d="M45 61H392M45 112H392M45 163H392M45 214H392M45 265H392M45 316H392M45 367H392" stroke="#d9d2c5"/>
+  </g>
+  <g transform="translate(350 188) rotate(6 166 166)">
+    <rect x="6" y="8" width="333" height="333" fill="#302c2615"/>
+    <rect width="333" height="333" fill="#302c26"/>
+    <g fill="#fffdf8" font-family="'Iowan Old Style','Songti SC','Noto Serif SC','SimSun',serif" font-size="59">
+      <text x="38" y="97">记住</text>
+      <text x="38" y="181">这些瞬间。</text>
+      <text x="38" y="279" font-size="44" font-style="italic">elsewhere</text>
+    </g>
+  </g>
+</svg>

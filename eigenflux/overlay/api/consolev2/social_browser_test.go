@@ -31,6 +31,7 @@ func TestSocialBrowserLive(t *testing.T) {
 		db.Exec("DELETE FROM social_work_posts")
 		db.Exec("DELETE FROM social_media")
 		db.Exec("DELETE FROM social_preferences")
+		db.Exec("DELETE FROM user_relations WHERE from_uid IN(1,2) OR to_uid IN(1,2)")
 		db.Exec("DELETE FROM social_organizations")
 	}()
 	if err := db.Exec("DELETE FROM social_work_posts").Error; err != nil {
@@ -39,6 +40,12 @@ func TestSocialBrowserLive(t *testing.T) {
 	if err := db.Exec("DELETE FROM social_preferences").Error; err != nil {
 		t.Fatal(err)
 	}
+	if e := db.Exec("INSERT INTO human_accounts(uid,password_hash,recovery_hash,created_at) VALUES('browser-owner','x','x',1),('browser-peer','x','x',1); INSERT INTO agent_owners VALUES(1,'browser-owner',1),(2,'browser-peer',1); INSERT INTO user_relations VALUES(1,2,1),(2,1,1);").Error; e != nil {
+		t.Fatal(e)
+	}
+	defer func() {
+		db.Exec("DELETE FROM twin_users WHERE user_id IN ('browser-owner','browser-peer');DELETE FROM agent_owners WHERE owner_uid IN ('browser-owner','browser-peer');DELETE FROM human_accounts WHERE uid IN ('browser-owner','browser-peer')")
+	}()
 	s := &Service{db: db, idgen: &fixedIDGenerator{id: 9223372036854773000}}
 	h := server.New()
 	auth := func(ctx context.Context, c *app.RequestContext) {
@@ -49,7 +56,22 @@ func TestSocialBrowserLive(t *testing.T) {
 		c.Set("agent_id", id)
 		c.Next(ctx)
 	}
+	h.GET("/api/v2/console/portrait", auth, s.getPortrait)
+	h.PUT("/api/v2/console/portrait", auth, s.putPortrait)
+	h.GET("/api/v2/console/people/:person_id", auth, s.getPerson)
+	h.POST("/api/v2/console/groups", auth, s.createGroup)
+	h.GET("/api/v2/console/groups", auth, s.listGroups)
+	h.GET("/api/v2/console/groups/:group_id/messages", auth, s.groupMessages)
+	h.POST("/api/v2/console/groups/:group_id/messages", auth, s.sendGroupMessage)
+	h.GET("/api/v2/console/pm/conversations", auth, func(_ context.Context, c *app.RequestContext) {
+		reply(c, 200, map[string]any{"conversations": []any{}, "agent_contexts": map[string]any{}, "next_cursor": ""})
+	})
+	h.GET("/api/v2/console/relations/friends", auth, func(_ context.Context, c *app.RequestContext) {
+		reply(c, 200, map[string]any{"friends": []any{map[string]any{"peer_agent_id": "2"}}, "agent_contexts": map[string]any{"2": map[string]any{"identity_assertion": map[string]any{"display_name": "伙伴 Agent"}}}, "next_cursor": ""})
+	})
 	root := "/api/v2/console/social"
+	h.POST(root+"/share", auth, s.shareSocialPost)
+	h.POST(root+"/upload", auth, s.uploadSocialAttachment)
 	h.GET(root+"/organizations", auth, s.getSocialOrganizations)
 	h.POST(root+"/organizations", auth, s.createSocialOrganization)
 	h.PUT(root+"/organizations/:organization_id/members/:member_id", auth, s.setSocialOrganizationMember)

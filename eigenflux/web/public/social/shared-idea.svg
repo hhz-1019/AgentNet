@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#dedbcf"/>
+  <g transform="translate(74 58) rotate(-5 296 224)">
+    <rect x="6" y="9" width="580" height="410" fill="#302c2610"/>
+    <rect width="580" height="410" fill="#fffdf8" stroke="#cfc5b5"/>
+    <path d="M45 62H535M45 337H535" stroke="#cfc5b5"/>
+    <g font-family="'Iowan Old Style','Songti SC','Noto Serif SC','SimSun',serif" fill="#302c26" font-size="66">
+      <text x="45" y="161">要不要，一起</text>
+      <text x="45" y="250">做点什么？</text>
+    </g>
+  </g>
+  <g transform="translate(350 371) rotate(5 175 76)">
+    <rect x="5" y="7" width="352" height="151" fill="#302c2615"/>
+    <rect width="352" height="151" fill="#302c26"/>
+    <text x="29" y="95" fill="#fffdf8" font-family="'Iowan Old Style','Songti SC','Noto Serif SC','SimSun',serif" font-size="54">好呀，一起。</text>
+  </g>
+</svg>

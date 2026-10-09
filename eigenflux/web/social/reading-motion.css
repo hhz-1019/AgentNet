@@ -1,0 +1,305 @@
+/* A card opens into the same piece of writing, with its place in the feed kept. */
+.sw-dialog.ew-motion-dialog::backdrop {
+  animation: ew-backdrop-enter 340ms ease-out both;
+}
+.sw-dialog.ew-motion-dialog[data-closing]::backdrop {
+  animation: ew-backdrop-exit 200ms ease-in both;
+}
+@keyframes ew-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ew-backdrop-exit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.sw-dialog.sn-communication-dialog.ew-reading-dialog {
+  width: min(860px, calc(100vw - 48px));
+  max-width: 860px;
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  border-radius: 12px;
+  color: var(--ew-ink, #302d29);
+  background: var(--ew-surface, #fffdfa);
+  scrollbar-width: thin;
+  scroll-padding-top: 85px;
+}
+.ew-reading-dialog.sw-dialog .sw-dialog-heading {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: 0;
+  padding: 12px 27px;
+  border-bottom: 1px solid var(--ew-line, #ddd7cd);
+  background: var(--ew-surface, #fffdfa);
+}
+.ew-reading-dialog.sw-dialog .sw-dialog-heading h2 {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ew-muted, #787168);
+}
+.ew-reading-dialog.sw-dialog .sw-dialog-heading > button {
+  width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+.ew-reading-dialog.sw-dialog .sw-dialog-heading > button:hover {
+  background: var(--ew-paper, #f6f4ef);
+}
+.ew-reading-dialog.sw-dialog .sw-post.expanded {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ew-reading-dialog .ew-reading-intro {
+  padding: 35px 0 25px;
+  width: calc(100% - 92px);
+  max-width: 680px;
+  margin: 0 auto;
+}
+.ew-reading-dialog .ew-reading-intro .sw-post-kind {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 13px;
+  color: var(--ew-muted, #787168);
+  font-size: 16px;
+}
+.ew-reading-dialog .ew-reading-intro .sw-post-kind span {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+.ew-reading-dialog .ew-reading-intro .sw-post-kind small {
+  font-size: 16px;
+}
+.ew-reading-dialog .sw-post.expanded .ew-reading-intro h2 {
+  font-family: var(--ew-serif, 'Iowan Old Style', 'Songti SC', serif);
+  font-size: 38px;
+  font-weight: 500;
+  line-height: 1.55;
+  letter-spacing: 0;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.ew-reading-dialog .ew-reading-intro .sw-post-author {
+  margin-top: 20px;
+  padding: 0;
+  border: 0;
+  gap: 11px;
+}
+.ew-reading-dialog .ew-reading-intro .sw-post-author .sw-avatar {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line, #ddd7cd);
+  background: var(--ew-paper, #f6f4ef);
+}
+.ew-reading-dialog .ew-reading-intro .sw-post-author :is(button, strong) {
+  color: var(--ew-ink, #302d29);
+  font-size: 18px;
+  font-weight: 500;
+}
+.ew-reading-dialog .ew-reading-intro .sw-post-author > div > button {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.ew-reading-dialog .ew-reading-intro .sw-post-author small {
+  display: block;
+  margin-top: 3px;
+  font-size: 16px;
+}
+.ew-reading-dialog .sw-post.expanded .sw-post-media {
+  margin: 0 26px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--ew-paper, #f6f4ef);
+}
+.ew-reading-dialog .sw-post.expanded .sw-post-media :is(img, video) {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 400px;
+  aspect-ratio: auto;
+  object-fit: contain;
+  transform: none;
+}
+.ew-reading-dialog .sw-post.expanded .sw-post-content {
+  width: calc(100% - 92px);
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 26px 0 34px;
+}
+.ew-reading-dialog .sw-post.expanded .sw-post-summary {
+  display: block;
+  margin: 0;
+  color: var(--ew-ink, #302d29);
+  font-size: 18px;
+  line-height: 1.95;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: unset;
+}
+.ew-reading-dialog .sw-post.expanded .sw-post-body {
+  color: var(--ew-ink, #302d29);
+  font-size: 18px;
+  line-height: 1.95;
+  margin: 25px 0 !important;
+}
+.ew-reading-dialog .sw-post.expanded .sw-tags {
+  gap: 8px 16px;
+  margin-top: 26px;
+  padding: 0;
+}
+.ew-reading-dialog .sw-post.expanded .sw-tags span {
+  padding: 0;
+  background: transparent;
+  color: var(--ew-muted, #787168);
+  font-size: 16px;
+}
+.ew-reading-dialog .ew-post-context {
+  border-top: 1px solid var(--ew-line, #ddd7cd);
+  margin-top: 28px;
+  padding-top: 16px;
+  font-size: 18px;
+  line-height: 1.8;
+}
+.ew-reading-dialog .ew-post-context summary {
+  cursor: pointer;
+  color: var(--ew-muted, #787168);
+  padding: 5px 0;
+}
+.ew-reading-dialog .ew-post-context dl {
+  display: grid;
+  grid-template-columns: 3em minmax(0, 1fr);
+  gap: 8px 14px;
+  margin: 12px 0;
+}
+.ew-reading-dialog .ew-post-context :is(dt, dd) {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.ew-reading-dialog .ew-post-context dt {
+  color: var(--ew-muted, #787168);
+}
+.ew-reading-dialog .sw-attachments:empty {
+  display: none;
+}
+.ew-reading-dialog .sw-attachments a {
+  color: var(--ew-ink, #302d29);
+  font-size: 18px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+.ew-reading-dialog.sw-dialog .sw-comments {
+  width: calc(100% - 92px);
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 28px 0 38px;
+  border-top: 1px solid var(--ew-line, #ddd7cd);
+}
+.ew-reading-dialog.sw-dialog .sw-comments h3 {
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.ew-reading-dialog.sw-dialog .sw-comments article {
+  padding: 21px 0;
+  border-color: var(--ew-line, #ddd7cd);
+}
+.ew-reading-dialog.sw-dialog .sw-comments .sw-name-link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 500;
+}
+.ew-reading-dialog.sw-dialog .sw-comments small {
+  font-size: 16px;
+}
+.ew-reading-dialog.sw-dialog .sw-comments p {
+  font-size: 18px;
+  line-height: 1.85;
+  margin: 10px 0;
+}
+.ew-reading-dialog.sw-dialog .sw-comments label {
+  font-size: 18px;
+  margin-top: 26px;
+}
+.ew-reading-dialog.sw-dialog .sw-comments textarea {
+  min-height: 114px;
+  padding: 14px 16px;
+  font-size: 18px;
+  line-height: 1.85;
+  border-color: var(--ew-line, #ddd7cd);
+  border-radius: 6px;
+  background: var(--ew-paper, #f6f4ef);
+}
+.ew-reading-dialog.sw-dialog .sw-comments .sw-primary {
+  min-height: 44px;
+  padding: 10px 20px;
+  font-size: 16px;
+}
+.ew-reading-dialog.sw-dialog .sw-comments .sw-error {
+  color: #9c443b;
+}
+
+@media (max-width: 640px) {
+  .sw-dialog.sn-communication-dialog.ew-reading-dialog {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 28px);
+    border-radius: 10px;
+  }
+  .ew-reading-dialog.sw-dialog .sw-dialog-heading {
+    padding: 7px 16px;
+  }
+  .ew-reading-dialog .ew-reading-intro,
+  .ew-reading-dialog .sw-post.expanded .sw-post-content,
+  .ew-reading-dialog.sw-dialog .sw-comments {
+    width: calc(100% - 40px);
+  }
+  .ew-reading-dialog .ew-reading-intro {
+    padding-top: 24px;
+  }
+  .ew-reading-dialog .sw-post.expanded .ew-reading-intro h2 {
+    font-size: 30px;
+  }
+  .ew-reading-dialog .sw-post.expanded .sw-post-media {
+    margin: 0 12px;
+  }
+  .ew-reading-dialog .sw-post.expanded .sw-post-summary {
+    font-size: 18px;
+  }
+  .ew-reading-dialog.sw-dialog .sw-comments small {
+    float: none;
+    display: block;
+    margin-top: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-dialog.ew-motion-dialog::backdrop,
+  .sw-dialog.ew-motion-dialog[data-closing]::backdrop {
+    animation: none;
+  }
+}

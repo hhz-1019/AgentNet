@@ -15,6 +15,7 @@ Object.assign(env, {
   SMS_ACCESS_KEY_SECRET: 'test-sms-secret',
   SMS_SIGN_NAME: '测试签名',
   SMS_TEMPLATE_CODE: '100001',
+  SMS_SCHEME_NAME: 'test-scheme',
 });
 await test('deferred providers permit building, never mark activation ready', () => {
   assert.deepEqual(checkConfig(env, { providers: false }), []);
@@ -110,7 +111,7 @@ await test('public elsewhere installer keeps setup choices separate and pinned',
     'utf8',
   );
   for (const value of [shell, powershell]) {
-    assert.match(value, /0\.0\.54-agentnet\.8/);
+    assert.match(value, /0\.0\.54-agentnet\.9/);
     assert.match(value, /agentnet-handoff/);
     assert.match(value, /auto_skill_sync/);
     assert.match(value, /agentnet-onboarding/);

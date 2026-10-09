@@ -555,7 +555,6 @@ export function Publisher({
           <p className="sw-scope-banner">
             {visibilityLabels[post.visibility]} ·{' '}
             {identityLabels[post.document.identity]}
-            {demo ? ' · 本地演示' : ''}
           </p>
           <PostCard post={post} expanded />
           <div className="sw-preflight">
@@ -671,7 +670,7 @@ export function Publisher({
                 }
               }}
             >
-              {busy ? '提交中…' : demo ? '确认发布到本地演示' : '确认发布'}
+              {busy ? '提交中…' : '确认发布'}
             </button>
           )}
         </footer>

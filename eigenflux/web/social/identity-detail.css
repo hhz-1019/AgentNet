@@ -1,0 +1,127 @@
+/* The identity opens like a personal folio, with its name always in view. */
+.elsewhere-identity.ew-identity-with-details {
+  font-family: var(--ew-serif);
+  min-height: 240px;
+}
+.ew-identity-with-details .elsewhere-identity-copy :is(h1, h2),
+.sn-social .ew-identity-with-details .elsewhere-identity-copy :is(h1, h2) {
+  font-size: clamp(34px, 3vw, 40px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+}
+.ew-identity-with-details .elsewhere-identity-bio {
+  font-size: 18px;
+  line-height: 1.9;
+}
+.ew-identity-with-details .elsewhere-identity-interests {
+  font-size: 16px;
+  line-height: 1.7;
+}
+.ew-identity-more {
+  position: relative;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition:
+    grid-template-rows 280ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 180ms ease,
+    transform 280ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    visibility 0s 280ms;
+}
+.ew-identity-more-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.ew-identity-with-details[data-expanded='true'] .ew-identity-more {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    grid-template-rows 280ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 220ms ease 40ms,
+    transform 280ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    visibility 0s;
+}
+.ew-identity-fragments {
+  margin: 0;
+  padding-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 42px;
+  max-width: 940px;
+}
+.ew-identity-fragment {
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 1px solid #cbbda435;
+}
+.ew-identity-fragment dt {
+  color: #cbbda4;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.ew-identity-fragment dd {
+  margin: 8px 0 0;
+  color: #fff9ed;
+  font-size: 18px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ew-identity-with-details .elsewhere-identity-actions :is(button, a),
+.sn-social
+  .ew-identity-with-details
+  .elsewhere-identity-actions
+  :is(button, a) {
+  min-height: 44px;
+  font-size: 16px;
+  line-height: 1.45;
+}
+.ew-identity-with-details .ew-identity-details-toggle svg {
+  transition: transform 240ms ease;
+}
+.ew-identity-with-details .ew-identity-details-toggle:hover svg {
+  transform: translate(2px, -2px);
+}
+.ew-identity-with-details[data-expanded='true']
+  .ew-identity-details-toggle:hover
+  svg {
+  transform: translate(-2px, 2px);
+}
+@media (max-width: 720px) {
+  .ew-identity-with-details .elsewhere-identity-copy :is(h1, h2),
+  .sn-social .ew-identity-with-details .elsewhere-identity-copy :is(h1, h2) {
+    font-size: 32px;
+  }
+  .ew-identity-fragments {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    padding-top: 22px;
+  }
+  .ew-identity-with-details .elsewhere-identity-bottom {
+    gap: 14px;
+  }
+  .ew-identity-with-details .elsewhere-identity-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .ew-identity-with-details .elsewhere-identity-actions :is(button, a),
+  .sn-social
+    .ew-identity-with-details
+    .elsewhere-identity-actions
+    :is(button, a) {
+    min-height: 44px;
+    padding-inline: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ew-identity-more,
+  .ew-identity-with-details[data-expanded='true'] .ew-identity-more,
+  .ew-identity-with-details .ew-identity-details-toggle svg {
+    transition: none;
+    transform: none;
+  }
+}

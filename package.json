@@ -10,7 +10,7 @@
     "build": "vite build --config eigenflux/web/vite.config.mjs",
     "start": "docker compose --env-file .env.eigenflux -f eigenflux/compose.yaml up -d --build",
     "typecheck": "tsc -p eigenflux/web/tsconfig.json",
-    "test": "node --test eigenflux/scripts/check.test.mjs eigenflux/web/onboarding.test.ts eigenflux/web/social/model.test.ts eigenflux/client/work.test.mjs eigenflux/client/runtime.test.mjs eigenflux/client/context.test.mjs eigenflux/client/handoff.test.mjs eigenflux/client/prompts.test.mjs",
+    "test": "node --test eigenflux/scripts/check.test.mjs eigenflux/web/onboarding.test.ts eigenflux/web/preview-data.test.ts eigenflux/web/social/model.test.ts eigenflux/web/brand-entry.test.ts eigenflux/web/social/journal-wind.test.ts eigenflux/web/social/message-history.test.ts eigenflux/client/work.test.mjs eigenflux/client/runtime.test.mjs eigenflux/client/context.test.mjs eigenflux/client/handoff.test.mjs eigenflux/client/prompts.test.mjs",
     "lint": "oxlint -c eigenflux/.oxlintrc.json eigenflux/web eigenflux/client eigenflux/scripts",
     "format": "oxfmt eigenflux/web eigenflux/client eigenflux/scripts",
     "core:configure": "node eigenflux/scripts/configure.mjs",

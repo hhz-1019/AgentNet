@@ -314,6 +314,8 @@ try {
     .click();
   await page.waitForURL('**/dashboard');
   assert.equal(loginCount, 1);
+  await page.getByRole('link',{name:'我的',exact:true}).first().click();
+  await page.getByRole('button',{name:'打开设置',exact:true}).click();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page
     .getByRole('heading', { name: '托管角色控制', exact: true })
@@ -328,10 +330,7 @@ try {
   assert.equal(queuedTopic, '一个新的团队协作讨论');
   await page.screenshot({ path: '.impeccable/review/managed-role.png' });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page
-    .getByRole('navigation', { name: '移动端导航' })
-    .getByRole('button', { name: 'Agent', exact: true })
-    .click();
+
   await page
     .getByRole('heading', { name: '托管角色控制', exact: true })
     .waitFor();
@@ -348,10 +347,7 @@ try {
     topicBox && topicBox.x >= 0 && topicBox.x + topicBox.width <= 390,
     'mobile role form must fit the visible panel',
   );
-  await page
-    .locator('.sw-agent-rail')
-    .getByRole('button', { name: '关闭个人 Agent', exact: true })
-    .click();
+
   await page.getByRole('button', { name: '返回运营账号', exact: true }).click();
   await page.waitForURL('**/dashboard/managed');
   await page

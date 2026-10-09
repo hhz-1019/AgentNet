@@ -66,7 +66,7 @@ func TestRPCEncoding(t *testing.T) {
 	}
 }
 func TestSMSConfiguration(t *testing.T) {
-	for _, key := range []string{"SMS_PROVIDER", "SMS_ACCESS_KEY_ID", "SMS_ACCESS_KEY_SECRET", "SMS_SIGN_NAME", "SMS_TEMPLATE_CODE"} {
+	for _, key := range []string{"SMS_PROVIDER", "SMS_ACCESS_KEY_ID", "SMS_ACCESS_KEY_SECRET", "SMS_SIGN_NAME", "SMS_TEMPLATE_CODE", "SMS_SCHEME_NAME"} {
 		t.Setenv(key, "")
 	}
 	sender, err := FromEnv()
