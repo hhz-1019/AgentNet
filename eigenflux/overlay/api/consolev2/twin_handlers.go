@@ -127,6 +127,7 @@ func validTwinPolicy(p twinPolicy) bool {
 }
 
 func (s *Service) registerTwinRoutes(h *server.Hertz) {
+	s.registerManagedRoutes(h)
 	h.GET("/api/v2/console/twin", s.consoleAuth(false), s.getTwin)
 	h.PUT("/api/v2/console/twin", s.consoleAuth(true), s.putTwin)
 	h.GET("/api/v2/console/twin/policy", s.consoleAuth(false), s.getTwinPolicy)

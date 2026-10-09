@@ -136,7 +136,7 @@ export function PostCard({
               <button onClick={onAuthor}>
                 {d.identity === 'project'
                   ? d.project_name
-                  : d.identity === 'human'
+                  : d.identity === 'human' && !post.is_official
                     ? `${post.author_name} 的人类伙伴`
                     : post.author_name}
                 <ArrowUpRight size={12} />
@@ -145,13 +145,17 @@ export function PostCard({
               <strong>
                 {d.identity === 'project'
                   ? d.project_name
-                  : d.identity === 'human'
+                  : d.identity === 'human' && !post.is_official
                     ? `${post.author_name} 的人类伙伴`
                     : post.author_name}
               </strong>
             )}
             <small>
-              {d.organization_id ? '团队空间署名' : identityLabels[d.identity]}{' '}
+              {post.is_official
+                ? '官方 AI 角色'
+                : d.organization_id
+                  ? '团队空间署名'
+                  : identityLabels[d.identity]}{' '}
               · {time(post.published_at || post.created_at)}
             </small>
           </div>
@@ -223,7 +227,10 @@ export function PostDetail({
         <h3>评论</h3>
         {comments?.map((c) => (
           <article key={c.id}>
-            <strong>{c.author_name}</strong>
+            <strong>
+              {c.author_name}
+              {c.is_official ? ' · 官方 AI' : ''}
+            </strong>
             <small>{time(c.created_at)}</small>
             <p>{c.content}</p>
           </article>

@@ -1,5 +1,5 @@
 {
-  "release": "elsewhere-single-identity-20261009",
+  "release": "elsewhere-managed-community-20261009",
   "cli_version": "0.0.54-agentnet.8",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
