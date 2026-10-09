@@ -26,6 +26,11 @@ type Member = {
   name: string;
   scenario: string;
   persona: string;
+  public_bio: string;
+  pending_topic: string;
+  month_spent_fen: number;
+  successful_runs: number;
+  active_sessions: number;
   enabled: boolean;
   daily_limit: number;
   start_hour: number;
@@ -47,6 +52,8 @@ type Run = {
   output_tokens: number;
   post_id: string | null;
   created_at: number;
+  provider_host: string;
+  model: string;
 };
 type Audit = { action: string; agent_id: string | null; created_at: number };
 type Data = {
@@ -58,6 +65,25 @@ type Data = {
   audit: Audit[];
   worker_configured: boolean;
   model_configured: boolean;
+  runtime?: { healthy: boolean; last_seen_at: number; state: string };
+  billing?: {
+    source: string;
+    sponsor_number: string;
+    provider_host: string;
+    model: string;
+    month: string;
+    usage: {
+      settled_fen: number;
+      reserved_fen: number;
+      input_tokens: number;
+      output_tokens: number;
+      published: number;
+      commented: number;
+      skipped: number;
+      failed: number;
+      successful_accounts: number;
+    };
+  };
 };
 const labels: Record<string, string> = {
   running: '执行中',
@@ -76,6 +102,8 @@ const auditLabels: Record<string, string> = {
   pause_all: '暂停全部活动',
   enable_member: '启用角色',
   disable_member: '暂停角色',
+  revoke_sessions: '撤销角色登录',
+  return_operator: '返回运营账号',
 };
 const money = (fen: number) =>
   (fen / 100).toLocaleString('zh-CN', {
@@ -98,6 +126,8 @@ const date = (value: number | null) =>
 // viewport; selecting a row opens the adjacent editor without losing filters.
 export function ManagedConsole({ session }: { session: Session }) {
   const [data, setData] = useState<Data>();
+  const [topic, setTopic] = useState('');
+  const [revokeID, setRevokeID] = useState('');
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false);
@@ -111,6 +141,8 @@ export function ManagedConsole({ session }: { session: Session }) {
   const editTrigger = useRef<HTMLButtonElement | null>(null);
   function openEditor(member: Member, trigger: HTMLButtonElement) {
     editTrigger.current = trigger;
+    setTopic(member.pending_topic || '');
+    setRevokeID('');
     setEditing({ ...member });
   }
   function closeEditor() {
@@ -204,6 +236,19 @@ export function ManagedConsole({ session }: { session: Session }) {
           <ShieldCheck size={17} /> 运营控制台
         </span>
         <span>当前：{session.agent_name}</span>
+        {data && session.owner_uid !== data.sponsor_number && (
+          <button
+            disabled={busy}
+            onClick={() =>
+              void act(async () => {
+                await api('console/managed/return', {});
+                location.assign('/dashboard/managed');
+              }, '已返回运营账号')
+            }
+          >
+            返回运营账号 {data.sponsor_number}
+          </button>
+        )}
       </header>
       <main className="managed-main">
         <div className="managed-heading">
@@ -255,9 +300,25 @@ export function ManagedConsole({ session }: { session: Session }) {
             </div>
             <div className="managed-context">
               由运营账号 {data.sponsor_number} 管理 ·{' '}
-              {data.worker_configured ? '调度器已配置' : '调度器待配置'} ·{' '}
-              {data.model_configured ? '平台模型已配置' : '平台模型待配置'}
-              <span>模型与调度配置不代表活动已经执行，以下列回执为准。</span>
+              {data.runtime?.healthy
+                ? '调度器运行正常'
+                : data.worker_configured
+                  ? '暂未收到调度器心跳，请刷新检查'
+                  : '调度器待配置'}{' '}
+              · {data.model_configured ? '平台模型已配置' : '平台模型待配置'}
+              <span>
+                最近心跳：{date(data.runtime?.last_seen_at || null)}
+                。配置与执行结果分开核对。
+              </span>
+              {data.billing && (
+                <span>
+                  本月 {data.billing.usage.successful_accounts} 个账号已成功活动
+                  · {data.billing.usage.published} 篇帖子 ·{' '}
+                  {data.billing.usage.commented} 条评论 ·{' '}
+                  {data.billing.usage.skipped} 次跳过 ·{' '}
+                  {data.billing.usage.failed} 次需检查
+                </span>
+              )}
             </div>
             <nav className="managed-tabs" aria-label="运营管理页面">
               {(
@@ -472,6 +533,10 @@ export function ManagedConsole({ session }: { session: Session }) {
                                       : '等待首次活动'}
                                   </span>
                                   <small>{date(m.last_active_at)}</small>
+                                  <small>
+                                    累计成功 {m.successful_runs || 0} 次 · 本月
+                                    ¥{money(m.month_spent_fen || 0)}
+                                  </small>
                                 </td>
                                 <td>
                                   <button
@@ -512,6 +577,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                   name: editing.name,
                                   scenario: editing.scenario,
                                   persona: editing.persona,
+                                  public_bio: editing.public_bio,
                                   enabled: editing.enabled,
                                   daily_limit: editing.daily_limit,
                                   start_hour: editing.start_hour,
@@ -559,6 +625,24 @@ export function ManagedConsole({ session }: { session: Session }) {
                                 })
                               }
                             />
+                          </label>
+                          <label>
+                            公开简介
+                            <textarea
+                              aria-label="公开简介"
+                              rows={4}
+                              maxLength={1000}
+                              value={editing.public_bio || ''}
+                              onChange={(e) =>
+                                setEditing({
+                                  ...editing,
+                                  public_bio: e.target.value,
+                                })
+                              }
+                            />
+                            <small>
+                              展示在公开身份中；内部角色设定不会作为简介公开。
+                            </small>
                           </label>
                           <label>
                             身份、性格与交流方式
@@ -641,6 +725,20 @@ export function ManagedConsole({ session }: { session: Session }) {
                           <button className="managed-primary" disabled={busy}>
                             {busy ? '正在保存…' : '保存资料'}
                           </button>
+                          <label>
+                            下一次讨论主题（可选）
+                            <textarea
+                              aria-label="下一次讨论主题"
+                              rows={3}
+                              maxLength={600}
+                              value={topic}
+                              onChange={(e) => setTopic(e.target.value)}
+                              placeholder="例如：用一个假设场景讨论如何分配团队任务"
+                            />
+                            <small>
+                              填写后安排一次模型发帖；仍使用运营账号的预算与每日额度。
+                            </small>
+                          </label>
                           <button
                             type="button"
                             disabled={
@@ -653,7 +751,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                 () =>
                                   api(
                                     `console/managed/members/${editing.id}/run`,
-                                    {},
+                                    { topic },
                                   ),
                                 '已安排活动；仍遵守时段、预算与每日上限。',
                               )
@@ -661,6 +759,58 @@ export function ManagedConsole({ session }: { session: Session }) {
                           >
                             安排一次活动
                           </button>
+                          {editing.pending_topic && (
+                            <p className="managed-subtle">
+                              待执行主题：{editing.pending_topic}
+                            </p>
+                          )}
+                          <p className="managed-subtle">
+                            有效管理登录：{editing.active_sessions || 0}{' '}
+                            个。撤销登录不会暂停自动活动。
+                          </p>
+                          {revokeID === editing.id ? (
+                            <div className="managed-session-actions">
+                              <p>
+                                撤销后，此角色在其他浏览器中的管理登录会失效；你仍可从此面板重新上号。
+                              </p>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void act(async () => {
+                                    await api(
+                                      `console/managed/members/${editing.id}/revoke`,
+                                      {},
+                                    );
+                                    setRevokeID('');
+                                    if (session.agent_id === editing.id)
+                                      location.assign('/dashboard');
+                                    else
+                                      setEditing({
+                                        ...editing,
+                                        active_sessions: 0,
+                                      });
+                                  }, '该角色的管理登录已撤销')
+                                }
+                              >
+                                确认撤销登录
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRevokeID('')}
+                              >
+                                取消
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={busy || !editing.active_sessions}
+                              onClick={() => setRevokeID(editing.id)}
+                            >
+                              撤销此角色的登录
+                            </button>
+                          )}
                         </form>
                       )}
                     </div>
@@ -695,6 +845,12 @@ export function ManagedConsole({ session }: { session: Session }) {
                       输出 {r.output_tokens} tokens
                       {r.post_id ? ` · 帖子 ${r.post_id}` : ''}
                     </small>
+                    <small>
+                      记账账号 {data.sponsor_number} ·{' '}
+                      {r.model
+                        ? `${r.provider_host} / ${r.model}`
+                        : '历史记录未保存模型快照'}
+                    </small>
                   </article>
                 ))}
                 {!data.runs.length && (
@@ -712,6 +868,28 @@ export function ManagedConsole({ session }: { session: Session }) {
                   Key。按填写的模型单价预留每次调用的费用上限，取得 token
                   用量后结算；失败或用量未知保留预留额。这里的金额是运营估算，服务商账单为最终依据。
                 </p>
+                {data.billing && (
+                  <div className="managed-billing-detail">
+                    <p>
+                      <strong>记账账号 {data.billing.sponsor_number}</strong> ·{' '}
+                      {data.billing.provider_host} / {data.billing.model}
+                    </p>
+                    <p>
+                      实际由平台已配置的模型服务商账户付费，统一归入此运营账号的预算；切换角色不会切换付费凭证。
+                    </p>
+                    <p>
+                      {data.billing.month}：已结算估算 ¥
+                      {money(data.billing.usage.settled_fen)} ·
+                      执行中或未知用量预留 ¥
+                      {money(data.billing.usage.reserved_fen)}
+                    </p>
+                    <p>
+                      输入 {data.billing.usage.input_tokens.toLocaleString()} /
+                      输出 {data.billing.usage.output_tokens.toLocaleString()}{' '}
+                      tokens。这里是预算账本，不是服务商钱包余额。
+                    </p>
+                  </div>
+                )}
                 {campaign ? (
                   <form
                     onSubmit={(e) => {
