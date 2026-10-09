@@ -25,6 +25,8 @@ func (s *Service) registerManagedRoutes(h *server.Hertz) {
 	h.PUT("/api/v2/console/managed/members/:member_id", s.consoleAuth(true), s.putManagedMember)
 	h.POST("/api/v2/console/managed/members/:member_id/login", s.consoleAuth(true), s.loginManaged)
 	h.POST("/api/v2/console/managed/members/:member_id/run", s.consoleAuth(true), s.queueManaged)
+	h.POST("/api/v2/console/managed/members/:member_id/revoke", s.consoleAuth(true), s.revokeManagedSessions)
+	h.POST("/api/v2/console/managed/return", s.consoleAuth(true), s.returnManagedOperator)
 	h.POST("/api/v2/console/managed/pause", s.consoleAuth(true), s.pauseManaged)
 	h.POST("/api/v2/console/managed/batch", s.consoleAuth(true), s.batchManaged)
 	if os.Getenv("AGENTNET_MANAGED_WORKER") == "true" {
@@ -63,8 +65,15 @@ func (s *Service) requireManaged(c *app.RequestContext) (string, bool) {
 	return owner, ok
 }
 func (s *Service) managedAccess(_ context.Context, c *app.RequestContext) {
-	_, ok := s.managedSponsor(c)
-	reply(c, 200, map[string]any{"allowed": ok})
+	owner, ok := s.managedSponsor(c)
+	var number string
+	var delegated bool
+	if ok {
+		s.db.Raw(`SELECT account_number::text FROM human_accounts WHERE uid=?`, owner).Scan(&number)
+		session, _ := c.Get("console_session_id")
+		s.db.Raw(`SELECT EXISTS(SELECT 1 FROM managed_delegations WHERE session_id=?)`, session).Scan(&delegated)
+	}
+	reply(c, 200, map[string]any{"allowed": ok, "sponsor_number": number, "delegated": delegated})
 }
 func managedAudit(tx *gorm.DB, owner, action string, id any) error {
 	return tx.Exec(`INSERT INTO managed_audit(sponsor_uid,action,agent_id,created_at) VALUES(?,?,?,?)`, owner, action, id, time.Now().UnixMilli()).Error
@@ -80,12 +89,15 @@ func (s *Service) getManaged(_ context.Context, c *app.RequestContext) {
 	err := s.db.Raw(`SELECT json_build_object('sponsor_number',a.account_number::text,
  'campaign',COALESCE((SELECT row_to_json(c) FROM (SELECT enabled,monthly_budget_fen,input_fen_per_million,output_fen_per_million,revision FROM managed_campaigns WHERE sponsor_uid=a.uid)c),'null'::json),
  'spent_fen',COALESCE((SELECT sum(charged_fen) FROM managed_runs WHERE sponsor_uid=a.uid AND month=?),0),
- 'members',COALESCE((SELECT json_agg(m ORDER BY seed_index) FROM (SELECT m.agent_id::text AS id,h.account_number::text AS number,m.seed_index,m.name,m.scenario,m.persona,m.enabled,m.daily_limit,m.start_hour,m.end_hour,m.revision,m.next_run_at,
+ 'members',COALESCE((SELECT json_agg(m ORDER BY seed_index) FROM (SELECT m.agent_id::text AS id,h.account_number::text AS number,m.seed_index,m.name,m.scenario,m.persona,m.enabled,m.daily_limit,m.start_hour,m.end_hour,m.revision,m.next_run_at,m.pending_topic,agent.bio AS public_bio,
+ (SELECT COALESCE(sum(charged_fen),0) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.month=to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai','YYYY-MM')) AS month_spent_fen,
+ (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.status IN ('published','commented')) AS successful_runs,
+ (SELECT count(*) FROM console_v2_sessions cs JOIN managed_delegations d USING(session_id) WHERE cs.agent_id=m.agent_id AND d.sponsor_uid=m.sponsor_uid AND cs.status='active' AND cs.idle_expires_at>extract(epoch FROM now())*1000 AND cs.absolute_expires_at>extract(epoch FROM now())*1000) AS active_sessions,
  (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND day=?::date) AS today_runs,
  (SELECT status FROM managed_runs r WHERE r.agent_id=m.agent_id ORDER BY created_at DESC LIMIT 1) AS last_status,
  (SELECT max(finished_at) FROM managed_runs r WHERE r.agent_id=m.agent_id) AS last_active_at
- FROM managed_members m JOIN human_accounts h ON h.uid=m.owner_uid WHERE m.sponsor_uid=a.uid)m),'[]'::json),
- 'runs',COALESCE((SELECT json_agg(r) FROM (SELECT r.run_id::text AS id,r.agent_id::text AS agent_id,m.name,r.status,r.detail,r.charged_fen,r.input_tokens,r.output_tokens,r.post_id::text AS post_id,r.created_at FROM managed_runs r JOIN managed_members m USING(agent_id) WHERE r.sponsor_uid=a.uid ORDER BY r.created_at DESC LIMIT 50)r),'[]'::json),
+ FROM managed_members m JOIN human_accounts h ON h.uid=m.owner_uid JOIN agents agent ON agent.agent_id=m.agent_id WHERE m.sponsor_uid=a.uid)m),'[]'::json),
+ 'runs',COALESCE((SELECT json_agg(r) FROM (SELECT r.run_id::text AS id,r.agent_id::text AS agent_id,m.name,r.status,r.detail,r.charged_fen,r.input_tokens,r.output_tokens,r.post_id::text AS post_id,r.created_at,r.provider_host,r.model FROM managed_runs r JOIN managed_members m USING(agent_id) WHERE r.sponsor_uid=a.uid ORDER BY r.created_at DESC LIMIT 50)r),'[]'::json),
  'audit',COALESCE((SELECT json_agg(r) FROM (SELECT action,agent_id::text AS agent_id,created_at FROM managed_audit WHERE sponsor_uid=a.uid ORDER BY id DESC LIMIT 30)r),'[]'::json))::text FROM human_accounts a WHERE uid=?`, now.Format("2006-01"), now.Format("2006-01-02"), owner).Scan(&data).Error
 	if err != nil {
 		s.managedError(c, err)
@@ -98,6 +110,10 @@ func (s *Service) getManaged(_ context.Context, c *app.RequestContext) {
 	}
 	payload["worker_configured"] = os.Getenv("AGENTNET_MANAGED_WORKER") == "true"
 	payload["model_configured"] = managedModelConfigured()
+	if err := s.managedOverview(owner, payload); err != nil {
+		s.managedError(c, err)
+		return
+	}
 	reply(c, 200, payload)
 }
 
@@ -165,16 +181,16 @@ func (s *Service) provisionManaged(ctx context.Context, owner string) ([]int64, 
 				return err
 			}
 			now := time.Now().UnixMilli()
-			if err := insertProvisionedAgent(tx, id, uid+"@identity.invalid", p.Name+" · 官方AI", now); err != nil {
+			if err := insertProvisionedAgent(tx, id, uid+"@identity.invalid", p.Name, now); err != nil {
 				return err
 			}
 			if err := tx.Exec(`UPDATE owner_uid_numbers SET reserved_agent_id=? WHERE number=? AND owner_uid=?`, id, number, uid).Error; err != nil {
 				return err
 			}
-			if err := tx.Exec(`INSERT INTO owner_uid_admin_events(action,detail,actor,reason,created_at) VALUES('managed_register',jsonb_build_object('number',?::bigint,'agent_id',?::bigint),?,'Official AI community account initialization',?)`, number, id, owner, now).Error; err != nil {
+			if err := tx.Exec(`INSERT INTO owner_uid_admin_events(action,detail,actor,reason,created_at) VALUES('managed_register',jsonb_build_object('number',?::bigint,'agent_id',?::bigint),?,'Managed Agent community account initialization',?)`, number, id, owner, now).Error; err != nil {
 				return err
 			}
-			if err := tx.Exec(`UPDATE agents SET is_official=true,profile_completed_at=? WHERE agent_id=?`, now, id).Error; err != nil {
+			if err := tx.Exec(`UPDATE agents SET is_official=false,profile_completed_at=? WHERE agent_id=?`, now, id).Error; err != nil {
 				return err
 			}
 			if err := tx.Exec(`INSERT INTO agent_owners(agent_id,owner_uid,created_at) VALUES(?,?,?)`, id, uid, now).Error; err != nil {
@@ -225,11 +241,11 @@ func managedPublicProfile(name, scenario string) draftPayload {
 	empty := ""
 	draft.IdentityCard.Geo = &empty
 	draft.IdentityCard.Timezone = &empty
-	draft.IdentityCard.AgentName = name + " · 官方AI"
-	draft.IdentityCard.AgentDescription = "我是 " + name + "，elsewhere 官方 AI 虚构角色，关注" + scenario + "。可以一起讨论具体问题、练习沟通和整理思路；不代表真实个人、企业、职位或线下邀约。"
+	draft.IdentityCard.AgentName = name
+	draft.IdentityCard.AgentDescription = "我是 " + name + "，AI Agent，关注" + scenario + "。可以一起讨论具体问题、练习沟通和整理思路；不代表真实个人、企业、职位或线下邀约。"
 	draft.IdentityCard.WorkingLanguages = []string{"zh"}
 	draft.IdentityCard.Offering = []string{scenario + "话题讨论与练习"}
-	draft.NetworkGoal = "以明确标识的官方 AI 角色提供有用的" + scenario + "交流，不虚构真实经历或成果。"
+	draft.NetworkGoal = "以 AI Agent 身份提供有用的" + scenario + "交流，不虚构真实经历或成果。"
 	return draft
 }
 
@@ -269,14 +285,15 @@ func (s *Service) putManagedCampaign(_ context.Context, c *app.RequestContext) {
 }
 
 type managedMemberEdit struct {
-	Name       string `json:"name"`
-	Scenario   string `json:"scenario"`
-	Persona    string `json:"persona"`
-	Enabled    bool   `json:"enabled"`
-	DailyLimit int    `json:"daily_limit"`
-	StartHour  int    `json:"start_hour"`
-	EndHour    int    `json:"end_hour"`
-	Revision   int64  `json:"revision"`
+	PublicBio  *string `json:"public_bio"`
+	Name       string  `json:"name"`
+	Scenario   string  `json:"scenario"`
+	Persona    string  `json:"persona"`
+	Enabled    bool    `json:"enabled"`
+	DailyLimit int     `json:"daily_limit"`
+	StartHour  int     `json:"start_hour"`
+	EndHour    int     `json:"end_hour"`
+	Revision   int64   `json:"revision"`
 }
 
 func (s *Service) putManagedMember(ctx context.Context, c *app.RequestContext) {
@@ -290,6 +307,10 @@ func (s *Service) putManagedMember(ctx context.Context, c *app.RequestContext) {
 		fail(c, 400, "MANAGED_MEMBER_INVALID", "请检查角色资料、时段和每日次数（0–12）", nil)
 		return
 	}
+	if req.PublicBio != nil && (utf8.RuneCountInString(*req.PublicBio) > 1000 || socialSecretPattern.MatchString(*req.PublicBio) || managedPrivatePattern.MatchString(*req.PublicBio)) {
+		fail(c, 400, "MANAGED_PROFILE_INVALID", "公开简介限 1000 字，不能包含凭证或私人联系方式", nil)
+		return
+	}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		r := tx.Exec(`UPDATE managed_members SET name=?,scenario=?,persona=?,enabled=?,daily_limit=?,start_hour=?,end_hour=?,revision=revision+1 WHERE agent_id=? AND sponsor_uid=? AND revision=?`, req.Name, req.Scenario, req.Persona, req.Enabled, req.DailyLimit, req.StartHour, req.EndHour, id, owner, req.Revision)
 		if r.Error != nil {
@@ -300,6 +321,13 @@ func (s *Service) putManagedMember(ctx context.Context, c *app.RequestContext) {
 		}
 		// Persona instructions stay operator-only; public Card uses a separate bio.
 		draft := managedPublicProfile(req.Name, req.Scenario)
+		if req.PublicBio != nil {
+			draft.IdentityCard.AgentDescription = *req.PublicBio
+		} else {
+			if err := tx.Raw(`SELECT bio FROM agents WHERE agent_id=?`, id).Scan(&draft.IdentityCard.AgentDescription).Error; err != nil {
+				return err
+			}
+		}
 		now := time.Now().UnixMilli()
 		for _, step := range []int16{2, 3} {
 			if err := applyConfirmedStep(tx, id, step, draft, map[string]fieldProvenance{}, now); err != nil {
@@ -363,8 +391,28 @@ func (s *Service) queueManaged(_ context.Context, c *app.RequestContext) {
 		return
 	}
 	id := socialDecimal(c.Param("member_id"))
+	var req struct {
+		Topic string `json:"topic"`
+	}
+	if decodeBody(c, &req) != nil || utf8.RuneCountInString(req.Topic) > 600 || socialSecretPattern.MatchString(req.Topic) || managedPrivatePattern.MatchString(req.Topic) {
+		fail(c, 400, "MANAGED_TOPIC_INVALID", "讨论主题限 600 字，不能包含凭证或私人联系方式", nil)
+		return
+	}
+	if !managedModelConfigured() || os.Getenv("AGENTNET_MANAGED_WORKER") != "true" {
+		fail(c, 409, "MANAGED_NOT_READY", "平台模型或调度器尚未配置", nil)
+		return
+	}
+	var blocked string
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		r := tx.Exec(`UPDATE managed_members SET next_run_at=? WHERE agent_id=? AND sponsor_uid=? AND enabled=true`, time.Now().UnixMilli(), id, owner)
+		if err := tx.Exec(`SELECT pg_advisory_xact_lock(734817615)`).Error; err != nil {
+			return err
+		}
+		var err error
+		blocked, err = managedQueueBlock(tx, owner, id, time.Now())
+		if err != nil || blocked != "" {
+			return err
+		}
+		r := tx.Exec(`UPDATE managed_members SET next_run_at=?,pending_topic=? WHERE agent_id=? AND sponsor_uid=? AND enabled=true`, time.Now().UnixMilli(), strings.TrimSpace(req.Topic), id, owner)
 		if r.Error != nil {
 			return r.Error
 		}
@@ -375,6 +423,10 @@ func (s *Service) queueManaged(_ context.Context, c *app.RequestContext) {
 	})
 	if err != nil {
 		s.managedError(c, err)
+		return
+	}
+	if blocked != "" {
+		fail(c, 409, "MANAGED_ACTIVITY_BLOCKED", blocked, nil)
 		return
 	}
 	reply(c, 200, map[string]any{"queued": true, "detail": "已排队，仍遵守活动时段、预算和每日上限"})

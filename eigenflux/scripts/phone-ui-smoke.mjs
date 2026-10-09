@@ -14,6 +14,12 @@ const browser = await chromium.launch({
   args: ['--no-sandbox', '--disable-dev-shm-usage'],
 });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+await page.addInitScript(() => {
+  sessionStorage.setItem(
+    'elsewhere:new-account',
+    JSON.stringify({ uid: '10000', recovery_key: 'legacy-fixture-only' }),
+  );
+});
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const session = {
@@ -49,6 +55,7 @@ await page.route('**/api/v2/**', async (route) => {
       onboarding: session.onboarding,
       draft: { data: {} },
     });
+  if(path==='console/portrait')return fulfill(route,{fields:{name:'',bio:'',interests:'',role:'',values:'',recent:''},visible:['name','bio','interests'],memories:[],revision:0,next_cursor:''});
   if (path === 'console/twin')
     return fulfill(route, {
       revision: 1,
@@ -123,6 +130,7 @@ await page.route('**/api/v2/**', async (route) => {
 try {
   await mkdir('.agentnet-audit', { recursive: true });
   await page.goto('http://127.0.0.1:4337/dashboard');
+  await page.locator('.ew-brand-entry').waitFor({state:'hidden'});
   await page.getByRole('heading', { name: '验证手机号，创建账号' }).waitFor();
   const submit = page.getByRole('button', {
     name: '创建账号并认领 Agent',
@@ -159,6 +167,26 @@ try {
   );
   await page.getByLabel('短信验证码', { exact: true }).fill('123456');
   await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
+  const confirmation = page.getByLabel('确认密码', { exact: true });
+  assert.equal(await submit.isDisabled(), true);
+  await confirmation.fill('different-password-123');
+  await page
+    .getByRole('alert')
+    .filter({ hasText: '两次输入的密码不一致' })
+    .waitFor();
+  assert.equal(await submit.isDisabled(), true);
+  assert.equal(registrations, 0);
+  await confirmation.fill('test-password-123');
+  assert.equal(await submit.isDisabled(), false);
+  await page
+    .getByLabel('账号密码', { exact: true })
+    .fill('changed-password-123');
+  assert.equal(await submit.isDisabled(), true);
+  await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
+  assert.equal(
+    await page.getByText('两次输入的密码不一致，请重新确认。').count(),
+    0,
+  );
   await page.screenshot({
     path: '.agentnet-audit/phone-registration-desktop.png',
   });
@@ -175,6 +203,7 @@ try {
   await page.getByText('验证码已发送，5 分钟内有效', { exact: true }).waitFor();
   await page.getByLabel('短信验证码', { exact: true }).fill('123456');
   await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
+  await page.getByLabel('确认密码', { exact: true }).fill('test-password-123');
   for (const width of [360, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     assert.equal(
@@ -191,33 +220,37 @@ try {
   });
   await page.getByRole('checkbox').check();
   await submit.click();
-  await page.getByRole('heading', { name: '确认你的基础资料' }).waitFor();
-  await page.getByText('账号已创建 · UID 10000 · 保存恢复密钥', { exact: true }).waitFor();
+  await page.getByRole('heading', { name: '确认画像', exact: true }).waitFor();
+  await page.getByText('账号 UID：10000', { exact: true }).waitFor();
+  assert.equal(await page.getByText(/恢复密钥/).count(), 0);
+  assert.equal(
+    await page.evaluate(() => sessionStorage.getItem('elsewhere:new-account')),
+    null,
+  );
   assert.equal(registered, true);
   assert.equal(registrations, 1);
   assert.equal(sends, 3);
-  // Existing password/recovery login remains reachable.
+  // Existing UID/password login remains reachable without key-based recovery.
   session.owner_bound = false;
   session.owner_uid = '';
   await page.reload();
   await page.getByRole('button', { name: '已有 UID，登录原账号' }).click();
-  await page.getByRole('button', { name: '忘记密码，用恢复密钥找回' }).click();
-  await page.getByLabel('注册时保存的恢复密钥').waitFor();
-  await page.getByRole('button', { name: '返回登录', exact: true }).click();
+  assert.equal(await page.getByLabel('确认密码', { exact: true }).count(), 0);
+  assert.equal(await page.getByText(/恢复密钥/).count(), 0);
   await page.getByLabel('账号 UID', { exact: true }).fill('10000');
   await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
-  await page
-    .getByRole('button', { name: '登录', exact: true })
-    .click();
-  await page.getByRole('heading', { name: '确认你的基础资料' }).waitFor();
+  await page.getByRole('button', { name: '登录', exact: true }).click();
+  await page.getByRole('heading', { name: '确认画像', exact: true }).waitFor();
   assert.equal(claims, 1, 'login must reconnect the existing identity');
   assert.equal(
-    await page.getByRole('heading', { name: '选择要继续使用的历史身份' }).count(),
+    await page
+      .getByRole('heading', { name: '选择要继续使用的历史身份' })
+      .count(),
     0,
   );
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: phone form validates input, fails closed, handles send failures, counts down, invalidates changed-phone proof, submits numeric registration, keeps UID login/recovery; responsive 360–1440px',
+    'PASS: phone form validates input, fails closed, handles send failures, counts down, invalidates changed-phone proof, submits numeric registration, keeps UID login without recovery-key UI or storage; responsive 360–1440px',
   );
 } finally {
   await browser.close();

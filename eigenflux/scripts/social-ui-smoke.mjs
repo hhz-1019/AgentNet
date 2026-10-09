@@ -24,6 +24,7 @@ try {
     if (r.url().includes('/api/')) requests.push(r.url());
   });
   await page.goto('http://127.0.0.1:4322/preview');
+  await page.locator('.ew-brand-entry').waitFor({state:'hidden'});
   await page.locator('.sw-post').first().waitFor();
   assert.equal(
     await page

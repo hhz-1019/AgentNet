@@ -123,6 +123,9 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 	}
 	data, _ := json.Marshal(tags)
 	score := `(SELECT count(*) FROM jsonb_array_elements_text(p.document->'tags') t WHERE lower(t.value) IN (SELECT lower(value) FROM jsonb_array_elements_text(?::jsonb)))`
+	if c.Query("scope") == "recommended" {
+		score = "(" + score + ")*1000 + (SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='like') + CASE WHEN EXISTS(SELECT 1 FROM social_follows f WHERE f.follower_id=" + strconv.FormatInt(viewer, 10) + " AND f.followed_id=p.agent_id) THEN 10 ELSE 0 END"
+	}
 	var rows []socialPostRow
 	where := ` WHERE ` + socialAccess + ` AND p.state='published'`
 	args := []any{string(data), viewer, viewer, viewer, viewer, viewer, viewer, viewer, viewer}
@@ -381,6 +384,18 @@ func (s *Service) getSocialMedia(ctx context.Context, c *app.RequestContext) {
 	c.Header("Cache-Control", "private, no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Cross-Origin-Resource-Policy", "same-origin")
+	c.Header("Accept-Ranges", "bytes")
+	if raw := string(c.GetHeader("Range")); raw != "" {
+		start, end, ok := mediaByteRange(raw, len(content))
+		if !ok {
+			c.Header("Content-Range", fmt.Sprintf("bytes */%d", len(content)))
+			c.SetStatusCode(416)
+			return
+		}
+		c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(content)))
+		c.Data(206, row.ContentType, content[start:end+1])
+		return
+	}
 	c.Data(200, row.ContentType, content)
 }
 func (s *Service) deleteSocialMedia(ctx context.Context, c *app.RequestContext) {

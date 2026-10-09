@@ -21,7 +21,8 @@ import {
 import { api, refreshData, useData } from '../api';
 import { BrandLogo } from '../brand';
 import type { Session, Account } from '../types';
-import { Profile, Settings } from '../profile';
+import { ManagedRolePanel } from '../managed-role';
+import { Settings } from '../profile';
 import { Network, Messages } from '../network';
 import { AttentionPage, ActivityPage } from '../activity';
 import { PostCard, PostDetail } from './post';
@@ -29,11 +30,7 @@ import { Publisher } from './publisher';
 import { ShareComposer } from './share';
 import type { PreviewStore } from './demo';
 import { Organizations } from './organizations';
-import {
-  MessagePreview,
-  GroupEntry,
-  selectPreviewConversation,
-} from './social-messages';
+import { MessagePreview, selectPreviewConversation } from './social-messages';
 import { PersonHome } from './person-home';
 import { SocialIdentity } from './social-identity';
 import { PortraitEditor } from './portrait';
@@ -51,7 +48,10 @@ import {
 } from './journal-atmosphere';
 import { DemoSettings } from './social-settings';
 import type { WorkPost, SocialStore, Page } from './model';
-import { liveSocialStore } from './store';
+import { liveSocialStore, uploadAttachment } from './store';
+import { blankPortrait } from './portrait-api';
+import { loadPortrait } from './portrait-api';
+import { LivePortrait } from './live-portrait';
 import './workspace.css';
 import './polish.css';
 import './social-layout.css';
@@ -93,8 +93,10 @@ const personalRoutes = new Set([
   'organizations',
 ]);
 function readRoute(demo: boolean) {
-  const route = demo ? location.hash.slice(1) : location.pathname.split('/')[2];
-  if (demo && route.startsWith('person/')) return route;
+  const route = demo
+    ? location.hash.slice(1)
+    : location.pathname.split('/').slice(2).join('/');
+  if (route.startsWith('person/')) return route;
   if (['network-goal', 'intent-actions'].includes(route)) return 'settings';
   if (demo && route === 'security') return 'settings';
   if (route === 'mine') return 'me';
@@ -115,8 +117,22 @@ export function SocialWorkspace({
   demo?: boolean;
 }) {
   const [portrait, setPortrait] = useState(() =>
-    readPortrait(session.agent_name, session.bio || ''),
+    demo
+      ? readPortrait(session.agent_name, session.bio || '')
+      : blankPortrait(session.agent_name, session.bio || ''),
   );
+  useEffect(() => {
+    if (demo) return;
+    let active = true;
+    void loadPortrait()
+      .then((p) => {
+        if (active) setPortrait(p);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [demo, session.agent_id]);
   function persistPortrait(next: Portrait) {
     setPortrait(savePortrait(next));
   }
@@ -173,15 +189,17 @@ export function SocialWorkspace({
   const accounts = useData<{ accounts: Account[] }>(
     demo ? null : 'console/accounts',
   );
-  const managedAccess = useData<{ allowed: boolean }>(
-    demo ? null : 'console/managed/access',
-  );
+  const managedAccess = useData<{
+    allowed: boolean;
+    delegated?: boolean;
+    sponsor_number?: string;
+  }>(demo ? null : 'console/managed/access');
   const feedRoute = ['explore', 'me', 'liked', 'saved', 'drafts'].includes(
     route,
   );
-  const personRoute = demo && route.startsWith('person/');
+  const personRoute = route.startsWith('person/');
   const personal = personalRoutes.has(route);
-  const profileIntro = (demo ? portrait.fields.bio : session.bio)?.trim();
+  const profileIntro = portrait.fields.bio?.trim();
   const generation = useRef(0);
   const href = (id: string) => (demo ? `/preview#${id}` : `/dashboard/${id}`);
   useEffect(() => {
@@ -241,7 +259,8 @@ export function SocialWorkspace({
     setDetail(undefined);
     if (demo)
       go(id === 'demo-owner' ? 'me' : `person/${encodeURIComponent(id)}`);
-    else location.assign('/agent/' + encodeURIComponent(id));
+    else
+      go(id === session.agent_id ? 'me' : `person/${encodeURIComponent(id)}`);
   }
   useEffect(() => {
     const sync = () => {
@@ -312,16 +331,6 @@ export function SocialWorkspace({
     const id = ++generation.current;
     setLoading(true);
     setError('');
-    if (
-      !demo &&
-      (route === 'liked' || (route === 'explore' && feed !== 'latest'))
-    ) {
-      setPage({ items: [], next_cursor: '' });
-      setLoading(false);
-      return;
-    }
-    // Live ranking and following need their own adapters; only the latest
-    // channel uses the existing public feed. Preview channels use local fixtures.
     void store
       .list({
         scope:
@@ -333,7 +342,11 @@ export function SocialWorkspace({
                 ? 'saved'
                 : route === 'drafts'
                   ? 'drafts'
-                  : 'all',
+                  : !demo && route === 'explore'
+                    ? feed === 'latest'
+                      ? 'all'
+                      : feed
+                    : 'all',
         q: search,
         kind: 'all',
         tags: topic ? [topic] : [],
@@ -479,7 +492,7 @@ export function SocialWorkspace({
             <Bot size={20} />
           </span>
           <span>
-            <strong>{demo ? portrait.fields.name : session.agent_name}</strong>
+            <strong>{portrait.fields.name || session.agent_name}</strong>
           </span>
         </a>
         <AtmosphereToggle {...atmosphere} />
@@ -514,9 +527,9 @@ export function SocialWorkspace({
         {personal && feedRoute && (
           <>
             <SocialIdentity
-              name={demo ? portrait.fields.name : session.agent_name}
+              name={portrait.fields.name || session.agent_name}
               bio={profileIntro}
-              interests={demo ? portrait.fields.interests : undefined}
+              interests={portrait.fields.interests}
               accessibleName="我的身份"
               details={
                 demo
@@ -558,8 +571,10 @@ export function SocialWorkspace({
         )}
         {personRoute ? (
           <PersonHome
+            viewerId={session.agent_id}
             key={route}
             id={route.slice(7)}
+            demo={demo}
             store={store}
             portrait={portrait}
             version={version}
@@ -721,21 +736,17 @@ export function SocialWorkspace({
                       <Compass size={32} />
                     )}
                     <h2>
-                      {route === 'liked' && !demo
-                        ? '暂时无法加载点赞内容'
-                        : route === 'explore' && feed !== 'latest' && !demo
-                          ? `暂时无法加载${feed === 'following' ? '关注' : '推荐'}动态`
-                          : query || topic
-                            ? '暂时没有相关内容'
-                            : route === 'liked'
-                              ? '还没有赞过的内容'
-                              : route === 'saved'
-                                ? '还没有收藏'
-                                : route === 'drafts'
-                                  ? '还没有草稿'
-                                  : route === 'me'
-                                    ? '还没有发布动态'
-                                    : '还没有新动态'}
+                      {query || topic
+                        ? '暂时没有相关内容'
+                        : route === 'liked'
+                          ? '还没有赞过的内容'
+                          : route === 'saved'
+                            ? '还没有收藏'
+                            : route === 'drafts'
+                              ? '还没有草稿'
+                              : route === 'me'
+                                ? '还没有发布动态'
+                                : '还没有新动态'}
                     </h2>
                     <button
                       onClick={() => {
@@ -782,8 +793,7 @@ export function SocialWorkspace({
             <MessagePreview onProfile={openProfile} />
           ) : (
             <section className="sw-legacy">
-              <GroupEntry demo={false} />
-              <Messages session={session} />
+              <Messages session={session} onProfile={openProfile} />
             </section>
           )
         ) : route === 'network' ? (
@@ -805,6 +815,30 @@ export function SocialWorkspace({
         ) : route === 'settings' ? (
           <section className="sn-settings">
             <h1>设置</h1>
+            {managedAccess.data?.delegated && (
+              <div>
+                <p>当前使用托管角色 {session.agent_name}</p>
+                <button
+                  onClick={async () => {
+                    try {
+                      await api('console/managed/return', {});
+                      location.assign('/dashboard/managed');
+                    } catch (e) {
+                      setNotice(e instanceof Error ? e.message : '返回失败');
+                    }
+                  }}
+                >
+                  返回运营账号
+                </button>
+              </div>
+            )}
+            {managedAccess.data?.delegated && (
+              <ManagedRolePanel
+                session={session}
+                onClose={() => go('me')}
+                onCreate={() => setPublisher(true)}
+              />
+            )}
             <div className="sn-settings-list">
               {managedAccess.data?.allowed && (
                 <a href="/dashboard/managed">
@@ -891,8 +925,12 @@ export function SocialWorkspace({
               />
             ) : demo ? (
               <DemoSettings route={route} />
-            ) : route === 'profile' ? (
-              <Profile session={session} refresh={refresh} />
+            ) : ['profile', 'memories'].includes(route) ? (
+              <LivePortrait
+                onSaved={setPortrait}
+                onPublicHome={() => go(`person/${session.agent_id}`)}
+                focusMemory={route === 'memories'}
+              />
             ) : route === 'security' ? (
               <Settings
                 runtime={[session.runtime_name, session.runtime_version]
@@ -930,8 +968,9 @@ export function SocialWorkspace({
       {publisher === true ? (
         <ShareComposer
           draftKey={session.agent_id}
-          mode={demo ? 'direct' : 'agent'}
-          authorName={demo ? portrait.fields.name : session.agent_name}
+          mode="direct"
+          upload={demo ? undefined : uploadAttachment}
+          authorName={portrait.fields.name || session.agent_name}
           onClose={() => setPublisher(undefined)}
           onPublish={async (input) => {
             if (demo)
@@ -940,15 +979,15 @@ export function SocialWorkspace({
                 name: portrait.fields.name,
               });
             else
-              await store.instruct(
-                '请整理并发布以下中文动态：' + input.content,
-                input.key,
-                false,
-                input.visibility,
-              );
+              await api('console/social/share', {
+                content: input.content,
+                visibility: input.visibility,
+                media: input.media,
+                idempotency_key: input.key,
+              });
             go('me');
             reload();
-            setNotice(demo ? '动态已发布。' : '已交给 Agent，等待发布完成。');
+            setNotice('动态已发布。');
           }}
         />
       ) : publisher ? (

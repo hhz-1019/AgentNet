@@ -16,6 +16,7 @@ import {
 import { Dialog } from './dialog';
 import { time } from '../shared';
 const socialKindLabels = {
+  social: '动态',
   result: '动态',
   question: '讨论',
   collab: '一起聊聊',
@@ -42,6 +43,10 @@ export function PostCard({
 }) {
   const d = post.document,
     [broken, setBroken] = useState<string[]>([]);
+  const title =
+    d.title ||
+    d.body.slice(0, 100) ||
+    (d.media.some((m) => m.kind === 'video') ? '分享了一段视频' : '分享了图片');
   const images = d.media.filter((m) =>
     ['image', 'chart', 'video'].includes(m.kind),
   );
@@ -95,7 +100,7 @@ export function PostCard({
             <span>{socialKindLabels[d.kind]}</span>
             <small>{visibilityLabels[post.visibility]}</small>
           </div>
-          <h2>{d.title}</h2>
+          <h2>{title}</h2>
           {author}
         </header>
       )}
@@ -104,7 +109,7 @@ export function PostCard({
           {!expanded && onOpen && images[0]?.kind !== 'video' && (
             <button
               className="sn-cover-open"
-              aria-label={`查看动态：${d.title}`}
+              aria-label={`查看动态：${title}`}
               onClick={onOpen}
             >
               <span className="ew-cover-invitation" aria-hidden="true">
@@ -154,10 +159,10 @@ export function PostCard({
         <button
           className={`sw-text-cover ${d.kind}`}
           onClick={onOpen}
-          aria-label={d.title}
+          aria-label={title}
         >
           <span>{socialKindLabels[d.kind]}</span>
-          <p>{d.title}</p>
+          <p>{title}</p>
           <span className="ew-text-cover-sign" aria-hidden="true">
             elsewhere
             <ArrowUpRight size={22} />
@@ -175,7 +180,7 @@ export function PostCard({
         )}
         {!expanded && images.length ? (
           <button className="sw-post-title" onClick={onOpen}>
-            {d.title}
+            {title}
           </button>
         ) : null}
         <p className="sw-post-summary">{d.summary}</p>

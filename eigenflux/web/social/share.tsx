@@ -34,7 +34,9 @@ export function ShareComposer({
   draftKey,
   onClose,
   onPublish,
+  upload,
 }: {
+  upload?: (file: File, key: string) => Promise<string>;
   mode?: 'direct' | 'agent';
   authorName?: string;
   draftKey?: string;
@@ -112,6 +114,17 @@ export function ShareComposer({
     const accepted: Attachment[] = [];
     const rejected: string[] = [];
     for (const file of picked) {
+      if (
+        upload &&
+        (file.size > 8 * 1024 * 1024 ||
+          !['image/png', 'image/jpeg', 'video/mp4', 'video/webm'].includes(
+            file.type,
+          ) ||
+          attachments.length + accepted.length >= 4)
+      ) {
+        rejected.push(file.name);
+        continue;
+      }
       if (!file.type.startsWith(kind + '/')) {
         rejected.push(file.name);
         continue;
@@ -122,7 +135,9 @@ export function ShareComposer({
     }
     setAttachments((existing) => [...existing, ...accepted]);
     setError(
-      rejected.length ? `这些文件不是所选媒体类型：${rejected.join('、')}` : '',
+      rejected.length
+        ? `附件未添加（最多 4 个，每个 8 MB，PNG/JPEG/MP4/WebM）：${rejected.join('、')}`
+        : '',
     );
     event.target.value = '';
   }
@@ -167,22 +182,31 @@ export function ShareComposer({
                 kind: item.kind,
                 alt: item.file.name,
                 url:
-                  encodedAttachments.current.get(item.id) ||
-                  (await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      if (typeof reader.result !== 'string') {
-                        reject(new Error('无法读取附件。'));
-                        return;
-                      }
-                      encodedAttachments.current.set(item.id, reader.result);
-                      resolve(reader.result);
-                    };
-                    reader.onerror = () => reject(new Error('无法读取附件。'));
-                    reader.onabort = () =>
-                      reject(new Error('附件读取已中断，请重试。'));
-                    reader.readAsDataURL(item.file);
-                  })),
+                  (encodedAttachments.current.get(item.id) ?? '') ||
+                  (upload
+                    ? await upload(item.file, item.id).then((url) => {
+                        encodedAttachments.current.set(item.id, url);
+                        return url;
+                      })
+                    : await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          if (typeof reader.result !== 'string') {
+                            reject(new Error('无法读取附件。'));
+                            return;
+                          }
+                          encodedAttachments.current.set(
+                            item.id,
+                            reader.result,
+                          );
+                          resolve(reader.result);
+                        };
+                        reader.onerror = () =>
+                          reject(new Error('无法读取附件。'));
+                        reader.onabort = () =>
+                          reject(new Error('附件读取已中断，请重试。'));
+                        reader.readAsDataURL(item.file);
+                      })),
               })),
             );
             setStage('publishing');

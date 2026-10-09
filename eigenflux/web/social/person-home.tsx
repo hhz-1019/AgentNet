@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { api } from '../api';
 import { X } from 'lucide-react';
 import type { SocialStore, WorkPost } from './model';
 import { PostCard } from './post';
@@ -8,6 +9,8 @@ import { SocialIdentity } from './social-identity';
 
 export function PersonHome({
   id,
+  viewerId,
+  demo = true,
   store,
   portrait,
   version,
@@ -17,6 +20,8 @@ export function PersonHome({
   onReady,
 }: {
   id: string;
+  viewerId?: string;
+  demo?: boolean;
   store: SocialStore;
   portrait: Portrait;
   version: number;
@@ -33,16 +38,45 @@ export function PersonHome({
   const request = useRef(0);
   const announced = useRef(0);
   const [settledRequest, setSettledRequest] = useState(0);
-  const own = id === 'demo-owner';
+  const [remote, setRemote] = useState<
+    Portrait & { following: boolean; next_cursor: string }
+  >();
+  const [postCursor, setPostCursor] = useState('');
+  useEffect(() => {
+    if (demo) return;
+    let active = true;
+    setRemote(undefined);
+    void api<Portrait & { following: boolean; next_cursor: string }>(
+      `console/people/${encodeURIComponent(id)}`,
+    )
+      .then((p) => {
+        if (active) setRemote(p);
+      })
+      .catch((e: unknown) => {
+        if (active) setError(e instanceof Error ? e.message : '主页读取失败');
+      });
+    return () => {
+      active = false;
+    };
+  }, [demo, id, retry]);
+  const own = id === (demo ? 'demo-owner' : viewerId);
   const peer = demoPeople.find((p) => p.id === id);
-  const fields = own ? portrait.fields : peer;
+  const fields = !demo ? remote?.fields : own ? portrait.fields : peer;
   const name = fields?.name;
-  const publicFields = own
+  const publicFields = !demo
     ? portraitFields.filter(
-        (f) => portrait.visible.includes(f.key) && f.key !== 'name',
+        (f) => remote?.visible.includes(f.key) && f.key !== 'name',
       )
-    : portraitFields.filter((f) => ['bio', 'interests'].includes(f.key));
-  const memories = own ? portrait.memories.filter((m) => m.showOnHome) : [];
+    : own
+      ? portraitFields.filter(
+          (f) => portrait.visible.includes(f.key) && f.key !== 'name',
+        )
+      : portraitFields.filter((f) => ['bio', 'interests'].includes(f.key));
+  const memories = !demo
+    ? remote?.memories || []
+    : own
+      ? portrait.memories.filter((m) => m.showOnHome)
+      : [];
   useEffect(() => {
     let active = true;
     const currentRequest = ++request.current;
@@ -53,6 +87,7 @@ export function PersonHome({
       .then((page) => {
         if (active) {
           setPosts(page.items);
+          setPostCursor(page.next_cursor);
           setSettledRequest(currentRequest);
         }
       })
@@ -101,7 +136,13 @@ export function PersonHome({
       </div>
       {!name ? (
         <div className="sw-empty">
-          <h1>暂时找不到这个主页</h1>
+          <h1>
+            {error ||
+              (!demo && !remote ? '正在读取主页…' : '暂时找不到这个主页')}
+          </h1>
+          {error && (
+            <button onClick={() => setRetry((n) => n + 1)}>重试</button>
+          )}
         </div>
       ) : (
         <>
@@ -116,6 +157,24 @@ export function PersonHome({
                 : undefined
             }
           />
+          {!demo && !own && remote && (
+            <button
+              onClick={async () => {
+                try {
+                  const result = await api<{ following: boolean }>(
+                    `console/people/${id}/follow`,
+                    { following: !remote.following },
+                    'PUT',
+                  );
+                  setRemote({ ...remote, ...result });
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : '关注失败');
+                }
+              }}
+            >
+              {remote.following ? '已关注 · 取消关注' : '关注'}
+            </button>
+          )}
           <nav className="sn-tabs" aria-label="主页内容">
             {[
               ['posts', '动态'],
@@ -154,6 +213,27 @@ export function PersonHome({
                   </div>
                 ))}
               </div>
+              {postCursor && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const page = await store.list({
+                        scope: `author:${id}`,
+                        q: '',
+                        kind: 'all',
+                        tags: [],
+                        cursor: postCursor,
+                      });
+                      setPosts((old) => [...(old || []), ...page.items]);
+                      setPostCursor(page.next_cursor);
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : '动态读取失败');
+                    }
+                  }}
+                >
+                  更多动态
+                </button>
+              )}
               {!posts && !error && <p className="sw-hint">正在读取动态…</p>}
               {posts?.length === 0 && (
                 <div className="sw-empty">
@@ -164,11 +244,13 @@ export function PersonHome({
           ) : section === 'about' ? (
             <dl className="sn-public-fields">
               {publicFields.map((f) => {
-                const value = own
-                  ? portrait.fields[f.key]
-                  : f.key === 'bio'
-                    ? peer?.bio
-                    : peer?.interests;
+                const value = !demo
+                  ? remote?.fields[f.key]
+                  : own
+                    ? portrait.fields[f.key]
+                    : f.key === 'bio'
+                      ? peer?.bio
+                      : peer?.interests;
                 return value ? (
                   <div key={f.key}>
                     <dt>{f.label}</dt>
@@ -179,6 +261,26 @@ export function PersonHome({
             </dl>
           ) : (
             <div className="sn-memory-list sn-person-feed">
+              {!demo && remote?.next_cursor && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const page = await api<
+                        Portrait & { next_cursor: string }
+                      >(`console/people/${id}?cursor=${remote.next_cursor}`);
+                      setRemote({
+                        ...remote,
+                        memories: [...remote.memories, ...page.memories],
+                        next_cursor: page.next_cursor,
+                      });
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : '读取失败');
+                    }
+                  }}
+                >
+                  更多记忆
+                </button>
+              )}
               {memories.map((m) => (
                 <article className="sn-memory" key={m.id}>
                   <p>{m.content}</p>

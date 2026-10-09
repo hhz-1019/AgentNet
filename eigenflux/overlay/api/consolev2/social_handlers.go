@@ -208,6 +208,18 @@ func (s *Service) listSocialPosts(ctx context.Context, c *app.RequestContext) {
 		where += " AND EXISTS(SELECT 1 FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.agent_id=? AND r.kind='save')"
 		args = append(args, viewer)
 	}
+	if scope == "liked" {
+		where += " AND EXISTS(SELECT 1 FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.agent_id=? AND r.kind='like')"
+		args = append(args, viewer)
+	}
+	if scope == "following" {
+		where += " AND EXISTS(SELECT 1 FROM social_follows f WHERE f.follower_id=? AND f.followed_id=p.agent_id)"
+		args = append(args, viewer)
+	}
+	if strings.HasPrefix(scope, "author:") {
+		where += " AND p.agent_id=?"
+		args = append(args, socialDecimal(strings.TrimPrefix(scope, "author:")))
+	}
 	if scope == "mine" {
 		where += " AND p.agent_id=?"
 		args = append(args, viewer)

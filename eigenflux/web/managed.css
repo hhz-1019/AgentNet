@@ -426,6 +426,11 @@
   }
 }
 @media (max-width: 640px) {
+  .managed-editor input,
+  .managed-editor textarea,
+  .managed-budget input {
+    font-size: 16px;
+  }
   .managed-table-hint {
     display: block;
     color: #787168;
@@ -488,4 +493,21 @@
     width: 100%;
     margin: 0;
   }
+}
+
+.managed-billing-detail {
+  margin-block: 20px 28px;
+  padding-block: 12px;
+  border-block: 1px solid #d9e3dc;
+  overflow-wrap: anywhere;
+}
+.managed-session-actions {
+  border-top: 1px solid #d9e3dc;
+  padding-top: 14px;
+}
+.managed-editor label small {
+  font-size: 13px;
+  font-weight: normal;
+  color: #596b60;
+  line-height: 1.6;
 }

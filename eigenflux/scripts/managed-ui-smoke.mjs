@@ -47,6 +47,25 @@ const data = {
   worker_configured: true,
   model_configured: true,
   spent_fen: 1264,
+  runtime: { healthy: true, last_seen_at: Date.now(), state: 'ready' },
+  billing: {
+    source: 'platform_shared',
+    sponsor_number: '10001',
+    provider_host: 'provider.test',
+    model: 'fixture-model',
+    month: '2026-10',
+    usage: {
+      settled_fen: 1252,
+      reserved_fen: 12,
+      input_tokens: 160000,
+      output_tokens: 18000,
+      published: 10,
+      commented: 99,
+      skipped: 82,
+      failed: 0,
+      successful_accounts: 100,
+    },
+  },
   campaign: {
     enabled: true,
     monthly_budget_fen: 10000,
@@ -65,13 +84,18 @@ const data = {
       ] + names[i % 10],
     scenario: scenes[Math.floor(i / 10)],
     persona:
-      '官方 AI 虚构角色，设定年龄 24 岁；温和耐心，喜欢用具体例子说明问题。讨论成年人之间的平等沟通和兴趣交友，尊重边界，不虚构真实在校经历或线下邀约。',
+      'AI 虚构角色，设定年龄 24 岁；温和耐心，喜欢用具体例子说明问题。讨论成年人之间的平等沟通和兴趣交友，尊重边界，不虚构真实在校经历或线下邀约。',
     enabled: i % 4 !== 0,
     daily_limit: 2,
     start_hour: 9,
     end_hour: 22,
     revision: 1,
     today_runs: i % 3,
+    public_bio: 'AI 虚构角色，关注具体讨论与练习。',
+    pending_topic: '',
+    month_spent_fen: 12,
+    successful_runs: 1,
+    active_sessions: 2,
     last_status: i % 4 === 0 ? null : i % 3 === 0 ? 'skipped' : 'published',
     last_active_at: i % 4 === 0 ? null : 1791532800000,
     next_run_at: 1791565200000,
@@ -94,22 +118,58 @@ const data = {
 };
 let failedSave = true,
   loginCount = 0;
+let queuedTopic = '',
+  queueBlocked = true;
+let returnedOperator = false;
 await page.route('**/api/v2/**', async (route) => {
   const path = new URL(route.request().url()).pathname;
   const method = route.request().method();
   const body = method === 'GET' ? null : route.request().postDataJSON();
   const send = (value) => route.fulfill({ json: { data: value } });
+  if (path.endsWith('/social/preferences'))
+    return send({ tags: [], revision: 1 });
   if (path.endsWith('/console/session'))
     return send({
-      agent_id: '1',
-      agent_name: '运营管理员',
+      agent_id: loginCount && !returnedOperator ? '900002' : '1',
+      agent_name: loginCount && !returnedOperator ? '林予安' : '运营管理员',
       short_id: 'ADMIN',
-      owner_uid: '10001',
+      owner_uid: loginCount && !returnedOperator ? '11111' : '10001',
       owner_bound: true,
       onboarding: { state: 'completed', current_step: 5, revision: 1 },
     });
   if (path.endsWith('/managed') && method === 'GET') return send(data);
-  if (path.endsWith('/managed/access')) return send({ allowed: true });
+  if (path.endsWith('/managed/access'))
+    return send({
+      allowed: true,
+      delegated: loginCount > 0 && !returnedOperator,
+      sponsor_number: '10001',
+    });
+  if (path.endsWith('/managed/return')) {
+    returnedOperator = true;
+    return send({ returned: true });
+  }
+  if (path.endsWith('/revoke')) {
+    data.members = data.members.map((m) =>
+      m.id === path.split('/').at(-2) ? { ...m, active_sessions: 0 } : m,
+    );
+    return send({ revoked: 2 });
+  }
+  if (path.endsWith('/run')) {
+    if (queueBlocked) {
+      queueBlocked = false;
+      return route.fulfill({
+        status: 409,
+        json: {
+          error: {
+            code: 'MANAGED_ACTIVITY_BLOCKED',
+            message: '已达到今日尝试上限，可修改上限或明日再安排',
+          },
+        },
+      });
+    }
+    queuedTopic = body.topic;
+    return send({ queued: true });
+  }
   if (path.endsWith('/managed/pause')) {
     data.campaign.enabled = false;
     data.campaign.revision++;
@@ -161,6 +221,10 @@ try {
   assert.equal(await page.locator('tbody tr').count(), 10);
   await page.getByRole('button', { name: '编辑林知远', exact: true }).click();
   await page.getByLabel('公开昵称', { exact: true }).fill('林知远（更新）');
+  await page
+    .getByLabel('公开简介', { exact: true })
+    .fill('AI Agent，专注平等沟通与阅读练习。');
+  await page.getByLabel('启用此角色的自动活动').check();
   await page.getByRole('button', { name: '保存资料', exact: true }).click();
   await page.getByRole('alert').waitFor();
   assert.equal(
@@ -169,9 +233,36 @@ try {
   );
   await page.getByRole('button', { name: '保存资料', exact: true }).click();
   await page.getByText('角色资料已保存', { exact: true }).waitFor();
+  assert.equal(
+    data.members[0].public_bio,
+    'AI Agent，专注平等沟通与阅读练习。',
+  );
   await page
     .getByRole('button', { name: '编辑林知远（更新）', exact: true })
     .click();
+  await page
+    .getByLabel('下一次讨论主题', { exact: true })
+    .fill('用一个假设场景讨论共同制定团队规则');
+  await page.getByRole('button', { name: '安排一次活动', exact: true }).click();
+  await page
+    .getByRole('alert')
+    .filter({ hasText: '已达到今日尝试上限，可修改上限或明日再安排' })
+    .waitFor();
+  assert.equal(
+    await page.getByLabel('下一次讨论主题', { exact: true }).inputValue(),
+    '用一个假设场景讨论共同制定团队规则',
+  );
+  await page.getByRole('button', { name: '安排一次活动', exact: true }).click();
+  await page
+    .getByText('已安排活动；仍遵守时段、预算与每日上限。', { exact: true })
+    .waitFor();
+  assert.equal(queuedTopic, '用一个假设场景讨论共同制定团队规则');
+  await page
+    .getByRole('button', { name: '撤销此角色的登录', exact: true })
+    .click();
+  await page.getByRole('button', { name: '确认撤销登录', exact: true }).click();
+  await page.getByText('该角色的管理登录已撤销', { exact: true }).waitFor();
+  assert.equal(data.members[0].active_sessions, 0);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
     path: '.impeccable/review/desktop.png',
@@ -223,10 +314,54 @@ try {
     .click();
   await page.waitForURL('**/dashboard');
   assert.equal(loginCount, 1);
+  await page.getByRole('link',{name:'我的',exact:true}).first().click();
+  await page.getByRole('button',{name:'打开设置',exact:true}).click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page
+    .getByRole('heading', { name: '托管角色控制', exact: true })
+    .waitFor();
+  await page
+    .getByLabel('让这个角色讨论什么？', { exact: true })
+    .fill('一个新的团队协作讨论');
+  await page.getByRole('button', { name: '安排模型发帖', exact: true }).click();
+  await page
+    .getByText('讨论已排队，请在活动回执查看结果。', { exact: true })
+    .waitFor();
+  assert.equal(queuedTopic, '一个新的团队协作讨论');
+  await page.screenshot({ path: '.impeccable/review/managed-role.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page
+    .getByRole('heading', { name: '托管角色控制', exact: true })
+    .waitFor();
+  assert(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  );
+  await page.screenshot({ path: '.impeccable/review/managed-role-mobile.png' });
+  const topicBox = await page
+    .getByLabel('让这个角色讨论什么？', { exact: true })
+    .boundingBox();
+  assert(
+    topicBox && topicBox.x >= 0 && topicBox.x + topicBox.width <= 390,
+    'mobile role form must fit the visible panel',
+  );
+
+  await page.getByRole('button', { name: '返回运营账号', exact: true }).click();
+  await page.waitForURL('**/dashboard/managed');
+  await page
+    .getByRole('heading', { name: '社区角色管理', exact: true })
+    .waitFor();
+  assert.equal(returnedOperator, true);
   assert.deepEqual(errors, []);
   console.log(
     'PASS: 100-row roster, filtering, edit failure recovery, batch activation, budget, pause, receipts, audit, login and mobile overflow. Synthetic fixtures only.',
   );
+} catch (error) {
+  console.error('Browser errors:', errors);
+  console.error('Page:', await page.locator('body').innerText());
+  throw error;
 } finally {
   await browser.close();
   await server.close();

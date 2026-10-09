@@ -1,3 +1,4 @@
+import { CreateLiveGroup, type LiveGroup } from './social/live-groups';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
@@ -39,6 +40,7 @@ type NetworkProps = {
   onMessages?: (id: string) => void;
   onProfile?: (id: string) => void;
 };
+const selectedConversations = new Map<string, string>();
 const replyDrafts = new Map<string, Record<string, string>>();
 const samplePeers: Peer[] = demoPeople.slice(0, 3).map((p, index) => ({
   agent_id: p.id,
@@ -83,8 +85,8 @@ export function Network({
   const action = useAction();
   const [query, setQuery] = useState('');
   const openProfile = (id: string) =>
-    demo
-      ? onProfile?.(id)
+    onProfile
+      ? onProfile(id)
       : location.assign(`/agent/${encodeURIComponent(id)}`);
   const [filter, setFilter] = useState('全部');
   const [localPeers, setLocalPeers] = useState<Peer[]>(() => {
@@ -361,7 +363,11 @@ function Relations({
                       {name}
                     </button>
                   ) : (
-                    <AgentLink id={f.peer_agent_id} name={name} />
+                    <AgentLink
+                      id={f.peer_agent_id}
+                      name={name}
+                      onProfile={onProfile}
+                    />
                   )}
                 </h3>
                 <span className="sw-status-pill connected">
@@ -439,13 +445,37 @@ function Relations({
   );
 }
 
-export function Messages({ session }: { session: Session }) {
+export function Messages({
+  session,
+  onProfile,
+}: {
+  session: Session;
+  onProfile?: (id: string) => void;
+}) {
   const [cursor, setCursor] = useState('');
   const [messageCursor, setMessageCursor] = useState('');
   const q = useData<Conversations>(
     `console/pm/conversations?cursor=${encodeURIComponent(cursor)}`,
   );
-  const [selected, setSelected] = useState('');
+  const [selected, setSelected] = useState(
+    () => selectedConversations.get(session.agent_id) || '',
+  );
+  useEffect(() => {
+    selectedConversations.set(session.agent_id, selected);
+  }, [session.agent_id, selected]);
+  const [groupCursor, setGroupCursor] = useState('');
+  const groups = useData<{ items: LiveGroup[]; next_cursor: string }>(
+    `console/groups?cursor=${encodeURIComponent(groupCursor)}`,
+  );
+  const selectedGroup = groups.data?.items.find(
+    (g) => 'g:' + g.group_id === selected,
+  );
+  const requestedPeer =
+    new URLSearchParams(window.location.search).get('peer') || '';
+  const missingPeer =
+    requestedPeer &&
+    q.data &&
+    !q.data.conversations.some((c) => c.peer_agent_id === requestedPeer);
   const [drafts, setDrafts] = useState<Record<string, string>>(
     () => replyDrafts.get(session.agent_id) || {},
   );
@@ -459,11 +489,30 @@ export function Messages({ session }: { session: Session }) {
   );
   const contexts = q.data?.agent_contexts || {};
   const history = useData<{ messages: Message[]; next_cursor: string }>(
-    selected
-      ? `console/pm/conversations/${selected}/messages?cursor=${encodeURIComponent(messageCursor)}`
-      : null,
+    selected.startsWith('g:')
+      ? `console/groups/${selected.slice(2)}/messages?cursor=${encodeURIComponent(messageCursor)}`
+      : selected && !selected.startsWith('peer:')
+        ? `console/pm/conversations/${selected}/messages?cursor=${encodeURIComponent(messageCursor)}`
+        : null,
   );
-  const peer = conversations.find((c) => c.conv_id === selected)?.peer_agent_id;
+  const peer = selected.startsWith('peer:')
+    ? selected.slice(5)
+    : conversations.find((c) => c.conv_id === selected)?.peer_agent_id;
+  const {reload: reloadConversations}=q, {reload: reloadGroups}=groups, {reload: reloadHistory}=history;
+  useEffect(() => {
+    const update = () => {
+      if (document.hidden) return;
+      reloadConversations();
+      reloadGroups();
+      if (!messageCursor) reloadHistory();
+    };
+    const timer = window.setInterval(update, 8000);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, [reloadConversations, reloadGroups, reloadHistory, messageCursor]);
   const messages = useMemo(
     () =>
       (Array.isArray(history.data?.messages) ? history.data.messages : [])
@@ -481,6 +530,10 @@ export function Messages({ session }: { session: Session }) {
     Boolean(history.data) && !history.loading,
   );
   useEffect(() => {
+    if (!selected && missingPeer) {
+      setSelected('peer:' + requestedPeer);
+      return;
+    }
     if (!selected && conversations.length) {
       const requestedPeer = new URLSearchParams(window.location.search).get(
         'peer',
@@ -493,15 +546,48 @@ export function Messages({ session }: { session: Session }) {
       );
       setMessageCursor('');
     }
-  }, [selected, conversations]);
+  }, [selected, conversations, missingPeer, requestedPeer]);
   return (
     <>
       <header>
         <h1 className="sw-sr-only">消息</h1>
       </header>
+      <CreateLiveGroup
+        onCreate={(id) => {
+          setGroupCursor('');
+          groups.reload();
+          setSelected('g:' + id);
+          setMessageCursor('');
+        }}
+      />
+      <ErrorBox error={groups.error} retry={groups.reload} />
       <ErrorBox error={q.error} retry={q.reload} />
       <div className="messages">
         <aside>
+          {groups.data?.items.map((g) => (
+            <button
+              key={g.group_id}
+              className={selected === 'g:' + g.group_id ? 'selected' : ''}
+              onClick={() => {
+                setSelected('g:' + g.group_id);
+                setMessageCursor('');
+              }}
+            >
+              <strong>{g.name}</strong>
+              <p>群聊 · {g.members.length} 位成员</p>
+              <small>{g.unread_count} 未读</small>
+            </button>
+          ))}
+          <Pager
+            cursor={groupCursor}
+            next={groups.data?.next_cursor}
+            onChange={setGroupCursor}
+          />
+          {missingPeer && (
+            <button onClick={() => setSelected('peer:' + requestedPeer)}>
+              与 {requestedPeer} 发起对话
+            </button>
+          )}
           {conversations.map((c) => (
             <button
               className={selected === c.conv_id ? 'selected' : ''}
@@ -541,9 +627,25 @@ export function Messages({ session }: { session: Session }) {
         <section className="ew-live-chat">
           {selected ? (
             <>
+              {selectedGroup && (
+                <header className="ew-live-heading">
+                  <h2>{selectedGroup.name}</h2>
+                  <p>
+                    {selectedGroup.members.map((m) => (
+                      <AgentLink
+                        key={m.id}
+                        id={m.id}
+                        name={m.name}
+                        onProfile={onProfile}
+                      />
+                    ))}
+                  </p>
+                </header>
+              )}
               {peer && (
                 <h2 className="ew-live-heading">
                   <AgentLink
+                    onProfile={onProfile}
                     id={peer}
                     name={contexts[peer]?.identity_assertion.display_name}
                   />
@@ -573,6 +675,7 @@ export function Messages({ session }: { session: Session }) {
                   >
                     <small>
                       <AgentLink
+                        onProfile={onProfile}
                         id={m.sender_agent_id}
                         name={
                           m.sender_agent_id === session.agent_id
@@ -581,7 +684,8 @@ export function Messages({ session }: { session: Session }) {
                                 .display_name
                         }
                       />{' '}
-                      · {time(m.created_at)}
+                      · {m.actor_kind === 'human' ? '本人' : 'Agent'} ·{' '}
+                      {time(m.created_at)}
                     </small>
                     <p className="prewrap">{m.content}</p>
                   </article>
@@ -603,8 +707,8 @@ export function Messages({ session }: { session: Session }) {
               <footer className="ew-live-composer">
                 <MessageComposer
                   key={selected}
-                  sendLabel="让 Agent 回复"
-                  hint="交给 Agent 处理 · Shift + Enter 换行"
+                  sendLabel="发送"
+                  hint="本人发送 · Shift + Enter 换行"
                   value={drafts[selected] || ''}
                   onChange={(text) =>
                     setDrafts((d) => {
@@ -614,7 +718,7 @@ export function Messages({ session }: { session: Session }) {
                     })
                   }
                   onSend={async (content) => {
-                    if (!peer)
+                    if (!peer && !selectedGroup)
                       throw new Error('当前会话暂时无法回复，请重新选择会话。');
                     let operation = replyOperations.current.get(selected);
                     if (!operation || operation.content !== content) {
@@ -622,18 +726,33 @@ export function Messages({ session }: { session: Session }) {
                       replyOperations.current.set(selected, operation);
                     }
                     setReplyStatus((status) => ({ ...status, [selected]: '' }));
-                    await api('agent-commands', {
-                      command_type: 'human_instruction',
-                      payload: {
-                        instruction: `请在与 Agent ${peer} 的会话 ${selected} 中处理以下回复：${content}`,
+                    const sent = await api<{ conv_id?: string }>(
+                      selected.startsWith('g:')
+                        ? `console/groups/${selected.slice(2)}/messages`
+                        : 'console/pm/send',
+                      {
+                        ...(!selected.startsWith('g:')
+                          ? {
+                              conv_id: selected.startsWith('peer:')
+                                ? undefined
+                                : selected,
+                              receiver_id: peer,
+                            }
+                          : {}),
+                        content,
+                        idempotency_key: operation.key,
                       },
-                      idempotency_key: operation.key,
-                    });
+                    );
+                    if (selected.startsWith('peer:') && sent.conv_id)
+                      setSelected(sent.conv_id);
+                    history.reload();
+                    q.reload();
+                    groups.reload();
                     if (replyOperations.current.get(selected) === operation)
                       replyOperations.current.delete(selected);
                     setReplyStatus((status) => ({
                       ...status,
-                      [selected]: '已交给 Agent，等待回复。',
+                      [selected]: '已发送。',
                     }));
                   }}
                 />

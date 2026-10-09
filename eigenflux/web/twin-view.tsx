@@ -1,20 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, useData } from './api';
-import {
-  Field,
-  TextField,
-  useAction,
-  ActionStatus,
-  ErrorBox,
-  Blank,
-} from './shared';
-import {
-  normalizeTwin,
-  type TwinProfile,
-  type TwinResponse,
-  type ActivityPolicy,
-  type Persona,
-} from './twin';
+import { Field, TextField, useAction, ActionStatus, ErrorBox } from './shared';
+import { type TwinProfile, type ActivityPolicy, type Persona } from './twin';
 import './twin.css';
 
 export function TwinFields({
@@ -505,67 +492,35 @@ export function ActivityFields({
 }
 
 export function TwinSettings({ runtime }: { runtime: string }) {
-  const q = useData<TwinResponse>('console/twin', { live: false });
   const policy = useData<ActivityPolicy>('console/twin/policy', {
     live: false,
   });
-  const [profile, setProfile] = useState<TwinProfile>();
   const [limits, setLimits] = useState<ActivityPolicy>();
   const action = useAction();
-  useEffect(() => {
-    if (q.data) setProfile(normalizeTwin(q.data.profile));
-  }, [q.data]);
   useEffect(() => {
     if (policy.data) setLimits(policy.data);
   }, [policy.data]);
   return (
     <section className="twin-settings">
-      <h1>个人资料与 Agent 活动</h1>
-      <p>资料属于你的账号，活动额度针对当前 Agent。每项设置都可在这里调整。</p>
-      <ErrorBox
-        error={q.error || policy.error}
-        retry={() => {
-          q.reload();
-          policy.reload();
-        }}
-      />
-      {profile && q.data ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void action.run(async () => {
-              await api(
-                'console/twin',
-                { profile, expected_revision: q.data!.revision },
-                'PUT',
-              );
-              q.reload();
-            });
-          }}
-        >
-          <TwinFields value={profile} onChange={setProfile} runtime={runtime} />
-          <button className="primary" disabled={action.busy}>
-            保存个人资料
-          </button>
-        </form>
-      ) : (
-        !q.error && <Blank>正在读取个人资料…</Blank>
-      )}
+      <h1>Agent 活动设置</h1>
+      <p>当前接入应用：{runtime || 'Agent'}</p>
+      <ErrorBox error={policy.error} retry={policy.reload} />
       {limits && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void action.run(async () => {
-              await api('console/twin/policy', limits, 'PUT');
-              policy.reload();
+              const saved = await api<ActivityPolicy>(
+                'console/twin/policy',
+                limits,
+                'PUT',
+              );
+              setLimits(saved);
             });
           }}
         >
-          <h2>Agent 每日活动额度</h2>
           <ActivityFields value={limits} onChange={setLimits} />
-          <button className="primary" disabled={action.busy}>
-            保存活动额度
-          </button>
+          <button disabled={action.busy}>保存活动额度</button>
         </form>
       )}
       <ActionStatus action={action} />

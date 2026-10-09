@@ -25,7 +25,7 @@ export function PortraitEditor({
   onComplete,
 }: {
   profile: Portrait;
-  onSave: (p: Portrait) => void;
+  onSave: (p: Portrait) => void | Promise<void>;
   onPublicHome: () => void;
   focusMemory?: boolean;
   onComplete?: () => void;
@@ -38,6 +38,8 @@ export function PortraitEditor({
   const [editing, setEditing] = useState<EventMemory>();
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const saving = useRef(false);
   const [editorError, setEditorError] = useState('');
   const [removed, setRemoved] = useState<EventMemory>();
   const memorySection = useRef<HTMLElement>(null);
@@ -47,15 +49,23 @@ export function PortraitEditor({
   const filtered = profile.memories.filter((m) =>
     m.content.toLowerCase().includes(query.trim().toLowerCase()),
   );
-  function save(next: Portrait, message: string) {
+  async function save(next: Portrait, message: string) {
+    if (saving.current) return false;
+    saving.current = true;
+    setBusy(true);
     try {
-      onSave(next);
+      await onSave(next);
       setError('');
       setStatus(message);
       return true;
-    } catch {
-      setError('保存失败，输入已保留，请重试。');
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : '保存失败，输入已保留，请重试。',
+      );
       return false;
+    } finally {
+      saving.current = false;
+      setBusy(false);
     }
   }
   function openMemory(memory: EventMemory) {
@@ -89,10 +99,10 @@ export function PortraitEditor({
         <form
           id={formId}
           className="sn-portrait-form"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!fields.name.trim()) return;
-            const saved = save(
+            const saved = await save(
               {
                 ...profile,
                 fields: { ...fields, name: fields.name.trim() },
@@ -112,6 +122,12 @@ export function PortraitEditor({
                 <div>
                   <label htmlFor={`${formId}-${field.key}`}>
                     {field.label}
+                    {field.key === 'name' && (
+                      <span className="required-mark" aria-hidden="true">
+                        {' '}
+                        *
+                      </span>
+                    )}
                   </label>
                   {field.key === 'name' ? (
                     <span className="sn-visibility sn-visibility-fixed">
@@ -139,6 +155,7 @@ export function PortraitEditor({
                 {['name', 'role'].includes(field.key) ? (
                   <input
                     id={`${formId}-${field.key}`}
+                    aria-label={field.label}
                     required={field.key === 'name'}
                     maxLength={field.key === 'name' ? 80 : 200}
                     value={fields[field.key]}
@@ -211,9 +228,9 @@ export function PortraitEditor({
                     查看 / 编辑
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       if (
-                        save(
+                        await save(
                           {
                             ...profile,
                             memories: profile.memories.filter(
@@ -253,9 +270,9 @@ export function PortraitEditor({
       {removed && (
         <button
           className="sn-memory-undo"
-          onClick={() => {
+          onClick={async () => {
             if (
-              save(
+              await save(
                 { ...profile, memories: [removed, ...profile.memories] },
                 '记忆已恢复。',
               )
@@ -280,7 +297,7 @@ export function PortraitEditor({
           className="sw-primary"
           type="submit"
           form={formId}
-          disabled={!fields.name.trim()}
+          disabled={busy || !fields.name.trim()}
         >
           {onComplete ? '确认画像，进入 elsewhere' : '保存资料'}
         </button>
@@ -292,13 +309,16 @@ export function PortraitEditor({
               ? '编辑事件记忆'
               : '记一件事'
           }
+          busy={busy}
           onClose={() => setEditing(undefined)}
         >
           <form
             className="sn-memory-form"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              if (!editing.content.trim()) return;
+              if (!editing.content.trim() || saving.current) return;
+              saving.current = true;
+              setBusy(true);
               const next = {
                 ...editing,
                 content: editing.content.trim(),
@@ -306,7 +326,7 @@ export function PortraitEditor({
               };
               const exists = profile.memories.some((m) => m.id === next.id);
               try {
-                onSave({
+                await onSave({
                   ...profile,
                   memories: exists
                     ? profile.memories.map((m) => (m.id === next.id ? next : m))
@@ -319,6 +339,9 @@ export function PortraitEditor({
                 setError('');
               } catch {
                 setEditorError('保存失败，输入已保留，请重试。');
+              } finally {
+                saving.current = false;
+                setBusy(false);
               }
             }}
           >
@@ -353,7 +376,10 @@ export function PortraitEditor({
               <button type="button" onClick={() => setEditing(undefined)}>
                 取消
               </button>
-              <button className="sw-primary" disabled={!editing.content.trim()}>
+              <button
+                className="sw-primary"
+                disabled={busy || !editing.content.trim()}
+              >
                 保存这条记忆
               </button>
             </footer>

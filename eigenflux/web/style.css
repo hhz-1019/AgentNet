@@ -688,15 +688,6 @@ dd {
   }
 }
 
-.account-recovery {
-  display: grid;
-  gap: 0.5rem;
-}
-.account-recovery dd {
-  margin: 0 0 1rem;
-  overflow-wrap: anywhere;
-}
-
 .phone-code-row {
   display: flex;
   align-items: flex-end;

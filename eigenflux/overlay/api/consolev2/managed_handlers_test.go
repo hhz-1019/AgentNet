@@ -116,7 +116,7 @@ func TestManagedFullSchema(t *testing.T) {
 		t.Fatal("seed not idempotent")
 	}
 	var count int64
-	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agent_owners o USING(agent_id) JOIN agent_onboarding_v2 b USING(agent_id) JOIN agents a USING(agent_id) JOIN human_accounts h ON h.uid=m.owner_uid WHERE m.sponsor_uid='operator' AND o.owner_uid=m.owner_uid AND b.state='completed' AND a.is_official AND h.account_number BETWEEN 10000 AND 99999`).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agent_owners o USING(agent_id) JOIN agent_onboarding_v2 b USING(agent_id) JOIN agents a USING(agent_id) JOIN human_accounts h ON h.uid=m.owner_uid WHERE m.sponsor_uid='operator' AND o.owner_uid=m.owner_uid AND b.state='completed' AND NOT a.is_official AND h.account_number BETWEEN 10000 AND 99999`).Scan(&count).Error)
 	if count != 100 {
 		t.Fatal("identities incomplete", count)
 	}
@@ -155,6 +155,9 @@ func TestManagedFullSchema(t *testing.T) {
 	h.POST("/login/:member_id", inject, s.loginManaged)
 	h.PUT("/edit/:member_id", inject, s.putManagedMember)
 	h.POST("/batch", inject, s.batchManaged)
+	h.POST("/queue/:member_id", inject, s.queueManaged)
+	h.POST("/revoke/:member_id", inject, s.revokeManagedSessions)
+	h.POST("/return", inject, s.returnManagedOperator)
 	call := func(method, path string, body any, sessionID string, want int) []byte {
 		t.Helper()
 		raw, _ := json.Marshal(body)
@@ -211,13 +214,24 @@ func TestManagedFullSchema(t *testing.T) {
 	if r := ut.PerformRequest(actual.Engine, "POST", "https://test.invalid/drafts", &ut.Body{Body: bytes.NewReader(manualRaw), Len: len(manualRaw)}, cookieHeader, hostHeader, ut.Header{Key: "Origin", Value: "https://test.invalid"}, ut.Header{Key: "X-CSRF-Token", Value: csrf}, ut.Header{Key: "Content-Type", Value: "application/json"}).Result(); r.StatusCode() != 201 {
 		t.Fatal("manual draft failed", r.StatusCode(), string(r.Body()))
 	}
-	edit := managedMemberEdit{Name: "林知远", Scenario: "校园交友", Persona: managedCatalog()[0].Persona, DailyLimit: 2, StartHour: 9, EndHour: 22, Revision: 1}
+	edit := managedMemberEdit{Name: managedCatalog()[0].Name, Scenario: "校园交友", Persona: managedCatalog()[0].Persona, DailyLimit: 2, StartHour: 9, EndHour: 22, Revision: 1}
 	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 200)
 	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 409)
 	var publicBio string
 	check(db.Raw(`SELECT bio FROM agents WHERE agent_id=?`, ids[0]).Scan(&publicBio).Error)
-	if !strings.Contains(publicBio, edit.Name) || !strings.Contains(publicBio, "官方 AI") || strings.Contains(publicBio, edit.Persona) {
+	if !strings.Contains(publicBio, edit.Name) || !strings.Contains(publicBio, "AI Agent") || strings.Contains(publicBio, "官方") || strings.Contains(publicBio, edit.Persona) {
 		t.Fatal("public profile did not update or exposed internal persona")
+	}
+	customBio := "AI Agent，专注成年人的沟通练习与阅读交流。"
+	edit.Revision = 2
+	edit.PublicBio = &customBio
+	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 200)
+	edit.Revision = 3
+	edit.PublicBio = nil
+	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 200)
+	check(db.Raw(`SELECT bio FROM agents WHERE agent_id=?`, ids[0]).Scan(&publicBio).Error)
+	if publicBio != customBio {
+		t.Fatal("role edit overwrote independent public bio")
 	}
 	unsafeEdit := edit
 	unsafeEdit.Revision = 2
@@ -248,7 +262,7 @@ func TestManagedFullSchema(t *testing.T) {
 	if s.commitManaged(context.Background(), *job, value, nil) == nil {
 		t.Fatal("duplicate commit accepted")
 	}
-	check(db.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND document->>'identity'='agent' AND document->>'body' LIKE '【官方 AI%'`, job.AgentID).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND document->>'identity'='agent' AND document->>'body' NOT LIKE '【官方 AI%' AND document->>'source'='AI Agent 生成的讨论与练习'`, job.AgentID).Scan(&count).Error)
 	if count != 1 {
 		t.Fatal("post/label missing")
 	}
@@ -301,7 +315,7 @@ func TestManagedFullSchema(t *testing.T) {
 	}
 	check(db.Exec(`UPDATE social_work_posts SET visibility='public' WHERE post_id=?`, published).Error)
 	check(s.commitManaged(context.Background(), *next, comment, map[int64]bool{published: true}))
-	check(db.Raw(`SELECT count(*) FROM social_work_comments WHERE agent_id=? AND content LIKE '【官方 AI】%'`, next.AgentID).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM social_work_comments WHERE agent_id=? AND content=?`, next.AgentID, comment.Value.Content).Scan(&count).Error)
 	if count != 1 {
 		t.Fatal("comment not persisted")
 	}
@@ -315,6 +329,70 @@ func TestManagedFullSchema(t *testing.T) {
 	check(db.Raw(`SELECT status FROM managed_runs WHERE run_id=?`, next.RunID).Scan(&state).Error)
 	if state != "skipped" {
 		t.Fatal("revoked operator published")
+	}
+	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "10001")
+	t.Setenv("AGENTNET_MANAGED_WORKER", "true")
+	t.Setenv("LLM_BASE_URL", "https://provider.test/v1")
+	t.Setenv("LLM_API_KEY", "test-key-do-not-output")
+	t.Setenv("LLM_MODEL", "fixture-model")
+	call("POST", "/revoke/1", map[string]any{}, session.ID, 403)
+	call("POST", "/revoke/"+fmtRun(ids[0]), map[string]any{}, session.ID, 200)
+	if r := ut.PerformRequest(actual.Engine, "GET", "/posts", nil, cookieHeader).Result(); r.StatusCode() != 401 {
+		t.Fatal("revoked browser still has access", r.StatusCode())
+	}
+	call("POST", "/login/"+fmtRun(ids[0]), map[string]any{}, session.ID, 200)
+	check(db.Raw(`SELECT d.session_id FROM managed_delegations d JOIN console_v2_sessions cs USING(session_id) WHERE cs.status='active' ORDER BY cs.issued_at DESC LIMIT 1`).Scan(&delegated).Error)
+	call("POST", "/return", map[string]any{}, delegated, 200)
+	call("GET", "/managed", nil, delegated, 403)
+	check(db.Raw(`SELECT count(*) FROM console_v2_sessions WHERE owner_uid='operator' AND agent_id=1 AND status='active'`).Scan(&count).Error)
+	if count < 2 {
+		t.Fatal("operator return did not issue normal owner session")
+	}
+	check(db.Exec(`UPDATE managed_campaigns SET enabled=true,monthly_budget_fen=10000`).Error)
+	check(db.Exec(`UPDATE managed_members SET enabled=false`).Error)
+	call("POST", "/queue/"+fmtRun(ids[99]), map[string]any{}, session.ID, 409)
+	call("POST", "/queue/1", map[string]any{}, session.ID, 403)
+	check(db.Exec(`UPDATE managed_members SET enabled=true,daily_limit=0 WHERE agent_id=?`, ids[99]).Error)
+	call("POST", "/queue/"+fmtRun(ids[99]), map[string]any{}, session.ID, 409)
+	check(db.Exec(`UPDATE managed_members SET daily_limit=2 WHERE agent_id=?`, ids[99]).Error)
+	call("POST", "/queue/"+fmtRun(ids[99]), map[string]any{"topic": "用一个假设例子讨论团队分工"}, session.ID, 200)
+	queued, err := s.claimManaged(context.Background(), time.Now())
+	check(err)
+	if queued == nil || queued.AgentID != ids[99] || queued.Topic != "用一个假设例子讨论团队分工" {
+		t.Fatal("queued topic or identity lost")
+	}
+	call("POST", "/queue/"+fmtRun(ids[99]), map[string]any{}, session.ID, 409)
+	check(s.commitManaged(context.Background(), *queued, value, nil))
+	var recorded struct{ ProviderHost, Model, PendingTopic string }
+	check(db.Raw(`SELECT r.provider_host,r.model,m.pending_topic FROM managed_runs r JOIN managed_members m USING(agent_id) WHERE r.run_id=?`, queued.RunID).Scan(&recorded).Error)
+	if recorded.ProviderHost != "provider.test" || recorded.Model != "fixture-model" || recorded.PendingTopic != "" {
+		t.Fatal("billing provenance or one-shot topic invalid", recorded)
+	}
+	s.managedBeat("ready")
+	overview := string(call("GET", "/managed", nil, session.ID, 200))
+	if !strings.Contains(overview, `"healthy":true`) || !strings.Contains(overview, `"provider_host":"provider.test"`) || strings.Contains(overview, "test-key-do-not-output") {
+		t.Fatal("health or billing readout incorrect")
+	}
+
+	// A quiet turn must not call the provider or retain a billing reservation.
+	quiet := *queued
+	quiet.Topic = ""
+	quiet.RunID = 9000000
+	for managedVariation(quiet.AgentID, quiet.RunID, "participation")%100 >= 45 {
+		quiet.RunID++
+	}
+	check(db.Exec(`UPDATE managed_runs SET run_id=?,status='running',charged_fen=12,input_tokens=0,output_tokens=0 WHERE run_id=?`, quiet.RunID, queued.RunID).Error)
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) { t.Fatal("quiet turn called provider"); return nil, nil })
+	s.executeManaged(context.Background(), quiet)
+	http.DefaultTransport = previousTransport
+	var quietReceipt struct {
+		Status     string
+		ChargedFen int64
+	}
+	check(db.Raw(`SELECT status,charged_fen FROM managed_runs WHERE run_id=?`, quiet.RunID).Scan(&quietReceipt).Error)
+	if quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != 0 {
+		t.Fatal("quiet turn charged", quietReceipt)
 	}
 	// Real middleware rejects mutations without a session and CSRF proof.
 	protected := server.New()
@@ -372,5 +450,24 @@ func TestManagedModelProtocol(t *testing.T) {
 	t.Setenv("LLM_BASE_URL", "http://insecure.test")
 	if managedModelConfigured() {
 		t.Fatal("insecure provider accepted")
+	}
+}
+
+func TestManagedThreadInterestVaries(t *testing.T) {
+	counts := map[int]bool{}
+	for post := int64(1); post <= 20; post++ {
+		count := 0
+		for agent := int64(1); agent <= 100; agent++ {
+			if managedInterested(agent, post) {
+				count++
+			}
+		}
+		if count == 0 || count == 100 {
+			t.Fatal("all-or-nothing participation", post, count)
+		}
+		counts[count] = true
+	}
+	if len(counts) < 5 {
+		t.Fatal("thread participation lacks variation", counts)
 	}
 }

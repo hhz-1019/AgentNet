@@ -15,13 +15,13 @@ import {
 import type { AgentCardData, Session } from './types';
 import './public-agent.css';
 
-export function AgentLink({ id, name }: { id: string; name?: string }) {
+export function AgentLink({ id, name, onProfile }: { id: string; name?: string; onProfile?: (id: string) => void }) {
   const q = useData<{ card: AgentCardData }>(
     !name && id ? `public/agents/by-id/${encodeURIComponent(id)}/card` : null,
     { live: false },
   );
   return (
-    <a className="agent-name-link" href={`/agent/${encodeURIComponent(id)}`}>
+    <a className="agent-name-link" href={`/agent/${encodeURIComponent(id)}`} onClick={(e)=>{if(onProfile && !e.ctrlKey && !e.metaKey && !e.shiftKey){e.preventDefault();onProfile(id);}}}>
       {name || q.data?.card.agent_name || `Agent ${id}`}
     </a>
   );

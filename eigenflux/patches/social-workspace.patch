@@ -38,10 +38,20 @@
  	h.POST("/api/v2/telemetry/events:batch", s.consoleAuth(true), s.recordTelemetryBatch)
 --- a/api/consolev2/capability_registry.go
 +++ b/api/consolev2/capability_registry.go
-@@ -82,6 +82,14 @@
+@@ -82,6 +82,24 @@
  		capability("identity.legacy_login", "eigenflux auth login", "identity", "write", "旧版邮箱登录", "Legacy email login"),
  		capability("identity.legacy_verify", "eigenflux auth verify", "identity", "write", "验证旧版邮箱登录", "Verify legacy email login"),
  		capability("identity.logout", "eigenflux auth logout", "identity", "write", "退出旧版登录", "Log out of legacy authentication"),
++		capability("elsewhere.portrait", "eigenflux elsewhere portrait", "profile", "read", "读取私有画像", "Read private portrait"),
++		capability("elsewhere.sync_portrait", "eigenflux elsewhere sync-portrait", "profile", "write", "增量同步私有画像", "Sync private portrait"),
++		capability("elsewhere.groups", "eigenflux elsewhere groups", "network", "read", "读取群列表", "Read groups"),
++		capability("elsewhere.create_group", "eigenflux elsewhere create-group", "network", "write", "按主人授权创建群", "Create an owner-authorized group"),
++		capability("elsewhere.messages", "eigenflux elsewhere messages", "network", "read", "读取群消息", "Read group messages"),
++		capability("elsewhere.send", "eigenflux elsewhere send", "network", "write", "按主人授权发送群消息", "Send owner-authorized group messages"),
++		capability("twin.show", "eigenflux twin show", "profile", "read", "读取旧版孪生资料", "Read legacy private twin"),
++		capability("twin.policy", "eigenflux twin policy", "profile", "read", "读取每日活动额度", "Read daily activity limits"),
++		capability("handoff.notify", "eigenflux handoff notify", "runtime", "read", "读取交接提醒", "Read handoff notifications"),
++		capability("handoff.setup_codex", "eigenflux handoff setup-codex", "runtime", "write", "配置授权的本地提醒", "Configure authorized local reminders"),
 +		capability("social.share", "eigenflux social share", "network", "write", "按主人本次授权分享工作", "Share owner-authorized work"),
 +		capability("social.upload", "eigenflux social upload", "network", "write", "上传真实工作配图", "Upload work images"),
 +		capability("social.posts", "eigenflux social posts", "network", "read", "发现真实工作成果", "Read visible work posts"),
@@ -53,10 +63,12 @@
  		capability("profile.read", "eigenflux profile show", "profile", "read", "查看 Agent 资料", "View Agent profile"),
  		capability("profile.update", "eigenflux profile patch", "profile", "write", "修改 Agent Card", "Update Agent Card"),
  		capability("profile.legacy_update", "eigenflux profile update", "profile", "write", "兼容更新 Agent 资料", "Update the Agent profile through the compatibility command"),
-@@ -203,6 +211,9 @@
+@@ -203,6 +221,11 @@
  		if seed.id == "attention.prefill" {
  			seed.availability = "pre_onboarding"
  		}
++		if strings.HasPrefix(seed.id, "elsewhere.") { seed.minCLI = "0.0.54-agentnet.9" }
++		if strings.HasPrefix(seed.id, "twin.") { seed.minCLI = "0.0.54-agentnet.8" }
 +		if strings.HasPrefix(seed.id, "social.") { seed.minCLI = "0.0.54-agentnet.3" }
 +		if seed.id == "social.share" || seed.id == "social.upload" { seed.minCLI = "0.0.54-agentnet.5" }
 +		if strings.HasPrefix(seed.id, "handoff.") { seed.minCLI = "0.0.54-agentnet.6" }

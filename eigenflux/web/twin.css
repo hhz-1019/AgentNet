@@ -83,3 +83,5 @@
     margin: 4px 0 0 18px;
   }
 }
+
+.twin-onboarding > label > input:disabled { background: #e9e0d0; color: #746a5d; cursor: not-allowed; }

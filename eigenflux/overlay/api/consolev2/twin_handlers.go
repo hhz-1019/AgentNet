@@ -49,6 +49,7 @@ type twinRelationship struct {
 	Emotion     float64 `json:"emotion"`
 }
 type twinProfile struct {
+	Portrait      *portraitDraft     `json:"portrait,omitempty"`
 	Name          string             `json:"name"`
 	BasicInfo     map[string]string  `json:"basic_info"`
 	Persona       twinPersona        `json:"persona"`
@@ -68,6 +69,11 @@ func twinRange(v, lo, hi float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= lo && v <= hi
 }
 func validateTwinProfile(p twinProfile, required bool) error {
+	if p.Portrait != nil {
+		if err := validatePortraitDraft(*p.Portrait); err != nil {
+			return err
+		}
+	}
 	if (required && (strings.TrimSpace(p.Name) == "" || strings.TrimSpace(p.CurrentGoal) == "")) || utf8.RuneCountInString(p.Name) > 80 || utf8.RuneCountInString(p.CurrentGoal) > 2000 {
 		return errors.New("请填写昵称和当前目标，并遵守长度限制")
 	}
@@ -128,6 +134,7 @@ func validTwinPolicy(p twinPolicy) bool {
 
 func (s *Service) registerTwinRoutes(h *server.Hertz) {
 	s.registerManagedRoutes(h)
+	s.registerElsewhereRoutes(h)
 	h.GET("/api/v2/console/twin", s.consoleAuth(false), s.getTwin)
 	h.PUT("/api/v2/console/twin", s.consoleAuth(true), s.putTwin)
 	h.GET("/api/v2/console/twin/policy", s.consoleAuth(false), s.getTwinPolicy)

@@ -268,11 +268,83 @@ try {
     images.length && images.every(Boolean),
     'hosted images loaded after refresh',
   );
+  await page.goto(origin + '/dashboard/profile');
+  await page.getByLabel('昵称', { exact: false }).fill('浏览器真实画像');
+  await page.getByLabel('生活中的身份', { exact: true }).fill('私密测试身份');
+  await page.getByRole('button', { name: '保存资料', exact: true }).click();
+  await page.getByText('资料已保存。', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '记一件事', exact: true }).click();
+  await page
+    .getByLabel('记忆内容', { exact: true })
+    .fill('真实数据库中的私密事件记忆');
+  await page.getByRole('button', { name: '保存这条记忆', exact: true }).click();
+  await page.getByText('记忆已保存。', { exact: true }).waitFor();
+  const person = (
+    await (await peer.request.get(origin + '/api/v2/console/people/1')).json()
+  ).data;
+  assert.equal(person.fields.role, undefined);
+  assert.equal(person.memories.length, 0);
+  await page.goto(origin + '/dashboard/messages');
+  await page.getByRole('button', { name: '发起群聊' }).click();
+  await page.getByLabel('群聊名称', { exact: true }).fill('数据库联调群');
+  await page.getByRole('checkbox', { name: '伙伴 Agent' }).check();
+  await page.getByRole('button', { name: '创建群聊', exact: true }).click();
+  await page
+    .getByRole('heading', { name: '数据库联调群', exact: true })
+    .waitFor();
+  await page
+    .getByRole('textbox', { name: '输入消息' })
+    .fill('本人发送的群消息');
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.request().method() === 'POST' &&
+        r.url().includes('/messages') &&
+        r.status() === 201,
+    ),
+    page.getByRole('button', { name: '发送', exact: true }).click(),
+  ]);
+  await page.getByText('本人发送的群消息', { exact: true }).waitFor();
+  await page.reload();
+  await page.getByRole('button', { name: /数据库联调群/ }).click();
+  await page.getByText('本人发送的群消息', { exact: true }).waitFor();
+  const groupsResponse = await (
+    await peer.request.get(origin + '/api/v2/console/groups')
+  ).json();
+  const newGroupId = groupsResponse.data.items.find(
+    (g) => g.name === '数据库联调群',
+  ).group_id;
+  const incoming = await peer.request.post(
+    origin + '/api/v2/console/groups/' + newGroupId + '/messages',
+    {
+      data: {
+        content: '另一位成员的新消息',
+        idempotency_key: 'browser-incoming-group-message',
+      },
+    },
+  );
+  assert.equal(incoming.status(), 201);
+  await page
+    .getByText('另一位成员的新消息', { exact: true })
+    .waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: '发布', exact: true }).first().click();
+  await page
+    .getByRole('textbox', { name: /正文|想分享/ })
+    .fill('本人直接发布的普通动态');
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: '发布', exact: true })
+    .click();
+  await page
+    .getByText('本人直接发布的普通动态', { exact: true })
+    .first()
+    .waitFor();
   assert.deepEqual(errors, []);
   console.log(
     'PASS live PostgreSQL browser flow: personal settings navigation, upload, saved-revision review, private publication, organization consent/attribution and attachment ACL',
   );
 } catch (error) {
+  console.log('DOM:', await page.locator('body').innerText());
   console.log(
     'Visible errors:',
     await page.locator('.sw-error').allTextContents(),

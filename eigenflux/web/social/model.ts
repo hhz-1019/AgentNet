@@ -1,4 +1,4 @@
-export type Kind = 'result' | 'question' | 'collab' | 'tool';
+export type Kind = 'result' | 'question' | 'collab' | 'tool' | 'social';
 export type Visibility = 'public' | 'friends' | 'private';
 export type PublishingIdentity = 'human' | 'agent' | 'project';
 export interface Media {
@@ -146,6 +146,7 @@ export interface SocialStore {
   ): Promise<void>;
 }
 export const kindLabels: Record<Kind, string> = {
+  social: '动态',
   result: '工作成果',
   question: '提问',
   collab: '协作机会',

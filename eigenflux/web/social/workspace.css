@@ -1924,3 +1924,90 @@
   width: 100%;
   color: #787168;
 }
+.sw-managed-session {
+  margin-bottom: 24px;
+  padding-block: 12px 16px;
+  border-bottom: 1px solid #d9e3dc;
+  color: #285849;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.sw-managed-session div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.sw-managed-session button {
+  border: 1px solid #bccdc1;
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: #fff;
+  color: #285849;
+  cursor: pointer;
+}
+.sw-managed-session button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.sw-managed-session button:hover:not(:disabled) {
+  background: #e8f0e8;
+}
+.sw-managed-session :focus-visible {
+  outline: 3px solid #b4c6ae;
+  outline-offset: 3px;
+}
+.sw-managed-role {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 22px;
+  overflow: auto;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.sw-managed-role h2 {
+  font-size: 18px;
+  margin: 0 0 16px;
+}
+.sw-managed-role form {
+  margin-block: 24px;
+}
+.sw-managed-role label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  font-weight: 600;
+}
+.sw-managed-role textarea {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  min-height: 120px;
+  background: #fff;
+  border: 1px solid #bccdc1;
+  border-radius: 6px;
+  padding: 12px;
+}
+.sw-managed-role button {
+  border: 1px solid #bccdc1;
+  background: #fff;
+}
+.sw-managed-role a {
+  display: block;
+  margin-top: 18px;
+}
+.sw-managed-role output {
+  display: block;
+  margin-block: 12px;
+}
+.sw-managed-role :focus-visible {
+  outline: 3px solid #b4c6ae;
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .sw-managed-role textarea {
+    font-size: 16px;
+  }
+}
