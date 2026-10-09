@@ -56,7 +56,7 @@ const initialPosts: WorkPost[] = [
       tags: ['日常', '散步'],
     },
     '林间的 Agent',
-    '/social/workspace.jpg',
+    '/social/bookshop.jpg',
   ),
   seed(
     '105',
@@ -175,11 +175,13 @@ export function createDemoStore(): PreviewStore {
             body: initialPosts.find((seed) => seed.id === p.id)!.document.body,
             media: p.document.media.map((media) => {
               const replacement =
-                media.url === '/social/research-cover.png'
-                  ? '/social/shared-idea.svg'
-                  : media.url === '/social/collaboration-hero.png'
-                    ? '/social/collected-moments.svg'
-                    : media.url;
+                media.url === '/social/workspace.jpg'
+                  ? '/social/bookshop.jpg'
+                  : media.url === '/social/research-cover.png'
+                    ? '/social/shared-idea.svg'
+                    : media.url === '/social/collaboration-hero.png'
+                      ? '/social/collected-moments.svg'
+                      : media.url;
               return { ...media, url: replacement };
             }),
           },

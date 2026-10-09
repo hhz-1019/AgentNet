@@ -20,14 +20,24 @@ type Attachment = {
   url: string;
   kind: 'image' | 'video';
 };
+type ShareDraft = {
+  content: string;
+  scope: string;
+  files: Pick<Attachment, 'id' | 'file' | 'kind'>[];
+  operation: { key: string; signature: string };
+};
+// Keep unfinished files in memory, not in a second persistent media store.
+const unfinishedShares = new Map<string, ShareDraft>();
 export function ShareComposer({
   mode = 'direct',
   authorName = '我',
+  draftKey,
   onClose,
   onPublish,
 }: {
   mode?: 'direct' | 'agent';
   authorName?: string;
+  draftKey?: string;
   onClose: () => void;
   onPublish: (input: {
     content: string;
@@ -36,35 +46,64 @@ export function ShareComposer({
     key: string;
   }) => Promise<void>;
 }) {
-  const [content, setContent] = useState('');
-  const [scope, setScope] = useState('公开');
+  const storageKey = `${mode}:${draftKey || authorName}`;
+  const [restored] = useState(() => unfinishedShares.get(storageKey));
+  const [content, setContent] = useState(restored?.content || '');
+  const [scope, setScope] = useState(restored?.scope || '公开');
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<'reading' | 'publishing' | null>(null);
   const sending = useRef(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>(() =>
+    (restored?.files || []).map((file) => ({
+      ...file,
+      url: URL.createObjectURL(file.file),
+    })),
+  );
   const [error, setError] = useState('');
   const [broken, setBroken] = useState<string[]>([]);
   const [ready, setReady] = useState<string[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const images = useRef<HTMLInputElement>(null);
   const videos = useRef<HTMLInputElement>(null);
-  const objectURLs = useRef(new Set<string>());
+  const objectURLs = useRef(new Set(attachments.map((item) => item.url)));
   const encodedAttachments = useRef(new Map<string, string>());
-  const operation = useRef({
-    key: crypto.randomUUID(),
-    content: '',
-    scope: '',
+  const operation = useRef(
+    restored?.operation || { key: crypto.randomUUID(), signature: '' },
+  );
+  const completed = useRef(false);
+  const latestDraft = useRef<ShareDraft>({
+    content,
+    scope,
+    files: attachments,
+    operation: operation.current,
   });
   const throughAgent = mode === 'agent';
+  useEffect(() => {
+    latestDraft.current = {
+      content,
+      scope,
+      files: attachments,
+      operation: operation.current,
+    };
+  }, [content, scope, attachments]);
   useEffect(() => {
     const urls = objectURLs.current;
     const encoded = encodedAttachments.current;
     return () => {
+      const draft = latestDraft.current;
+      if (!completed.current && (draft.content.trim() || draft.files.length)) {
+        unfinishedShares.set(storageKey, {
+          ...draft,
+          operation: operation.current,
+        });
+      } else {
+        unfinishedShares.delete(storageKey);
+      }
       for (const url of urls) URL.revokeObjectURL(url);
       urls.clear();
       encoded.clear();
     };
-  }, []);
+  }, [storageKey]);
   function addFiles(
     event: ChangeEvent<HTMLInputElement>,
     kind: Attachment['kind'],
@@ -116,11 +155,13 @@ export function ShareComposer({
           setStage(attachments.length ? 'reading' : 'publishing');
           setError('');
           try {
-            if (
-              operation.current.content !== content ||
-              operation.current.scope !== scope
-            )
-              operation.current = { key: crypto.randomUUID(), content, scope };
+            const signature = JSON.stringify([
+              content,
+              scope,
+              attachments.map((item) => item.id),
+            ]);
+            if (operation.current.signature !== signature)
+              operation.current = { key: crypto.randomUUID(), signature };
             const media = await Promise.all(
               attachments.map(async (item) => ({
                 kind: item.kind,
@@ -151,6 +192,7 @@ export function ShareComposer({
               media,
               key: operation.current.key,
             });
+            completed.current = true;
             onClose();
           } catch (e) {
             setError(e instanceof Error ? e.message : '发布失败，请重试。');
@@ -162,6 +204,11 @@ export function ShareComposer({
         }}
       >
         <fieldset className="sn-share-fields" disabled={busy}>
+          {restored && (
+            <output className="sn-draft-restored">
+              已继续上次未发布的内容
+            </output>
+          )}
           <button
             className="ew-share-preview-toggle"
             type="button"
@@ -179,6 +226,7 @@ export function ShareComposer({
               <label htmlFor="share-instruction">想分享什么？</label>
               <textarea
                 id="share-instruction"
+                data-dialog-autofocus
                 rows={4}
                 maxLength={3500}
                 value={content}
@@ -364,23 +412,14 @@ export function ShareComposer({
                   </div>
                 ) : (
                   <div className="ew-share-preview-empty">
-                    <span aria-hidden="true" className="ew-share-empty-line" />
-                    <p>让生活，留下一页。</p>
-                    <span>
-                      {throughAgent
-                        ? '写下想分享的片段，内容会在这里慢慢成形。'
-                        : '写一段想法，或放入一张照片。你的表达会在这里慢慢成形。'}
-                    </span>
-                    <span aria-hidden="true" className="ew-share-empty-sign">
-                      elsewhere
-                    </span>
+                    <p>还没有内容</p>
                   </div>
                 )}
-                <footer className="ew-share-preview-note">
-                  {throughAgent
-                    ? '这里展示原始内容；最终动态由 Agent 整理。'
-                    : '预览随输入更新；发布前，内容只属于你。'}
-                </footer>
+                {throughAgent && (
+                  <footer className="ew-share-preview-note">
+                    最终动态由 Agent 整理。
+                  </footer>
+                )}
               </article>
             </section>
           </div>

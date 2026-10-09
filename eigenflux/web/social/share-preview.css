@@ -28,6 +28,12 @@
   min-width: 0;
 }
 
+/* The visible media buttons open these pickers; keep form width rules from
+   stretching their visually hidden boxes beyond the editor column. */
+.sw-dialog.sn-communication-dialog input[type='file'].sw-sr-only {
+  display: none;
+}
+
 .sw-dialog.sn-communication-dialog .ew-share-editor > label {
   display: block;
   margin: 0 0 12px;
@@ -42,24 +48,24 @@
   min-height: 225px;
   padding: 17px 18px;
   resize: vertical;
-  color: var(--ew-ink, #302d29);
-  background: var(--ew-surface, #fffdfa);
-  border: 1px solid var(--ew-line, #ddd7cd);
-  border-radius: 8px;
+  color: var(--ew-ink, #302c26);
+  background: var(--ew-surface, #fffdf8);
+  border: 1px solid var(--ew-line, #cfc5b5);
+  border-radius: 3px;
   font-family: var(--ew-serif);
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.85;
   transition: border-color 180ms ease;
 }
 
 .sn-communication-dialog .ew-share-editor > textarea::placeholder {
-  color: var(--ew-muted, #787168);
+  color: var(--ew-muted, #746a5d);
 }
 
 .sn-communication-dialog .ew-share-editor .sw-hint {
   margin: 12px 0 0;
-  color: var(--ew-muted, #787168);
-  font-size: 14px;
+  color: var(--ew-muted, #746a5d);
+  font-size: 16px;
   line-height: 1.75;
 }
 
@@ -77,12 +83,12 @@
 .sn-communication-dialog .ew-share-editor .sn-media-actions button {
   min-height: 44px;
   padding: 8px 11px;
-  font-size: 15px;
-  background: var(--ew-surface, #fffdfa);
+  font-size: 17px;
+  background: var(--ew-surface, #fffdf8);
 }
 
 .sn-communication-dialog .ew-share-editor .sn-share-count {
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .sn-communication-dialog .ew-share-editor .sn-media-grid {
@@ -102,7 +108,7 @@
 .sn-communication-dialog .ew-share-editor .sn-media-placeholder {
   height: 132px;
   min-height: 132px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .sn-communication-dialog .ew-share-editor .sn-media-grid figcaption {
@@ -111,7 +117,7 @@
 
 .sn-communication-dialog .ew-share-editor .sn-media-filename,
 .sn-communication-dialog .ew-share-editor .sn-media-grid figcaption small {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
 }
 
@@ -129,8 +135,8 @@
   top: 0;
   min-width: 0;
   padding-left: 28px;
-  border-left: 1px solid var(--ew-line, #ddd7cd);
-  color: var(--ew-ink, #302d29);
+  border-left: 1px solid var(--ew-line, #cfc5b5);
+  color: var(--ew-ink, #302c26);
 }
 
 .ew-share-preview-heading {
@@ -148,18 +154,18 @@
 
 .ew-share-preview-heading small {
   flex-shrink: 0;
-  color: var(--ew-muted, #787168);
-  font-size: 14px;
+  color: var(--ew-muted, #746a5d);
+  font-size: 16px;
 }
 
 .ew-share-preview-paper {
   padding: 22px;
-  border: 1px solid var(--ew-line, #ddd7cd);
-  background: var(--ew-surface, #fffdfa);
+  border: 1px solid var(--ew-line, #cfc5b5);
+  background: var(--ew-surface, #fffdf8);
   border-radius: 3px;
   box-shadow:
-    4px 4px 0 var(--ew-paper, #f6f4ef),
-    5px 5px 0 var(--ew-line, #ddd7cd);
+    4px 4px 0 var(--ew-paper, #f5f1e8),
+    5px 5px 0 var(--ew-line, #cfc5b5);
 }
 
 .ew-share-preview-author {
@@ -175,9 +181,9 @@
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  border: 1px solid var(--ew-line, #ddd7cd);
-  color: var(--ew-action, #39352f);
-  background: var(--ew-tint, #ede7dc);
+  border: 1px solid var(--ew-line, #cfc5b5);
+  color: var(--ew-action, #302c26);
+  background: var(--ew-tint, #e9e0d0);
   font-size: 20px;
 }
 
@@ -194,8 +200,8 @@
   align-items: center;
   gap: 5px;
   margin-top: 3px;
-  color: var(--ew-muted, #787168);
-  font-size: 14px;
+  color: var(--ew-muted, #746a5d);
+  font-size: 16px;
   line-height: 1.4;
 }
 
@@ -210,8 +216,8 @@
 
 .sn-communication-dialog .ew-share-preview-text {
   margin: 0;
-  color: var(--ew-ink, #302d29);
-  font-size: 16px;
+  color: var(--ew-ink, #302c26);
+  font-size: 18px;
   line-height: 1.9;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -243,7 +249,7 @@
   height: 135px;
   object-fit: cover;
   border-radius: 4px;
-  background: var(--ew-tint, #ede7dc);
+  background: var(--ew-tint, #e9e0d0);
 }
 
 .ew-share-preview-gallery.is-single :is(img, video) {
@@ -254,8 +260,8 @@
 
 .ew-share-preview-gallery figcaption {
   margin-top: 7px;
-  color: var(--ew-muted, #787168);
-  font-size: 14px;
+  color: var(--ew-muted, #746a5d);
+  font-size: 16px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -265,9 +271,9 @@
   place-items: center;
   min-height: 135px;
   padding: 12px;
-  border: 1px dashed var(--ew-line, #ddd7cd);
-  color: var(--ew-muted, #787168);
-  font-size: 14px;
+  border: 1px dashed var(--ew-line, #cfc5b5);
+  color: var(--ew-muted, #746a5d);
+  font-size: 16px;
   line-height: 1.6;
 }
 
@@ -285,7 +291,7 @@
 .ew-share-empty-line {
   width: 28px;
   height: 1px;
-  background: var(--ew-muted, #787168);
+  background: var(--ew-muted, #746a5d);
 }
 
 .sn-communication-dialog .ew-share-preview-empty p {
@@ -297,8 +303,8 @@
 
 .ew-share-preview-empty > span:not(.ew-share-empty-line) {
   max-width: 230px;
-  color: var(--ew-muted, #787168);
-  font-size: 14px;
+  color: var(--ew-muted, #746a5d);
+  font-size: 16px;
   line-height: 1.8;
 }
 
@@ -311,9 +317,9 @@
 .ew-share-preview-note {
   margin-top: 24px;
   padding-top: 14px;
-  border-top: 1px solid var(--ew-line, #ddd7cd);
-  color: var(--ew-muted, #787168);
-  font-size: 14px;
+  border-top: 1px solid var(--ew-line, #cfc5b5);
+  color: var(--ew-muted, #746a5d);
+  font-size: 16px;
   line-height: 1.7;
 }
 
@@ -325,25 +331,25 @@
 
 .sn-communication-dialog .sn-share-fields .sn-share-visibility label {
   margin-bottom: 6px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .sn-communication-dialog .sn-share-fields .sn-share-visibility select {
-  width: 92px;
+  width: 108px;
   min-height: 44px;
   padding: 8px;
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .sn-communication-dialog .sn-share-fields .sn-share-footer .sw-primary {
   min-height: 46px;
   padding: 11px 22px;
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .sn-communication-dialog .sn-share-fields .ew-share-preview-error {
   margin: 20px 0 0;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.7;
 }
 
@@ -376,12 +382,12 @@
     min-height: 44px;
     margin: 0 0 20px auto;
     padding: 8px 13px;
-    border: 1px solid var(--ew-line, #ddd7cd);
-    border-radius: 7px;
-    color: var(--ew-action, #39352f);
-    background: var(--ew-surface, #fffdfa);
+    border: 1px solid var(--ew-line, #cfc5b5);
+    border-radius: 3px;
+    color: var(--ew-action, #302c26);
+    background: var(--ew-surface, #fffdf8);
     font-family: var(--ew-serif);
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .ew-share-layout {

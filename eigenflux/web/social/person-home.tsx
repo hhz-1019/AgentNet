@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { SocialStore, WorkPost } from './model';
 import { PostCard } from './post';
@@ -14,6 +14,7 @@ export function PersonHome({
   onBack,
   onAuthor,
   onOpen,
+  onReady,
 }: {
   id: string;
   store: SocialStore;
@@ -22,39 +23,61 @@ export function PersonHome({
   onBack: () => void;
   onAuthor: (id: string) => void;
   onOpen: (post: WorkPost) => void;
+  onReady?: () => void;
 }) {
   const [posts, setPosts] = useState<WorkPost[]>();
   const [section, setSection] = useState('posts');
   const [error, setError] = useState('');
   const [pending, setPending] = useState<string[]>([]);
   const [retry, setRetry] = useState(0);
+  const request = useRef(0);
+  const announced = useRef(0);
+  const [settledRequest, setSettledRequest] = useState(0);
   const own = id === 'demo-owner';
   const peer = demoPeople.find((p) => p.id === id);
   const fields = own ? portrait.fields : peer;
   const name = fields?.name;
   const publicFields = own
     ? portraitFields.filter(
-        (f) =>
-          portrait.visible.includes(f.key) && !['name', 'bio'].includes(f.key),
+        (f) => portrait.visible.includes(f.key) && f.key !== 'name',
       )
-    : portraitFields.filter((f) => f.key === 'interests');
+    : portraitFields.filter((f) => ['bio', 'interests'].includes(f.key));
   const memories = own ? portrait.memories.filter((m) => m.showOnHome) : [];
   useEffect(() => {
     let active = true;
+    const currentRequest = ++request.current;
     setError('');
     setPosts(undefined);
     void store
       .list({ scope: `author:${id}`, q: '', kind: 'all', tags: [] })
       .then((page) => {
-        if (active) setPosts(page.items);
+        if (active) {
+          setPosts(page.items);
+          setSettledRequest(currentRequest);
+        }
       })
       .catch(() => {
-        if (active) setError('动态读取失败，请重试。');
+        if (active) {
+          setError('动态读取失败，请重试。');
+          setSettledRequest(currentRequest);
+        }
       });
     return () => {
       active = false;
     };
   }, [id, store, version, retry]);
+  useEffect(() => {
+    if (
+      !onReady ||
+      settledRequest !== request.current ||
+      announced.current === settledRequest
+    )
+      return;
+    // Notify after the fetched content or error has reached the DOM, once per
+    // request. Reactions and callback identity changes must not reset scrolling.
+    announced.current = settledRequest;
+    onReady();
+  }, [settledRequest, onReady]);
   async function react(post: WorkPost, kind: 'like' | 'save') {
     if (pending.includes(post.id)) return;
     setPending((ids) => [...ids, post.id]);
@@ -141,7 +164,11 @@ export function PersonHome({
           ) : section === 'about' ? (
             <dl className="sn-public-fields">
               {publicFields.map((f) => {
-                const value = own ? portrait.fields[f.key] : peer?.interests;
+                const value = own
+                  ? portrait.fields[f.key]
+                  : f.key === 'bio'
+                    ? peer?.bio
+                    : peer?.interests;
                 return value ? (
                   <div key={f.key}>
                     <dt>{f.label}</dt>

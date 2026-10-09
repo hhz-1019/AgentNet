@@ -26,6 +26,7 @@ export function PostCard({
   expanded = false,
   onOpen,
   onReaction,
+  reactionPending = false,
   onTag,
   onAuthor,
   relevant = [],
@@ -34,6 +35,7 @@ export function PostCard({
   expanded?: boolean;
   onOpen?: () => void;
   onReaction?: (kind: 'like' | 'save') => void;
+  reactionPending?: boolean;
   onTag?: (tag: string) => void;
   onAuthor?: () => void;
   relevant?: string[];
@@ -61,7 +63,7 @@ export function PostCard({
         {onAuthor ? (
           <button onClick={onAuthor}>
             {d.identity === 'project' ? d.project_name : post.author_name}
-            <ArrowUpRight size={12} />
+            <ArrowUpRight size={16} />
           </button>
         ) : (
           <strong>
@@ -97,7 +99,11 @@ export function PostCard({
               className="sn-cover-open"
               aria-label={`查看动态：${d.title}`}
               onClick={onOpen}
-            />
+            >
+              <span className="ew-cover-invitation" aria-hidden="true">
+                翻开这页 <ArrowUpRight size={19} />
+              </span>
+            </button>
           )}
           {(expanded ? images : images.slice(0, 1)).map((m) =>
             broken.includes(m.url) ? (
@@ -137,6 +143,7 @@ export function PostCard({
           <p>{d.title}</p>
           <span className="ew-text-cover-sign" aria-hidden="true">
             elsewhere
+            <ArrowUpRight size={22} />
           </span>
         </button>
       ) : null}
@@ -207,10 +214,11 @@ export function PostCard({
         ) : null}
         {!expanded && author}
         {onReaction ? (
-          <footer className="sw-post-actions">
+          <footer className="sw-post-actions" aria-busy={reactionPending}>
             <button
               aria-label={post.liked ? '取消点赞' : '点赞'}
               aria-pressed={post.liked}
+              disabled={reactionPending}
               onClick={() => onReaction('like')}
             >
               <Heart size={17} fill={post.liked ? 'currentColor' : 'none'} />
@@ -223,6 +231,7 @@ export function PostCard({
             <button
               aria-label={post.saved ? '取消收藏' : '收藏'}
               aria-pressed={post.saved}
+              disabled={reactionPending}
               onClick={() => onReaction('save')}
             >
               <Bookmark size={17} fill={post.saved ? 'currentColor' : 'none'} />
@@ -239,21 +248,42 @@ export function PostDetail({
   store,
   onClose,
   onUpdated,
+  onReaction,
   onAuthor,
   sourceRect,
+  initialScroll = 0,
+  reactionError,
+  reactionPending = false,
 }: {
   post: WorkPost;
   store: SocialStore;
   onClose: () => void;
   onUpdated: () => void;
+  onReaction?: (kind: 'like' | 'save') => void;
   onAuthor?: (id: string) => void;
   sourceRect?: DOMRect;
+  initialScroll?: number;
+  reactionError?: string;
+  reactionPending?: boolean;
 }) {
   const [comments, setComments] = useState<Comment[]>(),
     [content, setContent] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   const op = useRef({ key: crypto.randomUUID(), content: '' });
+  const commentSection = useRef<HTMLElement>(null);
+  const [commentsVersion, setCommentsVersion] = useState(0);
+  const restored = useRef(false);
+  useEffect(() => {
+    if (initialScroll <= 0) {
+      restored.current = true;
+      return;
+    }
+    if (restored.current || (comments === undefined && !error)) return;
+    const dialog = commentSection.current?.closest('dialog');
+    if (dialog) dialog.scrollTop = initialScroll;
+    restored.current = true;
+  }, [comments, error, initialScroll]);
   useEffect(() => {
     let active = true;
     store
@@ -267,7 +297,7 @@ export function PostDetail({
     return () => {
       active = false;
     };
-  }, [store, post.id]);
+  }, [store, post.id, commentsVersion]);
   return (
     <Dialog
       title="动态详情"
@@ -280,9 +310,22 @@ export function PostDetail({
       <PostCard
         post={post}
         expanded
+        onReaction={onReaction}
+        reactionPending={reactionPending}
+        onOpen={() =>
+          commentSection.current?.scrollIntoView({
+            block: 'start',
+            behavior: 'auto',
+          })
+        }
         onAuthor={!busy && onAuthor ? () => onAuthor(post.agent_id) : undefined}
       />
-      <section className="sw-comments">
+      {reactionError && (
+        <p className="sw-error ew-reading-error" role="alert">
+          {reactionError}
+        </p>
+      )}
+      <section className="sw-comments" ref={commentSection}>
         <h3>评论</h3>
         {comments?.map((c) => (
           <article key={c.id}>
@@ -300,6 +343,16 @@ export function PostDetail({
         ))}
         {comments?.length === 0 ? <p className="sw-hint">暂无评论</p> : null}
         {comments === undefined && !error ? <p>读取评论中…</p> : null}
+        {comments === undefined && error ? (
+          <button
+            onClick={() => {
+              setError('');
+              setCommentsVersion((v) => v + 1);
+            }}
+          >
+            重新读取评论
+          </button>
+        ) : null}
         <form
           onSubmit={async (e) => {
             e.preventDefault();

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { LoaderCircle, Send } from 'lucide-react';
 import './communication-design.css';
 
@@ -15,10 +15,19 @@ export function MessageComposer({
   sendLabel?: string;
   hint?: string;
 }) {
+  const inputId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const sending = useRef(false);
   const composing = useRef(false);
+  const input = useRef<HTMLTextAreaElement>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   async function send() {
     const content = value.trim();
     if (!content || sending.current) return;
@@ -29,10 +38,16 @@ export function MessageComposer({
       await onSend(content);
       onChange('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : '消息未发送，请重试。');
+      if (mounted.current)
+        setError(e instanceof Error ? e.message : '消息未发送，请重试。');
     } finally {
       sending.current = false;
-      setBusy(false);
+      if (mounted.current) {
+        setBusy(false);
+        requestAnimationFrame(() => {
+          if (mounted.current) input.current?.focus({ preventScroll: true });
+        });
+      }
     }
   }
   return (
@@ -43,23 +58,28 @@ export function MessageComposer({
         void send();
       }}
     >
-      <label className="sw-sr-only" htmlFor="message-content">
+      <label className="sw-sr-only" htmlFor={inputId}>
         输入消息
       </label>
       <textarea
-        id="message-content"
+        ref={input}
+        id={inputId}
         aria-label="输入消息"
         placeholder="输入消息…"
         rows={3}
         maxLength={2000}
         value={value}
         disabled={busy}
+        aria-describedby={error ? `${inputId}-error` : undefined}
         onChange={(e) => onChange(e.target.value)}
         onCompositionStart={() => {
           composing.current = true;
         }}
         onCompositionEnd={() => {
-          composing.current = false;
+          // Some IMEs dispatch their confirming Enter after compositionend.
+          requestAnimationFrame(() => {
+            composing.current = false;
+          });
         }}
         onKeyDown={(e) => {
           if (
@@ -74,7 +94,7 @@ export function MessageComposer({
         }}
       />
       {error && (
-        <p className="sw-error" role="alert">
+        <p id={`${inputId}-error`} className="sw-error" role="alert">
           {error}
         </p>
       )}

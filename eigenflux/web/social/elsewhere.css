@@ -14,7 +14,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   background: var(--ew-paper);
   color: var(--ew-ink);
   font-family: var(--ew-serif);
-  font-size: 14px;
+  font-size: 16px;
   padding-bottom: 0;
   grid-template-columns: minmax(0, 1fr) 192px;
 }
@@ -81,7 +81,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sn-brand-note {
   font-family: var(--ew-serif);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.9;
   color: #625b52;
   margin-bottom: 46px !important;
@@ -98,7 +98,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   border-radius: 8px 0 0 8px;
   padding: 13px 12px;
   gap: 14px;
-  font-size: 15px;
+  font-size: 17px;
   color: #625b52;
   box-shadow: none;
   transition:
@@ -116,28 +116,17 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   color: var(--ew-action);
   font-weight: 600;
 }
-.ew-social .sw-sidebar nav a[aria-current]::after {
-  content: '';
-  width: 3px;
-  height: 20px;
-  position: absolute;
-  right: 0;
-  top: calc(50% - 10px);
-  border-radius: 3px;
-  background: var(--ew-action);
-}
 .ew-social .sw-sidebar .sw-create {
   margin-top: 30px;
   min-height: 46px;
   border-radius: 8px;
   justify-content: flex-start;
   padding-left: 14px;
-  font-size: 15px;
+  font-size: 17px;
 }
 .ew-social .sn-account {
-  border-top: 1px solid var(--ew-line);
-  border-radius: 0;
-  padding: 20px 0 0;
+  border: 0;
+  border-radius: 3px;
   color: var(--ew-action);
 }
 .ew-social .sn-account[aria-current] .sw-avatar {
@@ -145,7 +134,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   color: #f5f3e9;
 }
 .ew-social .sn-account strong {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
 }
 .ew-social .sw-avatar {
@@ -217,7 +206,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   margin: 0;
   padding: 10px 0;
   box-shadow: none;
-  font-size: 14px;
+  font-size: 16px;
   outline: none;
 }
 .ew-social .sw-search button {
@@ -283,7 +272,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-post:not(.expanded) .sw-post-summary {
   margin: 8px 0 12px;
-  font-size: 14px;
+  font-size: 16px;
 }
 .ew-social .ew-text-post:not(.expanded) .sw-post-summary {
   display: block;
@@ -297,7 +286,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   margin: 22px 0;
   padding: 14px 0;
   color: #787168;
-  font-size: 14px;
+  font-size: 16px;
 }
 .ew-post-context summary {
   cursor: pointer;
@@ -337,7 +326,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   margin: 8px 0 12px;
 }
 .ew-social .sw-tags :is(button, span) {
-  font-size: 14px;
+  font-size: 16px;
   color: #787168;
   background: transparent;
   border: 0;
@@ -369,11 +358,11 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   border: 0;
   padding: 0;
   background: transparent;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
 }
 .ew-social .sw-post-author small {
-  font-size: 14px;
+  font-size: 16px;
   margin-top: 2px;
 }
 .ew-social .sw-post-actions {
@@ -390,7 +379,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   border-radius: 5px;
   min-height: 32px;
   padding: 5px 0;
-  font-size: 14px;
+  font-size: 16px;
   color: #787168;
   gap: 5px;
 }
@@ -466,7 +455,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   background: #4e4840;
 }
 .ew-social button.sw-text-cover > span:not(.ew-text-cover-sign) {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   letter-spacing: 0.08em;
   padding-bottom: 8px;
@@ -476,7 +465,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   border: 0;
   padding: 0;
   font-family: var(--ew-serif);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   letter-spacing: 0;
   opacity: 0.55;
@@ -497,10 +486,10 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .sw-text-cover-tags small {
   color: inherit;
   opacity: 0.75;
-  font-size: 14px;
+  font-size: 16px;
 }
 .ew-social .ew-text-post .sw-post-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
 }
 .ew-social .sw-empty {
@@ -534,7 +523,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-hint {
   color: #625b52;
-  font-size: 14px;
+  font-size: 16px;
 }
 .ew-social output.sw-hint {
   display: block;
@@ -569,7 +558,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-peer-bio {
   color: #787168;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.9;
 }
 .ew-social .sw-peer-avatar {
@@ -586,7 +575,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .sw-status-pill {
   border-radius: 3px;
   background: #f6f4ef;
-  font-size: 14px;
+  font-size: 16px;
   color: #625b52;
 }
 .ew-social .sw-capability-tags span {
@@ -594,7 +583,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   padding: 0;
   background: transparent;
   color: #787168;
-  font-size: 14px;
+  font-size: 16px;
 }
 .ew-social .sw-peer-card-footer {
   border-top: 1px solid var(--ew-line);
@@ -647,7 +636,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   border-radius: 0;
 }
 .ew-social .sn-private-note {
-  font-size: 14px;
+  font-size: 16px;
   margin-bottom: 18px;
 }
 .ew-social .sw-pagination {
@@ -684,14 +673,14 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   background: #ede7dc;
 }
 .ew-social .messages > aside strong {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
 }
 .ew-social .messages > aside p {
-  font-size: 14px;
+  font-size: 16px;
 }
 .ew-social .messages > aside small {
-  font-size: 14px;
+  font-size: 16px;
 }
 .ew-social .messages > .ew-live-chat {
   padding: 0;
@@ -702,7 +691,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .ew-live-heading {
   padding: 24px;
   margin: 0;
-  font-size: 15px;
+  font-size: 17px;
   border-bottom: 1px solid var(--ew-line);
 }
 .ew-social .ew-live-history {
@@ -725,7 +714,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   margin-left: auto;
 }
 .ew-social .ew-live-history .message small {
-  font-size: 14px;
+  font-size: 16px;
   display: block;
   margin-bottom: 6px;
 }
@@ -735,7 +724,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   background: #f0f0e9;
   border: 1px solid #ede7dc;
   border-radius: 3px 10px 10px 10px;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.8;
 }
 .ew-social .ew-live-history .message.own p {
@@ -751,13 +740,13 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .ew-reply-status {
   display: block;
-  font-size: 14px;
+  font-size: 16px;
   padding: 0 22px 12px;
   color: #625b52;
 }
 .ew-official {
   color: #625b52;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
 }
 @media (min-width: 1680px) {
@@ -846,7 +835,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     padding: 11px 0 0;
   }
   .ew-social .sw-post-title {
-    font-size: 15px;
+    font-size: 17px;
   }
   .ew-social button.sw-text-cover {
     padding: 14px;
@@ -856,7 +845,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     line-height: 1.55;
   }
   .ew-social button.sw-text-cover > span {
-    font-size: 14px;
+    font-size: 16px;
   }
   .ew-social .sw-post-author .sw-avatar {
     width: 44px;
@@ -869,18 +858,18 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   }
   .ew-social .sw-post-author button:not(.sw-avatar) {
     min-height: 44px;
-    font-size: 14px;
+    font-size: 16px;
     text-align: left;
   }
   .ew-social .sw-post-author {
     gap: 6px;
   }
   .ew-social .sw-post-author small {
-    font-size: 14px;
+    font-size: 16px;
     margin-top: -6px;
   }
   .ew-social .sw-post:not(.expanded) .sw-post-summary {
-    font-size: 14px;
+    font-size: 16px;
   }
   .ew-social .sw-tags {
     gap: 6px;
@@ -894,7 +883,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     padding-top: 8px;
   }
   .ew-social .sw-post-actions button {
-    font-size: 14px;
+    font-size: 16px;
     min-height: 44px;
     min-width: 0;
     gap: 3px;
@@ -902,11 +891,11 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   }
   .ew-social .sw-tags button {
     min-height: 36px;
-    font-size: 14px;
+    font-size: 16px;
   }
   .ew-social .elsewhere-identity-actions button {
     min-height: 44px;
-    font-size: 14px;
+    font-size: 16px;
   }
   .ew-social.sn-social .sn-message-composer .sw-primary,
   .ew-social .sn-communication-dialog .sw-primary {
@@ -936,7 +925,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     color: #787168;
   }
   .ew-social .sw-mobile-nav span {
-    font-size: 14px;
+    font-size: 16px;
   }
   .ew-social .sw-mobile-nav svg {
     stroke-width: 1.6;

@@ -3,39 +3,19 @@
 .sw-dialog.sn-communication-dialog {
   font-size: 16px;
 }
-.ew-discovery-intro {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 8px 0 22px;
-}
-.ew-discovery-intro h1 {
-  margin: 0;
-  font-size: 34px;
-  line-height: 1.5;
-  font-weight: 500;
-  letter-spacing: -0.025em;
-}
-.ew-discovery-intro p {
-  margin: 0;
-  font-size: 16px;
-  color: #787168;
-  line-height: 1.8;
-}
 .ew-social.sn-social :is(button, .sw-button) {
   font-size: var(--ew-text-control);
 }
 .ew-social.sn-social :is(input, textarea, select),
 .sn-communication-dialog :is(input, textarea, select) {
-  font-size: 16px;
+  font-size: 18px;
 }
 .ew-social.sn-social .sw-sidebar nav a,
 .ew-social.sn-social .sw-sidebar .sw-create {
   font-size: 17px;
 }
 .ew-social.sn-social .sn-account strong {
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.7;
 }
 .ew-social.sn-social .sn-tabs :is(a, button),
@@ -56,7 +36,7 @@
   line-height: 1.6;
 }
 .ew-social.sn-social .sw-post:not(.expanded) .sw-post-summary {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.85;
   color: #625b52;
   margin-bottom: 16px;
@@ -86,7 +66,7 @@
   min-height: 34px;
 }
 .ew-social.sn-social .sw-post-actions button {
-  font-size: 14px;
+  font-size: 16px;
   gap: 7px;
 }
 .ew-social.sn-social button.sw-text-cover {
@@ -99,15 +79,15 @@
 }
 .ew-social.sn-social button.sw-text-cover > span:not(.ew-text-cover-sign),
 .ew-social.sn-social button.sw-text-cover .ew-text-cover-sign {
-  font-size: 14px;
+  font-size: 16px;
 }
 .ew-social.sn-social .elsewhere-identity-bio {
-  font-size: 16px;
+  font-size: 18px;
 }
 .ew-social.sn-social .elsewhere-identity-interests,
 .ew-social.sn-social .elsewhere-identity-actions button,
 .ew-social.sn-social .elsewhere-identity-meta {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.7;
 }
 .ew-social.sn-social
@@ -143,7 +123,7 @@
 }
 .ew-social.sn-social
   :is(.sn-memory-meta, .sn-visibility, .sn-public-fields dt) {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.7;
 }
 .ew-social.sn-social .sn-conversation strong,
@@ -157,7 +137,7 @@
 .ew-social.sn-social .sn-sender-kind,
 .ew-social.sn-social .sn-composer-hint,
 .ew-social.sn-social .ew-live-history .message small {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.65;
 }
 .ew-social.sn-social
@@ -183,7 +163,7 @@
     .sn-member-picker legend,
     .sn-group-footer > span
   ) {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.65;
 }
 .sn-communication-dialog .sw-dialog-heading h2 {
@@ -191,23 +171,40 @@
   font-weight: 500;
 }
 .sn-communication-dialog :is(.sw-primary, .sn-share-visibility select) {
-  font-size: 15px;
+  font-size: 17px;
 }
 .ew-social.sn-social .sw-mobile-nav span {
-  font-size: 14px;
+  font-size: 16px;
+}
+/* Historical drafts keep their contract, with the same readable typography. */
+.sw-dialog.sn-communication-dialog
+  :is(.sw-editor, .sw-publish-preview, .sw-source-step) {
+  font-size: 18px;
+}
+.sw-dialog.sn-communication-dialog
+  :is(
+    .sw-publish-progress,
+    .sw-publish-progress button,
+    .sw-hint,
+    .sw-scope-banner,
+    .sw-quality-note,
+    .sw-quality-feedback,
+    .sw-preflight,
+    .sw-unused-media,
+    .sw-visibility-options,
+    .sw-editor label,
+    .sw-editor small
+  ) {
+  font-size: 16px;
+  line-height: 1.8;
+}
+.sw-dialog.sn-communication-dialog
+  .sw-publish-preview
+  :is(.sw-post-summary, .sw-post-body) {
+  font-size: 18px;
+  line-height: 1.9;
 }
 @media (max-width: 640px) {
-  .ew-discovery-intro {
-    display: block;
-    margin: 2px 0 18px;
-  }
-  .ew-discovery-intro h1 {
-    font-size: 30px;
-  }
-  .ew-discovery-intro p {
-    margin-top: 3px;
-    font-size: 15px;
-  }
   .ew-social.sn-social .sw-post .sw-post-title {
     font-size: 20px;
   }

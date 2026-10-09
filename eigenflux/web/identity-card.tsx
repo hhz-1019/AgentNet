@@ -16,7 +16,6 @@ export function IdentityCard({
 }) {
   const surface = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
-  const [motion, setMotion] = useState(true);
   const [copied, setCopied] = useState('');
   const [error, setError] = useState('');
   const uid = publicView ? undefined : ownerUID;
@@ -36,7 +35,6 @@ export function IdentityCard({
   };
   const move = (event: PointerEvent<HTMLDivElement>) => {
     if (
-      !motion ||
       event.pointerType !== 'mouse' ||
       !matchMedia(
         '(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)',
@@ -139,18 +137,6 @@ export function IdentityCard({
           />
           <div className="identity-sheen" aria-hidden="true" />
         </div>
-      </div>
-      <div className="identity-card-caption">
-        <button
-          className="identity-motion-toggle"
-          aria-pressed={motion}
-          onClick={() => {
-            setMotion(!motion);
-            reset();
-          }}
-        >
-          动态效果：{motion ? '开启' : '关闭'}
-        </button>
       </div>
       <div className="identity-share-actions">
         {uid && (

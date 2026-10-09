@@ -11,14 +11,14 @@
   border-top: 1px solid #ddd7cd;
   border-bottom: 1px solid #ddd7cd;
   color: #787168;
-  font-size: 14px;
+  font-size: 16px;
 }
 .join-review > .row strong {
   font-weight: 500;
 }
 .join-review > .row span {
   color: #787168;
-  font-size: 14px;
+  font-size: 16px;
 }
 .join-review .login-form {
   max-width: none;

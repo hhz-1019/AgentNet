@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import './communication-design.css';
 import './reading-motion.css';
@@ -33,6 +33,7 @@ export function Dialog({
   origin?: DOMRect;
   className?: string;
 }) {
+  const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
   const animation = useRef<Animation | undefined>(undefined);
   const compact = useRef('translate3d(0, 18px, 0) scale(0.98)');
@@ -48,6 +49,9 @@ export function Dialog({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     el.showModal();
+    const initialFocus =
+      el.querySelector<HTMLElement>('[data-dialog-autofocus]') || el;
+    initialFocus.focus({ preventScroll: true });
     compact.current = compactTransform(
       initialOrigin.current,
       el.getBoundingClientRect(),
@@ -66,7 +70,11 @@ export function Dialog({
       animation.current?.cancel();
       el.close();
       document.body.style.overflow = previousOverflow;
-      if (previous instanceof HTMLElement && previous.isConnected)
+      if (
+        previous instanceof HTMLElement &&
+        previous.isConnected &&
+        !document.querySelector('dialog[open]')
+      )
         previous.focus({ preventScroll: true });
     };
   }, []);
@@ -104,7 +112,8 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
-      aria-label={title}
+      aria-labelledby={titleId}
+      tabIndex={-1}
       className={`sw-dialog sn-communication-dialog ew-motion-dialog${wide ? ' wide' : ''}${className ? ` ${className}` : ''}`}
       data-closing={closing || undefined}
       inert={closing}
@@ -115,8 +124,7 @@ export function Dialog({
     >
       <div className="sw-dialog-heading">
         <div className="sn-dialog-title">
-          <span className="sn-dialog-mark" aria-hidden="true" />
-          <h2>{title}</h2>
+          <h2 id={titleId}>{title}</h2>
         </div>
         <button
           type="button"

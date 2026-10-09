@@ -9,6 +9,7 @@ import { Landing, AccountSwitch } from './auth';
 import { Onboard } from './onboarding-view';
 import { PublicCard } from './public-agent';
 import { Console } from './console';
+import { BrandEntry } from './brand-entry';
 import './style.css';
 
 const VisualPreview = import.meta.env.DEV
@@ -17,7 +18,26 @@ const VisualPreview = import.meta.env.DEV
 const isVisualPreview =
   !!VisualPreview && location.pathname.startsWith('/preview');
 
-function App() {
+function PreviewReady({
+  children,
+  onReady,
+}: {
+  children: ReactNode;
+  onReady: (ready: boolean) => void;
+}) {
+  useEffect(() => {
+    onReady(true);
+  }, [onReady]);
+  return children;
+}
+
+function AppContent({
+  onReady,
+  onFailure,
+}: {
+  onReady: (ready: boolean) => void;
+  onFailure: (failed: boolean) => void;
+}) {
   const [session, setSession] = useState<Session | null>(),
     [error, setError] = useState('');
   const [handoffError, setHandoffError] = useState<ApiError>();
@@ -94,10 +114,18 @@ function App() {
     if (location.pathname.startsWith('/agent/')) void refresh();
     else void openHandoff();
   }, []);
+  useEffect(() => {
+    if (isVisualPreview) return;
+    // Includes an anonymous session: the destination is the existing login page.
+    if (session !== undefined || error || handoffError) onReady(true);
+    if (error || handoffError) onFailure(true);
+  }, [session, error, handoffError, onReady, onFailure]);
   if (isVisualPreview && VisualPreview)
     return (
       <React.Suspense fallback={<Blank>正在加载…</Blank>}>
-        <VisualPreview />
+        <PreviewReady onReady={onReady}>
+          <VisualPreview />
+        </PreviewReady>
       </React.Suspense>
     );
   if (location.pathname.startsWith('/agent/'))
@@ -146,6 +174,16 @@ function App() {
       session={session}
       refresh={() => void refresh()}
     />
+  );
+}
+
+function App() {
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  return (
+    <BrandEntry ready={ready} failed={failed}>
+      <AppContent onReady={setReady} onFailure={setFailed} />
+    </BrandEntry>
   );
 }
 

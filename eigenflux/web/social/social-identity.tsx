@@ -50,29 +50,11 @@ export function SocialIdentity({
       aria-label={accessibleName}
       data-expanded={showingDetails}
     >
-      <div className="elsewhere-identity-orbit" aria-hidden="true">
-        <svg viewBox="0 0 560 340" fill="none">
-          <ellipse
-            cx="320"
-            cy="170"
-            rx="244"
-            ry="112"
-            transform="rotate(-32 320 170)"
-          />
-          <ellipse
-            cx="320"
-            cy="170"
-            rx="244"
-            ry="112"
-            transform="rotate(32 320 170)"
-          />
-        </svg>
-      </div>
       <div className="elsewhere-identity-brand">
         <BrandLogo inverse />
         {official && (
           <span className="elsewhere-identity-official">
-            <BadgeCheck size={15} /> 官方 Agent
+            <BadgeCheck size={17} aria-hidden="true" /> 官方 Agent
           </span>
         )}
       </div>
@@ -85,7 +67,7 @@ export function SocialIdentity({
               onError={() => setFailedAvatar(avatarUrl)}
             />
           ) : (
-            <UserRound size={25} strokeWidth={1.25} />
+            <UserRound size={27} strokeWidth={1.25} aria-hidden="true" />
           )}
         </span>
         <div className="elsewhere-identity-copy">
@@ -135,7 +117,7 @@ export function SocialIdentity({
                   aria-controls={detailsId}
                   onClick={() => setExpanded((value) => !value)}
                 >
-                  {showingDetails ? '返回身份' : '关于我'}
+                  {showingDetails ? '收起资料' : '关于我'}
                   {showingDetails ? (
                     <ArrowDownLeft size={16} aria-hidden="true" />
                   ) : (

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ArrowLeft,
   Bot,
@@ -10,6 +10,7 @@ import {
 import { demoPeople, demoPersonId } from './people';
 import { Dialog } from './dialog';
 import { MessageComposer } from './message-composer';
+import { useMessageHistory } from './message-history';
 import './communication-design.css';
 
 type Conversation = {
@@ -20,6 +21,7 @@ type Conversation = {
   messages: { name: string; text: string; id?: string; createdAt?: number }[];
 };
 const people = ['林间的 Agent', '小周的 Agent', '阿蓝的 Agent'];
+const conversationDrafts: Record<string, string> = {};
 const initial: Conversation[] = [
   {
     id: 'friend',
@@ -148,6 +150,7 @@ export function GroupEntry({
               <label>
                 群聊名称
                 <input
+                  data-dialog-autofocus
                   required
                   maxLength={40}
                   value={name}
@@ -234,11 +237,16 @@ export function MessagePreview({
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [details, setDetails] = useState(false);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const historyEnd = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    historyEnd.current?.scrollIntoView({ block: 'nearest' });
-  }, [conversations, selected]);
+  const [drafts, setDrafts] = useState<Record<string, string>>(() => ({
+    ...conversationDrafts,
+  }));
+  const current = conversations.find((c) => c.id === selected);
+  const history = useMessageHistory(
+    selected ? `preview:${selected}` : '',
+    current?.messages.map(
+      (message, index) => message.id || `${index}:${message.name}`,
+    ) || [],
+  );
   function persist(next: Conversation[]) {
     sessionStorage.setItem(
       'elsewhere:conversation-layout:v1',
@@ -265,7 +273,6 @@ export function MessagePreview({
       throw new Error('消息未发送，输入已保留，请重试。');
     }
   }
-  const current = conversations.find((c) => c.id === selected);
   const shown = conversations.filter(
     (c) =>
       (filter === 'all' || (filter === 'groups' ? c.group : !c.group)) &&
@@ -334,7 +341,16 @@ export function MessagePreview({
               </span>
               <span>
                 <strong>{c.name}</strong>
-                <small>{c.messages.at(-1)?.text || '暂无消息'}</small>
+                <small>
+                  {drafts[c.id] ? (
+                    <>
+                      <span className="sn-draft-label">草稿 · </span>
+                      {drafts[c.id]}
+                    </>
+                  ) : (
+                    c.messages.at(-1)?.text || '暂无消息'
+                  )}
+                </small>
               </span>
             </button>
           ))}
@@ -355,11 +371,7 @@ export function MessagePreview({
                   className={`sn-chat-avatar${current.group ? ' is-group' : ''}`}
                   aria-hidden="true"
                 >
-                  {current.group ? (
-                    <Users size={19} />
-                  ) : (
-                    <span className="sn-agent-mark" />
-                  )}
+                  {current.group ? <Users size={19} /> : <Bot size={19} />}
                 </span>
                 <div>
                   <h2>
@@ -378,11 +390,29 @@ export function MessagePreview({
                     <small>{current.members.length} 位成员</small>
                   )}
                 </div>
-                <button onClick={() => setDetails(true)}>
-                  {current.group ? '群聊详情' : '联系人详情'}
+                <button
+                  onClick={() => setDetails(true)}
+                  aria-label={current.group ? '群聊详情' : '联系人详情'}
+                >
+                  <span className="sn-details-full" aria-hidden="true">
+                    {current.group ? '群聊详情' : '联系人详情'}
+                  </span>
+                  <span className="sn-details-short" aria-hidden="true">
+                    详情
+                  </span>
                 </button>
               </header>
-              <div className="sn-message-history">
+              {/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- Independent message history needs keyboard scrolling. */}
+              <div
+                className="sn-message-history"
+                ref={history.ref}
+                onScroll={history.onScroll}
+                role="log"
+                aria-live="off"
+                tabIndex={0}
+                aria-label={`${current.name}的消息历史`}
+              >
+                {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
                 {current.messages.map((m, i) => (
                   <article
                     className={`sn-message${['我的 Agent', '你'].includes(m.name) ? ' own' : ''}${m.name === '你' ? ' sender-owner' : ' sender-agent'}`}
@@ -419,22 +449,27 @@ export function MessagePreview({
                     <h3>还没有消息</h3>
                   </div>
                 )}
-                <div ref={historyEnd} />
               </div>
+              {history.unread > 0 && (
+                <button
+                  className="sn-new-messages"
+                  onClick={history.jumpToLatest}
+                >
+                  {history.unread} 条新消息 · 跳到最新
+                </button>
+              )}
               <MessageComposer
                 key={current.id}
                 value={drafts[current.id] || ''}
-                onChange={(text) =>
-                  setDrafts((d) => ({ ...d, [current.id]: text }))
-                }
+                onChange={(text) => {
+                  conversationDrafts[current.id] = text;
+                  setDrafts((d) => ({ ...d, [current.id]: text }));
+                }}
                 onSend={send}
               />
             </>
           ) : (
             <div className="sw-empty">
-              <span className="sn-empty-mark" aria-hidden="true">
-                <span className="sn-agent-mark" />
-              </span>
               <h2>未选择会话</h2>
               <p>从会话列表继续聊天。</p>
             </div>

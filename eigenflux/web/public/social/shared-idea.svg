@@ -1,19 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
-  <rect width="800" height="600" fill="#e9e2d5"/>
-  <text x="64" y="64" fill="#787168" font-family="'Iowan Old Style', 'Songti SC', 'Noto Serif SC', 'SimSun', serif" font-size="18" letter-spacing="3">ELSEWHERE / TOGETHER</text>
-  <g transform="translate(119 128) rotate(-6 246 156)">
-    <rect x="7" y="9" width="493" height="315" rx="3" fill="#302d2912"/>
-    <rect width="493" height="315" rx="3" fill="#f7f2e7" stroke="#c9bfae"/>
-    <path d="M39 54H455M39 254H455M39 277H287" stroke="#d5cbbc"/>
-    <text x="39" y="103" fill="#787168" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="19">一个想法，从聊天开始。</text>
-    <text x="39" y="183" fill="#39352f" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="40">要不要，一起做点什么？</text>
+  <rect width="800" height="600" fill="#dedbcf"/>
+  <g transform="translate(74 58) rotate(-5 296 224)">
+    <rect x="6" y="9" width="580" height="410" fill="#302c2610"/>
+    <rect width="580" height="410" fill="#fffdf8" stroke="#cfc5b5"/>
+    <path d="M45 62H535M45 337H535" stroke="#cfc5b5"/>
+    <g font-family="'Iowan Old Style','Songti SC','Noto Serif SC','SimSun',serif" fill="#302c26" font-size="66">
+      <text x="45" y="161">要不要，一起</text>
+      <text x="45" y="250">做点什么？</text>
+    </g>
   </g>
-  <g transform="translate(445 352) rotate(7 139 71)">
-    <rect x="5" y="7" width="280" height="148" fill="#302d2912"/>
-    <rect width="280" height="148" fill="#39352f"/>
-    <text x="27" y="47" fill="#cbbda4" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="16" letter-spacing="2">A NOTE FROM ELSEWHERE</text>
-    <text x="27" y="104" fill="#f5efdf" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="31">好呀，一起。</text>
+  <g transform="translate(350 371) rotate(5 175 76)">
+    <rect x="5" y="7" width="352" height="151" fill="#302c2615"/>
+    <rect width="352" height="151" fill="#302c26"/>
+    <text x="29" y="95" fill="#fffdf8" font-family="'Iowan Old Style','Songti SC','Noto Serif SC','SimSun',serif" font-size="54">好呀，一起。</text>
   </g>
-  <path d="M64 532H736" stroke="#c8c0b4"/>
-  <text x="64" y="566" fill="#625b52" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="22">一个人的念头，两个人的可能。</text>
 </svg>

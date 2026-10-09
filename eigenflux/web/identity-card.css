@@ -4,19 +4,27 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 240px;
-  padding: 24px 30px 22px;
+  min-height: 246px;
+  padding: 24px 30px 26px;
   border: 1px solid #49433b;
-  border-radius: 14px;
-  background: #2f2c28;
-  color: #f5efdf;
+  border-radius: 5px;
+  background: #302c26;
+  color: #fff9ed;
+  font-family: var(
+    --ew-serif,
+    'Iowan Old Style',
+    'Songti SC',
+    'Noto Serif SC',
+    'SimSun',
+    serif
+  );
 }
 .elsewhere-identity::after {
   position: absolute;
   content: '';
   inset: 7px;
   border: 1px solid #cbbda41a;
-  border-radius: 9px;
+  border-radius: 1px;
   pointer-events: none;
 }
 .elsewhere-identity-brand {
@@ -25,7 +33,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 25px;
+  margin-bottom: 22px;
 }
 .elsewhere-identity-brand .brand-logo {
   width: 113px;
@@ -38,27 +46,28 @@
   align-items: center;
   gap: 5px;
   color: #cbbda4;
-  font-size: 14px;
+  font-size: 16px;
   white-space: nowrap;
 }
 .elsewhere-identity-person {
   position: relative;
   display: flex;
-  gap: 18px;
-  align-items: center;
-  max-width: 79%;
+  gap: 20px;
+  align-items: flex-start;
+  max-width: 92%;
 }
 .elsewhere-identity-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 58px;
-  height: 58px;
+  width: 60px;
+  height: 60px;
+  margin-top: 3px;
   border: 1px solid #cbbda475;
   border-radius: 50%;
   color: #ded3bd;
-  background: #39352f;
+  background: #302c26;
   overflow: hidden;
 }
 .elsewhere-identity-avatar img {
@@ -73,8 +82,8 @@
 .sn-social .elsewhere-identity-copy :is(h1, h2) {
   margin: 0;
   color: #f5efdf;
-  font-size: clamp(25px, 2.6vw, 34px);
-  font-weight: 500;
+  font-size: clamp(34px, 3vw, 40px);
+  font-weight: 400;
   font-family: var(--ew-serif, 'Iowan Old Style', 'Songti SC', 'SimSun', serif);
   letter-spacing: -0.8px;
   line-height: 1.3;
@@ -86,9 +95,9 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin: 8px 0 0;
-  color: #d4cabb;
-  font-size: 14px;
-  line-height: 1.75;
+  color: #e2d8c8;
+  font-size: 18px;
+  line-height: 1.85;
   max-width: 58ch;
   overflow-wrap: anywhere;
 }
@@ -108,7 +117,7 @@
 .elsewhere-identity-interests {
   margin: 0;
   color: #cbbda4;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
@@ -117,9 +126,9 @@
   gap: 8px 20px;
   flex-wrap: wrap;
   margin-top: 7px;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.7;
-  color: #b6ab99;
+  color: #cbbda7;
 }
 .elsewhere-identity-meta :is(code, time) {
   color: #d3c7b3;
@@ -144,13 +153,13 @@
   justify-content: center;
   gap: 6px;
   border: 1px solid #cbbda465;
-  border-radius: 6px;
-  background: #2f2c28;
+  border-radius: 3px;
+  background: #302c26;
   color: #f5efdf;
-  padding: 8px 12px;
-  font-size: 14px;
+  padding: 9px 14px;
+  font-size: 16px;
   line-height: 1.4;
-  min-height: 34px;
+  min-height: 44px;
   box-shadow: none;
   text-decoration: none;
 }
@@ -160,24 +169,10 @@
   border-color: #cbbda475;
   transform: none;
 }
-.elsewhere-identity-actions :is(button, a):focus-visible {
+.elsewhere-identity-actions :is(button, a):focus-visible,
+.ew-social .elsewhere-identity-actions :is(button, a):focus-visible {
   outline: 2px solid #f5efdf;
   outline-offset: 3px;
-}
-.elsewhere-identity-orbit {
-  position: absolute;
-  width: 450px;
-  height: 290px;
-  top: -17px;
-  right: -130px;
-  opacity: 0.2;
-  pointer-events: none;
-}
-.elsewhere-identity-orbit svg {
-  width: 100%;
-  height: 100%;
-  stroke: #cbbda4;
-  stroke-width: 0.7;
 }
 .identity-showcase {
   max-width: 900px;
@@ -200,7 +195,7 @@
   position: absolute;
   z-index: 2;
   inset: 0;
-  border-radius: 14px;
+  border-radius: 5px;
   pointer-events: none;
   opacity: var(--sheen);
   background: radial-gradient(
@@ -218,8 +213,8 @@
 .identity-motion-toggle {
   border: 0;
   background: transparent;
-  color: #787168;
-  font-size: 14px;
+  color: #746a5d;
+  font-size: 16px;
   padding: 6px 0;
 }
 .identity-share-actions {
@@ -235,19 +230,19 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 14px;
+  font-size: 16px;
   padding: 8px 12px;
-  border: 1px solid #ddd7cd;
-  border-radius: 6px;
+  border: 1px solid #cfc5b5;
+  border-radius: 3px;
   background: transparent;
-  color: #39352f;
+  color: #302c26;
 }
 .identity-feedback {
   display: block;
   margin: 7px 0 0;
   text-align: left;
-  color: #39352f;
-  font-size: 14px;
+  color: #302c26;
+  font-size: 16px;
   line-height: 1.7;
 }
 .identity-feedback:empty {
@@ -277,7 +272,7 @@
   }
   .elsewhere-identity-copy :is(h1, h2),
   .sn-social .elsewhere-identity-copy :is(h1, h2) {
-    font-size: 25px;
+    font-size: 32px;
   }
   .elsewhere-identity-bottom {
     flex-wrap: wrap;
@@ -285,10 +280,6 @@
   }
   .elsewhere-identity-context {
     max-width: 100%;
-  }
-  .elsewhere-identity-orbit {
-    right: -235px;
-    opacity: 0.15;
   }
   .identity-motion-toggle {
     display: none;

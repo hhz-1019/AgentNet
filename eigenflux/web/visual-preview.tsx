@@ -60,7 +60,7 @@ function ReviewFrame({
   className?: string;
 }) {
   return (
-    <main className={`onboarding ${className}`}>
+    <main className={`onboarding auth-review ${className}`}>
       <a className="brand" href="/preview/login">
         <BrandLogo />
       </a>
@@ -105,14 +105,11 @@ function PageDirectory() {
       </details>
       <details>
         <summary>其他账号操作</summary>
-        {links([
-          'choose-agent',
-          'recover',
-          'password-reset',
-          'account-switch',
-          'switch-complete',
-          'phone',
-        ])}
+        {links(['recover', 'password-reset', 'phone'])}
+      </details>
+      <details>
+        <summary>历史账号兼容</summary>
+        {links(['choose-agent', 'account-switch', 'switch-complete'])}
       </details>
       <details>
         <summary>空态与异常</summary>

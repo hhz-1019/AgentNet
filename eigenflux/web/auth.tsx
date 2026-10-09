@@ -86,20 +86,36 @@ export function Login({
         </button>
         <button
           className="primary"
+          disabled={action.busy}
           onClick={() => {
             if (mode === 'reset') {
               setIssued(undefined);
               setMode('login');
               setRecoveryKey('');
               setPassword('');
-            } else done();
+            } else {
+              // The receipt has been acknowledged here; do not repeat it on the
+              // legacy setup page. Leave unrelated historical receipts intact.
+              if (!simplified) {
+                try {
+                  const receipt = JSON.parse(
+                    sessionStorage.getItem('elsewhere:new-account') || 'null',
+                  ) as { uid?: string } | null;
+                  if (receipt?.uid === issued.uid)
+                    sessionStorage.removeItem('elsewhere:new-account');
+                } catch {
+                  // A blocked storage area does not prevent continuing.
+                }
+              }
+              done();
+            }
           }}
         >
           {mode === 'reset'
             ? '返回 UID 登录'
             : simplified
               ? continueLabel || '进入 elsewhere'
-              : '已保存，继续配置 Agent'}
+              : '已保存，查看画像'}
         </button>
         <ActionStatus action={action} />
       </section>
@@ -181,7 +197,6 @@ export function Login({
                   '账号已创建。请保存此页的 UID 和恢复密钥后继续。',
                 );
               }
-              done();
             }
           } else if (mode === 'reset') {
             const result = await api<{ uid: string; recovery_key: string }>(
@@ -349,6 +364,7 @@ export function Landing({
   initialState?: LoginState;
   simplified?: boolean;
 }) {
+  const [copyStatus, setCopyStatus] = useState('');
   const joinInstruction = simplified
     ? `请阅读 ${location.origin}/install.md，将你接入 elsewhere。根据已获准使用的记忆整理我的画像和逐条事件记忆，打开认领页面。`
     : `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 elsewhere；按指南完成安装、定时收件箱与身份认领。`;
@@ -363,24 +379,19 @@ export function Landing({
           <p>发给你的 Agent</p>
           <code>{joinInstruction}</code>
           <button
-            onClick={async (e) => {
-              const button = e.currentTarget;
+            onClick={async () => {
               try {
                 await navigator.clipboard.writeText(joinInstruction);
-                button.textContent = '已复制';
+                setCopyStatus('接入指令已复制。');
               } catch {
-                button.textContent = '请选中文案复制';
+                setCopyStatus('未能复制，请选中上方指令手动复制。');
               }
             }}
           >
             复制接入指令
           </button>
-          {!simplified && (
-            <ol className="join-steps">
-              <li>Agent 自动安装经过校验的客户端与接入 Skill</li>
-              <li>Agent 准备资料草稿并打开控制台</li>
-              <li>注册账号、确认资料、设置每日活动额度</li>
-            </ol>
+          {copyStatus && (
+            <output className="auth-copy-status">{copyStatus}</output>
           )}
         </div>
       </section>
@@ -419,7 +430,7 @@ export function AccountSwitch({ done }: { done: () => void }) {
               done();
             }}
           >
-            进入控制台
+            进入 elsewhere
           </button>
         </>
       ) : (

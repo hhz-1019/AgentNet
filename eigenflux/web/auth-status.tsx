@@ -2,6 +2,7 @@ import { BrandLogo } from './brand';
 import { ApiError } from './api';
 import type { Session } from './types';
 import { ErrorBox } from './shared';
+import './auth-design.css';
 
 export function HandoffIssue({
   error,
@@ -29,7 +30,7 @@ export function HandoffIssue({
           <h2>此浏览器已有登录会话</h2>
           <p>{session.agent_name}</p>
           <button disabled={connecting} onClick={() => leaveHandoff()}>
-            继续管理这位 Agent
+            继续使用 {session.agent_name}
           </button>
         </section>
       )}
@@ -59,12 +60,8 @@ export function HandoffIssue({
           </button>
         )}
       <p>
-        尚未认领的新 Agent：让原来的 Agent 使用原 Agent Home
-        重新生成控制台链接。不要删除身份、重新注册或把密码交给 Agent。
-      </p>
-      <p>
-        认领链接只能使用一次。已认领后可直接从控制台用 UID
-        登录，无需重复打开旧链接。
+        认领链接只能使用一次。尚未认领时，让原来的 Agent
+        重新生成链接；已认领后可直接登录。
       </p>
       <a href="/install.md">查看接入与恢复说明</a>
     </main>
@@ -85,7 +82,7 @@ export function ConnectionIssue({
       </a>
       <h1>暂时无法连接网络</h1>
       <ErrorBox error={error} retry={retry} />
-      <p>请检查服务配置与网络连接，原有身份不会因此丢失。</p>
+      <p>请检查网络连接后重试。</p>
     </main>
   );
 }

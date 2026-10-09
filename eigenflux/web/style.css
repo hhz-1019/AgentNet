@@ -1,24 +1,24 @@
 :root {
   --ew-serif: 'Iowan Old Style', 'Songti SC', 'Noto Serif SC', 'SimSun', serif;
-  --ew-paper: #f6f4ef;
-  --ew-surface: #fffdfa;
-  --ew-action: #39352f;
-  --ew-ink: #302d29;
-  --ew-muted: #787168;
-  --ew-line: #ddd7cd;
-  --ew-tint: #ede7dc;
-  --ew-text-meta: 14px;
-  --ew-text-control: 15px;
-  --ew-text-body: 17px;
-  --ew-text-title: 20px;
+  --ew-paper: #f5f1e8;
+  --ew-surface: #fffdf8;
+  --ew-action: #302c26;
+  --ew-ink: #302c26;
+  --ew-muted: #746a5d;
+  --ew-line: #cfc5b5;
+  --ew-tint: #e9e0d0;
+  --ew-text-meta: 16px;
+  --ew-text-control: 18px;
+  --ew-text-body: 18px;
+  --ew-text-title: 24px;
   font-family: var(--ew-serif);
-  font-size: 16px;
-  color: #302d29;
-  background: #f6f4ef;
+  font-size: 18px;
+  color: #302c26;
+  background: #f5f1e8;
   font-synthesis: none;
-  --accent: #39352f;
-  --line: #ddd7cd;
-  --muted: #787168;
+  --accent: #302c26;
+  --line: #cfc5b5;
+  --muted: #746a5d;
 }
 * {
   box-sizing: border-box;
@@ -46,18 +46,18 @@ select {
 button {
   cursor: pointer;
   background: white;
-  border: 1px solid #ddd7cd;
+  border: 1px solid #cfc5b5;
   border-radius: 6px;
-  color: #302d29;
+  color: #302c26;
   padding: 10px 15px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 40px;
+  min-height: 44px;
 }
 button:hover {
-  background: #f6f4ef;
+  background: #f5f1e8;
 }
 button:disabled {
   cursor: wait;
@@ -69,7 +69,7 @@ button:disabled {
   border-color: var(--accent);
 }
 .primary:hover {
-  background: #302d29;
+  background: #302c26;
 }
 :focus-visible {
   outline: 3px solid #a4998a;
@@ -88,7 +88,7 @@ h2 {
   margin: 34px 0 16px;
 }
 h3 {
-  font-size: 16px;
+  font-size: 20px;
   margin: 12px 0 8px;
 }
 p {
@@ -104,15 +104,15 @@ small {
 .hint,
 small,
 time {
-  font-size: 14px;
+  font-size: 16px;
 }
 code {
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   overflow-wrap: anywhere;
 }
 label {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   display: block;
   margin: 18px 0;
@@ -123,9 +123,9 @@ select {
   display: block;
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid #ddd7cd;
+  border: 1px solid #cfc5b5;
   background: white;
-  color: #302d29;
+  color: #302c26;
   border-radius: 6px;
   margin-top: 8px;
   line-height: 1.5;
@@ -167,9 +167,9 @@ article {
   justify-content: space-between;
 }
 .badge {
-  font-size: 14px;
+  font-size: 16px;
   padding: 4px 8px;
-  background: #f6f4ef;
+  background: #f5f1e8;
   border-radius: 4px;
   color: #625b52;
 }
@@ -178,7 +178,7 @@ article {
   overflow-wrap: anywhere;
 }
 .empty {
-  border: 1px dashed #ddd7cd;
+  border: 1px dashed #cfc5b5;
   color: var(--muted);
   padding: 34px;
   line-height: 1.8;
@@ -197,7 +197,7 @@ article {
   margin-left: 15px;
 }
 .success {
-  color: #39352f;
+  color: #302c26;
 }
 .recommendation {
   border-left: 1px solid #a4998a;
@@ -211,7 +211,7 @@ article {
   font-size: 24px;
   letter-spacing: -1px;
   font-weight: 650;
-  color: #302d29;
+  color: #302c26;
 }
 .brand-logo {
   display: block;
@@ -257,14 +257,14 @@ article {
   margin-bottom: 16px;
 }
 .join-copy p {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--muted);
 }
 .join-steps {
   margin: 20px 0 0;
   padding-left: 20px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.9;
 }
 .login-form {
@@ -294,7 +294,7 @@ article {
   list-style: none;
   gap: 20px;
   border-bottom: 1px solid var(--line);
-  font-size: 14px;
+  font-size: 16px;
   margin: 28px 0;
   flex-wrap: wrap;
 }
@@ -323,7 +323,7 @@ article {
   width: 250px;
   flex-shrink: 0;
   border-right: 1px solid var(--line);
-  background: #f6f4ef;
+  background: #f5f1e8;
   padding: 30px 22px;
   position: fixed;
   height: 100dvh;
@@ -336,10 +336,10 @@ article {
 .agent-select {
   margin: 0 10px 24px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
 }
 .agent-select select {
-  font-size: 14px;
+  font-size: 16px;
 }
 nav {
   display: grid;
@@ -353,20 +353,20 @@ nav a {
   border-radius: 6px;
   color: #625b52;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 16px;
 }
 nav a:hover {
-  background: #f6f4ef;
+  background: #f5f1e8;
 }
 nav a[aria-current] {
   color: #4e4840;
-  background: #ede7dc;
+  background: #e9e0d0;
   font-weight: 600;
 }
 .owner {
   margin-top: auto;
   padding: 28px 12px 0;
-  font-size: 14px;
+  font-size: 16px;
   display: grid;
   gap: 10px;
   overflow-wrap: anywhere;
@@ -379,7 +379,7 @@ nav a[aria-current] {
   border: 0;
   background: none;
   padding: 5px 0;
-  font-size: 14px;
+  font-size: 16px;
 }
 .workspace {
   margin-left: 250px;
@@ -393,12 +393,12 @@ nav a[aria-current] {
   justify-content: space-between;
   padding: 0 40px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
 }
 .topbar > button:last-child {
   background: transparent;
   border: 0;
-  font-size: 14px;
+  font-size: 16px;
 }
 .workspace main {
   padding: 44px 48px;
@@ -412,7 +412,7 @@ nav a[aria-current] {
 .workspace footer {
   padding: 20px 48px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   border-top: 1px solid var(--line);
 }
 .identity-strip {
@@ -426,7 +426,7 @@ nav a[aria-current] {
 }
 .identity-strip > span:last-child {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
 }
 .presence {
   width: 8px;
@@ -436,7 +436,7 @@ nav a[aria-current] {
   border-radius: 50%;
 }
 .presence.online {
-  background: #787168;
+  background: #746a5d;
 }
 .summary {
   display: grid;
@@ -445,7 +445,7 @@ nav a[aria-current] {
   margin: 30px 0 40px;
 }
 .summary p {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--muted);
 }
 .summary b {
@@ -453,7 +453,7 @@ nav a[aria-current] {
   font-size: 36px;
   font-weight: 500;
   letter-spacing: -1px;
-  color: #302d29;
+  color: #302c26;
   line-height: 1.6;
 }
 .peer-grid {
@@ -464,11 +464,11 @@ nav a[aria-current] {
 .avatar {
   width: 42px;
   height: 42px;
-  background: #ede7dc;
+  background: #e9e0d0;
   border-radius: 9px;
   display: grid;
   place-items: center;
-  font-size: 14px;
+  font-size: 16px;
 }
 .filter {
   max-width: 200px;
@@ -494,14 +494,14 @@ nav a[aria-current] {
   overflow: hidden;
 }
 .messages > aside > button.selected {
-  background: #f6f4ef;
+  background: #f5f1e8;
 }
 .messages > aside p {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 230px;
-  font-size: 14px;
+  font-size: 16px;
   margin: 8px 0;
 }
 .messages > section {
@@ -527,7 +527,7 @@ dl {
   display: grid;
   grid-template-columns: 150px 1fr;
   line-height: 2.4;
-  font-size: 14px;
+  font-size: 16px;
 }
 dt {
   color: var(--muted);
@@ -593,7 +593,7 @@ dd {
     z-index: 10;
     top: 66px;
     height: calc(100dvh - 66px);
-    box-shadow: 16px 0 40px #302d2912;
+    box-shadow: 16px 0 40px #302c2612;
   }
   .sidebar.open {
     display: flex;
@@ -607,11 +607,11 @@ dd {
     gap: 12px;
     position: sticky;
     top: 0;
-    background: #f6f4ef;
+    background: #f5f1e8;
     z-index: 11;
   }
   .topbar > span {
-    font-size: 14px;
+    font-size: 16px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -707,6 +707,6 @@ dd {
   }
   .phone-code-row button {
     padding-inline: 10px;
-    font-size: 14px;
+    font-size: 16px;
   }
 }

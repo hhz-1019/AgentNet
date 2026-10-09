@@ -130,9 +130,11 @@ function normalizePortrait(profile: Portrait): Portrait {
     fields: Object.fromEntries(
       portraitFields.map((f) => [f.key, profile.fields[f.key]]),
     ) as Portrait['fields'],
-    visible: profile.visible.filter((key) =>
-      portraitFields.some((f) => f.key === key),
-    ),
+    visible: portraitFields
+      .filter(
+        (field) => field.key === 'name' || profile.visible.includes(field.key),
+      )
+      .map((field) => field.key),
     memories: profile.memories.map(normalizeMemory),
   };
 }

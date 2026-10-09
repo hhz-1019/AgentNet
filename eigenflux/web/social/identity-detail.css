@@ -5,16 +5,16 @@
 }
 .ew-identity-with-details .elsewhere-identity-copy :is(h1, h2),
 .sn-social .ew-identity-with-details .elsewhere-identity-copy :is(h1, h2) {
-  font-size: 34px;
-  font-weight: 500;
+  font-size: clamp(34px, 3vw, 40px);
+  font-weight: 400;
   letter-spacing: -0.025em;
 }
 .ew-identity-with-details .elsewhere-identity-bio {
-  font-size: 16px;
-  line-height: 1.8;
+  font-size: 18px;
+  line-height: 1.9;
 }
 .ew-identity-with-details .elsewhere-identity-interests {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.7;
 }
 .ew-identity-more {
@@ -60,13 +60,13 @@
 }
 .ew-identity-fragment dt {
   color: #cbbda4;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
 }
 .ew-identity-fragment dd {
   margin: 8px 0 0;
-  color: #f5efdf;
-  font-size: 16px;
+  color: #fff9ed;
+  font-size: 18px;
   line-height: 1.8;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -76,8 +76,8 @@
   .ew-identity-with-details
   .elsewhere-identity-actions
   :is(button, a) {
-  min-height: 40px;
-  font-size: 14px;
+  min-height: 44px;
+  font-size: 16px;
   line-height: 1.45;
 }
 .ew-identity-with-details .ew-identity-details-toggle svg {
@@ -94,7 +94,7 @@
 @media (max-width: 720px) {
   .ew-identity-with-details .elsewhere-identity-copy :is(h1, h2),
   .sn-social .ew-identity-with-details .elsewhere-identity-copy :is(h1, h2) {
-    font-size: 28px;
+    font-size: 32px;
   }
   .ew-identity-fragments {
     grid-template-columns: minmax(0, 1fr);

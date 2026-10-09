@@ -477,6 +477,9 @@
 .sn-settings-list a:hover {
   background: var(--sw-mint);
 }
+.ew-social .sn-settings-list > a:focus-visible {
+  outline-offset: -4px;
+}
 .sn-settings-list span {
   flex: 1;
   min-width: 0;

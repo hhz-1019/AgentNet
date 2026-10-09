@@ -13,6 +13,7 @@ import {
   portraitFields,
   type EventMemory,
   type Portrait,
+  type PortraitField,
 } from './portrait-data';
 import './profile-design.css';
 
@@ -61,11 +62,16 @@ export function PortraitEditor({
     setEditorError('');
     setEditing(memory);
   }
+  function changeField(key: PortraitField, value: string) {
+    setFields((current) => ({ ...current, [key]: value }));
+    setStatus('');
+    setError('');
+  }
   return (
     <section className="sn-portrait">
       <header className="sn-page-heading">
         <div>
-          <h1>{onComplete ? '确认画像' : '关于我'}</h1>
+          <h1>{onComplete ? '确认画像' : '编辑画像'}</h1>
         </div>
         {!onComplete && (
           <button onClick={onPublicHome}>
@@ -104,43 +110,47 @@ export function PortraitEditor({
                 key={field.key}
               >
                 <div>
-                  <label htmlFor={`portrait-${field.key}`}>{field.label}</label>
-                  <label className="sn-visibility">
-                    <input
-                      type="checkbox"
-                      aria-label={`${field.label}在主页展示`}
-                      checked={visible.includes(field.key)}
-                      disabled={field.key === 'name'}
-                      onChange={(e) =>
-                        setVisible((v) =>
-                          e.target.checked
-                            ? [...v, field.key]
-                            : v.filter((key) => key !== field.key),
-                        )
-                      }
-                    />
-                    主页展示
+                  <label htmlFor={`${formId}-${field.key}`}>
+                    {field.label}
                   </label>
+                  {field.key === 'name' ? (
+                    <span className="sn-visibility sn-visibility-fixed">
+                      <Eye size={16} aria-hidden="true" /> 固定展示
+                    </span>
+                  ) : (
+                    <label className="sn-visibility">
+                      <input
+                        type="checkbox"
+                        aria-label={`${field.label}在主页展示`}
+                        checked={visible.includes(field.key)}
+                        onChange={(e) => {
+                          setVisible((v) =>
+                            e.target.checked
+                              ? [...v, field.key]
+                              : v.filter((key) => key !== field.key),
+                          );
+                          setStatus('');
+                        }}
+                      />
+                      主页展示
+                    </label>
+                  )}
                 </div>
                 {['name', 'role'].includes(field.key) ? (
                   <input
-                    id={`portrait-${field.key}`}
+                    id={`${formId}-${field.key}`}
                     required={field.key === 'name'}
                     maxLength={field.key === 'name' ? 80 : 200}
                     value={fields[field.key]}
-                    onChange={(e) =>
-                      setFields({ ...fields, [field.key]: e.target.value })
-                    }
+                    onChange={(e) => changeField(field.key, e.target.value)}
                   />
                 ) : (
                   <textarea
-                    id={`portrait-${field.key}`}
+                    id={`${formId}-${field.key}`}
                     rows={2}
                     maxLength={1000}
                     value={fields[field.key]}
-                    onChange={(e) =>
-                      setFields({ ...fields, [field.key]: e.target.value })
-                    }
+                    onChange={(e) => changeField(field.key, e.target.value)}
                   />
                 )}
               </div>
@@ -188,7 +198,11 @@ export function PortraitEditor({
             {filtered.slice(0, limit).map((m) => (
               <article className="sn-memory" key={m.id}>
                 <div className="sn-memory-meta">
-                  {m.showOnHome ? <Eye size={12} /> : <LockKeyhole size={12} />}
+                  {m.showOnHome ? (
+                    <Eye size={16} aria-hidden="true" />
+                  ) : (
+                    <LockKeyhole size={16} aria-hidden="true" />
+                  )}
                   <span>{m.showOnHome ? '主页展示' : '仅自己可见'}</span>
                 </div>
                 <p className="sn-memory-content">{m.content}</p>
@@ -231,9 +245,14 @@ export function PortraitEditor({
           )}
         </section>
       </section>
-      {status && <output className="sn-portrait-status">{status}</output>}
+      {status && (
+        <output className="sn-portrait-status" aria-live="polite">
+          {status}
+        </output>
+      )}
       {removed && (
         <button
+          className="sn-memory-undo"
           onClick={() => {
             if (
               save(

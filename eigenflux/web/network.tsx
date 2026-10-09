@@ -14,6 +14,7 @@ import { AgentLink } from './public-agent';
 import { chineseDescription } from './chinese';
 import { demoPeople } from './social/people';
 import { MessageComposer } from './social/message-composer';
+import { useMessageHistory } from './social/message-history';
 import type { SocialStore } from './social/model';
 import type {
   Session,
@@ -38,6 +39,7 @@ type NetworkProps = {
   onMessages?: (id: string) => void;
   onProfile?: (id: string) => void;
 };
+const replyDrafts = new Map<string, Record<string, string>>();
 const samplePeers: Peer[] = demoPeople.slice(0, 3).map((p, index) => ({
   agent_id: p.id,
   short_id: p.id,
@@ -444,13 +446,13 @@ export function Messages({ session }: { session: Session }) {
     `console/pm/conversations?cursor=${encodeURIComponent(cursor)}`,
   );
   const [selected, setSelected] = useState('');
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [replyStatus, setReplyStatus] = useState('');
-  const replyOperation = useRef({
-    conversation: '',
-    content: '',
-    key: requestKey(),
-  });
+  const [drafts, setDrafts] = useState<Record<string, string>>(
+    () => replyDrafts.get(session.agent_id) || {},
+  );
+  const [replyStatus, setReplyStatus] = useState<Record<string, string>>({});
+  const replyOperations = useRef(
+    new Map<string, { content: string; key: string }>(),
+  );
   const conversations = useMemo(
     () => (Array.isArray(q.data?.conversations) ? q.data.conversations : []),
     [q.data?.conversations],
@@ -462,6 +464,22 @@ export function Messages({ session }: { session: Session }) {
       : null,
   );
   const peer = conversations.find((c) => c.conv_id === selected)?.peer_agent_id;
+  const messages = useMemo(
+    () =>
+      (Array.isArray(history.data?.messages) ? history.data.messages : [])
+        .slice()
+        .sort(
+          (a, b) =>
+            a.created_at - b.created_at ||
+            a.msg_id.localeCompare(b.msg_id, undefined, { numeric: true }),
+        ),
+    [history.data],
+  );
+  const reading = useMessageHistory(
+    selected ? `${session.agent_id}:${selected}:${messageCursor}` : '',
+    messages.map((message) => message.msg_id),
+    Boolean(history.data) && !history.loading,
+  );
   useEffect(() => {
     if (!selected && conversations.length) {
       const requestedPeer = new URLSearchParams(window.location.search).get(
@@ -487,11 +505,11 @@ export function Messages({ session }: { session: Session }) {
           {conversations.map((c) => (
             <button
               className={selected === c.conv_id ? 'selected' : ''}
+              aria-pressed={selected === c.conv_id}
               key={c.conv_id}
               onClick={() => {
                 setSelected(c.conv_id);
                 setMessageCursor('');
-                setReplyStatus('');
               }}
             >
               <strong>
@@ -502,7 +520,11 @@ export function Messages({ session }: { session: Session }) {
                 .verification_level === 'official' && (
                 <span className="badge">官方助手</span>
               )}
-              <p>{c.last_message?.content || '会话已建立'}</p>
+              <p>
+                {drafts[c.conv_id]
+                  ? `草稿 · ${drafts[c.conv_id]}`
+                  : c.last_message?.content || '会话已建立'}
+              </p>
               <small>
                 {time(c.updated_at)} · {c.unread_count} 未读
               </small>
@@ -527,51 +549,57 @@ export function Messages({ session }: { session: Session }) {
                   />
                 </h2>
               )}
-              <div className="ew-live-history">
+              {/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- Independent message history needs keyboard scrolling. */}
+              <div
+                className="ew-live-history"
+                ref={reading.ref}
+                onScroll={reading.onScroll}
+                role="log"
+                aria-live="off"
+                tabIndex={0}
+                aria-label="消息历史"
+              >
+                {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
                 <ErrorBox error={history.error} retry={history.reload} />
                 {history.loading && <Blank>正在读取消息…</Blank>}
-                {(Array.isArray(history.data?.messages)
-                  ? history.data.messages
-                  : []
-                )
-                  .slice()
-                  .sort(
-                    (a, b) =>
-                      a.created_at - b.created_at ||
-                      a.msg_id.localeCompare(b.msg_id, undefined, {
-                        numeric: true,
-                      }),
-                  )
-                  .map((m) => (
-                    <article
-                      className={
-                        m.sender_agent_id === session.agent_id
-                          ? 'message own'
-                          : 'message'
-                      }
-                      key={m.msg_id}
-                    >
-                      <small>
-                        <AgentLink
-                          id={m.sender_agent_id}
-                          name={
-                            m.sender_agent_id === session.agent_id
-                              ? session.agent_name
-                              : contexts[m.sender_agent_id]?.identity_assertion
-                                  .display_name
-                          }
-                        />{' '}
-                        · {time(m.created_at)}
-                      </small>
-                      <p className="prewrap">{m.content}</p>
-                    </article>
-                  ))}
+                {messages.map((m) => (
+                  <article
+                    className={
+                      m.sender_agent_id === session.agent_id
+                        ? 'message own'
+                        : 'message'
+                    }
+                    key={m.msg_id}
+                  >
+                    <small>
+                      <AgentLink
+                        id={m.sender_agent_id}
+                        name={
+                          m.sender_agent_id === session.agent_id
+                            ? session.agent_name
+                            : contexts[m.sender_agent_id]?.identity_assertion
+                                .display_name
+                        }
+                      />{' '}
+                      · {time(m.created_at)}
+                    </small>
+                    <p className="prewrap">{m.content}</p>
+                  </article>
+                ))}
                 <Pager
                   cursor={messageCursor}
                   next={history.data?.next_cursor}
                   onChange={setMessageCursor}
                 />
               </div>
+              {reading.unread > 0 && (
+                <button
+                  className="sn-new-messages"
+                  onClick={reading.jumpToLatest}
+                >
+                  {reading.unread} 条新消息 · 跳到最新
+                </button>
+              )}
               <footer className="ew-live-composer">
                 <MessageComposer
                   key={selected}
@@ -579,38 +607,40 @@ export function Messages({ session }: { session: Session }) {
                   hint="交给 Agent 处理 · Shift + Enter 换行"
                   value={drafts[selected] || ''}
                   onChange={(text) =>
-                    setDrafts((d) => ({ ...d, [selected]: text }))
+                    setDrafts((d) => {
+                      const next = { ...d, [selected]: text };
+                      replyDrafts.set(session.agent_id, next);
+                      return next;
+                    })
                   }
                   onSend={async (content) => {
                     if (!peer)
                       throw new Error('当前会话暂时无法回复，请重新选择会话。');
-                    if (
-                      replyOperation.current.conversation !== selected ||
-                      replyOperation.current.content !== content
-                    )
-                      replyOperation.current = {
-                        conversation: selected,
-                        content,
-                        key: requestKey(),
-                      };
-                    setReplyStatus('');
+                    let operation = replyOperations.current.get(selected);
+                    if (!operation || operation.content !== content) {
+                      operation = { content, key: requestKey() };
+                      replyOperations.current.set(selected, operation);
+                    }
+                    setReplyStatus((status) => ({ ...status, [selected]: '' }));
                     await api('agent-commands', {
                       command_type: 'human_instruction',
                       payload: {
                         instruction: `请在与 Agent ${peer} 的会话 ${selected} 中处理以下回复：${content}`,
                       },
-                      idempotency_key: replyOperation.current.key,
+                      idempotency_key: operation.key,
                     });
-                    replyOperation.current = {
-                      conversation: '',
-                      content: '',
-                      key: requestKey(),
-                    };
-                    setReplyStatus('已交给 Agent，等待回复。');
+                    if (replyOperations.current.get(selected) === operation)
+                      replyOperations.current.delete(selected);
+                    setReplyStatus((status) => ({
+                      ...status,
+                      [selected]: '已交给 Agent，等待回复。',
+                    }));
                   }}
                 />
-                {replyStatus && (
-                  <output className="ew-reply-status">{replyStatus}</output>
+                {replyStatus[selected] && (
+                  <output className="ew-reply-status">
+                    {replyStatus[selected]}
+                  </output>
                 )}
               </footer>
             </>
