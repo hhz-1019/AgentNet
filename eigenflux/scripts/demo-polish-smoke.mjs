@@ -38,52 +38,50 @@ try {
   await page.locator('.sw-post').first().waitFor();
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: '.agentnet-audit/demo-discover-desktop.png' });
-  await page.getByRole('link', { name: '伙伴', exact: true }).first().click();
+  await page.getByRole('link', { name: '通讯录', exact: true }).first().click();
   assert.equal(await page.locator('.sw-peer-card').count(), 3);
   await page.screenshot({ path: '.agentnet-audit/demo-partners-desktop.png' });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: '.agentnet-audit/demo-partners-mobile.png' });
   await page.setViewportSize({ width: 1600, height: 1050 });
   await page.getByRole('button', { name: '可联系', exact: true }).click();
   assert.equal(await page.locator('.sw-peer-card').count(), 2);
   await page.getByRole('button', { name: '全部', exact: true }).click();
-  await page.getByLabel('搜索伙伴与能力').fill('产品设计');
+  await page.getByLabel('搜索联系人').fill('设计');
   assert.equal(await page.locator('.sw-peer-card').count(), 1);
   await page
     .getByRole('button', { name: '查看公开主页', exact: false })
     .click();
   await page
-    .getByRole('dialog', { name: '产品设计 Agent · 示例公开名片' })
+    .getByRole('heading', { name: '小周的 Agent', exact: true })
     .waitFor();
-  await page.keyboard.press('Escape');
-  await page.getByRole('dialog').waitFor({ state: 'hidden' });
-  await page
-    .getByRole('button', { name: '让 Agent 联系', exact: true })
-    .click();
-  await page
-    .getByText('联系指令已记录在本机，未发送到真实网络。', { exact: true })
-    .waitFor();
-  await page.getByRole('button', { name: '清空伙伴搜索' }).click();
-  await page
-    .getByRole('button', { name: '让 Agent 解除联系', exact: true })
-    .click();
-  await page
-    .getByText('解除指令已记录在本机，示例联系仍保留。', { exact: true })
-    .waitFor();
-  assert.equal(await page.locator('.sw-connection-card').count(), 1);
-  assert.equal(await page.locator('.sw-peer-card').count(), 3);
+  assert.equal(new URL(page.url()).hash, '#person/demo-design');
+  assert.equal(await page.locator('.sw-post').count(), 1);
+  await page.getByRole('button', { name: '退出主页', exact: true }).click();
+  await page.getByLabel('搜索联系人').fill('设计');
+  await page.getByRole('button', { name: '添加好友', exact: true }).click();
+  await page.getByText('好友申请已提交。', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '清空联系人搜索' }).click();
   await page.getByRole('button', { name: '查看对话', exact: true }).click();
   await page
-    .getByLabel('给你的 Agent 一条指示')
-    .fill('请一起讨论论文的对照实验。');
-  await page.getByRole('button', { name: '记录演示指令' }).click();
+    .getByRole('heading', { name: '林间的 Agent', exact: true })
+    .waitFor();
+  await page.getByLabel('输入消息').fill('周末见！');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
   await page
-    .getByText('请一起讨论论文的对照实验。', { exact: false })
+    .locator('.sn-message.own')
+    .getByText('周末见！', { exact: true })
     .waitFor();
   await page.screenshot({ path: '.agentnet-audit/demo-messages-desktop.png' });
-  for (const width of [360, 390, 768, 1024, 1440]) await noOverflow(width);
-  await page.getByRole('link', { name: '伙伴', exact: true }).last().click();
-  for (const width of [360, 390, 768, 1024, 1440]) await noOverflow(width);
+  for (const width of [1084, 1440]) await noOverflow(width);
+  await page.getByRole('link', { name: '通讯录', exact: true }).last().click();
+  await page.getByRole('button', { name: '移除好友', exact: true }).click();
+  await page.getByText('已移除好友。', { exact: true }).waitFor();
+  assert.equal(await page.locator('.sw-connection-card').count(), 0);
+  assert.equal(await page.locator('.sw-peer-card').count(), 3);
+  await page.reload();
+  await page.locator('.sw-peer-card').first().waitFor();
+  assert.equal(await page.locator('.sw-connection-card').count(), 0);
+  await page.getByText('等待回应', { exact: true }).waitFor();
+  for (const width of [1084, 1440]) await noOverflow(width);
   assert.equal(demoAPIRequests, 0, 'demo must not call real network APIs');
   await page.unroute('**/api/v2/**');
   const commands = [];
@@ -202,17 +200,15 @@ try {
     1,
     'queued instruction must not fake a removed relationship',
   );
-  for (const width of [360, 390, 768, 1024, 1440]) await noOverflow(width);
-  await page.setViewportSize({ width: 390, height: 844 });
+  for (const width of [1084, 1440]) await noOverflow(width);
+  await page.setViewportSize({ width: 1084, height: 844 });
   await page.reload();
   await page.locator('.sw-peer-card').first().waitFor();
   await page.screenshot({
-    path: '.agentnet-audit/demo-network-mobile.png',
+    path: '.agentnet-audit/demo-network-reloaded.png',
     fullPage: true,
   });
-  await page.getByRole('button', { name: '个人 Agent', exact: true }).click();
-  await page.locator('.sw-rail-wrap.open').waitFor();
-  await page.getByRole('button', { name: '关闭 Agent 面板' }).click();
+  assert.equal(await page.locator('.sw-agent-rail').count(), 0);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   assert.equal(
     await page
@@ -223,7 +219,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: demo navigation/search/profile dialog/local commands; real-page fixture queue/link semantics; outlined actions; 360–1440px network/message layouts; reduced motion; no browser errors',
+    'PASS: demo navigation/search/person home/local relationships/direct messages; real-page fixture queue/link semantics; outlined actions; 1084–1440px network/message layouts; reduced motion; no browser errors',
   );
 } finally {
   await browser.close();

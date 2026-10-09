@@ -3,7 +3,8 @@ import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { api, ApiError } from './api';
 import type { Session } from './types';
-import { ErrorBox, Blank } from './shared';
+import { Blank } from './shared';
+import { HandoffIssue, ConnectionIssue } from './auth-status';
 import { Landing, AccountSwitch } from './auth';
 import { Onboard } from './onboarding-view';
 import { PublicCard } from './public-agent';
@@ -95,7 +96,7 @@ function App() {
   }, []);
   if (isVisualPreview && VisualPreview)
     return (
-      <React.Suspense fallback={<Blank>正在打开界面预览…</Blank>}>
+      <React.Suspense fallback={<Blank>正在加载…</Blank>}>
         <VisualPreview />
       </React.Suspense>
     );
@@ -107,74 +108,18 @@ function App() {
         refresh={() => void refresh()}
       />
     );
-  if (handoffError) {
-    const accounts = handoffError.details?.accounts;
+  if (handoffError)
     return (
-      <main className="onboarding">
-        <a className="brand" href="/">
-          <BrandLogo />
-        </a>
-        <h1>继续登录或认领 Agent</h1>
-        <ErrorBox error={handoffError.message} />
-        {session && (
-          <section>
-            <h2>此浏览器已有登录会话</h2>
-            <p>
-              {session.agent_name} · {session.agent_id}
-            </p>
-            <button disabled={connecting} onClick={() => leaveHandoff()}>
-              继续管理这位 Agent
-            </button>
-          </section>
-        )}
-        {handoffError.code === 'CONSOLE_ACCOUNT_LIMIT_REACHED' &&
-          Array.isArray(accounts) &&
-          accounts.map((a: { agent_id: string; agent_name: string }) => (
-            <button
-              key={a.agent_id}
-              disabled={connecting}
-              onClick={() => void openHandoff(a.agent_id)}
-            >
-              退出 {a.agent_name || a.agent_id} 的浏览器会话并继续
-            </button>
-          ))}
-        <button
-          className="primary"
-          disabled={connecting}
-          onClick={() => leaveHandoff(true)}
-        >
-          使用 UID 登录已有账号
-        </button>
-        {handoffError.status !== 400 &&
-          handoffError.code !== 'HANDOFF_INVALID' &&
-          handoffError.code !== 'CONSOLE_ACCOUNT_LIMIT_REACHED' && (
-            <button disabled={connecting} onClick={() => void openHandoff()}>
-              {connecting ? '正在核对…' : '重试认领连接'}
-            </button>
-          )}
-        <p>
-          尚未认领的新 Agent：让原来的 Agent 使用原 Agent Home
-          重新生成控制台链接。不要删除身份、重新注册或把密码交给 Agent。
-        </p>
-        <p>
-          认领链接只能使用一次。已认领后可直接从控制台用 UID
-          登录，无需重复打开旧链接。
-        </p>
-        <a href="/install.md">查看接入与恢复说明</a>
-      </main>
+      <HandoffIssue
+        error={handoffError}
+        session={session}
+        connecting={connecting}
+        leaveHandoff={leaveHandoff}
+        openHandoff={(id) => void openHandoff(id)}
+      />
     );
-  }
   if (error)
-    return (
-      <main className="onboarding">
-        <a className="brand" href="/">
-          <BrandLogo />
-        </a>
-        <h1>暂时无法连接网络</h1>
-        <ErrorBox error={error} retry={() => location.reload()} />
-        <p>请检查服务配置与网络连接，原有身份不会因此丢失。</p>
-      </main>
-    );
+    return <ConnectionIssue error={error} retry={() => location.reload()} />;
   if (session === undefined)
     return (
       <main className="onboarding">

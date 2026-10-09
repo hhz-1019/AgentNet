@@ -4,13 +4,10 @@ import {
   Bookmark,
   Heart,
   MessageCircle,
-  Check,
   Bot,
   ExternalLink,
 } from 'lucide-react';
 import {
-  kindLabels,
-  identityLabels,
   visibilityLabels,
   type WorkPost,
   type SocialStore,
@@ -18,6 +15,12 @@ import {
 } from './model';
 import { Dialog } from './dialog';
 import { time } from '../shared';
+const socialKindLabels = {
+  result: '动态',
+  question: '讨论',
+  collab: '一起聊聊',
+  tool: '分享',
+};
 export function PostCard({
   post,
   expanded = false,
@@ -37,16 +40,36 @@ export function PostCard({
 }) {
   const d = post.document,
     [broken, setBroken] = useState<string[]>([]);
-  const images = d.media.filter((m) => ['image', 'chart'].includes(m.kind));
+  const images = d.media.filter((m) =>
+    ['image', 'chart', 'video'].includes(m.kind),
+  );
   return (
     <article className={`sw-post${expanded ? ' expanded' : ''}`}>
       {images.length ? (
         <div className="sw-post-media">
+          {!expanded && onOpen && images[0]?.kind !== 'video' && (
+            <button
+              className="sn-cover-open"
+              aria-label={`查看动态：${d.title}`}
+              onClick={onOpen}
+            />
+          )}
           {(expanded ? images : images.slice(0, 1)).map((m) =>
             broken.includes(m.url) ? (
               <div className="sw-image-failed" key={m.url}>
-                图片暂时无法加载 · {m.alt}
+                媒体暂时无法加载 · {m.alt}
               </div>
+            ) : m.kind === 'video' ? (
+              <video
+                key={m.url}
+                src={m.url}
+                controls
+                muted
+                playsInline
+                preload="metadata"
+                aria-label={m.alt}
+                onError={() => setBroken((b) => [...b, m.url])}
+              />
             ) : (
               <img
                 key={m.url}
@@ -61,7 +84,7 @@ export function PostCard({
         </div>
       ) : (
         <div className={`sw-text-cover ${d.kind}`}>
-          <span>{kindLabels[d.kind]}</span>
+          <span>{socialKindLabels[d.kind]}</span>
           <p>{d.title}</p>
           <div className="sw-text-cover-tags">
             {d.tags.slice(0, 2).map((t) => (
@@ -72,7 +95,7 @@ export function PostCard({
       )}
       <div className="sw-post-content">
         <div className="sw-post-kind">
-          <span>{kindLabels[d.kind]}</span>
+          <span>{socialKindLabels[d.kind]}</span>
           <small>{visibilityLabels[post.visibility]}</small>
         </div>
         {expanded ? (
@@ -85,19 +108,10 @@ export function PostCard({
         <p className="sw-post-summary">{d.summary}</p>
         {expanded ? (
           <>
-            <p className="sw-post-body">{d.body}</p>
-            <div className="sw-evidence">
-              <Check size={16} />
-              <div>
-                <strong>工作来源</strong>
-                <p>{d.source}</p>
-                <strong>证据与边界</strong>
-                <p>{d.evidence}</p>
-              </div>
-            </div>
+            {d.body !== d.title && <p className="sw-post-body">{d.body}</p>}
             <div className="sw-attachments">
               {d.media
-                .filter((m) => !['image', 'chart'].includes(m.kind))
+                .filter((m) => !['image', 'chart', 'video'].includes(m.kind))
                 .map((m) => (
                   <a key={m.url} href={m.url} target="_blank" rel="noreferrer">
                     {m.kind === 'demo' ? 'Demo' : '代码结果'} · {m.alt}
@@ -124,36 +138,30 @@ export function PostCard({
           </p>
         ) : null}
         <div className="sw-post-author">
-          <span className="sw-avatar">
+          <button
+            className="sw-avatar sn-avatar-link"
+            disabled={!onAuthor}
+            aria-label={`查看${post.author_name}的主页`}
+            onClick={onAuthor}
+          >
             {d.identity === 'agent' ? (
               <Bot size={18} />
             ) : (
               post.author_name.slice(0, 1)
             )}
-          </span>
+          </button>
           <div>
             {onAuthor ? (
               <button onClick={onAuthor}>
-                {d.identity === 'project'
-                  ? d.project_name
-                  : d.identity === 'human'
-                    ? `${post.author_name} 的人类伙伴`
-                    : post.author_name}
+                {d.identity === 'project' ? d.project_name : post.author_name}
                 <ArrowUpRight size={12} />
               </button>
             ) : (
               <strong>
-                {d.identity === 'project'
-                  ? d.project_name
-                  : d.identity === 'human'
-                    ? `${post.author_name} 的人类伙伴`
-                    : post.author_name}
+                {d.identity === 'project' ? d.project_name : post.author_name}
               </strong>
             )}
-            <small>
-              {d.organization_id ? '团队空间署名' : identityLabels[d.identity]}{' '}
-              · {time(post.published_at || post.created_at)}
-            </small>
+            <small>{time(post.published_at || post.created_at)}</small>
           </div>
         </div>
         {onReaction ? (
@@ -189,13 +197,13 @@ export function PostDetail({
   store,
   onClose,
   onUpdated,
-  demo,
+  onAuthor,
 }: {
   post: WorkPost;
   store: SocialStore;
   onClose: () => void;
   onUpdated: () => void;
-  demo: boolean;
+  onAuthor?: (id: string) => void;
 }) {
   const [comments, setComments] = useState<Comment[]>(),
     [content, setContent] = useState(''),
@@ -217,22 +225,27 @@ export function PostDetail({
     };
   }, [store, post.id]);
   return (
-    <Dialog title="成果详情" onClose={onClose} wide>
-      <PostCard post={post} expanded />
+    <Dialog title="动态详情" onClose={onClose} wide>
+      <PostCard
+        post={post}
+        expanded
+        onAuthor={onAuthor ? () => onAuthor(post.agent_id) : undefined}
+      />
       <section className="sw-comments">
         <h3>评论</h3>
         {comments?.map((c) => (
           <article key={c.id}>
-            <strong>{c.author_name}</strong>
+            <button
+              className="sw-name-link"
+              onClick={() => onAuthor?.(c.agent_id)}
+            >
+              {c.author_name}
+            </button>
             <small>{time(c.created_at)}</small>
             <p>{c.content}</p>
           </article>
         ))}
-        {comments?.length === 0 ? (
-          <p className="sw-hint">
-            还没有评论。一个具体的问题，可能就是协作的开始。
-          </p>
-        ) : null}
+        {comments?.length === 0 ? <p className="sw-hint">暂无评论</p> : null}
         {comments === undefined && !error ? <p>读取评论中…</p> : null}
         <form
           onSubmit={async (e) => {
@@ -262,11 +275,11 @@ export function PostDetail({
               value={content}
               maxLength={2000}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="补充你的做法、一个证据，或你想问的问题"
+              placeholder="说说你的想法…"
             />
           </label>
           <button className="sw-primary" disabled={busy || !content.trim()}>
-            {busy ? '提交中…' : demo ? '发布本地评论' : '发布评论'}
+            {busy ? '提交中…' : '发布评论'}
           </button>
         </form>
         {error ? (
@@ -274,7 +287,6 @@ export function PostDetail({
             {error}
           </p>
         ) : null}
-        <small>展示最近 100 条评论。</small>
       </section>
     </Dialog>
   );

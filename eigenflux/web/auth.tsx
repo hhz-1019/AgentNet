@@ -5,27 +5,42 @@ import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
 import { AGREEMENT_VERSION } from './twin';
 
+export interface LoginState {
+  mode?: 'login' | 'register' | 'reset';
+  agents?: { agent_id: string; display_name: string }[];
+  issued?: { uid: string; recovery_key: string };
+}
+
 export function Login({
   done,
   binding = false,
   switching = false,
   initialUID = '',
+  initialState,
+  simplified = false,
+  continueLabel,
 }: {
   done: () => void;
   binding?: boolean;
   switching?: boolean;
   initialUID?: string;
+  initialState?: LoginState;
+  simplified?: boolean;
+  continueLabel?: string;
 }) {
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>(
-    binding && !initialUID ? 'register' : 'login',
+    initialState?.mode || (binding && !initialUID ? 'register' : 'login'),
   );
   const [uid, setUID] = useState(initialUID);
   const [password, setPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [recoveryKey, setRecoveryKey] = useState('');
-  const [agents, setAgents] =
-    useState<{ agent_id: string; display_name: string }[]>();
-  const [issued, setIssued] = useState<{ uid: string; recovery_key: string }>();
+  const [agents, setAgents] = useState<LoginState['agents']>(
+    initialState?.agents,
+  );
+  const [issued, setIssued] = useState<LoginState['issued']>(
+    initialState?.issued,
+  );
   const action = useAction();
   const verification = usePhoneVerification();
   const finish = async (agentId?: string) => {
@@ -44,11 +59,13 @@ export function Login({
     return (
       <section className="login-form">
         <h2>{mode === 'reset' ? '密码已重置' : '你的数字账号已创建'}</h2>
-        <p>
-          保存 UID
-          和恢复密钥。忘记密码时可用恢复密钥重置；密钥只显示这一次，请勿交给
-          Agent。
-        </p>
+        {!simplified && (
+          <p>
+            保存 UID
+            和恢复密钥。忘记密码时可用恢复密钥重置；密钥只显示这一次，请勿交给
+            Agent。
+          </p>
+        )}
         <dl className="account-recovery">
           <dt>账号 UID</dt>
           <dd>
@@ -83,7 +100,11 @@ export function Login({
             } else done();
           }}
         >
-          {mode === 'reset' ? '返回 UID 登录' : '已保存，继续配置 Agent'}
+          {mode === 'reset'
+            ? '返回 UID 登录'
+            : simplified
+              ? continueLabel || '进入 elsewhere'
+              : '已保存，继续配置 Agent'}
         </button>
         <ActionStatus action={action} />
       </section>
@@ -151,13 +172,19 @@ export function Login({
                 ...verification.payload,
               },
             );
-            sessionStorage.setItem(
-              'elsewhere:new-account',
-              JSON.stringify(result),
-            );
-            verification.reset();
-            setPassword('');
-            done();
+            if (simplified) {
+              verification.reset();
+              setPassword('');
+              setIssued(result);
+            } else {
+              sessionStorage.setItem(
+                'elsewhere:new-account',
+                JSON.stringify(result),
+              );
+              verification.reset();
+              setPassword('');
+              done();
+            }
           } else if (mode === 'reset') {
             const result = await api<{ uid: string; recovery_key: string }>(
               'auth/uid/reset-password',
@@ -170,7 +197,9 @@ export function Login({
             const result = await api<{
               agents: { agent_id: string; display_name: string }[];
             }>('auth/uid/login', { uid, password });
-            setAgents(result.agents || []);
+            if (simplified && result.agents?.length === 1)
+              await finish(result.agents[0].agent_id);
+            else setAgents(result.agents || []);
           }
         }, '');
       }}
@@ -182,11 +211,11 @@ export function Login({
             ? '用恢复密钥重置密码'
             : '使用 UID 登录'}
       </h2>
-      <p>
-        {mode === 'register'
-          ? '系统随机分配 UID，一个账号可以管理多位 Agent。密码只在控制台输入。'
-          : '人类账号管理 Agent，运行环境使用独立设备密钥接入网络。'}
-      </p>
+      {mode === 'register' && !simplified && (
+        <p>
+          系统随机分配 UID，一个账号可以管理多位 Agent。密码只在控制台输入。
+        </p>
+      )}
       {mode === 'register' && (
         <PhoneFields
           verification={verification}
@@ -214,7 +243,15 @@ export function Login({
         />
       )}
       <Field
-        label={mode === 'reset' ? '新密码' : '账号密码'}
+        label={
+          mode === 'reset'
+            ? simplified
+              ? '新密码（至少 12 位）'
+              : '新密码'
+            : mode === 'register' && simplified
+              ? '账号密码（至少 12 位）'
+              : '账号密码'
+        }
         type="password"
         required
         minLength={mode === 'login' ? undefined : 12}
@@ -223,7 +260,7 @@ export function Login({
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
-      {mode !== 'login' && (
+      {mode !== 'login' && !simplified && (
         <p className="hint">
           建议至少 12 位英文、数字或符号。密码只在此页面输入。
         </p>
@@ -241,7 +278,8 @@ export function Login({
             <a href="/agreement.html" target="_blank" rel="noreferrer">
               用户协议与 Agent 活动授权
             </a>
-            ，允许 Agent 预填资料，并在我设置的范围内参与网络活动。
+            {!simplified &&
+              '，允许 Agent 预填资料，并在我设置的范围内参与网络活动。'}
           </span>
         </label>
       )}
@@ -257,9 +295,13 @@ export function Login({
             ? '创建账号并认领 Agent'
             : mode === 'reset'
               ? '重置密码并更新恢复密钥'
-              : '登录并选择 Agent'}
+              : simplified
+                ? binding
+                  ? '登录并接入'
+                  : '登录'
+                : '登录并选择 Agent'}
       </button>
-      {binding && !initialUID && (
+      {binding && !initialUID && mode !== 'reset' && (
         <button
           type="button"
           disabled={action.busy}
@@ -295,18 +337,22 @@ export function Login({
         </button>
       )}
       <ActionStatus action={action} />
-      {!binding && (
-        <p className="hint">
-          首次加入：先让你的 Agent 阅读 <a href="/join.md">接入指南</a>
-          ，再打开它生成的认领链接创建 UID。
-        </p>
-      )}
     </form>
   );
 }
 
-export function Landing({ done }: { done: () => void }) {
-  const joinInstruction = `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 elsewhere；按指南完成安装、定时收件箱与身份认领。`;
+export function Landing({
+  done,
+  initialState,
+  simplified = false,
+}: {
+  done: () => void;
+  initialState?: LoginState;
+  simplified?: boolean;
+}) {
+  const joinInstruction = simplified
+    ? `请阅读 ${location.origin}/install.md，将你接入 elsewhere。根据已获准使用的记忆整理我的画像和逐条事件记忆，打开认领页面。`
+    : `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 elsewhere；按指南完成安装、定时收件箱与身份认领。`;
   return (
     <main className="landing">
       <section>
@@ -330,17 +376,16 @@ export function Landing({ done }: { done: () => void }) {
           >
             复制接入指令
           </button>
-          <ol className="join-steps">
-            <li>Agent 自动安装经过校验的客户端与接入 Skill</li>
-            <li>Agent 准备资料草稿并打开控制台</li>
-            <li>注册账号、确认资料、设置每日活动额度</li>
-          </ol>
+          {!simplified && (
+            <ol className="join-steps">
+              <li>Agent 自动安装经过校验的客户端与接入 Skill</li>
+              <li>Agent 准备资料草稿并打开控制台</li>
+              <li>注册账号、确认资料、设置每日活动额度</li>
+            </ol>
+          )}
         </div>
-        <p className="hint">
-          <a href="https://github.com/phronesis-io/eigenflux">查看上游源码</a>
-        </p>
       </section>
-      <Login done={done} />
+      <Login done={done} initialState={initialState} simplified={simplified} />
     </main>
   );
 }

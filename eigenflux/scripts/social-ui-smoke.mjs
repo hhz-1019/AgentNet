@@ -19,86 +19,166 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1040 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 try {
+  const requests = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/api/')) requests.push(r.url());
+  });
   await page.goto('http://127.0.0.1:4322/preview');
-  await page.waitForSelector('.sw-post');
-  await page.screenshot({ path: '.agentnet-audit/social-desktop.png' });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: '.agentnet-audit/social-mobile.png' });
-  await page.setViewportSize({ width: 1440, height: 1040 });
-  assert.equal(await page.locator('.sw-post').count(), 4);
-  await page.getByRole('button', { name: '标签', exact: true }).click();
-  await page
-    .locator('.sw-tag-panel')
-    .getByRole('button', { name: '#React', exact: true })
-    .click();
-  await page
-    .locator('.sw-tag-panel')
-    .getByRole('button', { name: '#Agent 工程', exact: true })
-    .click();
-  await page.waitForTimeout(200);
-  assert.equal(await page.locator('.sw-post').count(), 1);
-  await page.getByRole('button', { name: '清除标签', exact: true }).click();
-  await page.waitForTimeout(100);
-  await page.getByRole('button', { name: '点赞', exact: true }).first().click();
+  await page.locator('.sw-post').first().waitFor();
   assert.equal(
-    await page.getByRole('button', { name: '取消点赞', exact: true }).count(),
-    1,
+    await page
+      .getByRole('navigation', { name: '主导航', exact: true })
+      .getByRole('link')
+      .count(),
+    3,
   );
-  await page.getByRole('button', { name: '收藏', exact: true }).first().click();
-  await page
-    .getByRole('button', { name: '查看评论', exact: true })
-    .first()
-    .click();
-  await page.getByLabel('你的评论').fill('具体过程能否补充一个失败样例？');
-  await page.getByRole('button', { name: '发布本地评论', exact: true }).click();
-  await page
-    .getByText('具体过程能否补充一个失败样例？', { exact: true })
-    .waitFor();
-  await page.getByLabel('你的评论').fill('具体过程能否补充一个失败样例？');
-  await page.getByRole('button', { name: '发布本地评论', exact: true }).click();
+  assert.equal(await page.locator('.sw-agent-rail').count(), 0);
+  assert.equal(await page.locator('.sn-account').count(), 1);
+  await page.getByRole('button', { name: '关注', exact: true }).click();
   await page.waitForFunction(
-    () => document.querySelectorAll('.sw-comments article').length === 2,
+    () => document.querySelectorAll('.sw-post').length === 3,
   );
-  await page.getByRole('button', { name: '关闭窗口' }).click();
-  await page.getByRole('button', { name: '分享工作', exact: true }).click();
-  assert.equal(await page.locator('.sw-starter').count(), 0);
-  await page.getByLabel('你想分享什么？').fill('分享社会模拟项目的验证工作');
-  await page.getByLabel('发布范围').selectOption('friends');
-  await page.screenshot({ path: '.agentnet-audit/agent-share-desktop.png' });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: '.agentnet-audit/agent-share-mobile.png' });
-  await page.setViewportSize({ width: 1440, height: 1040 });
-  assert.equal(await page.getByLabel('标题', { exact: true }).count(), 0);
+  await page.getByRole('button', { name: '推荐', exact: true }).click();
+  assert.equal(
+    await page.getByRole('button', { name: '标签', exact: true }).count(),
+    0,
+  );
+  await page.getByRole('button', { name: '#散步', exact: true }).click();
+  await page.getByText('话题 · #散步', { exact: true }).waitFor();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.sw-post').length === 1,
+  );
+  await page.getByRole('button', { name: '返回全部', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.sw-post').length === 6,
+  );
   await page
-    .getByRole('button', { name: '授权 Agent 整理并发布', exact: true })
+    .getByRole('button', { name: '查看小周的 Agent的主页', exact: true })
     .click();
+  await page.getByRole('button', { name: '退出主页', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.sw-post').length === 6,
+  );
+  assert.equal(new URL(page.url()).hash, '#explore');
+  await page.getByRole('button', { name: '点赞', exact: true }).first().click();
+  await page.getByRole('button', { name: '取消点赞', exact: true }).waitFor();
+  await page.getByRole('button', { name: '收藏', exact: true }).first().click();
+  await page.getByRole('link', { name: '我的', exact: true }).first().click();
+  await page.getByRole('link', { name: '点赞', exact: true }).click();
+  await page.getByRole('button', { name: '取消点赞', exact: true }).waitFor();
+  assert.equal(
+    await page.getByRole('button', { name: '我的通讯录', exact: true }).count(),
+    0,
+  );
+  await page.getByRole('link', { name: '收藏', exact: true }).click();
+  await page.locator('.sw-post').waitFor();
+  await page.reload();
+  await page.locator('.sw-post').waitFor();
+  assert.equal(new URL(page.url()).hash, '#saved');
+  await page.getByRole('button', { name: '查看评论', exact: true }).click();
+  for (let i = 0; i < 2; i++) {
+    await page.getByLabel('你的评论').fill('这个想法很有意思。');
+    await page.getByRole('button', { name: '发布评论', exact: true }).click();
+    await page.waitForFunction(
+      (n) => document.querySelectorAll('.sw-comments article').length === n,
+      i + 1,
+    );
+  }
+  await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await page.getByRole('button', { name: '打开设置', exact: true }).click();
+  await page.getByRole('heading', { name: '设置', exact: true }).waitFor();
+  assert.equal(
+    await page.getByRole('link', { name: '个人画像', exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    await page.getByRole('link', { name: '隐私与连接', exact: true }).count(),
+    0,
+  );
+  await page.getByRole('link', { name: '我的主页', exact: true }).click();
+  await page.getByRole('button', { name: '编辑画像', exact: true }).click();
+  await page.getByLabel('昵称', { exact: true }).waitFor();
+  await page.getByRole('link', { name: '消息', exact: true }).first().click();
+  await page.getByRole('button', { name: '发起群聊', exact: true }).click();
+  await page.getByLabel('群聊名称').fill('前端流程验收群');
+  await page.getByLabel('林间的 Agent', { exact: true }).check();
+  await page.getByRole('button', { name: '创建群聊', exact: true }).click();
   await page
-    .getByText('请整理并发布以下工作的中文分享：分享社会模拟项目的验证工作', {
-      exact: true,
-    })
+    .getByRole('heading', { name: '前端流程验收群', exact: true })
     .waitFor();
-  assert.equal(await page.locator('.sw-post').count(), 4);
+  await page.getByRole('button', { name: '群聊详情', exact: true }).click();
+  await page
+    .getByRole('dialog')
+    .getByText('我的 Agent', { exact: true })
+    .waitFor();
+  await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await page.getByLabel('输入消息', { exact: true }).fill('周末一起去书店吧。');
+  await page.getByLabel('输入消息', { exact: true }).press('Shift+Enter');
+  assert.equal(
+    await page.getByLabel('输入消息').inputValue(),
+    '周末一起去书店吧。\n',
+  );
+  await page.getByLabel('输入消息').press('Enter');
+  await page
+    .locator('.sn-message.own')
+    .getByText('周末一起去书店吧。', { exact: true })
+    .waitFor();
+  assert.equal(await page.getByLabel('输入消息').inputValue(), '');
   await page.reload();
   await page
-    .getByLabel('给个人 Agent 的指令')
-    .fill('请检查这份工作能否补充一个失败样例。');
-  await page.getByRole('button', { name: '发送给个人 Agent' }).click();
-  await page.getByText('已排队，等待宿主', { exact: false }).first().waitFor();
-  assert.equal(await page.locator('.sw-agent-bubble').count(), 0);
-  for (const width of [390, 768, 1440]) {
-    await page.setViewportSize({ width, height: 844 });
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > window.innerWidth,
+    .locator('.sn-message.own')
+    .getByText('周末一起去书店吧。', { exact: true })
+    .waitFor();
+  await page.getByRole('button', { name: '发布', exact: true }).first().click();
+  await page
+    .getByLabel('想分享什么？', { exact: true })
+    .fill('分享今天散步的发现');
+  await page.getByLabel('谁可以看', { exact: true }).selectOption('好友');
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: '发布', exact: true })
+    .click();
+  await page.getByText('动态已发布。', { exact: true }).waitFor();
+  await page
+    .getByRole('button', { name: '分享今天散步的发现', exact: true })
+    .waitFor();
+  await page.reload();
+  await page
+    .getByRole('button', { name: '分享今天散步的发现', exact: true })
+    .waitFor();
+  for (const route of [
+    'explore',
+    'messages',
+    'network',
+    'me',
+    'liked',
+    'settings',
+    'profile',
+    'memories',
+    'person/demo-research',
+  ]) {
+    await page.goto('http://127.0.0.1:4322/preview#' + route);
+    await page.locator('#social-main').waitFor();
+    assert.doesNotMatch(
+      await page.locator('body').innerText(),
+      /交互预览|示例内容|群聊示例|本机原型|推荐引擎待接入|在宿主中回复|Agent 代表我/,
     );
-    assert.equal(overflow, false, `overflow at ${width}`);
+
+    for (const width of [1084, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth,
+        ),
+        false,
+        `overflow: ${route} at ${width}`,
+      );
+    }
   }
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: '个人 Agent', exact: true }).click();
-  await page.locator('.sw-rail-wrap.open').waitFor();
-  await page.getByRole('button', { name: '关闭 Agent 面板' }).click();
+  assert.deepEqual(requests, [], 'preview must not contact backend APIs');
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: desktop/mobile layout, tag intersection, likes, saves, comments, Agent sharing instruction, no manual editor, persistence, real queued-state UI; no browser errors',
+    'PASS: social navigation, personal collection, topic browsing, comments, settings, direct personal/group messages, direct publication, refresh routes, desktop layout; no API calls or browser errors',
   );
 } finally {
   await browser.close();
