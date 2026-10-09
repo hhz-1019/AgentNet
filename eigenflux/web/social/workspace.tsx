@@ -33,6 +33,7 @@ import { Organizations } from './organizations';
 import { MessagePreview, selectPreviewConversation } from './social-messages';
 import { PersonHome } from './person-home';
 import { SocialIdentity } from './social-identity';
+import { IdentitySurface } from '../identity-surface';
 import { PortraitEditor } from './portrait';
 import {
   readPortrait,
@@ -56,6 +57,7 @@ import './type-system.css';
 import './editorial.css';
 import './journal-atmosphere.css';
 import './journal-materials.css';
+import './personal-identity.css';
 import './journal-surfaces.css';
 import './feed-design.css';
 import './post-reading.css';
@@ -520,31 +522,45 @@ export function SocialWorkspace({
         )}
         {personal && feedRoute && (
           <>
-            <SocialIdentity
-              name={portrait.fields.name || session.agent_name}
-              bio={profileIntro}
-              interests={portrait.fields.interests}
-              accessibleName="我的身份"
-              details={
-                demo
-                  ? portraitFields
-                      .filter((field) => field.key !== 'name')
-                      .map((field) => ({
-                        label: field.label,
-                        value: portrait.fields[field.key],
-                      }))
-                  : [{ label: '自我介绍', value: profileIntro || '' }]
-              }
-              actions={
-                <>
-                  <button onClick={() => go('profile')}>编辑画像</button>
-                  <button aria-label="打开设置" onClick={() => go('settings')}>
-                    <Settings2 size={16} />
-                    设置
+            <div className="sn-personal-identity">
+              <IdentitySurface engraved>
+                <SocialIdentity
+                  name={portrait.fields.name || session.agent_name}
+                  bio={profileIntro}
+                  interests={portrait.fields.interests}
+                  accessibleName="我的身份"
+                  details={
+                    demo
+                      ? portraitFields
+                          .filter((field) => field.key !== 'name')
+                          .map((field) => ({
+                            label: field.label,
+                            value: portrait.fields[field.key],
+                          }))
+                      : [{ label: '自我介绍', value: profileIntro || '' }]
+                  }
+                  meta={
+                    session.owner_uid ? (
+                      <span>
+                        账号 UID <code>{session.owner_uid}</code>
+                      </span>
+                    ) : undefined
+                  }
+                />
+              </IdentitySurface>
+              <div className="sn-personal-identity-tools">
+                <h2>我的身份卡</h2>
+                <p>另一个你，生活在别处。</p>
+                <div className="sn-personal-identity-actions">
+                  <button onClick={() => go('profile')}>
+                    编辑画像 <ArrowRight size={16} />
                   </button>
-                </>
-              }
-            />
+                  <button aria-label="打开设置" onClick={() => go('settings')}>
+                    <Settings2 size={16} /> 设置
+                  </button>
+                </div>
+              </div>
+            </div>
             <MovingTabs className="sn-tabs" label="我的内容" active={route}>
               {personalTabs.map(([id, label]) => (
                 <a

@@ -1,0 +1,146 @@
+/* A warm engraved card on the journal, with account controls beside it. */
+.sn-personal-identity {
+  display: grid;
+  grid-template-columns: minmax(0, 560px) minmax(160px, 1fr);
+  align-items: center;
+  gap: 40px;
+  padding: 20px 8px 36px;
+}
+.sn-personal-identity .identity-stage {
+  min-width: 0;
+  perspective: 1200px;
+}
+.identity-stage-engraved .identity-surface {
+  isolation: isolate;
+  border-radius: 18px;
+  box-shadow: 0 24px 42px -24px #302c2666;
+}
+.identity-stage-engraved .elsewhere-identity {
+  min-height: 336px;
+  padding: 30px 32px 28px;
+  border-radius: 18px;
+  background: #302c26;
+}
+.identity-stage-engraved .elsewhere-identity::after {
+  inset: 9px;
+  border-radius: 10px;
+  border-color: #cbbda433;
+}
+.identity-stage-engraved .elsewhere-identity-brand {
+  margin-bottom: 32px;
+}
+.identity-stage-engraved .elsewhere-identity-person,
+.identity-stage-engraved .elsewhere-identity-context {
+  max-width: 100%;
+}
+.identity-stage-engraved .elsewhere-identity-bottom {
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-top: 24px;
+}
+.identity-stage-engraved .elsewhere-identity-meta {
+  margin-top: 12px;
+}
+.identity-stage-engraved .elsewhere-identity-actions {
+  margin-left: auto;
+}
+.identity-stage-engraved .ew-identity-fragments {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+.identity-guilloche {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.identity-guilloche svg {
+  position: absolute;
+  width: 52%;
+  height: 110%;
+  right: -12%;
+  top: -3%;
+  stroke: #cbbda4;
+  stroke-width: 0.65;
+  opacity: 0.22;
+}
+.identity-stage-engraved .identity-sheen {
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse at var(--px) var(--py),
+    #fff3d622,
+    transparent 65%
+  );
+}
+.sn-personal-identity-tools {
+  min-width: 0;
+}
+.sn-social .sn-personal-identity-tools h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #302c26;
+}
+.sn-personal-identity-tools p {
+  margin: 12px 0 24px;
+  color: #746a5d;
+  font-size: 16px;
+  line-height: 1.8;
+}
+.sn-personal-identity-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.sn-social .sn-personal-identity-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #cfc5b5;
+  border-radius: 3px;
+  background: transparent;
+  color: #302c26;
+  font: inherit;
+}
+.sn-social .sn-personal-identity-actions button:hover {
+  background: #e9e0d0;
+}
+.sn-personal-identity-actions button:focus-visible {
+  outline: 2px solid #746a5d;
+  outline-offset: 4px;
+}
+@media (max-width: 1100px) {
+  .sn-personal-identity {
+    grid-template-columns: minmax(0, 560px);
+    justify-content: center;
+    gap: 24px;
+  }
+  .sn-personal-identity-tools h2,
+  .sn-personal-identity-tools p {
+    display: none;
+  }
+  .sn-personal-identity-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 600px) {
+  .sn-personal-identity {
+    padding: 12px 0 28px;
+  }
+  .identity-stage-engraved .elsewhere-identity {
+    min-height: 300px;
+    padding: 24px;
+  }
+  .identity-stage-engraved .elsewhere-identity-brand {
+    margin-bottom: 26px;
+  }
+}
