@@ -1,24 +1,28 @@
-/* Wind changes decoration only. Layout, content, and hit targets remain still. */
+/* Paper, projected daylight, and loose inserts share one physical surface. */
 .sw-workspace.ew-social.sn-social {
+  --ew-paper: #f4eddf;
+  --ew-ink: #292620;
+  --ew-muted: #554e43;
   position: relative;
   isolation: isolate;
 }
 
-.ew-social.sn-social .ew-journal-atmosphere {
+.ew-social.sn-social .ew-journal-atmosphere,
+.ew-social.sn-social .ew-journal-light-wash {
   position: fixed;
   inset: 0;
   z-index: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  max-width: none;
   overflow: hidden;
   pointer-events: none;
   user-select: none;
-  background-color: var(--ew-paper);
 }
-
-.ew-journal-atmosphere > :is(.ew-paper-grain, svg) {
+.ew-social.sn-social .ew-journal-atmosphere {
+  background: var(--ew-paper);
+}
+.ew-journal-atmosphere > :is(.ew-paper-grain, svg),
+.ew-tree-shadow,
+.ew-canopy-near,
+.ew-canopy-far {
   position: absolute;
   inset: 0;
   display: block;
@@ -27,69 +31,77 @@
   max-width: none;
   pointer-events: none;
 }
-
 .ew-journal-atmosphere .ew-paper-grain {
-  background-image:
-    repeating-linear-gradient(
-      94deg,
-      transparent 0 4px,
-      rgb(117 92 59 / 1.5%) 4px 5px,
-      transparent 5px 9px
-    ),
-    repeating-linear-gradient(
-      8deg,
-      transparent 0 3px,
-      rgb(255 253 248 / 18%) 3px 4px,
-      transparent 4px 7px
-    );
+  background: url('/textures/journal-paper.png') repeat;
+  background-size: 680px 680px;
+  opacity: 0.68;
 }
-
 .ew-social.sn-social .sw-main {
   position: relative;
   z-index: 1;
 }
-
 .ew-social.sn-social .sw-sidebar {
   z-index: 1;
 }
-
 .ew-journal-atmosphere .ew-window-light {
-  opacity: 0.5;
-  transform: none;
+  opacity: 0.65;
 }
-
 .ew-journal-atmosphere .ew-window-shadow {
-  opacity: 0.78;
-  transform: none;
+  opacity: 0.13;
 }
-
-.ew-journal-atmosphere .ew-tree-shadow {
-  opacity: calc(0.72 + var(--ew-sun-strength, 0) * 0.04);
-  transform-box: view-box;
-  transform-origin: 80% 18%;
+.ew-tree-shadow {
+  mix-blend-mode: multiply;
+}
+.ew-canopy-near,
+.ew-canopy-far {
+  inset: -6%;
+  width: 112%;
+  height: 112%;
+  background: url('/textures/journal-canopy-shadow.png') center / 100% 100%
+    no-repeat;
+  transform-origin: 6% 8%;
+  will-change: transform;
+}
+.ew-canopy-near {
+  mask-image: linear-gradient(#000 0%, #000 32%, transparent 82%);
+  opacity: 0.32;
+  filter: blur(4px);
   transform: translate3d(var(--ew-wind-x, 0px), var(--ew-wind-y, 0px), 0)
     rotate(var(--ew-wind-turn, 0deg));
 }
-
+.ew-canopy-far {
+  mask-image: linear-gradient(transparent 28%, #000 82%, #000);
+  opacity: 0.34;
+  filter: blur(6px);
+  transform-origin: 0% 80%;
+  transform: translate3d(
+      calc(var(--ew-wind-x, 0px) * 0.7),
+      calc(var(--ew-wind-y, 0px) * 0.55),
+      0
+    )
+    rotate(calc(var(--ew-wind-turn, 0deg) * -0.45));
+}
+/* A faint continuation falls across physical inserts without veiling the ink. */
+.ew-social.sn-social .ew-journal-light-wash {
+  z-index: 3;
+  opacity: 0.12;
+  mix-blend-mode: multiply;
+}
 .ew-social.sn-social article.sw-post[data-breeze-surface] {
   position: relative;
   transform: none;
 }
-
-/* This opaque sheet prevents projected shadows from reducing text contrast. */
 .ew-social.sn-social article.sw-post[data-breeze-surface] .sw-post-content {
   position: relative;
-  background: var(--ew-paper);
+  background: transparent;
 }
-
 .ew-social.sn-social
   article.sw-post[data-breeze-surface]
   :is(.sw-post-media, .sw-text-cover) {
   position: relative;
   isolation: isolate;
+  overflow: visible;
 }
-
-/* Neutralize legacy hover/active movement without touching icon feedback. */
 .ew-social.sn-social article.sw-post[data-breeze-surface] :is(button, a),
 .ew-social.sn-social
   article.sw-post[data-breeze-surface]:not(.expanded)
@@ -102,25 +114,40 @@
   transform: none;
   transition-property: color, background-color, border-color, opacity;
 }
-
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface]
+  :is(.ew-print-sheet, .ew-paper-stock) {
+  border-radius: 3px;
+  transform-origin: 50% 0%;
+  transform: perspective(1200px) rotateX(var(--ew-paper-tilt, 0deg));
+  box-shadow:
+    0 1px 1px rgb(74 56 34 / 9%),
+    0 calc(1px + var(--ew-paper-lift, 0px))
+      calc(2px + var(--ew-paper-lift, 0px) * 1.6) rgb(66 46 23 / 13%);
+  transition: none;
+}
+.ew-social.sn-social article.sw-post[data-breeze-surface] .ew-print-sheet {
+  position: relative;
+  overflow: hidden;
+  background: var(--ew-paper);
+}
 .ew-social.sn-social article.sw-post[data-breeze-surface] .ew-paper-edge {
   --ew-edge-lift: clamp(0px, var(--ew-paper-lift, 0px), 3px);
   --ew-edge-shadow: clamp(0, var(--ew-paper-shadow, 0), 1);
   position: absolute;
   z-index: 1;
   inset-inline-end: 0;
-  bottom: 0;
+  bottom: -1px;
   display: block;
-  width: 44%;
-  height: 12px;
+  width: 24%;
+  height: 22px;
+  margin: 0;
   padding: 0;
   border: 0;
-  overflow: hidden;
-  border-radius: 0 0 3px 0;
+  overflow: visible;
   pointer-events: none;
   user-select: none;
 }
-
 .ew-social.sn-social
   article.sw-post[data-breeze-surface]
   .ew-paper-edge::before,
@@ -133,54 +160,36 @@
   pointer-events: none;
   transition: none;
 }
-
 .ew-social.sn-social
   article.sw-post[data-breeze-surface]
   .ew-paper-edge::before {
-  z-index: 1;
-  bottom: -3px;
-  height: 3px;
-  clip-path: polygon(0 100%, 50% 92%, 82% 72%, 100% 5%, 100% 100%);
-  background: linear-gradient(90deg, transparent, var(--ew-surface) 82%);
-  opacity: calc(var(--ew-edge-shadow) * 0.9);
+  bottom: 0;
+  height: 100%;
+  border: 0;
+  background: radial-gradient(
+    ellipse at 100% 100%,
+    rgb(255 253 240 / 80%),
+    transparent 62%
+  );
+  clip-path: polygon(0 100%, 58% 94%, 84% 88%, 100% 80%, 100% 100%);
+  opacity: calc(var(--ew-edge-shadow) * 0.65);
   transform-origin: right bottom;
-  transform: translateY(calc(var(--ew-edge-lift) * -1));
+  transform: translateY(calc(var(--ew-edge-lift) * -0.6));
 }
-
 .ew-social.sn-social
   article.sw-post[data-breeze-surface]
   .ew-paper-edge::after {
-  bottom: 0;
-  height: 9px;
+  bottom: -3px;
+  height: 8px;
+  border-radius: 50%;
   background: radial-gradient(
-    ellipse at 78% 100%,
-    rgb(66 49 29 / 35%),
-    rgb(66 49 29 / 10%) 45%,
-    transparent 73%
+    ellipse at 75% 50%,
+    rgb(69 47 21 / 18%),
+    transparent 70%
   );
   opacity: var(--ew-edge-shadow);
-  transform: translateY(calc(var(--ew-edge-lift) * 0.45));
+  transform: translateY(calc(var(--ew-edge-lift) * 0.65));
 }
-
-.ew-social.sn-social
-  article.sw-post[data-breeze-surface='paper']
-  .ew-paper-edge {
-  width: 54%;
-}
-
-.ew-social.sn-social
-  article.sw-post[data-breeze-surface]:is(
-    :hover,
-    :focus-within,
-    [data-breeze-rest='true']
-  )
-  .ew-paper-edge,
-.ew-social.sn-social[data-atmosphere-paused='true'] .ew-paper-edge {
-  /* The shared driver freezes the current pose instead of snapping it flat. */
-  animation-play-state: paused;
-  transition: none;
-}
-
 .ew-social.sn-social .ew-atmosphere-toggle {
   display: inline-flex;
   align-items: center;
@@ -252,7 +261,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ew-journal-atmosphere .ew-tree-shadow {
+  .ew-social.sn-social :is(.ew-canopy-near, .ew-canopy-far),
+  .ew-social.sn-social
+    article.sw-post[data-breeze-surface]
+    :is(.ew-print-sheet, .ew-paper-stock) {
     transform: none;
   }
 
