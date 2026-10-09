@@ -24,7 +24,7 @@ try {
     if (r.url().includes('/api/')) requests.push(r.url());
   });
   await page.goto('http://127.0.0.1:4322/preview');
-  await page.locator('.ew-brand-entry').waitFor({state:'hidden'});
+  await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
   await page.locator('.sw-post').first().waitFor();
   assert.equal(
     await page
@@ -44,26 +44,46 @@ try {
     await page.getByRole('button', { name: '标签', exact: true }).count(),
     0,
   );
-  await page.getByRole('button', { name: '#散步', exact: true }).click();
+  await page
+    .getByRole('button', {
+      name: '查看动态：把周末留一点给无目的的散步',
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: '#散步', exact: true })
+    .click();
   await page.getByText('话题 · #散步', { exact: true }).waitFor();
   await page.waitForFunction(
     () => document.querySelectorAll('.sw-post').length === 1,
   );
   await page.getByRole('button', { name: '返回全部', exact: true }).click();
   await page.waitForFunction(
-    () => document.querySelectorAll('.sw-post').length === 6,
+    () => document.querySelectorAll('.sw-post').length === 7,
   );
   await page
     .getByRole('button', { name: '查看小周的 Agent的主页', exact: true })
     .click();
   await page.getByRole('button', { name: '退出主页', exact: true }).click();
   await page.waitForFunction(
-    () => document.querySelectorAll('.sw-post').length === 6,
+    () => document.querySelectorAll('.sw-post').length === 7,
   );
   assert.equal(new URL(page.url()).hash, '#explore');
   await page.getByRole('button', { name: '点赞', exact: true }).first().click();
   await page.getByRole('button', { name: '取消点赞', exact: true }).waitFor();
-  await page.getByRole('button', { name: '收藏', exact: true }).first().click();
+  await page
+    .getByRole('button', {
+      name: '查看动态：把周末留一点给无目的的散步',
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: '收藏', exact: true })
+    .click();
+  await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await page.getByRole('dialog').waitFor({ state: 'hidden' });
   await page.getByRole('link', { name: '我的', exact: true }).first().click();
   await page.getByRole('link', { name: '点赞', exact: true }).click();
   await page.getByRole('button', { name: '取消点赞', exact: true }).waitFor();
@@ -76,15 +96,27 @@ try {
   await page.reload();
   await page.locator('.sw-post').waitFor();
   assert.equal(new URL(page.url()).hash, '#saved');
-  await page.getByRole('button', { name: '查看评论', exact: true }).click();
+  await page
+    .getByRole('button', {
+      name: '查看动态：把周末留一点给无目的的散步',
+      exact: true,
+    })
+    .click();
+  assert.equal(await page.getByText('来源与说明', { exact: true }).count(), 0);
   for (let i = 0; i < 2; i++) {
     await page.getByLabel('你的评论').fill('这个想法很有意思。');
-    await page.getByRole('button', { name: '发布评论', exact: true }).click();
+    await page.getByRole('button', { name: '发送', exact: true }).click();
     await page.waitForFunction(
       (n) => document.querySelectorAll('.sw-comments article').length === n,
       i + 1,
     );
   }
+  assert.equal(await page.locator('.ew-comment-avatar svg').count(), 2);
+  assert.equal(await page.getByLabel('你的评论').inputValue(), '');
+  assert.equal(
+    await page.getByRole('button', { name: '发送', exact: true }).isVisible(),
+    false,
+  );
   await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await page.getByRole('dialog').waitFor({ state: 'hidden' });
   await page.getByRole('button', { name: '打开设置', exact: true }).click();
@@ -143,11 +175,11 @@ try {
     .click();
   await page.getByText('动态已发布。', { exact: true }).waitFor();
   await page
-    .getByRole('button', { name: '分享今天散步的发现', exact: true })
+    .getByRole('button', { name: '查看动态：分享今天散步的发现', exact: true })
     .waitFor();
   await page.reload();
   await page
-    .getByRole('button', { name: '分享今天散步的发现', exact: true })
+    .getByRole('button', { name: '查看动态：分享今天散步的发现', exact: true })
     .waitFor();
   for (const route of [
     'explore',
