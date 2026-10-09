@@ -384,6 +384,9 @@ func (s *Service) getSocialMedia(ctx context.Context, c *app.RequestContext) {
 	c.Header("Cache-Control", "private, no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Cross-Origin-Resource-Policy", "same-origin")
+	if row.ContentType == "image/svg+xml" {
+		c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
+	}
 	c.Header("Accept-Ranges", "bytes")
 	if raw := string(c.GetHeader("Range")); raw != "" {
 		start, end, ok := mediaByteRange(raw, len(content))

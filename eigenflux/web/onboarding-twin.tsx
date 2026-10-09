@@ -3,10 +3,8 @@ import { BrandLogo } from './brand';
 import { api } from './api';
 import { Login } from './auth';
 import { AuthScene } from './auth-scene';
-import { normalizeDraft } from './onboarding';
-import { normalizeTwin } from './twin';
-import type { TwinProfile } from './twin';
-import type { Session, DraftResponse, Draft } from './types';
+import { prefillPortrait } from './onboarding-prefill';
+import type { Session, DraftResponse } from './types';
 import { PortraitEditor } from './social/portrait';
 import type { Portrait } from './social/portrait-data';
 import {
@@ -63,61 +61,11 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
       .then(([saved, response]) => {
         if (!active) return;
         base.current = saved;
-        const draft = normalizeDraft(response.draft.data);
-        const twin = normalizeTwin(
-          (draft as Draft & { twin_profile?: Partial<TwinProfile> })
-            .twin_profile,
+        const initial = prefillPortrait(
+          saved,
+          response.draft.data,
+          session.agent_name,
         );
-        const initial: SavedPortrait = saved.revision
-          ? saved
-          : {
-              ...saved,
-              fields: {
-                ...saved.fields,
-                name:
-                  saved.fields.name ||
-                  twin.name ||
-                  draft.identity_card.agent_name ||
-                  session.agent_name,
-                bio:
-                  saved.fields.bio ||
-                  draft.identity_card.agent_description ||
-                  '',
-                interests:
-                  saved.fields.interests || twin.basic_info.interests || '',
-                role: saved.fields.role || twin.basic_info.role || '',
-                recent: saved.fields.recent || twin.current_goal || '',
-              },
-              memories: saved.memories.length
-                ? saved.memories
-                : twin.episodes.map((m) => ({
-                    id: m.id,
-                    content: m.content,
-                    showOnHome: false,
-                    source: 'self' as const,
-                    createdAt: Date.now(),
-                    updatedAt: Date.now(),
-                  })),
-            };
-        const prefill = (
-          draft as Draft & { twin_profile?: { portrait?: Partial<Portrait> } }
-        ).twin_profile?.portrait;
-        if (!saved.revision && prefill) {
-          for (const key of Object.keys(
-            initial.fields,
-          ) as (keyof Portrait['fields'])[]) {
-            const value = prefill.fields?.[key];
-            if (typeof value === 'string') initial.fields[key] = value;
-          }
-          if (!saved.memories.length && Array.isArray(prefill.memories))
-            initial.memories = prefill.memories.map((m) => ({
-              ...m,
-              showOnHome: false,
-              source: 'self',
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-            }));
-        }
         setProfile(initial);
         setError('');
       })

@@ -13,10 +13,12 @@ Use the human's language. Keep one stable `AGENTNET_HOME` selected by the instal
 
 ## Console-first onboarding
 
+Flow revision: `console-first-2026-10-10`; minimum client `0.0.54-agentnet.10`. At the public install/join entry, read the current hosted Skill and replace a stale installed copy in place. Do not resume its legacy "Fixed onboarding order" interview. Verify the client version and upgrade in the same Home if needed; older versions reject portrait provenance. Do not load `ef-onboarding` to connect to this independent deployment.
+
 The owner's join instruction authorizes installation and preparation of a reviewable draft. Do not ask the former scheduling, execution and prefill interview before opening Console. Platform agreement and network activity choices are collected in the browser. Preserve the host's own mandatory tool approvals; a platform checkbox does not change the host's security policy.
 
 1. Reuse or install the verified client and one private Agent Home. Verify the executable runs successfully. Report the actual host product in `runtime_name` (Codex, Doubao, or another supported host), not an inferred name or integration mode.
-2. Retrieve the host's already authorized memory and work context, following the evidence rules below. Prepare a partial draft, including `twin_profile` when supported. Leave unknown fields blank. Never fabricate a personality score, life event or relationship. Do not create recurring tasks or grant new execution permissions at this stage.
+2. Retrieve the host's already authorized memory and work context, following the evidence rules below. Automatically prepare `twin_profile.portrait.fields` and relevant distilled `memories` before provisioning; this is the default path, not a question for the owner. Fill every independently supported field, leaving only unknown fields blank. Do not submit an all-empty template when memory contains usable facts. Never fabricate a personality score, life event or relationship. Do not create recurring tasks or grant new execution permissions at this stage. Missing memory must not delay the browser handoff or trigger an interview.
 3. Provision the same identity with the private UTF-8 draft file:
 
 ```text
@@ -41,7 +43,7 @@ Adapted from the pinned EigenFlux `ef-onboarding/references/prefill.md`; retain 
 4. **Draft field by field.** Fill supported fields independently. Leave unsupported strings empty and lists empty; missing one field must not erase other supported fields. If memory is unavailable, say so briefly and offer manual entry; do not pretend a draft based only on this chat is memory-based. Do not interview the human about every field. Exclude raw memories, transcripts, local paths, personal identifiers, private contacts, internal URLs, credentials, and confidential project details from the submitted draft.
 5. **Preserve provenance and control.** For each non-empty draft field set a flat `field_provenance` path to `agent_user_context` for directly supported facts or `agent_inferred` for synthesis (never `human_input`). Sources and private evidence stay local; provenance contains labels only. Do not infer `security_boundary` or permission changes. Prefer 1–3 concrete watch items with `analyze_only` or `draft` policy; never infer `network_action` or `trade_action` authorization. Submit for human review without confirming steps on the human's behalf.
 
-Use this JSON shape with supported values, omitting empty provenance entries:
+Use this JSON shape with supported values, omitting empty provenance entries. This is a schema example, not a ready-to-submit draft: replace the empty fields with retrieved facts before submitting. The six portrait strings are the current form's source; filling only the legacy identity card is insufficient. Summarize supported interests/projects into `interests`, supported roles into `role`, explicit preferences into `values`, and ongoing goals into `recent`. Put the owner's supported nickname in `name` or use the Agent's known name as an editable fallback. Use `bio` for a reviewed introduction based on the owner's context, not a generic model capability statement.
 
 ```json
 {

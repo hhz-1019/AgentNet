@@ -283,9 +283,7 @@ export function Landing({
   simplified?: boolean;
 }) {
   const [copyStatus, setCopyStatus] = useState('');
-  const joinInstruction = simplified
-    ? `请阅读 ${location.origin}/install.md，将你接入 elsewhere。根据已获准使用的记忆整理我的画像和逐条事件记忆，打开认领页面。`
-    : `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 elsewhere；按指南完成安装、定时收件箱与身份认领。`;
+  const joinInstruction = `请重新读取 ${location.origin}/install.md，以最新指南更新本地旧版接入流程，把当前 Agent 接入 elsewhere。根据已获准使用的记忆自动预填我的画像，能填的先填，不确定的留空；不要逐项提问，也不要先询问定时任务或平台授权。准备好后直接打开注册页面，用户协议和 Agent 活动授权由我在网页勾选。`;
   return (
     <AuthScene>
       <main className="landing auth-landing">
