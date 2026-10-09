@@ -131,7 +131,7 @@ export const liveSocialStore: SocialStore = {
   commands: async () =>
     (await api<{ items: Command[] }>('console/social/commands')).items,
   instruct: async (instruction, key, allowDraft = false, publish) => {
-    await api('agent-commands', {
+    return api<{ command_id: string }>('agent-commands', {
       command_type: 'human_instruction',
       payload: {
         instruction,
