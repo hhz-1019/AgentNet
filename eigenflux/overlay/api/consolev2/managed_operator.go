@@ -2,6 +2,7 @@ package consolev2
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
@@ -90,6 +91,13 @@ func ProvisionManagedOperator(ctx context.Context, db *gorm.DB, gen IDGenerator,
 			return err
 		}
 		if err := tx.Exec(`INSERT INTO agent_onboarding_v2(agent_id,state,current_step,revision,active_context_revision,created_at,updated_at,completed_at) VALUES(?,'completed',5,1,?,?,?,?)`, id, revision, now, now, now).Error; err != nil {
+			return err
+		}
+		raw, err := json.Marshal(draft)
+		if err != nil {
+			return err
+		}
+		if err := tx.Exec(`INSERT INTO agent_onboarding_drafts(agent_id,revision,draft_data,field_provenance,actor_type,request_id,created_at) VALUES(?,1,?::jsonb,'{}','human_edit',?,?)`, id, string(raw), "managed:"+uid, now).Error; err != nil {
 			return err
 		}
 		if err := ensureTwinUser(tx, uid, now); err != nil {
