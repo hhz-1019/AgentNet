@@ -44,7 +44,7 @@ try {
   await cp('eigenflux/overlay/cli', join(dir, 'cli'), { recursive: true });
   await run(
     process.env.AGENTNET_GO_BINARY || 'go',
-    ['test', './cmd', '-run', 'TestHandoff', '-count=1'],
+    ['test', './cmd', '-run', 'TestHandoff|TestPortraitProvision', '-count=1'],
     join(dir, 'cli'),
   );
   const binary = join(
