@@ -8,6 +8,7 @@ import {
 import {
   entryGeometry,
   entryTiming,
+  clampEntry,
   paintEntry,
   type EntryPhase,
 } from './brand-entry-geometry';
@@ -44,14 +45,14 @@ export function BrandEntry({
   failed: boolean;
 }) {
   const [active, setActive] = useState(shouldEnter);
-  const [resources, setResources] = useState(0);
+  const [resources, setResources] = useState({ fonts: false, logo: false });
   const [resourceFailed, setResourceFailed] = useState(false);
   const [phase, setPhase] = useState<EntryPhase>('loading');
   const content = useRef<HTMLDivElement>(null);
   const curtain = useRef<HTMLDialogElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const prepared = useRef({ ready, failed, resources, resourceFailed });
-  prepared.current = { ready, failed, resources, resourceFailed };
+  const prepared = useRef({ ready, failed, resources, resourceFailed, phase });
+  prepared.current = { ready, failed, resources, resourceFailed, phase };
 
   useEffect(() => {
     if (!active) return;
@@ -62,16 +63,19 @@ export function BrandEntry({
       /* In-memory guard still works. */
     }
     let disposed = false;
-    const complete = () => {
-      if (!disposed) setResources((count) => count + 1);
+    const complete = (task: keyof typeof resources) => {
+      if (!disposed)
+        setResources((current) =>
+          current[task] ? current : { ...current, [task]: true },
+        );
     };
     const failure = () => {
       if (!disposed) setResourceFailed(true);
     };
     // Count actual settled preparation tasks, never elapsed time or guessed bytes.
-    void document.fonts.ready.then(complete, failure);
+    void document.fonts.ready.then(() => complete('fonts'), failure);
     const logo = new Image();
-    logo.onload = complete;
+    logo.onload = () => complete('logo');
     logo.onerror = failure;
     logo.src = '/brand/wordmark.svg';
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -80,7 +84,9 @@ export function BrandEntry({
     };
     media.addEventListener('change', reduce);
     // A stalled optional resource must not hide the app's real connection/retry UI.
-    const maximumWait = window.setTimeout(() => setActive(false), 8000);
+    const maximumWait = window.setTimeout(() => {
+      if (prepared.current.phase === 'loading') setActive(false);
+    }, 8000);
     return () => {
       disposed = true;
       logo.onload = null;
@@ -186,9 +192,18 @@ export function BrandEntry({
       const delta = previous ? Math.min(64, now - previous) : 0;
       previous = now;
       if (currentPhase === 'loading') {
-        const actual = (state.resources + Number(state.ready)) / 3;
+        const actual =
+          (Number(state.resources.fonts) +
+            Number(state.resources.logo) +
+            Number(state.ready)) /
+          3;
         // Ease only toward already completed work; no timer advances real progress.
-        displayed += (actual - displayed) * (1 - Math.exp(-delta / 120));
+        displayed = Math.max(
+          displayed,
+          clampEntry(
+            displayed + (actual - displayed) * (1 - Math.exp(-delta / 120)),
+          ),
+        );
         if (actual === 1 && displayed > 0.998) {
           displayed = 1;
           currentPhase = 'morph';
@@ -237,7 +252,8 @@ export function BrandEntry({
     };
   }, [active]);
 
-  const completed = resources + Number(ready);
+  const completed =
+    Number(resources.fonts) + Number(resources.logo) + Number(ready);
   return (
     <>
       <div className="ew-entry-content" ref={content}>

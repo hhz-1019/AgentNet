@@ -4,8 +4,71 @@ import {
   entryGeometry,
   entryMorph,
   entryReveal,
+  paintEntry,
 } from './brand-entry-geometry.ts';
 import { entryOutline, type EntryPoint } from './brand-entry-outline.ts';
+
+await test('loading paints one whole percentage without mixed carries or out-of-range readings', () => {
+  const labels: string[] = [];
+  const context = {
+    setTransform() {},
+    clearRect() {},
+    fillRect() {},
+    save() {},
+    restore() {},
+    beginPath() {},
+    rect() {},
+    clip() {},
+    fillText(text: string) {
+      labels.push(text);
+    },
+  } as unknown as CanvasRenderingContext2D;
+  const geometry = entryGeometry(1280);
+  let previous = 0;
+  for (let step = 0; step <= 1000; step++) {
+    labels.length = 0;
+    paintEntry(context, geometry, 1280, 900, 1, 'loading', step / 1000, 0);
+    assert.equal(
+      labels.length,
+      1,
+      'each frame must have a single complete reading',
+    );
+    assert.match(labels[0], /^(?:\d|[1-9]\d|100)$/);
+    const percent = Number(labels[0]);
+    assert.ok(percent >= previous && percent <= 100);
+    previous = percent;
+  }
+  for (const [progress, expected] of [
+    [-1, '0'],
+    [0.09, '9'],
+    [0.1, '10'],
+    [0.19, '19'],
+    [0.2, '20'],
+    [0.99, '99'],
+    [1, '100'],
+    [3, '100'],
+  ] as const) {
+    labels.length = 0;
+    paintEntry(context, geometry, 1280, 900, 1, 'loading', progress, 0);
+    assert.deepEqual(labels, [expected]);
+  }
+});
+
+await test('the reveal opens gradually from the solid logo before clearing the viewport', () => {
+  const geometry = entryGeometry(1280);
+  assert.equal(entryReveal(geometry, 1280, 900, 0).aperture, 0);
+  let previous = 0;
+  for (let frame = 1; frame <= 120; frame++) {
+    const opacity = entryReveal(geometry, 1280, 900, frame / 120).aperture;
+    assert.ok(opacity >= previous && opacity <= 1);
+    assert.ok(
+      opacity - previous < 0.04,
+      'page visibility must not jump between frames',
+    );
+    previous = opacity;
+  }
+  assert.equal(previous, 1);
+});
 
 function orientation(a: EntryPoint, b: EntryPoint, c: EntryPoint) {
   return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);

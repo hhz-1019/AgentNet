@@ -122,6 +122,9 @@ export function entryReveal(
         entryEase(progress),
     ),
     camera: smooth(progress),
+    // Keep the solid logo at the boundary, then open it while the camera moves.
+    // Only the logo becomes transparent; the surrounding curtain stays opaque.
+    aperture: smooth((progress - 0.06) / 0.38),
   };
 }
 
@@ -154,30 +157,21 @@ function digits(
   progress: number,
   exit: number,
 ) {
-  const size = Math.max(72, Math.min(158, width * 0.106)),
-    cell = size * 0.62;
+  const size = Math.max(72, Math.min(158, width * 0.106));
   const left = Math.max(16, width * 0.026),
     baseline = height - Math.max(18, height * 0.026);
   ctx.save();
   ctx.font = `400 ${size}px ${font}`;
   ctx.textBaseline = 'alphabetic';
-  ctx.textAlign = 'center';
+  ctx.textAlign = 'left';
   ctx.fillStyle = paper;
-  for (let i = 0; i < 3; i++) {
-    const number = (progress * 100) / 10 ** (2 - i),
-      lower = Math.floor(number);
-    const roll = smooth((number - lower - 0.68) / 0.32),
-      leave = entryEase(exit * 1.23 - i * 0.11);
-    const x = left + cell * (i + 0.5);
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(left + cell * i, baseline - size * 0.85, cell, size * 1.07);
-    ctx.clip();
-    ctx.fillText(String(lower % 10), x, baseline - (roll + leave) * size);
-    if (exit === 0 && progress < 1)
-      ctx.fillText(String((lower + 1) % 10), x, baseline + (1 - roll) * size);
-    ctx.restore();
-  }
+  const percent = Math.floor(clampEntry(progress) * 100),
+    leave = entryEase(exit * 1.23);
+  // Paint one coherent reading, so carries never combine independently rolling digits.
+  ctx.beginPath();
+  ctx.rect(left, baseline - size * 0.85, size * 2, size * 1.07);
+  ctx.clip();
+  ctx.fillText(String(percent), left, baseline - leave * size);
   ctx.restore();
 }
 
@@ -191,6 +185,7 @@ export function paintEntry(
   progress: number,
   elapsed: number,
 ) {
+  progress = clampEntry(progress);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
@@ -233,10 +228,13 @@ export function paintEntry(
       -geometry.pivot[0] * camera.camera,
       -geometry.pivot[1] * camera.camera,
     );
-    // The same original outline cuts the curtain open; the curtain never fades out.
+    const paths = geometry.target.map(closedPath);
+    ctx.fillStyle = paper;
+    for (const path of paths) ctx.fill(path);
+    // Preserve the last morph frame before gradually revealing the page inside it.
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = '#000';
-    for (const points of geometry.target) ctx.fill(closedPath(points));
+    ctx.globalAlpha = camera.aperture;
+    for (const path of paths) ctx.fill(path);
     ctx.restore();
   }
   digits(
