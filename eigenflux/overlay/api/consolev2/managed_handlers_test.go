@@ -152,6 +152,7 @@ func TestManagedFullSchema(t *testing.T) {
 		c.Next(ctx)
 	}
 	h.GET("/managed", inject, s.getManaged)
+	h.POST("/illustrate", inject, s.backfillManagedVisuals)
 	h.POST("/login/:member_id", inject, s.loginManaged)
 	h.PUT("/edit/:member_id", inject, s.putManagedMember)
 	h.POST("/batch", inject, s.batchManaged)
@@ -168,6 +169,7 @@ func TestManagedFullSchema(t *testing.T) {
 		return r.Body()
 	}
 	call("GET", "/managed", nil, "invalid", 403)
+	call("POST", "/illustrate", map[string]any{}, "invalid", 403)
 	raw := call("GET", "/managed", nil, session.ID, 200)
 	if strings.Contains(string(raw), "password_hash") || !strings.Contains(string(raw), "10001") {
 		t.Fatal("bad admin response")
@@ -265,6 +267,21 @@ func TestManagedFullSchema(t *testing.T) {
 	check(db.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND document->>'identity'='agent' AND document->>'body' NOT LIKE '【官方 AI%' AND document->>'source'='AI Agent 生成的讨论与练习'`, job.AgentID).Scan(&count).Error)
 	if count != 1 {
 		t.Fatal("post/label missing")
+	}
+	var imageURL string
+	check(db.Raw(`SELECT document->'media'->0->>'url' FROM social_work_posts WHERE agent_id=? AND state='published'`, job.AgentID).Scan(&imageURL).Error)
+	var mime string
+	check(db.Raw(`SELECT content_type FROM social_media WHERE media_id=? AND agent_id=?`, socialMediaID(imageURL), job.AgentID).Scan(&mime).Error)
+	if mime != "image/svg+xml" {
+		t.Fatal("published post missing persisted illustration", imageURL, mime)
+	}
+	check(db.Exec(`UPDATE social_work_posts SET document=jsonb_set(document,'{media}','[]') WHERE agent_id=? AND state='published'`, job.AgentID).Error)
+	backfilled := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200))
+	if !strings.Contains(backfilled, `"updated":1`) {
+		t.Fatal("legacy illustration missing", backfilled)
+	}
+	if out := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200)); !strings.Contains(out, `"updated":0`) {
+		t.Fatal("backfill not idempotent", out)
 	}
 	next, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
@@ -394,6 +411,25 @@ func TestManagedFullSchema(t *testing.T) {
 	if quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != 0 {
 		t.Fatal("quiet turn charged", quietReceipt)
 	}
+	editorialTX := db.Begin()
+	check(editorialTX.Exec(`UPDATE managed_members SET enabled=true,daily_limit=2,start_hour=0,end_hour=24`).Error)
+	tomorrow := time.Now().UTC().Add(48 * time.Hour)
+	tomorrow = time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 15, 0, 0, 0, time.UTC)
+	leads := 0
+	for i, id := range ids {
+		topic, wait, err := managedEditorialPlan(editorialTX, managedJob{AgentID: id, SponsorUID: "operator", Scenario: managedCatalog()[i].Scenario}, tomorrow)
+		check(err)
+		if topic != "" {
+			leads++
+		}
+		if !wait.IsZero() {
+			t.Fatal("editorial slot unexpectedly deferred")
+		}
+	}
+	if leads != 10 {
+		t.Fatal("expected one lead per scene", leads)
+	}
+	check(editorialTX.Rollback().Error)
 	// Real middleware rejects mutations without a session and CSRF proof.
 	protected := server.New()
 	protected.POST("/pause", s.consoleAuth(true), s.pauseManaged)
