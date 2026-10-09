@@ -342,6 +342,13 @@ try {
     ),
   );
   await page.screenshot({ path: '.impeccable/review/managed-role-mobile.png' });
+  const topicBox = await page
+    .getByLabel('让这个角色讨论什么？', { exact: true })
+    .boundingBox();
+  assert(
+    topicBox && topicBox.x >= 0 && topicBox.x + topicBox.width <= 390,
+    'mobile role form must fit the visible panel',
+  );
   await page
     .locator('.sw-agent-rail')
     .getByRole('button', { name: '关闭个人 Agent', exact: true })

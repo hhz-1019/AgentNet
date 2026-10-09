@@ -1962,6 +1962,8 @@
   outline-offset: 3px;
 }
 .sw-managed-role {
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 22px;
   overflow: auto;
   font-size: 14px;
@@ -1976,10 +1978,13 @@
 }
 .sw-managed-role label {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   font-weight: 600;
 }
 .sw-managed-role textarea {
+  min-width: 0;
+  max-width: 100%;
   width: 100%;
   resize: vertical;
   font: inherit;
