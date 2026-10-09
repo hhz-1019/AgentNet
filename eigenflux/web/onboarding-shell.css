@@ -1,0 +1,499 @@
+/* Reference: codex/frontend-interaction-handoff @ 57d7aab.
+   This surface extends its green social workspace; authentication is unchanged. */
+.join-shell {
+  --accent: #2b6351;
+  --muted: #5d7166;
+  --line: #dfe7dd;
+  color: #233c33;
+  background: #f5f8f4;
+  font-family:
+    Inter, 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 254px;
+  min-height: 100dvh;
+}
+.join-shell ::selection {
+  background: #d7e8dc;
+  color: #173e30;
+}
+.join-rail {
+  grid-column: 2;
+  grid-row: 1;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 34px 24px 26px;
+  background: #fcfefb;
+  border-left: 1px solid var(--line);
+}
+.join-rail .brand {
+  margin: 0;
+}
+.join-rail .brand-logo {
+  width: 175px;
+  height: auto;
+}
+.join-rail .join-tagline {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 14px 0 42px;
+}
+.join-shell.twin-onboarding .steps {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  gap: 12px;
+}
+.join-shell .steps li {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 16px 12px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  color: var(--muted);
+}
+.join-shell .steps li.current {
+  background: #e8f0e5;
+  border-color: #dbe6d7;
+  color: #234e3d;
+}
+.join-step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 26px;
+  height: 26px;
+  font-size: 12px;
+  font-weight: 650;
+  border: 1px solid #c9d7c8;
+  border-radius: 50%;
+  font-variant-numeric: tabular-nums;
+}
+.current .join-step-number {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.join-shell .steps strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 650;
+}
+.join-shell .steps small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.join-agent {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.join-agent > svg:first-child {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.join-agent > svg:last-child {
+  margin-left: auto;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.join-agent div {
+  min-width: 0;
+}
+.join-agent strong {
+  display: block;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.join-agent small {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.join-main {
+  min-width: 0;
+  padding: 48px clamp(24px, 5vw, 80px) 28px;
+}
+.join-content {
+  max-width: 880px;
+  margin: 0 auto;
+}
+.join-step-1 .join-content {
+  max-width: 590px;
+}
+.join-step-1 .join-main {
+  padding-top: clamp(32px, 6vh, 64px);
+}
+.join-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-bottom: 12px;
+}
+.join-heading h1 {
+  margin: 0;
+  font-size: 29px;
+  line-height: 1.35;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+.join-uid {
+  margin: 0 0 0 auto;
+  background: #e9efe7;
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #496152;
+  font-variant-numeric: tabular-nums;
+}
+.join-content > p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
+  max-width: 68ch;
+}
+.join-shell .login-form,
+.join-form {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 30px;
+  max-width: none;
+  margin: 24px 0 0;
+  box-shadow: 0 5px 18px -12px #25443424;
+}
+.join-shell .login-form {
+  margin: 0;
+  padding: 36px;
+}
+.join-shell .login-form h2 {
+  font-size: 27px;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: -0.03em;
+  margin: 0 0 12px;
+}
+.join-shell .login-form > p {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+.join-shell label {
+  margin: 16px 0;
+  font-size: 13px;
+  font-weight: 550;
+}
+.join-shell :is(input, textarea, select) {
+  font-weight: 400;
+  color: #233c33;
+  background: #fff;
+  border: 1px solid #cfdbce;
+  border-radius: 10px;
+  padding: 11px 13px;
+  margin-top: 8px;
+  min-height: 45px;
+  caret-color: var(--accent);
+  transition: border-color 160ms ease;
+}
+.join-shell :is(input, textarea)::placeholder {
+  color: #6c796f;
+  font-weight: 400;
+}
+.join-shell :is(input, textarea, select):hover:not(:disabled) {
+  border-color: #8da58f;
+}
+.join-shell :is(input, textarea, select, button, a, summary):focus-visible {
+  outline: 2px solid #527d62;
+  outline-offset: 3px;
+}
+.join-shell input:disabled {
+  background: #eef1ee;
+  border-color: #e0e6df;
+  color: #637468;
+}
+.join-shell input[aria-invalid='true'] {
+  border-color: #b4473b;
+}
+.join-shell textarea {
+  min-height: 86px;
+}
+.join-shell .hint {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.join-shell button {
+  min-height: 44px;
+  border-radius: 10px;
+  color: #2b4c3b;
+  border-color: #d8e3d4;
+  background: #f7f9f4;
+  font-size: 13px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+.join-shell button:hover:not(:disabled) {
+  background: #eaf1e6;
+  border-color: #b7cbb4;
+}
+.join-shell button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.join-shell .primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.join-shell .primary:hover:not(:disabled) {
+  background: #214f40;
+  border-color: #214f40;
+}
+.join-shell .phone-code-row {
+  gap: 12px;
+}
+.join-shell .phone-code-row button {
+  min-height: 45px;
+  margin: 0;
+  padding-inline: 16px;
+}
+.join-shell .agreement-row {
+  gap: 10px;
+  margin: 24px 0;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.8;
+}
+.join-shell .agreement-row input {
+  accent-color: var(--accent);
+  min-height: 18px;
+  width: 18px;
+  padding: 0;
+  margin: 2px 0 0;
+}
+.join-shell .login-form > button.primary {
+  width: 100%;
+  margin: 0;
+}
+.join-shell .login-form > button:not(.primary) {
+  width: 100%;
+  margin: 10px 0 0;
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+}
+.join-shell .login-form > button:not(.primary):hover {
+  background: #f1f6ed;
+}
+.join-shell .twin-grid {
+  gap: 0 22px;
+}
+.join-shell .twin-fields > label:first-child {
+  margin-top: 0;
+}
+.join-shell .twin-fields details,
+.join-shell details.twin-fields {
+  border-top: 1px solid var(--line);
+  padding: 18px 0;
+}
+.join-shell .twin-fields summary {
+  font-weight: 550;
+  font-size: 14px;
+  color: #294b3b;
+  line-height: 1.8;
+}
+.join-shell .twin-fields summary::marker {
+  color: #69826b;
+}
+.join-shell .twin-fields summary span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.join-shell .actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding-top: 22px;
+  margin-top: 8px;
+  gap: 12px;
+}
+.join-shell .actions button {
+  margin: 0;
+  padding-inline: 22px;
+}
+.join-activity .twin-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.join-activity .twin-grid label {
+  padding: 20px 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #f7f9f5;
+  margin: 10px 0 20px;
+  line-height: 1.8;
+}
+.join-activity .twin-grid input {
+  font-size: 26px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  margin-top: 16px;
+  background: #fff;
+}
+.join-activity .twin-fields > p:first-child {
+  margin-top: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.join-footer {
+  font-size: 12px;
+  text-align: center;
+  color: var(--muted);
+  margin: 24px auto 0;
+}
+.join-shell .error {
+  background: #fcf1ee;
+  color: #913c31;
+  border: 1px solid #e3c3bb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .join-content {
+    animation: join-arrive 220ms ease-out;
+  }
+  @keyframes join-arrive {
+    from {
+      transform: translateY(8px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+@media (max-width: 1050px) {
+  .join-shell {
+    grid-template-columns: minmax(0, 1fr) 220px;
+  }
+  .join-rail {
+    padding-inline: 16px;
+  }
+  .join-main {
+    padding-inline: 28px;
+  }
+  .join-activity .twin-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .join-activity .twin-grid label {
+    display: block;
+    position: relative;
+    min-height: 96px;
+    padding: 32px 124px 32px 16px;
+    margin-bottom: 8px;
+  }
+  .join-activity .twin-grid input {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100px;
+    margin: 0;
+    font-size: 22px;
+  }
+}
+@media (max-width: 760px) {
+  .join-shell {
+    display: block;
+  }
+  .join-rail {
+    position: static;
+    height: auto;
+    padding: 24px 20px 18px;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .join-rail .brand-logo {
+    width: 154px;
+  }
+  .join-rail .join-tagline {
+    margin: 8px 0 22px;
+  }
+  .join-shell.twin-onboarding .steps {
+    flex-direction: row;
+    gap: 8px;
+  }
+  .join-shell .steps li {
+    flex: 1;
+    padding: 11px 7px;
+    gap: 7px;
+  }
+  .join-shell .steps strong {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .join-shell .steps small,
+  .join-agent {
+    display: none;
+  }
+  .join-step-number {
+    flex-basis: 21px;
+    height: 21px;
+    font-size: 11px;
+  }
+  .join-main,
+  .join-step-1 .join-main {
+    padding: 24px 20px;
+  }
+  .join-shell .login-form,
+  .join-form {
+    padding: 24px 20px;
+    border-radius: 15px;
+  }
+  .join-shell .login-form h2,
+  .join-heading h1 {
+    font-size: 24px;
+  }
+  .join-heading {
+    align-items: flex-start;
+  }
+  .join-uid {
+    margin-left: 0;
+  }
+  .join-shell .twin-grid {
+    grid-template-columns: 1fr;
+  }
+  .join-shell .phone-code-row {
+    gap: 8px;
+  }
+  .join-shell .phone-code-row button {
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+  .join-shell .actions {
+    justify-content: stretch;
+  }
+  .join-shell .actions button {
+    flex: 1;
+    padding-inline: 12px;
+  }
+  .join-footer {
+    line-height: 1.8;
+    padding-inline: 12px;
+  }
+}
