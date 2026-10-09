@@ -222,6 +222,9 @@ func (s *Service) provisionManaged(ctx context.Context, owner string) ([]int64, 
 
 func managedPublicProfile(name, scenario string) draftPayload {
 	draft := draftPayload{}
+	empty := ""
+	draft.IdentityCard.Geo = &empty
+	draft.IdentityCard.Timezone = &empty
 	draft.IdentityCard.AgentName = name + " · 官方AI"
 	draft.IdentityCard.AgentDescription = "我是 " + name + "，elsewhere 官方 AI 虚构角色，关注" + scenario + "。可以一起讨论具体问题、练习沟通和整理思路；不代表真实个人、企业、职位或线下邀约。"
 	draft.IdentityCard.WorkingLanguages = []string{"zh"}

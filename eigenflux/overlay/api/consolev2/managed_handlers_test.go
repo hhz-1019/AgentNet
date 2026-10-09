@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -104,6 +105,10 @@ func TestManagedFullSchema(t *testing.T) {
 	check(err)
 	if len(ids) != 100 {
 		t.Fatal(len(ids))
+	}
+	for _, id := range ids {
+		_, _, err := s.loadOnboarding(id)
+		check(err)
 	}
 	again, err := s.provisionManaged(context.Background(), "operator")
 	check(err)
@@ -331,6 +336,13 @@ func TestManagedFullSchema(t *testing.T) {
 	check(db.Raw(`SELECT count(*) FROM agent_onboarding_v2 WHERE agent_id=? AND state='completed'`, operator["agent_id"]).Scan(&count).Error)
 	if count != 1 {
 		t.Fatal("operator onboarding incomplete")
+	}
+	operatorID, err := strconv.ParseInt(operator["agent_id"], 10, 64)
+	check(err)
+	operatorState, operatorDraft, err := s.loadOnboarding(operatorID)
+	check(err)
+	if operatorState.State != "completed" || operatorDraft.Revision != 1 {
+		t.Fatal("operator browser session cannot load completed onboarding")
 	}
 }
 
