@@ -15,6 +15,7 @@ Object.assign(env, {
   SMS_ACCESS_KEY_SECRET: 'test-sms-secret',
   SMS_SIGN_NAME: '测试签名',
   SMS_TEMPLATE_CODE: '100001',
+  SMS_SCHEME_NAME: 'test-scheme',
 });
 await test('deferred providers permit building, never mark activation ready', () => {
   assert.deepEqual(checkConfig(env, { providers: false }), []);
