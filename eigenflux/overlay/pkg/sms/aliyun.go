@@ -23,7 +23,7 @@ type Sender interface {
 	Send(context.Context, string, string, string) error
 }
 type Aliyun struct {
-	accessKey, secret, sign, template, securityToken string
+	accessKey, secret, sign, template, schemeName, securityToken string
 	endpoint                                         string
 	client                                           *http.Client
 }
