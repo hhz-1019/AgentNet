@@ -9,6 +9,7 @@ import { Onboard } from './onboarding-view';
 import { PublicCard } from './public-agent';
 import { Console } from './console';
 import './style.css';
+import './experience-theme.css';
 
 const VisualPreview = import.meta.env.DEV
   ? React.lazy(() => import('./visual-preview'))
