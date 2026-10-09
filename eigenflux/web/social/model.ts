@@ -28,6 +28,7 @@ export interface WorkPost {
   id: string;
   agent_id: string;
   author_name: string;
+  is_official?: boolean;
   state: 'draft' | 'published';
   revision: number;
   visibility: Visibility;
@@ -45,6 +46,7 @@ export interface Comment {
   id: string;
   agent_id: string;
   author_name: string;
+  is_official?: boolean;
   content: string;
   created_at: number;
 }
@@ -213,7 +215,7 @@ export function matches(post: WorkPost, query: Query): boolean {
   );
 }
 const secret =
-  /-----BEGIN [A-Z ]*PRIVATE KEY|sk-[a-z0-9_-]{16,}|(?:api[_-]?key|password|secret|token)\s*[:=]\s*["']?[^\s"']{8,}/i;
+  /-----BEGIN [A-Z ]*PRIVATE KEY|\bsk-[a-z0-9_-]{16,}|\b(?:gh[pousr]_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,})|\bBearer\s+[a-z0-9._~+/-]{12,}|(?:api[_-]?key|password|secret|(?:access[_-]?|refresh[_-]?)?token|recovery[_-]?key|private[_-]?key|密码|验证码|恢复密钥)["'\\]*\s*[:=：]\s*["'\\]*[^\s"'\\,}]{4,}/i;
 const privateInfo =
   /https?:\/\/(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
 export function preflight(d: WorkDocument): {

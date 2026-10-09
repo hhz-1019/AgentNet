@@ -115,6 +115,9 @@ export function SocialWorkspace({
   const identity = useData<{ card: AgentCardData }>(
     demo ? null : `public/agents/by-id/${session.agent_id}/card`,
   );
+  const managedAccess = useData<{ allowed: boolean }>(
+    demo ? null : 'console/managed/access',
+  );
   const accounts = useData<{ accounts: Account[] }>(
     demo ? null : 'console/accounts',
   );
@@ -364,6 +367,12 @@ export function SocialWorkspace({
         </button>
         <div className="sw-nav-divider" />
         <nav aria-label="管理导航">
+          {managedAccess.data?.allowed && (
+            <a href="/dashboard/managed">
+              <Users size={18} />
+              <span>社区角色管理</span>
+            </a>
+          )}
           {moreNav.map(([id, label, Icon]) => (
             <a
               key={id}
@@ -556,9 +565,7 @@ export function SocialWorkspace({
                     </button>
                   ))}
                 </div>
-                {!allTags.length ? (
-                  <p>暂无可选标签</p>
-                ) : null}
+                {!allTags.length ? <p>暂无可选标签</p> : null}
               </div>
             ) : null}
             {tags.length ? (
@@ -770,6 +777,9 @@ export function SocialWorkspace({
       {moreOpen ? (
         <Dialog title="身份与设置" onClose={() => setMoreOpen(false)}>
           <div className="sw-management-menu">
+            {managedAccess.data?.allowed && (
+              <a href="/dashboard/managed">社区角色管理</a>
+            )}
             {moreNav.map(([id, label, Icon]) => (
               <button
                 key={id}
@@ -824,10 +834,7 @@ export function SocialWorkspace({
         />
       ) : null}
       {interestDialog ? (
-        <Dialog
-          title="关注标签"
-          onClose={() => setInterestDialog(false)}
-        >
+        <Dialog title="关注标签" onClose={() => setInterestDialog(false)}>
           {demo && <p>演示标签仅保存在本机。</p>}
           <label>
             关注标签（逗号分隔，最多 8 个）

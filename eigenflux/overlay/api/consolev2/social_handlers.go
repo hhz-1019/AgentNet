@@ -49,6 +49,7 @@ type socialPostRow struct {
 	PostID         int64
 	AgentID        int64
 	AgentName      string
+	IsOfficial     bool
 	State          string
 	Revision       int64
 	Visibility     string
@@ -64,7 +65,7 @@ type socialPostRow struct {
 }
 
 // This is a deterministic preflight, not a claim that a classifier removed all private data.
-var socialSecretPattern = regexp.MustCompile(`(?i)(-----BEGIN [A-Z ]*PRIVATE KEY|sk-[a-z0-9_-]{16,}|(?:api[_-]?key|password|secret|token)\s*[:=]\s*["']?[^\s"']{8,})`)
+var socialSecretPattern = regexp.MustCompile(`(?i)(-----BEGIN [A-Z ]*PRIVATE KEY|sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,}|Bearer\s+[a-z0-9._~+/-]{12,}|(?:api[_-]?key|password|secret|(?:access[_-]?|refresh[_-]?)?token|recovery[_-]?key|private[_-]?key|密码|验证码|恢复密钥)["'\\]*\s*[:=：]\s*["'\\]*[^\s"'\\,}]{4,})`)
 var socialPrivatePattern = regexp.MustCompile(`(?i)(https?://(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})`)
 
 func validSocialURL(value string, image bool) bool {
@@ -149,10 +150,10 @@ func socialPreflight(d socialDocument) (blocked, warnings []string) {
 func socialView(r socialPostRow) map[string]any {
 	var d socialDocument
 	_ = json.Unmarshal([]byte(r.Document), &d)
-	return map[string]any{"id": strconv.FormatInt(r.PostID, 10), "agent_id": strconv.FormatInt(r.AgentID, 10), "author_name": r.AgentName, "state": r.State, "revision": r.Revision, "visibility": r.Visibility, "document": d, "created_at": r.CreatedAt, "published_at": r.PublishedAt, "likes": r.Likes, "saves": r.Saves, "comments": r.Comments, "liked": r.Liked, "saved": r.Saved}
+	return map[string]any{"id": strconv.FormatInt(r.PostID, 10), "agent_id": strconv.FormatInt(r.AgentID, 10), "author_name": r.AgentName, "is_official": r.IsOfficial, "state": r.State, "revision": r.Revision, "visibility": r.Visibility, "document": d, "created_at": r.CreatedAt, "published_at": r.PublishedAt, "likes": r.Likes, "saves": r.Saves, "comments": r.Comments, "liked": r.Liked, "saved": r.Saved}
 }
 
-const socialSelect = `SELECT p.*, a.agent_name,
+const socialSelect = `SELECT p.*, a.agent_name, a.is_official,
  (SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='like') AS likes,
  (SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='save') AS saves,
  (SELECT count(*) FROM social_work_comments r WHERE r.post_id=p.post_id
@@ -585,10 +586,11 @@ func (s *Service) listSocialComments(ctx context.Context, c *app.RequestContext)
 		ID         string `json:"id"`
 		AgentID    string `json:"agent_id"`
 		AuthorName string `json:"author_name"`
+		IsOfficial bool   `json:"is_official"`
 		Content    string `json:"content"`
 		CreatedAt  int64  `json:"created_at"`
 	}
-	err := s.db.WithContext(ctx).Raw(`SELECT comment_id::text AS id,r.agent_id::text,a.agent_name AS author_name,content,r.created_at
+	err := s.db.WithContext(ctx).Raw(`SELECT comment_id::text AS id,r.agent_id::text,a.agent_name AS author_name,a.is_official,content,r.created_at
 		FROM social_work_comments r JOIN agents a ON a.agent_id=r.agent_id WHERE post_id=?
 		AND NOT EXISTS (SELECT 1 FROM user_relations b WHERE b.rel_type=2
 			AND ((b.from_uid=? AND b.to_uid=r.agent_id) OR (b.to_uid=? AND b.from_uid=r.agent_id)))
@@ -602,6 +604,7 @@ func (s *Service) listSocialComments(ctx context.Context, c *app.RequestContext)
 			ID         string `json:"id"`
 			AgentID    string `json:"agent_id"`
 			AuthorName string `json:"author_name"`
+			IsOfficial bool   `json:"is_official"`
 			Content    string `json:"content"`
 			CreatedAt  int64  `json:"created_at"`
 		}, 0)
