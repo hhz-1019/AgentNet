@@ -7,6 +7,7 @@ import { cp, mkdir, mkdtemp, readFile, readdir } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import assert from 'node:assert/strict';
+import { verifyManagedIdentityMigration } from './managed-identity-migration-test.mjs';
 await mkdir('.agentnet-audit', { recursive: true });
 const dir = await mkdtemp(resolve('.agentnet-audit/managed-core-'));
 await cp('upstream/eigenflux', dir, {
@@ -68,6 +69,15 @@ try {
     child.once('exit', (code) => done(code ?? 1));
   });
   if (process.exitCode === 0) {
+    await verifyManagedIdentityMigration(
+      db,
+      (
+        await readFile(
+          `${dir}/migrations/000118_managed_agent_identity.sql`,
+          'utf8',
+        )
+      ).split('-- +goose Down')[0],
+    );
     const down = (
       await readFile(`${dir}/migrations/000115_managed_community.sql`, 'utf8')
     ).split('-- +goose Down')[1];

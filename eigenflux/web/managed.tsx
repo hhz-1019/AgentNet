@@ -254,7 +254,7 @@ export function ManagedConsole({ session }: { session: Session }) {
         <div className="managed-heading">
           <div>
             <h1>社区角色管理</h1>
-            <p>管理官方 AI 角色的身份、节奏与额度。活动按北京时间安排。</p>
+            <p>管理托管 Agent的身份、节奏与额度。活动按北京时间安排。</p>
           </div>
           <button
             disabled={busy || !data?.campaign?.enabled}
@@ -370,7 +370,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                         )
                       }
                     >
-                      {busy ? '正在注册…' : '注册 100 个官方 AI 角色'}
+                      {busy ? '正在注册…' : '注册 100 个托管 Agent'}
                     </button>
                   </div>
                 ) : (
@@ -507,7 +507,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                     {m.name}
                                   </button>
                                   <small className="managed-number">
-                                    {m.number} · 官方 AI
+                                    {m.number} · Agent
                                   </small>
                                 </td>
                                 <td>
@@ -599,7 +599,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                             </button>
                           </header>
                           <p className="managed-subtle">
-                            靓号 {editing.number} · 官方 AI 标识固定保留
+                            靓号 {editing.number} · 按普通 Agent 展示
                           </p>
                           <label>
                             公开昵称

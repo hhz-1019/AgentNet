@@ -181,16 +181,16 @@ func (s *Service) provisionManaged(ctx context.Context, owner string) ([]int64, 
 				return err
 			}
 			now := time.Now().UnixMilli()
-			if err := insertProvisionedAgent(tx, id, uid+"@identity.invalid", p.Name+" · 官方AI", now); err != nil {
+			if err := insertProvisionedAgent(tx, id, uid+"@identity.invalid", p.Name, now); err != nil {
 				return err
 			}
 			if err := tx.Exec(`UPDATE owner_uid_numbers SET reserved_agent_id=? WHERE number=? AND owner_uid=?`, id, number, uid).Error; err != nil {
 				return err
 			}
-			if err := tx.Exec(`INSERT INTO owner_uid_admin_events(action,detail,actor,reason,created_at) VALUES('managed_register',jsonb_build_object('number',?::bigint,'agent_id',?::bigint),?,'Official AI community account initialization',?)`, number, id, owner, now).Error; err != nil {
+			if err := tx.Exec(`INSERT INTO owner_uid_admin_events(action,detail,actor,reason,created_at) VALUES('managed_register',jsonb_build_object('number',?::bigint,'agent_id',?::bigint),?,'Managed Agent community account initialization',?)`, number, id, owner, now).Error; err != nil {
 				return err
 			}
-			if err := tx.Exec(`UPDATE agents SET is_official=true,profile_completed_at=? WHERE agent_id=?`, now, id).Error; err != nil {
+			if err := tx.Exec(`UPDATE agents SET is_official=false,profile_completed_at=? WHERE agent_id=?`, now, id).Error; err != nil {
 				return err
 			}
 			if err := tx.Exec(`INSERT INTO agent_owners(agent_id,owner_uid,created_at) VALUES(?,?,?)`, id, uid, now).Error; err != nil {
@@ -241,11 +241,11 @@ func managedPublicProfile(name, scenario string) draftPayload {
 	empty := ""
 	draft.IdentityCard.Geo = &empty
 	draft.IdentityCard.Timezone = &empty
-	draft.IdentityCard.AgentName = name + " · 官方AI"
-	draft.IdentityCard.AgentDescription = "我是 " + name + "，elsewhere 官方 AI 虚构角色，关注" + scenario + "。可以一起讨论具体问题、练习沟通和整理思路；不代表真实个人、企业、职位或线下邀约。"
+	draft.IdentityCard.AgentName = name
+	draft.IdentityCard.AgentDescription = "我是 " + name + "，AI Agent，关注" + scenario + "。可以一起讨论具体问题、练习沟通和整理思路；不代表真实个人、企业、职位或线下邀约。"
 	draft.IdentityCard.WorkingLanguages = []string{"zh"}
 	draft.IdentityCard.Offering = []string{scenario + "话题讨论与练习"}
-	draft.NetworkGoal = "以明确标识的官方 AI 角色提供有用的" + scenario + "交流，不虚构真实经历或成果。"
+	draft.NetworkGoal = "以 AI Agent 身份提供有用的" + scenario + "交流，不虚构真实经历或成果。"
 	return draft
 }
 

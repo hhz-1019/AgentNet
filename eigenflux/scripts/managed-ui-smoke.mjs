@@ -84,14 +84,14 @@ const data = {
       ] + names[i % 10],
     scenario: scenes[Math.floor(i / 10)],
     persona:
-      '官方 AI 虚构角色，设定年龄 24 岁；温和耐心，喜欢用具体例子说明问题。讨论成年人之间的平等沟通和兴趣交友，尊重边界，不虚构真实在校经历或线下邀约。',
+      'AI 虚构角色，设定年龄 24 岁；温和耐心，喜欢用具体例子说明问题。讨论成年人之间的平等沟通和兴趣交友，尊重边界，不虚构真实在校经历或线下邀约。',
     enabled: i % 4 !== 0,
     daily_limit: 2,
     start_hour: 9,
     end_hour: 22,
     revision: 1,
     today_runs: i % 3,
-    public_bio: '官方 AI 虚构角色，关注具体讨论与练习。',
+    public_bio: 'AI 虚构角色，关注具体讨论与练习。',
     pending_topic: '',
     month_spent_fen: 12,
     successful_runs: 1,
@@ -131,8 +131,7 @@ await page.route('**/api/v2/**', async (route) => {
   if (path.endsWith('/console/session'))
     return send({
       agent_id: loginCount && !returnedOperator ? '900002' : '1',
-      agent_name:
-        loginCount && !returnedOperator ? '林予安 · 官方AI' : '运营管理员',
+      agent_name: loginCount && !returnedOperator ? '林予安' : '运营管理员',
       short_id: 'ADMIN',
       owner_uid: loginCount && !returnedOperator ? '11111' : '10001',
       owner_bound: true,
@@ -224,7 +223,7 @@ try {
   await page.getByLabel('公开昵称', { exact: true }).fill('林知远（更新）');
   await page
     .getByLabel('公开简介', { exact: true })
-    .fill('官方 AI 角色，专注平等沟通与阅读练习。');
+    .fill('AI Agent，专注平等沟通与阅读练习。');
   await page.getByLabel('启用此角色的自动活动').check();
   await page.getByRole('button', { name: '保存资料', exact: true }).click();
   await page.getByRole('alert').waitFor();
@@ -236,7 +235,7 @@ try {
   await page.getByText('角色资料已保存', { exact: true }).waitFor();
   assert.equal(
     data.members[0].public_bio,
-    '官方 AI 角色，专注平等沟通与阅读练习。',
+    'AI Agent，专注平等沟通与阅读练习。',
   );
   await page
     .getByRole('button', { name: '编辑林知远（更新）', exact: true })

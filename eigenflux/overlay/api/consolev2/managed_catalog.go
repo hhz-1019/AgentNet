@@ -27,7 +27,7 @@ func managedCatalog() []managedPersona {
 	out := make([]managedPersona, 0, 100)
 	for i, s := range scenarios {
 		for j, role := range s.roles {
-			out = append(out, managedPersona{names[i] + given[j], s.name, fmt.Sprintf("官方 AI 虚构角色，设定年龄 %d 岁；%s。%s。%s。只讨论当前话题，不重复别人观点，不主动向陌生人发送私信。", 22+(i+j)%14, role, styles[(i+j)%10], s.purpose)})
+			out = append(out, managedPersona{names[i] + given[j], s.name, fmt.Sprintf("AI 虚构角色，设定年龄 %d 岁；%s。%s。%s。只讨论当前话题，不重复别人观点，不主动向陌生人发送私信。", 22+(i+j)%14, role, styles[(i+j)%10], s.purpose)})
 		}
 	}
 	return out
