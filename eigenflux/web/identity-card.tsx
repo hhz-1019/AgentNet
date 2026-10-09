@@ -1,8 +1,9 @@
 import { chineseDescription } from './chinese';
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Check, Copy } from 'lucide-react';
 import type { AgentCardData } from './types';
 import { SocialIdentity } from './social/social-identity';
+import { IdentitySurface } from './identity-surface';
 import './identity-card.css';
 
 export function IdentityCard({
@@ -14,8 +15,6 @@ export function IdentityCard({
   ownerUID?: string;
   publicView?: boolean;
 }) {
-  const surface = useRef<HTMLDivElement>(null);
-  const frame = useRef(0);
   const [copied, setCopied] = useState('');
   const [error, setError] = useState('');
   const uid = publicView ? undefined : ownerUID;
@@ -24,43 +23,10 @@ export function IdentityCard({
   );
   useEffect(
     () => () => {
-      cancelAnimationFrame(frame.current);
       clearTimeout(feedbackTimer.current);
     },
     [],
   );
-  const reset = () => {
-    cancelAnimationFrame(frame.current);
-    surface.current?.removeAttribute('style');
-  };
-  const move = (event: PointerEvent<HTMLDivElement>) => {
-    if (
-      event.pointerType !== 'mouse' ||
-      !matchMedia(
-        '(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)',
-      ).matches
-    )
-      return;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = Math.max(
-      0,
-      Math.min(1, (event.clientX - bounds.left) / bounds.width),
-    );
-    const y = Math.max(
-      0,
-      Math.min(1, (event.clientY - bounds.top) / bounds.height),
-    );
-    cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(() => {
-      const style = surface.current?.style;
-      if (!style) return;
-      style.setProperty('--rx', `${(0.5 - y) * 4}deg`);
-      style.setProperty('--ry', `${(x - 0.5) * 5}deg`);
-      style.setProperty('--px', `${x * 100}%`);
-      style.setProperty('--py', `${y * 100}%`);
-      style.setProperty('--sheen', '1');
-    });
-  };
   const url = new URL(
     `/agent/${encodeURIComponent(card.agent_id)}`,
     location.origin,
@@ -99,45 +65,35 @@ export function IdentityCard({
   const bio = chineseDescription(card.agent_description, '');
   return (
     <section className="identity-showcase" aria-label="Agent 网络身份卡">
-      <div
-        className="identity-stage"
-        onPointerMove={move}
-        onPointerLeave={reset}
-        onPointerCancel={reset}
-      >
-        <div className="identity-surface" ref={surface}>
-          <SocialIdentity
-            name={name}
-            bio={bio}
-            headingAs="h2"
-            accessibleName={`${name}的公开身份`}
-            official={card.verification_level === 'official'}
-            interests={offerings
-              .slice(0, 2)
-              .map((item) => chineseDescription(item, ''))}
-            meta={
-              uid || joinedLabel ? (
-                <>
-                  {uid && (
-                    <span>
-                      账号 UID <code>{uid}</code>
-                    </span>
-                  )}
-                  {joinedLabel && (
-                    <span>
-                      加入网络{' '}
-                      <time dateTime={joined!.toISOString()}>
-                        {joinedLabel}
-                      </time>
-                    </span>
-                  )}
-                </>
-              ) : undefined
-            }
-          />
-          <div className="identity-sheen" aria-hidden="true" />
-        </div>
-      </div>
+      <IdentitySurface>
+        <SocialIdentity
+          name={name}
+          bio={bio}
+          headingAs="h2"
+          accessibleName={`${name}的公开身份`}
+          official={card.verification_level === 'official'}
+          interests={offerings
+            .slice(0, 2)
+            .map((item) => chineseDescription(item, ''))}
+          meta={
+            uid || joinedLabel ? (
+              <>
+                {uid && (
+                  <span>
+                    账号 UID <code>{uid}</code>
+                  </span>
+                )}
+                {joinedLabel && (
+                  <span>
+                    加入网络{' '}
+                    <time dateTime={joined!.toISOString()}>{joinedLabel}</time>
+                  </span>
+                )}
+              </>
+            ) : undefined
+          }
+        />
+      </IdentitySurface>
       <div className="identity-share-actions">
         {uid && (
           <button onClick={() => void copy(uid, 'UID')}>
