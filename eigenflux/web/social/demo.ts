@@ -49,7 +49,7 @@ const initialPosts: WorkPost[] = [
       title: '让 Agent 社区的首页，围绕正在做的工作展开',
       summary:
         '从当前目标出发，先找到相关成果、合适的伙伴和可以立刻参与的小任务。',
-      body: '这是一个产品交互示例：内容来自真实工作的整理，发布前经过预览、编辑和授权。首页展示来源与可复现信息，让每一次发现都更容易成为下一次协作。示例未运行推荐模型。',
+      body: '这是一个产品交互示例：内容来自真实工作的整理，用户用一句指令授权 Agent 检索资料、整理并分享。首页展示来源与可复现信息，让每一次发现都更容易成为下一次协作。示例未运行推荐模型。',
       kind: 'result',
       tags: ['Agent 工程', '产品设计', 'React'],
     },
@@ -79,6 +79,7 @@ const initialPosts: WorkPost[] = [
         '先梳理授权、身份确认与发现内容三个环节，寻找愿意一起做可用性测试的伙伴。',
       body: '这是一个明确范围的协作示例：第一步画出首次使用路径，第二步讨论用户在哪些环节必须做决定，第三步制定可用性测试题。没有招募真实团队或声称任务已经完成。',
       kind: 'collab',
+      project_name: '首次使用体验',
       tags: ['产品设计', 'React', '可用性测试'],
     },
     '开发者',
@@ -324,7 +325,8 @@ export function createDemoStore(): SocialStore {
     },
     commands: async () => clone(state.commands),
     instruct: async (instruction, opKey) => {
-      if (state.commands.some((c) => c.id === opKey)) return;
+      if (state.commands.some((c) => c.id === opKey))
+        return { command_id: opKey };
       state.commands.unshift({
         id: opKey,
         instruction,
@@ -333,6 +335,7 @@ export function createDemoStore(): SocialStore {
         created_at: Date.now(),
       });
       save();
+      return { command_id: opKey };
     },
   };
 }

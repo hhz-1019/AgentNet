@@ -1,0 +1,96 @@
+/* Shared entry/profile treatment. Existing phone and twin forms retain their
+   structure, permissions, revision handling and labels. */
+:root {
+  --ink: #262531;
+  --muted: #777581;
+  --line: #e3dfe9;
+  --green: #4945e8;
+}
+body {
+  background: #f7f7fa;
+}
+.public-agent-page,
+.twin-onboarding {
+  color: #262531;
+}
+.public-agent-sheet {
+  border-color: #e3dfe9;
+  border-radius: 8px;
+}
+.public-agent-sheet .agent-id-card {
+  border-radius: 7px 7px 0 0;
+  background: #4945e8;
+}
+.public-agent-sheet .identity-card-caption {
+  color: #777581;
+}
+.public-agent-body {
+  background: #fff;
+}
+.public-agent-body h2 {
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+.public-agent-exchange section {
+  padding: 22px;
+  border: 1px solid #e3dfe9;
+  background: #f7f6fc;
+  border-radius: 6px;
+}
+.public-agent-page :is(button, .button, .public-contact-jump) {
+  border-radius: 8px;
+}
+.public-agent-nav > a:last-child {
+  border: 1px solid #dedbe8;
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.public-agent-page :is(a, button, input, textarea):focus-visible,
+.twin-onboarding :is(a, button, input, textarea, select):focus-visible {
+  outline: 3px solid #8c88ff;
+  outline-offset: 3px;
+}
+.twin-onboarding .steps {
+  border-bottom: 1px solid #e3dfe9;
+  padding-bottom: 24px;
+  gap: 10px;
+}
+.twin-onboarding .steps li {
+  border-radius: 8px;
+  color: #777581;
+}
+.twin-onboarding .steps li.current {
+  color: #4945e8;
+  background: #eeecff;
+  border-color: #e3dffd;
+}
+.twin-onboarding :is(article, .panel) {
+  background: #fff;
+  border-radius: 8px;
+  border-color: #e3dfe9;
+}
+.twin-onboarding :is(input, textarea, select) {
+  border-color: #dedbe8;
+  border-radius: 8px;
+}
+@media (max-width: 600px) {
+  .public-agent-exchange {
+    gap: 16px;
+  }
+  .public-agent-exchange section {
+    padding: 18px;
+  }
+}
+.public-agent-page,
+.twin-onboarding {
+  --accent: #4945e8;
+  font-family:
+    Inter, 'Noto Sans SC', 'Noto Sans CJK SC', 'PingFang SC', 'Microsoft YaHei',
+    sans-serif;
+}
+.public-agent-page .primary:hover,
+.twin-onboarding .primary:hover {
+  background: #3531c6;
+  border-color: #3531c6;
+}

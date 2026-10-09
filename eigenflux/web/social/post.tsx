@@ -40,36 +40,50 @@ export function PostCard({
   const images = d.media.filter((m) => ['image', 'chart'].includes(m.kind));
   return (
     <article className={`sw-post${expanded ? ' expanded' : ''}`}>
-      {images.length ? (
-        <div className="sw-post-media">
-          {(expanded ? images : images.slice(0, 1)).map((m) =>
-            broken.includes(m.url) ? (
-              <div className="sw-image-failed" key={m.url}>
-                图片暂时无法加载 · {m.alt}
-              </div>
-            ) : (
-              <img
-                key={m.url}
-                loading="lazy"
-                referrerPolicy="no-referrer"
-                src={m.url}
-                alt={m.alt}
-                onError={() => setBroken((b) => [...b, m.url])}
-              />
-            ),
-          )}
-        </div>
-      ) : (
-        <div className={`sw-text-cover ${d.kind}`}>
-          <span>{kindLabels[d.kind]}</span>
-          <p>{d.title}</p>
-          <div className="sw-text-cover-tags">
-            {d.tags.slice(0, 2).map((t) => (
-              <small key={t}>#{t}</small>
-            ))}
+      <div className="ex-post-cover">
+        {!expanded && onOpen && (
+          <button
+            className="ex-open-cover"
+            onClick={onOpen}
+            aria-label={'打开工作：' + d.title}
+          >
+            <span className="ex-cover-cue">
+              <ArrowUpRight size={22} />
+              <span>查看成果</span>
+            </span>
+          </button>
+        )}
+        {images.length ? (
+          <div className="sw-post-media">
+            {(expanded ? images : images.slice(0, 1)).map((m) =>
+              broken.includes(m.url) ? (
+                <div className="sw-image-failed" key={m.url}>
+                  图片暂时无法加载 · {m.alt}
+                </div>
+              ) : (
+                <img
+                  key={m.url}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  src={m.url}
+                  alt={m.alt}
+                  onError={() => setBroken((b) => [...b, m.url])}
+                />
+              ),
+            )}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className={`sw-text-cover ${d.kind}`}>
+            <span>{kindLabels[d.kind]}</span>
+            <p>{d.title}</p>
+            <div className="sw-text-cover-tags">
+              {d.tags.slice(0, 2).map((t) => (
+                <small key={t}>#{t}</small>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
       <div className="sw-post-content">
         <div className="sw-post-kind">
           <span>{kindLabels[d.kind]}</span>
@@ -100,7 +114,7 @@ export function PostCard({
                 .filter((m) => !['image', 'chart'].includes(m.kind))
                 .map((m) => (
                   <a key={m.url} href={m.url} target="_blank" rel="noreferrer">
-                    {m.kind === 'demo' ? 'Demo' : '代码结果'} · {m.alt}
+                    {m.kind === 'demo' ? '演示成果' : '代码结果'} · {m.alt}
                     <ExternalLink size={14} />
                   </a>
                 ))}
@@ -194,12 +208,14 @@ export function PostDetail({
   onClose,
   onUpdated,
   demo,
+  onCollaborate,
 }: {
   post: WorkPost;
   store: SocialStore;
   onClose: () => void;
   onUpdated: () => void;
   demo: boolean;
+  onCollaborate?: (p: WorkPost) => void;
 }) {
   const [comments, setComments] = useState<Comment[]>(),
     [content, setContent] = useState(''),
@@ -223,6 +239,18 @@ export function PostDetail({
   return (
     <Dialog title="成果详情" onClose={onClose} wide>
       <PostCard post={post} expanded />
+      {onCollaborate && (
+        <section className="ex-collaborate">
+          <div>
+            <h3>围绕这份工作交流</h3>
+            <p>带上标题、作者与工作编号，让 Agent 先整理交流提纲。</p>
+          </div>
+          <button className="sw-primary" onClick={() => onCollaborate(post)}>
+            交给我的 Agent
+            <ArrowUpRight size={17} />
+          </button>
+        </section>
+      )}
       <section className="sw-comments">
         <h3>评论</h3>
         {comments?.map((c) => (
@@ -235,11 +263,7 @@ export function PostDetail({
             <p>{c.content}</p>
           </article>
         ))}
-        {comments?.length === 0 ? (
-          <p className="sw-hint">
-            还没有评论。一个具体的问题，可能就是协作的开始。
-          </p>
-        ) : null}
+        {comments?.length === 0 ? <p className="sw-hint">暂无评论。</p> : null}
         {comments === undefined && !error ? <p>读取评论中…</p> : null}
         <form
           onSubmit={async (e) => {

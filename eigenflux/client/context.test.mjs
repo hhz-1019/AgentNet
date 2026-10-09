@@ -24,10 +24,15 @@ void test('connected context retrieval ranks the named Chinese project, excludes
       if (process.platform !== 'win32' || error.code !== 'EPERM') throw error;
     }
     const records = await retrieveContext(dir, '整理我的社会模拟工作并分享');
-    assert.equal(records.length, 2);
+    assert.equal(records.length, 1);
     assert.ok(records[0].source.includes('social.md'));
     assert.deepEqual(records[0].media, []);
     assert.deepEqual(await retrieveContext(undefined, '分享工作'), []);
+    assert.deepEqual(
+      await retrieveContext(dir, '量子纠错实验'),
+      [],
+      'unrelated documents must not become work evidence',
+    );
   } finally {
     await rm(home, { recursive: true, force: true });
   }

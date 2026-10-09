@@ -10,6 +10,7 @@ import type { Session } from '../types';
 import { time } from '../shared';
 import { chineseDescription } from '../chinese';
 import { requestsSharing, type Visibility } from './model';
+import { shareReceipt } from './work-network-model';
 const statusLabels: Record<string, string> = {
   pending: '已排队，等待宿主',
   notified: '已通知宿主',
@@ -27,6 +28,8 @@ export function AgentRail({
   onAllDrafts,
   onCreate,
   onClose,
+  initialInstruction,
+  onOpenPost,
 }: {
   session: Session;
   store: SocialStore;
@@ -36,6 +39,8 @@ export function AgentRail({
   onAllDrafts: () => void;
   onCreate: () => void;
   onClose: () => void;
+  initialInstruction?: { text: string; revision: number };
+  onOpenPost?: (id: string) => Promise<void>;
 }) {
   const [commands, setCommands] = useState<Command[]>(),
     [text, setText] = useState(''),
@@ -51,6 +56,12 @@ export function AgentRail({
   const willShare =
     mode === 'share' || (mode === 'auto' && requestsSharing(text));
   const [version, setVersion] = useState(0);
+  useEffect(() => {
+    if (initialInstruction?.text) {
+      setText(initialInstruction.text);
+      setMode('auto');
+    }
+  }, [initialInstruction]);
   const op = useRef({
     key: crypto.randomUUID(),
     text: '',
@@ -207,7 +218,7 @@ export function AgentRail({
             ?.slice()
             .reverse()
             .map((c) => (
-              <div key={c.id}>
+              <article className="ex-task" data-status={c.status} key={c.id}>
                 <p className="sw-owner-bubble">
                   {chineseDescription(
                     c.instruction,
@@ -215,7 +226,13 @@ export function AgentRail({
                   )}
                 </p>
                 <p className="sw-command-status">
-                  {statusLabels[c.status] || c.status} · {time(c.created_at)}
+                  {demo
+                    ? '本地演示记录'
+                    : c.result.execution === 'shared' ||
+                        requestsSharing(c.instruction)
+                      ? shareReceipt(c).label
+                      : statusLabels[c.status] || '状态待确认'}{' '}
+                  · {time(c.created_at)}
                 </p>
                 {c.result.execution === 'model_analysis' ? (
                   <small>
@@ -231,10 +248,39 @@ export function AgentRail({
                     )}
                   </p>
                 ) : null}
-              </div>
+                {!demo && shareReceipt(c).postId && onOpenPost && (
+                  <button
+                    onClick={() => {
+                      void onOpenPost(shareReceipt(c).postId).catch((e) =>
+                        setError(
+                          e instanceof Error ? e.message : '成果读取失败',
+                        ),
+                      );
+                    }}
+                  >
+                    查看已发布成果
+                    <ArrowUpRight size={15} />
+                  </button>
+                )}
+                {(c.status === 'failed' || c.status === 'expired') && (
+                  <button
+                    onClick={() => {
+                      setText(c.instruction);
+                      setMode('auto');
+                      document.getElementById('agent-instruction')?.focus();
+                    }}
+                  >
+                    调整指令后再发送
+                  </button>
+                )}
+              </article>
             ))}
           {commands?.length === 0 ? (
-            <p className="sw-hint">暂无指令记录</p>
+            <div className="ex-tasks-empty">
+              <FileText size={24} />
+              <h3>任务回执</h3>
+              <p>发送指令后，在这里查看执行状态与成果。</p>
+            </div>
           ) : null}
         </div>
       </div>

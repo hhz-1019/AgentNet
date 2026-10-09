@@ -29,6 +29,7 @@ import { ManagedRolePanel } from '../managed-role';
 import { PostCard, PostDetail } from './post';
 import { Publisher } from './publisher';
 import { ShareComposer } from './share';
+import { WorkNetwork } from './work-network';
 import { Organizations } from './organizations';
 import {
   kindLabels,
@@ -42,6 +43,8 @@ import {
 import { liveSocialStore } from './store';
 import './workspace.css';
 import './polish.css';
+import { WorkShowcase, WorkHome, transitionView } from './experience';
+import './experience.css';
 const nav = [
   ['explore', '发现', Compass],
   ['messages', '消息', MessageCircle],
@@ -49,6 +52,7 @@ const nav = [
   ['saved', '收藏', Bookmark],
 ] as const;
 const moreNav = [
+  ['mine', '我的工作', FileText],
   ['drafts', '待确认草稿', FileText],
   ['organizations', '团队与权限', Users],
   ['profile', '我的身份', UserRound],
@@ -110,6 +114,29 @@ export function SocialWorkspace({
   const [interestDialog, setInterestDialog] = useState(false),
     [interestText, setInterestText] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
+  const [shareInstruction, setShareInstruction] = useState('');
+  const [agentInstruction, setAgentInstruction] = useState({
+    text: '',
+    revision: 0,
+  });
+  function openWork(post: WorkPost) {
+    transitionView(() => setDetail(post));
+  }
+  async function openPublished(id: string) {
+    openWork(await store.get(id));
+  }
+  function collaborate(post: WorkPost) {
+    setDetail(undefined);
+    setAgentInstruction((v) => ({
+      text: `请围绕《${post.document.title}》整理一份交流提纲。作者：${post.author_name}；工作编号：${post.id}；作者 Agent：${post.agent_id}。摘要：${post.document.summary.slice(0, 600)}。只依据这份工作已有信息，提出具体的问题和可能的合作方式，先把提纲给我，不要自动发送消息或发布。`,
+      revision: v.revision + 1,
+    }));
+    setRailOpen(true);
+  }
+  function shareProject(instruction = '') {
+    setShareInstruction(instruction);
+    setPublisher(true);
+  }
   const discovery = useData<{ items: Peer[] }>(
     demo ? null : 'console/home/discovery',
   );
@@ -305,6 +332,7 @@ export function SocialWorkspace({
     event?.preventDefault();
     if (!demo) history.pushState(null, '', `/dashboard/${id}`);
     setRoute(id);
+    setRailOpen(false);
     setCursor('');
     setNotice('');
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -361,10 +389,7 @@ export function SocialWorkspace({
             </a>
           ))}
         </nav>
-        <button
-          className="sw-primary sw-create"
-          onClick={() => setPublisher(true)}
-        >
+        <button className="sw-primary sw-create" onClick={() => shareProject()}>
           <Plus size={19} /> 分享工作
         </button>
         <div className="sw-nav-divider" />
@@ -472,7 +497,7 @@ export function SocialWorkspace({
                     : route === 'drafts'
                       ? '待确认草稿'
                       : route === 'mine'
-                        ? '我的分享'
+                        ? '我的工作'
                         : '发现'}
                 </h1>
               </div>
@@ -484,6 +509,51 @@ export function SocialWorkspace({
                 <Compass size={22} />
               </button>
             </section>
+            {route === 'explore' && (
+              <>
+                <WorkShowcase
+                  posts={page?.items || []}
+                  loading={loading}
+                  error={error}
+                  demo={demo}
+                  onOpen={openWork}
+                  onShare={() => shareProject()}
+                  onHome={() => go('mine')}
+                />
+                <details className="ex-network-disclosure">
+                  <summary>
+                    <span>工作关系</span>
+                    <span>
+                      查看来源与相关 Agent <ArrowRight size={16} />
+                    </span>
+                  </summary>
+                  <WorkNetwork
+                    posts={base}
+                    peers={peers}
+                    interests={effectiveInterests}
+                    ownerAgentId={session.agent_id}
+                    demo={demo}
+                    onOpenWork={openWork}
+                    onOpenAgent={(id) =>
+                      demo ? go('network') : location.assign('/agent/' + id)
+                    }
+                    onShare={shareProject}
+                  />
+                </details>
+              </>
+            )}
+            {route === 'mine' && (
+              <WorkHome
+                session={session}
+                card={identity.data?.card}
+                store={store}
+                demo={demo}
+                posts={page?.items || []}
+                onShare={shareProject}
+                onEdit={() => go('profile')}
+                onAgent={() => setRailOpen(true)}
+              />
+            )}
             {drafts.length && route === 'explore' ? (
               <section className="sw-pending-drafts">
                 <FileText size={18} />
@@ -496,7 +566,7 @@ export function SocialWorkspace({
                 </button>
               </section>
             ) : null}
-            <div className="sw-feed-toolbar">
+            <div id="work-feed" className="sw-feed-toolbar">
               <div role="tablist" aria-label="内容类型">
                 {[['all', '全部'], ...Object.entries(kindLabels)].map(
                   ([k, v]) => (
@@ -636,7 +706,7 @@ export function SocialWorkspace({
                         <PostCard
                           post={p}
                           relevant={matchingTags(p, effectiveInterests)}
-                          onOpen={() => setDetail(p)}
+                          onOpen={() => openWork(p)}
                           onReaction={(k) => void react(p, k)}
                           onTag={(t) => {
                             toggleTag(t);
@@ -681,10 +751,10 @@ export function SocialWorkspace({
                           setQuery('');
                           setTags([]);
                           setKind('all');
-                        } else setPublisher(true);
+                        } else shareProject();
                       }}
                     >
-                      {query || tags.length ? '清除筛选' : '整理一份草稿'}
+                      {query || tags.length ? '清除筛选' : '让 Agent 分享工作'}
                     </button>
                   </div>
                 ) : null}
@@ -717,7 +787,7 @@ export function SocialWorkspace({
             ) : demo ? (
               <DemoSection
                 route={route}
-                onDraft={() => setPublisher(true)}
+                onDraft={() => shareProject()}
                 onExplore={() => go('explore')}
               />
             ) : route === 'profile' ? (
@@ -753,7 +823,7 @@ export function SocialWorkspace({
         {managedAccess.data?.allowed && managedAccess.data.delegated ? (
           <ManagedRolePanel
             session={session}
-            onCreate={() => setPublisher(true)}
+            onCreate={() => shareProject()}
             onClose={() => setRailOpen(false)}
           />
         ) : (
@@ -764,8 +834,10 @@ export function SocialWorkspace({
             drafts={drafts}
             onDraft={setPublisher}
             onAllDrafts={() => go('drafts')}
-            onCreate={() => setPublisher(true)}
+            onCreate={() => shareProject()}
             onClose={() => setRailOpen(false)}
+            initialInstruction={agentInstruction}
+            onOpenPost={openPublished}
           />
         )}
       </div>
@@ -815,8 +887,16 @@ export function SocialWorkspace({
         <ShareComposer
           store={store}
           demo={demo}
+          initialInstruction={shareInstruction}
+          onOpenPost={async (id) => {
+            const post = await store.get(id);
+            setPublisher(undefined);
+            setDetail(post);
+            reload();
+          }}
           onClose={() => {
             setPublisher(undefined);
+            setShareInstruction('');
             reload();
           }}
         />
@@ -847,6 +927,9 @@ export function SocialWorkspace({
           demo={demo}
           onClose={() => setDetail(undefined)}
           onUpdated={reload}
+          onCollaborate={
+            managedAccess.data?.delegated ? undefined : collaborate
+          }
         />
       ) : null}
       {interestDialog ? (

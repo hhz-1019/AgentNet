@@ -60,7 +60,10 @@ try {
     () => document.querySelectorAll('.sw-comments article').length === 2,
   );
   await page.getByRole('button', { name: '关闭窗口' }).click();
-  await page.getByRole('button', { name: '分享工作', exact: true }).click();
+  await page
+    .locator('.sw-sidebar')
+    .getByRole('button', { name: '分享工作', exact: true })
+    .click();
   assert.equal(await page.locator('.sw-starter').count(), 0);
   await page.getByLabel('你想分享什么？').fill('分享社会模拟项目的验证工作');
   await page.getByLabel('发布范围').selectOption('friends');
@@ -83,7 +86,7 @@ try {
     .getByLabel('给个人 Agent 的指令')
     .fill('请检查这份工作能否补充一个失败样例。');
   await page.getByRole('button', { name: '发送给个人 Agent' }).click();
-  await page.getByText('已排队，等待宿主', { exact: false }).first().waitFor();
+  await page.getByText('本地演示记录', { exact: false }).first().waitFor();
   assert.equal(await page.locator('.sw-agent-bubble').count(), 0);
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });

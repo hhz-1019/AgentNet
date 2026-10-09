@@ -25,13 +25,15 @@
     "test:social:ui": "node eigenflux/scripts/social-ui-smoke.mjs",
     "test:twin:ui": "node eigenflux/scripts/twin-ui-smoke.mjs",
     "test:demo:ui": "node eigenflux/scripts/demo-polish-smoke.mjs",
+    "test:work-network:ui": "node eigenflux/scripts/work-network-smoke.mjs",
     "test:social:live": "node eigenflux/scripts/social-core-test.mjs --browser",
     "agent:host": "node eigenflux/client/host.mjs",
     "test:host:protocol": "node eigenflux/scripts/host-protocol-test.mjs",
     "test:phone:core": "node eigenflux/scripts/phone-auth-test.mjs",
     "test:phone:ui": "node eigenflux/scripts/phone-ui-smoke.mjs",
     "test:managed:core": "node eigenflux/scripts/managed-core-test.mjs",
-    "test:managed:ui": "node eigenflux/scripts/managed-ui-smoke.mjs"
+    "test:managed:ui": "node eigenflux/scripts/managed-ui-smoke.mjs",
+    "test:experience:ui": "node eigenflux/scripts/experience-ui-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

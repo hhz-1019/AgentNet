@@ -34,10 +34,15 @@ export async function retrieveContext(directory, instruction) {
     }
   }
   await walk(root);
+  // Common request verbs are not evidence of project relevance.
+  const subject = instruction.replace(
+    /请|帮我|我的|关于|整理|分享|发布|工作|项目|一下|中文|并/g,
+    ' ',
+  );
   const terms = [
     ...new Set([
-      ...(instruction.match(/[A-Za-z0-9_-]{2,}/g) || []),
-      ...(instruction.match(/[\u3400-\u9fff]+/g) || []).flatMap((part) => {
+      ...(subject.match(/[A-Za-z0-9_-]{2,}/g) || []),
+      ...(subject.match(/[\u3400-\u9fff]+/g) || []).flatMap((part) => {
         const result = [];
         for (let n = 2; n <= 6; n++)
           for (let i = 0; i + n <= part.length; i++)
@@ -56,6 +61,7 @@ export async function retrieveContext(directory, instruction) {
       (n, t) => n + (haystack.includes(t.toLowerCase()) ? 1 : 0),
       0,
     );
+    if (score === 0) continue;
     const media = [];
     for (const m of text.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)) {
       if (media.length === 4) break;
