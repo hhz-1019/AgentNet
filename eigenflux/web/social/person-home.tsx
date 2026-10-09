@@ -6,6 +6,7 @@ import { PostCard } from './post';
 import { demoPeople } from './people';
 import { portraitFields, type Portrait } from './portrait-data';
 import { SocialIdentity } from './social-identity';
+import { useFeedMotion } from './content-motion';
 
 export function PersonHome({
   id,
@@ -63,6 +64,7 @@ export function PersonHome({
   const peer = demoPeople.find((p) => p.id === id);
   const fields = !demo ? remote?.fields : own ? portrait.fields : peer;
   const name = fields?.name;
+  const grid = useFeedMotion(section === 'posts' && name ? posts : undefined);
   const publicFields = !demo
     ? portraitFields.filter(
         (f) => remote?.visible.includes(f.key) && f.key !== 'name',
@@ -198,7 +200,7 @@ export function PersonHome({
           )}
           {section === 'posts' ? (
             <>
-              <div className="sw-feed-grid sn-person-feed">
+              <div className="sw-feed-grid sn-person-feed" ref={grid}>
                 {posts?.map((p) => (
                   <div
                     key={p.id}

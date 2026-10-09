@@ -41,11 +41,7 @@ import {
   type Portrait,
 } from './portrait-data';
 import { MovingTabs, useFeedMotion } from './content-motion';
-import {
-  AtmosphereToggle,
-  JournalAtmosphere,
-  useJournalAtmosphere,
-} from './journal-atmosphere';
+import { JournalAtmosphere, useJournalAtmosphere } from './journal-atmosphere';
 import { DemoSettings } from './social-settings';
 import type { WorkPost, SocialStore, Page } from './model';
 import { liveSocialStore, uploadAttachment } from './store';
@@ -61,6 +57,8 @@ import './editorial.css';
 import './journal-atmosphere.css';
 import './journal-materials.css';
 import './journal-surfaces.css';
+import './feed-design.css';
+import './post-reading.css';
 
 const nav = [
   ['explore', '发现', Compass],
@@ -495,12 +493,8 @@ export function SocialWorkspace({
             <strong>{portrait.fields.name || session.agent_name}</strong>
           </span>
         </a>
-        <AtmosphereToggle {...atmosphere} />
       </aside>
       <main id="social-main" className="sw-main">
-        <div className="ew-atmosphere-controls">
-          <AtmosphereToggle {...atmosphere} />
-        </div>
         {personal && !['me', 'liked', 'saved', 'drafts'].includes(route) && (
           <a
             className="sn-back"
@@ -1038,6 +1032,14 @@ export function SocialWorkspace({
           }}
           onReaction={(kind) => void react(detail, kind)}
           onUpdated={reload}
+          onTag={(tag) => {
+            go('explore');
+            setDetail(undefined);
+            setQuery('');
+            setSearch('');
+            setTopic(tag);
+            setCursor('');
+          }}
           onAuthor={openProfile}
         />
       )}

@@ -1,22 +1,12 @@
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
-import { Pause, Sun } from 'lucide-react';
 import {
   JOURNAL_WIND_LIFT_PX,
   paperTiltDegrees,
   sampleJournalWind,
 } from './journal-wind';
 
-const preferenceKey = 'elsewhere:journal-motion';
 const surfaceSelector = '.sw-feed-grid [data-breeze-surface]';
 const editingSelector = 'input, textarea, select, [contenteditable="true"]';
-
-function readPaused() {
-  try {
-    return localStorage.getItem(preferenceKey) === 'paused';
-  } catch {
-    return false;
-  }
-}
 
 type Surface = {
   node: HTMLElement;
@@ -33,32 +23,25 @@ export function useJournalAtmosphere(
   blocked: boolean,
 ) {
   const background = useRef<HTMLDivElement>(null);
-  const [paused, setPaused] = useState(readPaused);
   const [reduced, setReduced] = useState(
     () => matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
-  const settings = useRef({ paused, reduced, route, blocked });
+  const settings = useRef({ reduced, route, blocked });
   const update = useRef<(() => void) | undefined>(undefined);
 
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)');
     const change = () => setReduced(media.matches);
-    const storage = (event: StorageEvent) => {
-      if (event.key === preferenceKey || event.key === null)
-        setPaused(readPaused());
-    };
     media.addEventListener('change', change);
-    window.addEventListener('storage', storage);
     return () => {
       media.removeEventListener('change', change);
-      window.removeEventListener('storage', storage);
     };
   }, []);
 
   useEffect(() => {
-    settings.current = { paused, reduced, route, blocked };
+    settings.current = { reduced, route, blocked };
     update.current?.();
-  }, [paused, reduced, route, blocked]);
+  }, [reduced, route, blocked]);
 
   useEffect(() => {
     if (!workspace.current || !background.current) return;
@@ -192,7 +175,6 @@ export function useJournalAtmosphere(
           state.route,
         ) || state.route.startsWith('person/');
       resting =
-        state.paused ||
         state.reduced ||
         state.blocked ||
         !reading ||
@@ -342,45 +324,7 @@ export function useJournalAtmosphere(
     };
   }, [workspace]);
 
-  function toggle() {
-    const next = !paused;
-    setPaused(next);
-    try {
-      localStorage.setItem(preferenceKey, next ? 'paused' : 'playing');
-    } catch {
-      // The current session can still pause when browser storage is unavailable.
-    }
-  }
-
-  return { background, paused, reduced, toggle };
-}
-
-export function AtmosphereToggle({
-  paused,
-  reduced,
-  toggle,
-}: Pick<
-  ReturnType<typeof useJournalAtmosphere>,
-  'paused' | 'reduced' | 'toggle'
->) {
-  return (
-    <button
-      type="button"
-      className="ew-atmosphere-toggle"
-      onClick={toggle}
-      disabled={reduced}
-      aria-pressed={!paused && !reduced}
-      aria-label={reduced ? '光影动态：已跟随系统减少动态' : '光影动态'}
-      title={reduced ? '已跟随系统的减少动态设置' : undefined}
-    >
-      {paused || reduced ? (
-        <Sun size={17} aria-hidden="true" />
-      ) : (
-        <Pause size={16} aria-hidden="true" />
-      )}
-      <span>{reduced ? '静态光影' : paused ? '开启光影' : '暂停光影'}</span>
-    </button>
-  );
+  return { background };
 }
 
 function Canopy() {

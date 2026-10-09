@@ -22,6 +22,21 @@ const socialKindLabels = {
   collab: '一起聊聊',
   tool: '分享',
 };
+const coverRatios = new Map<string, number>();
+const noteTemplates = ['fragment', 'journal', 'letter'] as const;
+
+function noteTemplate(post: WorkPost) {
+  if (post.document.kind === 'question')
+    return Number(post.id.slice(-1)) % 2 === 0 ? 'fragment' : 'question';
+  if (post.document.kind === 'collab') return 'letter';
+  if (post.document.kind === 'tool') return 'journal';
+  const index = Array.from(post.id).reduce(
+    (sum, char) => sum + char.charCodeAt(0),
+    0,
+  );
+  return noteTemplates[index % noteTemplates.length];
+}
+
 export function PostCard({
   post,
   expanded = false,
@@ -41,15 +56,50 @@ export function PostCard({
   onAuthor?: () => void;
   relevant?: string[];
 }) {
-  const d = post.document,
-    [broken, setBroken] = useState<string[]>([]);
-  const title =
-    d.title ||
-    d.body.slice(0, 100) ||
-    (d.media.some((m) => m.kind === 'video') ? '分享了一段视频' : '分享了图片');
+  const d = post.document;
+  const [broken, setBroken] = useState<string[]>([]);
+  const [loadedRatios, setLoadedRatios] = useState<Record<string, number>>({});
   const images = d.media.filter((m) =>
     ['image', 'chart', 'video'].includes(m.kind),
   );
+  const title =
+    d.title.trim() ||
+    d.body.trim().split('\n')[0].slice(0, 70) ||
+    (images[0]?.kind === 'video' ? '分享了一段视频' : '分享了图片');
+  const body = d.body.trim();
+  const summary = d.summary.trim();
+  const normalized = (text: string) => text.replace(/\r\n/g, '\n').trim();
+  const hasBody = body && normalized(body) !== normalized(title);
+  const hasLead =
+    summary &&
+    normalized(summary) !== normalized(title) &&
+    normalized(summary) !== normalized(body);
+  const excerpt =
+    summary && normalized(summary) !== normalized(title)
+      ? summary
+      : body.startsWith(title)
+        ? body.slice(title.length).trim()
+        : hasBody
+          ? body
+          : '';
+  const template = noteTemplate(post);
+  const labels = {
+    journal: '生活手札',
+    fragment: '此刻，记下',
+    letter: '寄给同路人',
+    question: '想听听你说',
+  };
+  const rememberRatio = (url: string, width: number, height: number) => {
+    if (!width || !height) return;
+    const ratio = Math.max(0.66, Math.min(1.6, width / height));
+    if (coverRatios.size >= 200 && !coverRatios.has(url)) {
+      coverRatios.delete(coverRatios.keys().next().value!);
+    }
+    coverRatios.set(url, ratio);
+    setLoadedRatios((current) =>
+      current[url] === ratio ? current : { ...current, [url]: ratio },
+    );
+  };
   const author = (
     <div className="sw-post-author">
       <button
@@ -68,7 +118,7 @@ export function PostCard({
         {onAuthor ? (
           <button onClick={onAuthor}>
             {d.identity === 'project' ? d.project_name : post.author_name}
-            <ArrowUpRight size={16} />
+            {expanded && <ArrowUpRight size={16} />}
           </button>
         ) : (
           <strong>
@@ -81,6 +131,18 @@ export function PostCard({
         </small>
       </div>
     </div>
+  );
+  const like = onReaction && (
+    <button
+      className="ew-card-like"
+      aria-label={post.liked ? '取消点赞' : '点赞'}
+      aria-pressed={post.liked}
+      disabled={reactionPending}
+      onClick={() => onReaction('like')}
+    >
+      <Heart size={19} fill={post.liked ? 'currentColor' : 'none'} />
+      <span>{post.likes || '赞'}</span>
+    </button>
   );
   return (
     <article
@@ -105,7 +167,19 @@ export function PostCard({
         </header>
       )}
       {images.length ? (
-        <div className="sw-post-media">
+        <div
+          className="sw-post-media"
+          style={
+            !expanded
+              ? {
+                  aspectRatio:
+                    loadedRatios[images[0].url] ||
+                    coverRatios.get(images[0].url) ||
+                    1,
+                }
+              : undefined
+          }
+        >
           {!expanded && onOpen && images[0]?.kind !== 'video' && (
             <button
               className="sn-cover-open"
@@ -116,6 +190,14 @@ export function PostCard({
                 翻开这页 <ArrowUpRight size={19} />
               </span>
             </button>
+          )}
+          {!expanded && images.length > 1 && (
+            <span
+              className="ew-media-count"
+              aria-label={`${images.length} 个媒体附件`}
+            >
+              {images.length} 项
+            </span>
           )}
           {(expanded ? images : images.slice(0, 1)).map((m) => {
             const media = broken.includes(m.url) ? (
@@ -131,6 +213,13 @@ export function PostCard({
                 playsInline
                 preload="metadata"
                 aria-label={m.alt}
+                onLoadedMetadata={(event) =>
+                  rememberRatio(
+                    m.url,
+                    event.currentTarget.videoWidth,
+                    event.currentTarget.videoHeight,
+                  )
+                }
                 onError={() => setBroken((b) => [...b, m.url])}
               />
             ) : (
@@ -140,6 +229,13 @@ export function PostCard({
                 referrerPolicy="no-referrer"
                 src={m.url}
                 alt={m.alt}
+                onLoad={(event) =>
+                  rememberRatio(
+                    m.url,
+                    event.currentTarget.naturalWidth,
+                    event.currentTarget.naturalHeight,
+                  )
+                }
                 onError={() => setBroken((b) => [...b, m.url])}
               />
             );
@@ -157,37 +253,40 @@ export function PostCard({
         </div>
       ) : !expanded ? (
         <button
-          className={`sw-text-cover ${d.kind}`}
+          className={`sw-text-cover ew-note-${template}`}
           onClick={onOpen}
-          aria-label={title}
+          aria-label={`查看动态：${title}`}
         >
-          <span>{socialKindLabels[d.kind]}</span>
-          <p>{title}</p>
+          <span className="ew-note-kicker">{labels[template]}</span>
+          <span className="ew-note-copy">
+            <span className="ew-note-title">{title}</span>
+            {excerpt && <span className="ew-note-excerpt">{excerpt}</span>}
+          </span>
           <span className="ew-text-cover-sign" aria-hidden="true">
-            elsewhere
-            <ArrowUpRight size={22} />
+            <i>elsewhere</i>
+            <ArrowUpRight size={20} />
           </span>
           <span className="ew-paper-edge" aria-hidden="true" />
           <span className="ew-paper-stock" aria-hidden="true" />
         </button>
       ) : null}
       <div className="sw-post-content">
-        {!expanded && (
-          <div className="sw-post-kind">
-            <span>{socialKindLabels[d.kind]}</span>
-            <small>{visibilityLabels[post.visibility]}</small>
-          </div>
-        )}
-        {!expanded && images.length ? (
+        {!expanded && images.length > 0 && (
           <button className="sw-post-title" onClick={onOpen}>
             {title}
           </button>
-        ) : null}
-        <p className="sw-post-summary">{d.summary}</p>
-        {expanded ? (
+        )}
+        {expanded && (
           <>
-            {d.body !== d.title && d.body !== d.summary && (
-              <p className="sw-post-body">{d.body}</p>
+            {hasLead && (
+              <p className="sw-post-summary ew-reading-lead">{summary}</p>
+            )}
+            {hasBody && (
+              <div className="ew-reading-body">
+                {body.split(/\n\s*\n/).map((paragraph, index) => (
+                  <p key={index}>{paragraph}</p>
+                ))}
+              </div>
             )}
             {(d.source || d.evidence) && (
               <details className="ew-post-context">
@@ -214,42 +313,42 @@ export function PostCard({
                 .map((m) => (
                   <a key={m.url} href={m.url} target="_blank" rel="noreferrer">
                     {m.kind === 'demo' ? 'Demo' : '代码结果'} · {m.alt}
-                    <ExternalLink size={14} />
+                    <ExternalLink size={16} />
                   </a>
                 ))}
             </div>
+            {d.tags.length > 0 && (
+              <div className="sw-tags ew-reading-topics">
+                <span className="ew-reading-section-label">话题</span>
+                {d.tags.map((tag) =>
+                  onTag ? (
+                    <button key={tag} onClick={() => onTag(tag)}>
+                      #{tag}
+                    </button>
+                  ) : (
+                    <span key={tag}>#{tag}</span>
+                  ),
+                )}
+              </div>
+            )}
           </>
-        ) : null}
-        <div className="sw-tags">
-          {d.tags.map((t) =>
-            onTag ? (
-              <button key={t} onClick={() => onTag(t)}>
-                #{t}
-              </button>
-            ) : (
-              <span key={t}>#{t}</span>
-            ),
-          )}
-        </div>
-        {relevant.length ? (
+        )}
+        {relevant.length > 0 && (
           <p className="sw-match-reason">
             与你关注的 {relevant.join('、')} 相关
           </p>
-        ) : null}
-        {!expanded && author}
-        {onReaction ? (
+        )}
+        {!expanded && (
+          <div className="ew-card-meta" aria-busy={reactionPending}>
+            {author}
+            {like}
+          </div>
+        )}
+        {expanded && onReaction && (
           <footer className="sw-post-actions" aria-busy={reactionPending}>
-            <button
-              aria-label={post.liked ? '取消点赞' : '点赞'}
-              aria-pressed={post.liked}
-              disabled={reactionPending}
-              onClick={() => onReaction('like')}
-            >
-              <Heart size={17} fill={post.liked ? 'currentColor' : 'none'} />
-              {post.likes || '点赞'}
-            </button>
+            {like}
             <button aria-label="查看评论" onClick={onOpen}>
-              <MessageCircle size={17} />
+              <MessageCircle size={19} />
               {post.comments || '评论'}
             </button>
             <button
@@ -258,11 +357,11 @@ export function PostCard({
               disabled={reactionPending}
               onClick={() => onReaction('save')}
             >
-              <Bookmark size={17} fill={post.saved ? 'currentColor' : 'none'} />
+              <Bookmark size={19} fill={post.saved ? 'currentColor' : 'none'} />
               {post.saves || '收藏'}
             </button>
           </footer>
-        ) : null}
+        )}
       </div>
     </article>
   );
@@ -274,6 +373,7 @@ export function PostDetail({
   onUpdated,
   onReaction,
   onAuthor,
+  onTag,
   sourceRect,
   initialScroll = 0,
   reactionError,
@@ -285,6 +385,7 @@ export function PostDetail({
   onUpdated: () => void;
   onReaction?: (kind: 'like' | 'save') => void;
   onAuthor?: (id: string) => void;
+  onTag?: (tag: string) => void;
   sourceRect?: DOMRect;
   initialScroll?: number;
   reactionError?: string;
@@ -334,6 +435,7 @@ export function PostDetail({
       <PostCard
         post={post}
         expanded
+        onTag={busy ? undefined : onTag}
         onReaction={onReaction}
         reactionPending={reactionPending}
         onOpen={() =>

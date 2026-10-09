@@ -27,16 +27,6 @@
   opacity: 0.06;
 }
 
-.auth-scene .auth-scene-footer {
-  position: relative;
-  z-index: 4;
-  display: flex;
-  justify-content: flex-end;
-  width: min(100%, 1200px);
-  margin: 0 auto;
-  padding: 8px 40px 24px;
-}
-
 .auth-scene :is(.onboarding, .landing.auth-landing) {
   --accent: var(--ew-ink);
   --muted: var(--ew-muted);
@@ -162,8 +152,7 @@
   margin: 0;
 }
 
-.auth-scene :is(.login-form.auth-form, .auth-entry, .auth-state) button,
-.auth-scene .ew-atmosphere-toggle {
+.auth-scene :is(.login-form.auth-form, .auth-entry, .auth-state) button {
   min-height: 48px;
   border-radius: 3px;
   border-color: rgb(133 111 79 / 32%);
@@ -196,16 +185,14 @@
 
 .auth-scene
   :is(.login-form.auth-form, .auth-entry, .auth-state)
-  button:enabled:hover,
-.auth-scene .ew-atmosphere-toggle:enabled:hover {
+  button:enabled:hover {
   background: #f8f1e2;
   border-color: rgb(117 93 58 / 48%);
 }
 
 .auth-scene
   :is(.login-form.auth-form, .auth-entry, .auth-state)
-  button:enabled:active,
-.auth-scene .ew-atmosphere-toggle:enabled:active {
+  button:enabled:active {
   box-shadow: inset 0 1px 3px rgb(67 48 23 / 14%);
 }
 
@@ -298,12 +285,6 @@
   font-size: 18px;
 }
 
-.auth-scene .ew-atmosphere-toggle {
-  min-height: 44px;
-  padding: 8px 14px;
-  font-size: 16px;
-}
-
 .auth-scene :is(button, a):focus-visible {
   outline: 2px solid #716049;
   outline-offset: 4px;
@@ -324,10 +305,6 @@
 
   .auth-scene .login-form.auth-form {
     padding: 24px;
-  }
-
-  .auth-scene .auth-scene-footer {
-    padding: 8px 24px 24px;
   }
 
   .auth-scene .ew-tree-shadow {

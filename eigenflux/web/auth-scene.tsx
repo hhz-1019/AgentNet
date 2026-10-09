@@ -1,6 +1,5 @@
 import { useRef, type ReactNode } from 'react';
 import {
-  AtmosphereToggle,
   JournalAtmosphere,
   useJournalAtmosphere,
 } from './social/journal-atmosphere';
@@ -15,9 +14,6 @@ export function AuthScene({ children }: { children: ReactNode }) {
     <div className="auth-scene" ref={scene}>
       <JournalAtmosphere background={atmosphere.background} />
       <div className="auth-scene-content">{children}</div>
-      <footer className="auth-scene-footer">
-        <AtmosphereToggle {...atmosphere} />
-      </footer>
     </div>
   );
 }
