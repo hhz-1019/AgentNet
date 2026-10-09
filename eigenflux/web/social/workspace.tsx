@@ -41,6 +41,11 @@ import {
   type Portrait,
 } from './portrait-data';
 import { MovingTabs, useFeedMotion } from './content-motion';
+import {
+  AtmosphereToggle,
+  JournalAtmosphere,
+  useJournalAtmosphere,
+} from './journal-atmosphere';
 import { DemoSettings } from './social-settings';
 import type { WorkPost, SocialStore, Page } from './model';
 import { liveSocialStore, uploadAttachment } from './store';
@@ -53,6 +58,7 @@ import './social-layout.css';
 import './elsewhere.css';
 import './type-system.css';
 import './editorial.css';
+import './journal-atmosphere.css';
 
 const nav = [
   ['explore', '发现', Compass],
@@ -143,6 +149,12 @@ export function SocialWorkspace({
   const [pending, setPending] = useState<string[]>([]);
   const [publisher, setPublisher] = useState<WorkPost | true>();
   const [detail, setDetail] = useState<WorkPost>();
+  const workspace = useRef<HTMLDivElement>(null);
+  const atmosphere = useJournalAtmosphere(
+    workspace,
+    route,
+    Boolean(publisher || detail),
+  );
   const detailOrigin = useRef<DOMRect | undefined>(undefined);
   const returnPosition = useRef<number | undefined>(undefined);
   const detailPosition = useRef(0);
@@ -438,7 +450,12 @@ export function SocialWorkspace({
         </a>
       ));
   return (
-    <div className="sw-workspace sn-social ew-social" data-page={route}>
+    <div
+      className="sw-workspace sn-social ew-social"
+      data-page={route}
+      ref={workspace}
+    >
+      <JournalAtmosphere background={atmosphere.background} />
       <a className="sw-skip" href="#social-main">
         跳到内容
       </a>
@@ -476,8 +493,12 @@ export function SocialWorkspace({
             <strong>{portrait.fields.name || session.agent_name}</strong>
           </span>
         </a>
+        <AtmosphereToggle {...atmosphere} />
       </aside>
       <main id="social-main" className="sw-main">
+        <div className="ew-atmosphere-controls">
+          <AtmosphereToggle {...atmosphere} />
+        </div>
         {personal && !['me', 'liked', 'saved', 'drafts'].includes(route) && (
           <a
             className="sn-back"

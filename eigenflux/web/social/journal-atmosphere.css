@@ -1,0 +1,266 @@
+/* Wind changes decoration only. Layout, content, and hit targets remain still. */
+.sw-workspace.ew-social.sn-social {
+  position: relative;
+  isolation: isolate;
+}
+
+.ew-social.sn-social .ew-journal-atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  background-color: var(--ew-paper);
+}
+
+.ew-journal-atmosphere > :is(.ew-paper-grain, svg) {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  pointer-events: none;
+}
+
+.ew-journal-atmosphere .ew-paper-grain {
+  background-image:
+    repeating-linear-gradient(
+      94deg,
+      transparent 0 4px,
+      rgb(117 92 59 / 1.5%) 4px 5px,
+      transparent 5px 9px
+    ),
+    repeating-linear-gradient(
+      8deg,
+      transparent 0 3px,
+      rgb(255 253 248 / 18%) 3px 4px,
+      transparent 4px 7px
+    );
+}
+
+.ew-social.sn-social .sw-main {
+  position: relative;
+  z-index: 1;
+}
+
+.ew-social.sn-social .sw-sidebar {
+  z-index: 1;
+}
+
+.ew-journal-atmosphere .ew-window-light {
+  opacity: 0.5;
+  transform: none;
+}
+
+.ew-journal-atmosphere .ew-window-shadow {
+  opacity: 0.78;
+  transform: none;
+}
+
+.ew-journal-atmosphere .ew-tree-shadow {
+  opacity: calc(0.72 + var(--ew-sun-strength, 0) * 0.04);
+  transform-box: view-box;
+  transform-origin: 80% 18%;
+  transform: translate3d(var(--ew-wind-x, 0px), var(--ew-wind-y, 0px), 0)
+    rotate(var(--ew-wind-turn, 0deg));
+}
+
+.ew-social.sn-social article.sw-post[data-breeze-surface] {
+  position: relative;
+  transform: none;
+}
+
+/* This opaque sheet prevents projected shadows from reducing text contrast. */
+.ew-social.sn-social article.sw-post[data-breeze-surface] .sw-post-content {
+  position: relative;
+  background: var(--ew-paper);
+}
+
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface]
+  :is(.sw-post-media, .sw-text-cover) {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Neutralize legacy hover/active movement without touching icon feedback. */
+.ew-social.sn-social article.sw-post[data-breeze-surface] :is(button, a),
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface]:not(.expanded)
+  .sw-post-media
+  :is(img, video),
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface]:not(.expanded)
+  .sw-post-media:is(:hover, :focus-within)
+  :is(img, video) {
+  transform: none;
+  transition-property: color, background-color, border-color, opacity;
+}
+
+.ew-social.sn-social article.sw-post[data-breeze-surface] .ew-paper-edge {
+  --ew-edge-lift: clamp(0px, var(--ew-paper-lift, 0px), 3px);
+  --ew-edge-shadow: clamp(0, var(--ew-paper-shadow, 0), 1);
+  position: absolute;
+  z-index: 1;
+  inset-inline-end: 0;
+  bottom: 0;
+  display: block;
+  width: 44%;
+  height: 12px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  border-radius: 0 0 3px 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface]
+  .ew-paper-edge::before,
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface]
+  .ew-paper-edge::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  pointer-events: none;
+  transition: none;
+}
+
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface]
+  .ew-paper-edge::before {
+  z-index: 1;
+  bottom: -3px;
+  height: 3px;
+  clip-path: polygon(0 100%, 50% 92%, 82% 72%, 100% 5%, 100% 100%);
+  background: linear-gradient(90deg, transparent, var(--ew-surface) 82%);
+  opacity: calc(var(--ew-edge-shadow) * 0.9);
+  transform-origin: right bottom;
+  transform: translateY(calc(var(--ew-edge-lift) * -1));
+}
+
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface]
+  .ew-paper-edge::after {
+  bottom: 0;
+  height: 9px;
+  background: radial-gradient(
+    ellipse at 78% 100%,
+    rgb(66 49 29 / 35%),
+    rgb(66 49 29 / 10%) 45%,
+    transparent 73%
+  );
+  opacity: var(--ew-edge-shadow);
+  transform: translateY(calc(var(--ew-edge-lift) * 0.45));
+}
+
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface='paper']
+  .ew-paper-edge {
+  width: 54%;
+}
+
+.ew-social.sn-social
+  article.sw-post[data-breeze-surface]:is(
+    :hover,
+    :focus-within,
+    [data-breeze-rest='true']
+  )
+  .ew-paper-edge,
+.ew-social.sn-social[data-atmosphere-paused='true'] .ew-paper-edge {
+  /* The shared driver freezes the current pose instead of snapping it flat. */
+  animation-play-state: paused;
+  transition: none;
+}
+
+.ew-social.sn-social .ew-atmosphere-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ew-muted);
+  font-family: var(--ew-serif);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: nowrap;
+  transform: none;
+  transition:
+    color 160ms,
+    background-color 160ms,
+    border-color 160ms;
+}
+
+.ew-social.sn-social .ew-atmosphere-toggle:is(:hover, :active) {
+  border-color: var(--ew-line);
+  background: var(--ew-surface);
+  box-shadow: none;
+  color: var(--ew-ink);
+  transform: none;
+}
+
+.ew-social.sn-social .ew-atmosphere-toggle:focus-visible {
+  outline: 2px solid var(--ew-ink);
+  outline-offset: 3px;
+}
+
+.ew-social.sn-social .sw-sidebar > .ew-atmosphere-toggle {
+  position: absolute;
+  inset-inline: 20px;
+  bottom: 108px;
+}
+
+.ew-social.sn-social .sw-main > .ew-atmosphere-controls {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .ew-social.sn-social .sw-sidebar > .ew-atmosphere-toggle {
+    inset-inline: 14px;
+  }
+}
+
+@media (max-width: 640px), (max-height: 620px) {
+  .ew-social.sn-social .sw-sidebar > .ew-atmosphere-toggle {
+    display: none;
+  }
+
+  .ew-social.sn-social .sw-main > .ew-atmosphere-controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+
+  .ew-social.sn-social .ew-tree-shadow {
+    opacity: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ew-journal-atmosphere .ew-tree-shadow {
+    transform: none;
+  }
+
+  .ew-social.sn-social article.sw-post[data-breeze-surface] .ew-paper-edge {
+    display: none;
+  }
+
+  .ew-social.sn-social .ew-atmosphere-toggle {
+    transition: none;
+  }
+}

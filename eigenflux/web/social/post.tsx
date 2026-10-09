@@ -86,6 +86,13 @@ export function PostCard({
     <article
       className={`sw-post${expanded ? ' expanded' : ''}${images.length ? '' : ' ew-text-post'}`}
       data-post-id={post.id}
+      data-breeze-surface={
+        expanded || images[0]?.kind === 'video'
+          ? undefined
+          : images.length
+            ? 'photo'
+            : 'paper'
+      }
     >
       {expanded && (
         <header className="ew-reading-intro">
@@ -137,6 +144,9 @@ export function PostCard({
               />
             ),
           )}
+          {!expanded && images[0]?.kind !== 'video' && (
+            <span className="ew-paper-edge" aria-hidden="true" />
+          )}
         </div>
       ) : !expanded ? (
         <button
@@ -150,6 +160,7 @@ export function PostCard({
             elsewhere
             <ArrowUpRight size={22} />
           </span>
+          <span className="ew-paper-edge" aria-hidden="true" />
         </button>
       ) : null}
       <div className="sw-post-content">
