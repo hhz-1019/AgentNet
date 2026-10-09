@@ -105,6 +105,7 @@ func TestPhonePostgresRegistration(t *testing.T) {
 	h.POST("/send", inject, s.createPhoneChallenge)
 	h.POST("/register", inject, s.registerUID)
 	h.POST("/login", inject, s.loginUID)
+	h.POST("/claim", inject, s.claimUID)
 	h.POST("/bind", inject, s.bindPhone)
 	h.GET("/binding", inject, s.getPhoneBinding)
 	h.POST("/reset", inject, s.resetUIDPassword)
@@ -153,6 +154,11 @@ func TestPhonePostgresRegistration(t *testing.T) {
 	_ = db.Raw(`SELECT count(*) FROM human_accounts WHERE phone_hash IS NOT NULL`).Scan(&count).Error
 	if count != 1 {
 		t.Fatal("duplicate account persisted")
+	}
+	// The same valid owner credentials cannot claim a second network identity.
+	blocked := call("POST", "/claim", uidRequest{UID: owner["uid"].(string), Password: "test-password-123"}, "2", "", 409)
+	if blocked["error"].(map[string]any)["code"] != "OWNER_HAS_AGENT" {
+		t.Fatal("second identity was not rejected by the owner limit", blocked)
 	}
 	// Attempts persist even though failed registration does not create an owner.
 	wrong := send("13800138002", "3")

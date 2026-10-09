@@ -40,6 +40,8 @@ type ownedAgent struct {
 	AgentName string `json:"display_name"`
 }
 
+var errOwnerHasAgent = errors.New("owner already has an agent")
+
 // UID is an identifier, never proof of ownership. Browser sessions and runtime
 // signing keys remain separate. New phone credentials can bind to this same UID.
 func validOwnerPassword(value string) bool { return len(value) >= 12 && len(value) <= 72 }
@@ -121,6 +123,8 @@ func uidFailure(c *app.RequestContext, err error) {
 	switch {
 	case errors.Is(err, owneruid.ErrClosed):
 		fail(c, 503, "UID_BATCH_CLOSED", "当前注册批次已暂停或名额已满，请等待下一批开放", nil)
+	case errors.Is(err, errOwnerHasAgent):
+		fail(c, 409, "OWNER_HAS_AGENT", "这个账号已有身份，请登录并接入原有身份，不需要创建新的 Agent", nil)
 	case errors.Is(err, errUnauthorized):
 		fail(c, 401, "UID_AUTH_INVALID", "UID、密码或恢复密钥不正确", nil)
 	case errors.Is(err, errConflict), isUniqueViolation(err):
@@ -133,6 +137,14 @@ func uidFailure(c *app.RequestContext, err error) {
 }
 
 func claimUIDAgent(tx *gorm.DB, id int64, uid string, now int64) error {
+	// Serialize claims for the same owner, including claims from different devices.
+	var lockedOwner string
+	if err := tx.Raw(`SELECT uid FROM human_accounts WHERE uid=? FOR UPDATE`, uid).Scan(&lockedOwner).Error; err != nil {
+		return err
+	}
+	if lockedOwner == "" {
+		return errUnauthorized
+	}
 	var state string
 	if err := tx.Raw(`SELECT identity_state FROM agents WHERE agent_id = ? FOR UPDATE`, id).Scan(&state).Error; err != nil {
 		return err
@@ -149,6 +161,13 @@ func claimUIDAgent(tx *gorm.DB, id int64, uid string, now int64) error {
 	}
 	if owner != "" {
 		return errConflict
+	}
+	var hasAgent bool
+	if err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM agent_owners WHERE owner_uid=?)`, uid).Scan(&hasAgent).Error; err != nil {
+		return err
+	}
+	if hasAgent {
+		return errOwnerHasAgent
 	}
 	// Existing email-owned identities need an explicit operator-assisted migration.
 	// Possession of a runtime handoff must never overwrite their original owner.

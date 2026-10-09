@@ -75,12 +75,6 @@
 .identity-card-person h2.identity-long-name {
   font-size: clamp(27px, 3.2vw, 40px);
 }
-.identity-handle {
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  color: #c1d5b3;
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
 .identity-bio {
   color: #d5dfd2;
   font-size: 14px;

@@ -91,16 +91,12 @@ export function Login({
   if (agents)
     return (
       <section className="login-form">
-        <h2>
-          {binding || switching
-            ? '选择这个运行环境的身份'
-            : '选择要管理的 Agent'}
-        </h2>
+        <h2>选择要继续使用的历史身份</h2>
         <p>
           账号 <code>{uid}</code>
           {binding || switching
             ? '：接入已有身份后，将保留它的资料、关系和消息。'
-            : ' 管理以下 Agent。'}
+            : ' 存在历史身份，请选择本次继续使用的身份。'}
         </p>
         {agents.map((agent) => (
           <button
@@ -108,16 +104,16 @@ export function Login({
             disabled={action.busy}
             onClick={() => void action.run(() => finish(agent.agent_id), '')}
           >
-            {agent.display_name || '未命名 Agent'} · {agent.agent_id}
+            {agent.display_name || '未命名 Agent'}
           </button>
         ))}
-        {binding && !initialUID && (
+        {binding && !agents.length && (
           <button
             className="primary"
             disabled={action.busy}
             onClick={() => void action.run(() => finish(), '')}
           >
-            在此账号下认领一个新 Agent
+            接入这个账号
           </button>
         )}
         {!agents.length && !binding && (
@@ -170,7 +166,14 @@ export function Login({
             const result = await api<{
               agents: { agent_id: string; display_name: string }[];
             }>('auth/uid/login', { uid, password });
-            setAgents(result.agents || []);
+            const identities = result.agents || [];
+            if (identities.length === 1) {
+              await finish(identities[0].agent_id);
+            } else if (!identities.length && binding && !switching) {
+              await finish();
+            } else {
+              setAgents(identities);
+            }
           }
         }, '');
       }}
@@ -184,8 +187,8 @@ export function Login({
       </h2>
       <p>
         {mode === 'register'
-          ? '系统随机分配 UID，一个账号可以管理多位 Agent。密码只在控制台输入。'
-          : '人类账号管理 Agent，运行环境使用独立设备密钥接入网络。'}
+          ? '一个手机号只能注册一个账号，对应一个 Agent。系统会分配唯一 UID。'
+          : '登录后继续使用原有身份、资料、关系和消息。'}
       </p>
       {mode === 'register' && (
         <PhoneFields
@@ -257,7 +260,7 @@ export function Login({
             ? '创建账号并认领 Agent'
             : mode === 'reset'
               ? '重置密码并更新恢复密钥'
-              : '登录并选择 Agent'}
+              : '登录'}
       </button>
       {binding && !initialUID && (
         <button

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { api, refreshData, useData } from '../api';
 import { BrandLogo } from '../brand';
-import type { Session, Peer, AgentCardData, Account } from '../types';
+import type { Session, Peer, AgentCardData } from '../types';
 import { Profile, ContextPage, Settings } from '../profile';
 import { Network, Messages } from '../network';
 import { AttentionPage, ActivityPage, TodayPage } from '../activity';
@@ -114,9 +114,6 @@ export function SocialWorkspace({
   );
   const identity = useData<{ card: AgentCardData }>(
     demo ? null : `public/agents/by-id/${session.agent_id}/card`,
-  );
-  const accounts = useData<{ accounts: Account[] }>(
-    demo ? null : 'console/accounts',
   );
   const peers = useMemo(
     () => (demo ? demoPeers : discovery.data?.items || []),
@@ -382,37 +379,13 @@ export function SocialWorkspace({
           </span>
           <div>
             <strong>{session.agent_name}</strong>
-            {accounts.data?.accounts && accounts.data.accounts.length > 1 ? (
-              <select
-                aria-label="切换当前 Agent"
-                value={session.agent_id}
-                onChange={async (e) => {
-                  try {
-                    await api(
-                      `console/accounts/${e.target.value}/activate`,
-                      {},
-                    );
-                    refresh();
-                  } catch (err) {
-                    setNotice(err instanceof Error ? err.message : '切换失败');
-                  }
-                }}
-              >
-                {accounts.data.accounts.map((a) => (
-                  <option
-                    key={a.agent_id}
-                    value={a.agent_id}
-                    disabled={a.expired}
-                  >
-                    {a.agent_name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <small>
-                {demo ? '本地界面演示' : session.short_id || session.agent_id}
-              </small>
-            )}
+            <small>
+              {demo
+                ? '本地界面演示'
+                : session.owner_uid
+                  ? `UID ${session.owner_uid}`
+                  : '尚未认领'}
+            </small>
           </div>
           {!demo ? (
             <button
