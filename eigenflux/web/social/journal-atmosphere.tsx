@@ -1,6 +1,10 @@
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { Pause, Sun } from 'lucide-react';
-import { JOURNAL_WIND_LIFT_PX, sampleJournalWind } from './journal-wind';
+import {
+  JOURNAL_WIND_LIFT_PX,
+  paperTiltDegrees,
+  sampleJournalWind,
+} from './journal-wind';
 
 const preferenceKey = 'elsewhere:journal-motion';
 const surfaceSelector = '.sw-feed-grid [data-breeze-surface]';
@@ -14,7 +18,13 @@ function readPaused() {
   }
 }
 
-type Surface = { node: HTMLElement; visible: boolean; lift: number };
+type Surface = {
+  node: HTMLElement;
+  cover: HTMLElement;
+  visible: boolean;
+  lift: number;
+  height: number;
+};
 
 /** One active-time clock connects the canopy and two decorative paper edges. */
 export function useJournalAtmosphere(
@@ -53,7 +63,8 @@ export function useJournalAtmosphere(
   useEffect(() => {
     if (!workspace.current || !background.current) return;
     const root = workspace.current;
-    const sky = background.current;
+    // Root variables reach both the paper backdrop and its translucent light wash.
+    const sky = root;
     let frame = 0;
     let previous = 0;
     let elapsed = -2_000;
@@ -78,11 +89,16 @@ export function useJournalAtmosphere(
         '--ew-paper-shadow',
         (surface.lift / JOURNAL_WIND_LIFT_PX).toFixed(4),
       );
+      surface.node.style.setProperty(
+        '--ew-paper-tilt',
+        `${paperTiltDegrees(surface.lift, surface.height).toFixed(5)}deg`,
+      );
     }
 
     function clearSurface(surface: Surface) {
       surface.node.style.removeProperty('--ew-paper-lift');
       surface.node.style.removeProperty('--ew-paper-shadow');
+      surface.node.style.removeProperty('--ew-paper-tilt');
       delete surface.node.dataset.breezeRest;
     }
 
@@ -111,7 +127,7 @@ export function useJournalAtmosphere(
       // A held, raised edge keeps its slot until it can settle. Never start a
       // third region while a reader is keeping one of the previous pair still.
       pair = pair.filter(
-        (surface) => surface.node.isConnected && surface.lift > 0,
+        (surface) => surfaces.get(surface.node) === surface && surface.lift > 0,
       );
       const available = Array.from(surfaces.values()).filter(
         (surface) =>
@@ -140,15 +156,15 @@ export function useJournalAtmosphere(
         }
         sky.style.setProperty(
           '--ew-wind-x',
-          `${(wind.ambient * 9).toFixed(3)}px`,
+          `${(wind.ambient * 18).toFixed(3)}px`,
         );
         sky.style.setProperty(
           '--ew-wind-y',
-          `${(-wind.ambient * 5).toFixed(3)}px`,
+          `${(-wind.ambient * 10).toFixed(3)}px`,
         );
         sky.style.setProperty(
           '--ew-wind-turn',
-          `${(wind.ambient * 0.65).toFixed(4)}deg`,
+          `${(wind.ambient * 0.85).toFixed(4)}deg`,
         );
         sky.style.setProperty('--ew-sun-strength', wind.ambient.toFixed(4));
         for (const surface of pair) {
@@ -199,10 +215,26 @@ export function useJournalAtmosphere(
       }
     }
 
+    const coverSizes = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const surface = Array.from(surfaces.values()).find(
+          (item) => item.cover === entry.target,
+        );
+        const height =
+          entry.borderBoxSize[0]?.blockSize ??
+          (entry.target as HTMLElement).offsetHeight;
+        if (surface && surface.cover.isConnected && height > 0) {
+          surface.height = height;
+          writeSurface(surface);
+        }
+      }
+    });
     const visibility = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const surface = surfaces.get(entry.target as HTMLElement);
+          const surface = Array.from(surfaces.values()).find(
+            (item) => item.cover === entry.target,
+          );
           if (surface)
             surface.visible =
               entry.isIntersecting && entry.intersectionRatio >= 0.25;
@@ -213,19 +245,35 @@ export function useJournalAtmosphere(
 
     function discover() {
       for (const [node, surface] of surfaces) {
-        if (!root.contains(node)) {
-          visibility.unobserve(node);
+        if (
+          !root.contains(node) ||
+          !node.matches(surfaceSelector) ||
+          node.querySelector('.sw-post-media, .sw-text-cover') !== surface.cover
+        ) {
+          visibility.unobserve(surface.cover);
+          coverSizes.unobserve(surface.cover);
           clearSurface(surface);
           surfaces.delete(node);
         }
       }
       for (const node of root.querySelectorAll<HTMLElement>(surfaceSelector)) {
         if (!surfaces.has(node)) {
-          surfaces.set(node, { node, visible: false, lift: 0 });
-          visibility.observe(node);
+          const cover = node.querySelector<HTMLElement>(
+            '.sw-post-media, .sw-text-cover',
+          );
+          if (!cover) continue;
+          surfaces.set(node, {
+            node,
+            cover,
+            visible: false,
+            lift: 0,
+            height: cover.offsetHeight || 240,
+          });
+          visibility.observe(cover);
+          coverSizes.observe(cover);
         }
       }
-      pair = pair.filter((surface) => surfaces.has(surface.node));
+      pair = pair.filter((surface) => surfaces.get(surface.node) === surface);
       overlay = Boolean(
         document.querySelector('dialog[open], .ew-brand-entry'),
       );
@@ -272,6 +320,7 @@ export function useJournalAtmosphere(
       disposed = true;
       cancelAnimationFrame(frame);
       visibility.disconnect();
+      coverSizes.disconnect();
       mutations.disconnect();
       root.removeEventListener('pointerover', point);
       root.removeEventListener('pointerout', point);
@@ -284,6 +333,10 @@ export function useJournalAtmosphere(
       for (const surface of surfaces.values()) clearSurface(surface);
       delete root.dataset.atmospherePaused;
       delete root.dataset.atmosphereReduced;
+      sky.style.removeProperty('--ew-wind-x');
+      sky.style.removeProperty('--ew-wind-y');
+      sky.style.removeProperty('--ew-wind-turn');
+      sky.style.removeProperty('--ew-sun-strength');
       update.current = undefined;
     };
   }, [workspace]);
@@ -329,6 +382,15 @@ export function AtmosphereToggle({
   );
 }
 
+function Canopy() {
+  return (
+    <div className="ew-tree-shadow">
+      <div className="ew-canopy-near" />
+      <div className="ew-canopy-far" />
+    </div>
+  );
+}
+
 export function JournalAtmosphere({
   background,
 }: {
@@ -336,72 +398,52 @@ export function JournalAtmosphere({
 }) {
   const id = useId().replaceAll(':', '');
   return (
-    <div className="ew-journal-atmosphere" ref={background} aria-hidden="true">
-      <div className="ew-paper-grain" />
-      <svg
-        viewBox="0 0 1600 1000"
-        preserveAspectRatio="xMidYMin slice"
-        focusable="false"
+    <>
+      <div
+        className="ew-journal-atmosphere"
+        ref={background}
+        aria-hidden="true"
       >
-        <defs>
-          <filter
-            id={`${id}-soft`}
-            x="-30%"
-            y="-30%"
-            width="160%"
-            height="160%"
+        <div className="ew-paper-grain" />
+        <svg
+          className="ew-window-projection"
+          viewBox="0 0 1600 1000"
+          preserveAspectRatio="none"
+          focusable="false"
+        >
+          <defs>
+            <filter
+              id={id + '-window'}
+              x="-30%"
+              y="-30%"
+              width="160%"
+              height="160%"
+            >
+              <feGaussianBlur stdDeviation="14" />
+            </filter>
+            <linearGradient id={id + '-daylight'} x1="0" y1="0" x2="0.9" y2="1">
+              <stop stopColor="#fff9df" stopOpacity="0.44" />
+              <stop offset="1" stopColor="#fff9df" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path
+            className="ew-window-light"
+            fill={'url(#' + id + '-daylight)'}
+            d="M -180 0 H 440 L 1115 1000 H 440 Z M 500 0 H 1100 L 1775 1000 H 1175 Z"
+          />
+          <g
+            className="ew-window-shadow"
+            fill="#655b47"
+            filter={'url(#' + id + '-window)'}
           >
-            <feGaussianBlur stdDeviation="11" />
-          </filter>
-          <filter
-            id={`${id}-leaf`}
-            x="-30%"
-            y="-30%"
-            width="160%"
-            height="160%"
-          >
-            <feGaussianBlur stdDeviation="7" />
-          </filter>
-          <linearGradient id={`${id}-sun`} x1="1" y1="0" x2="0.2" y2="1">
-            <stop stopColor="#fffcdf" stopOpacity="0.8" />
-            <stop offset="1" stopColor="#ffe5aa" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id={`${id}-shade`} x1="1" y1="0" x2="0.1" y2="1">
-            <stop stopColor="#8a805f" stopOpacity="0.15" />
-            <stop offset="0.65" stopColor="#a49a7a" stopOpacity="0.09" />
-            <stop offset="1" stopColor="#a49a7a" stopOpacity="0" />
-          </linearGradient>
-          <radialGradient id={`${id}-canopy`} cx="1" cy="0" r="1">
-            <stop stopColor="#716e4a" stopOpacity="0.16" />
-            <stop offset="0.7" stopColor="#8b8961" stopOpacity="0.08" />
-            <stop offset="1" stopColor="#8b8961" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <g
-          className="ew-window-light"
-          fill={`url(#${id}-sun)`}
-          filter={`url(#${id}-soft)`}
-        >
-          <path d="M 715 -100 H 1225 L 705 940 H 135 Z" />
-          <path d="M 1265 -100 H 1775 L 1305 940 H 745 Z" />
-        </g>
-        <g
-          className="ew-window-shadow"
-          fill={`url(#${id}-shade)`}
-          filter={`url(#${id}-soft)`}
-        >
-          <path d="M 1220 -80 H 1260 L 730 990 H 690 Z M 550 263 L 1635 263 L 1610 305 L 525 305 Z M 785 -80 H 811 L 260 970 H 234 Z" />
-        </g>
-        <g
-          className="ew-tree-shadow"
-          fill={`url(#${id}-canopy)`}
-          filter={`url(#${id}-leaf)`}
-        >
-          <path d="M1510 -70 C1390 60 1480 185 1320 315 C1250 370 1170 465 1130 570 L1140 578 C1200 480 1270 384 1340 326 C1485 200 1410 63 1540 -70Z" />
-          <path d="M1500 55 C1460 7 1357 -5 1366 63 C1401 107 1465 94 1500 55Z M1456 133 C1498 51 1570 68 1551 127 C1529 168 1486 157 1456 133Z M1437 179 C1401 101 1310 79 1301 139 C1315 191 1398 215 1437 179Z M1402 241 C1448 158 1528 193 1496 248 C1472 282 1428 273 1402 241Z M1349 306 C1318 222 1234 208 1220 258 C1231 305 1304 331 1349 306Z M1294 363 C1335 285 1428 313 1390 371 C1355 400 1320 388 1294 363Z M1230 431 C1207 362 1138 329 1119 375 C1126 423 1182 450 1230 431Z M1176 505 C1215 448 1280 441 1270 485 C1244 529 1203 532 1176 505Z" />
-          <path d="M1220 -20 C1160 35 1170 98 1100 180 C1040 250 1000 293 962 378 L974 379 C1012 305 1058 256 1115 191 C1185 112 1176 42 1240 -20Z M1188 37 C1166 -18 1086 -13 1099 35 C1120 63 1162 61 1188 37Z M1165 99 C1199 33 1260 57 1236 102 C1212 132 1184 120 1165 99Z M1110 169 C1090 102 1021 71 1006 119 C1015 163 1067 181 1110 169Z M1060 233 C1109 172 1164 194 1142 233 C1116 263 1081 252 1060 233Z M1009 302 C987 244 925 229 926 269 C940 301 979 323 1009 302Z" />
-        </g>
-      </svg>
-    </div>
+            <path d="M 412 -100 L 1160 1100 H 1217 L 469 -100 Z M 1048 -100 L 1796 1100 H 1840 L 1092 -100 Z M -70 660 L 1700 190 L 1700 230 L -70 700 Z" />
+          </g>
+        </svg>
+        <Canopy />
+      </div>
+      <div className="ew-journal-light-wash" aria-hidden="true">
+        <Canopy />
+      </div>
+    </>
   );
 }

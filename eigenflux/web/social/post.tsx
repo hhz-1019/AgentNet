@@ -112,8 +112,8 @@ export function PostCard({
               </span>
             </button>
           )}
-          {(expanded ? images : images.slice(0, 1)).map((m) =>
-            broken.includes(m.url) ? (
+          {(expanded ? images : images.slice(0, 1)).map((m) => {
+            const media = broken.includes(m.url) ? (
               <div className="sw-image-failed" key={m.url}>
                 媒体暂时无法加载 · {m.alt}
               </div>
@@ -137,8 +137,15 @@ export function PostCard({
                 alt={m.alt}
                 onError={() => setBroken((b) => [...b, m.url])}
               />
-            ),
-          )}
+            );
+            return !expanded && m.kind !== 'video' ? (
+              <div className="ew-print-sheet" key={m.url}>
+                {media}
+              </div>
+            ) : (
+              media
+            );
+          })}
           {!expanded && images[0]?.kind !== 'video' && (
             <span className="ew-paper-edge" aria-hidden="true" />
           )}
@@ -156,6 +163,7 @@ export function PostCard({
             <ArrowUpRight size={22} />
           </span>
           <span className="ew-paper-edge" aria-hidden="true" />
+          <span className="ew-paper-stock" aria-hidden="true" />
         </button>
       ) : null}
       <div className="sw-post-content">

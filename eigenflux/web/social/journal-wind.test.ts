@@ -3,10 +3,27 @@ import { test } from 'node:test';
 import {
   JOURNAL_WIND_CYCLE_MS,
   JOURNAL_WIND_LIFT_PX,
+  paperTiltDegrees,
   sampleJournalWind,
 } from './journal-wind.ts';
 
 const strengths = ['ambient', 'gust', 'secondary'] as const;
+
+await test('a top-hinged print lifts at most three pixels at every cover size', () => {
+  for (const height of [120, 220, 320, 520]) {
+    for (const lift of [-1, 0, 0.5, 1.5, 3, 8]) {
+      const angle = (paperTiltDegrees(lift, height) * Math.PI) / 180;
+      const bottomDepth = height * Math.sin(angle);
+      assert.ok(bottomDepth >= 0 && bottomDepth <= 3 + 1e-12);
+      assert.ok(Math.abs(bottomDepth - Math.max(0, Math.min(3, lift))) < 1e-10);
+    }
+  }
+  for (const invalid of [NaN, Infinity, -Infinity]) {
+    assert.equal(paperTiltDegrees(invalid, 240), 0);
+    assert.equal(paperTiltDegrees(3, invalid), 0);
+  }
+  assert.equal(paperTiltDegrees(3, 0), 0);
+});
 
 await test('the shared clock is deterministic and safe before it starts', () => {
   const times = [0, 120, 1_550, 2_700, 7_600, 19_999, 42_050];

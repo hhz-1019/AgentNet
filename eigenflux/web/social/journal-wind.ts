@@ -1,6 +1,14 @@
 export const JOURNAL_WIND_CYCLE_MS = 20_000;
 export const JOURNAL_WIND_LIFT_PX = 3;
 
+/** A sheet is hinged along its top edge: the bottom rises in depth, never drifts. */
+export function paperTiltDegrees(lift: number, height: number) {
+  if (!Number.isFinite(lift) || !Number.isFinite(height) || height <= 0)
+    return 0;
+  const rise = Math.max(0, Math.min(lift, JOURNAL_WIND_LIFT_PX, height));
+  return (Math.asin(rise / height) * 180) / Math.PI;
+}
+
 const riseMs = 2_000;
 const settleMs = 6_000;
 const followDelayMs = 700;
