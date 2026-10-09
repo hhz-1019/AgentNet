@@ -11,6 +11,7 @@ export function PostGallery({ post }: { post: WorkPost }) {
   const [broken, setBroken] = useState<string[]>([]);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const item = media[index];
+  const photoCredit = post.document.evidence.split('\n\n配图来源：')[1];
   const change = (next: number) =>
     setIndex(Math.max(0, Math.min(media.length - 1, next)));
   return (
@@ -83,6 +84,31 @@ export function PostGallery({ post }: { post: WorkPost }) {
         </div>
       ) : (
         <PaperCover document={post.document} />
+      )}
+      {media.length === 1 && item?.kind === 'image' && photoCredit && (
+        <details className="ew-photo-credit">
+          <summary>照片来源</summary>
+          <p>
+            {photoCredit.split(/(https:\/\/[^\s；。]+)/).map((part, i) =>
+              /^https:\/\/(commons\.wikimedia\.org|creativecommons\.org)\//.test(
+                part,
+              ) ? (
+                <a
+                  key={i}
+                  href={part}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {part.includes('creativecommons.org')
+                    ? '查看图片许可'
+                    : '查看原图与作者'}
+                </a>
+              ) : (
+                part
+              ),
+            )}
+          </p>
+        </details>
       )}
       {media.length > 1 && (
         <>

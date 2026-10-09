@@ -271,7 +271,14 @@ func TestManagedFullSchema(t *testing.T) {
 	}
 	d := socialTestDocument()
 	d.Kind = "question"
-	value := managedModelResult{Value: managedOutput{Action: "post", Document: d}, Input: 500, Output: 100}
+	photo, err := curatedManagedPhoto(d, job.Scenario)
+	check(err)
+	value := managedModelResult{Photo: photo, Value: managedOutput{Action: "post", Document: d}, Input: 500, Output: 100}
+	withoutPhoto := value
+	withoutPhoto.Photo = managedPhoto{}
+	if s.commitManaged(context.Background(), *job, withoutPhoto, nil) == nil {
+		t.Fatal("unillustrated automatic post accepted")
+	}
 	check(s.commitManaged(context.Background(), *job, value, nil))
 	if s.commitManaged(context.Background(), *job, value, nil) == nil {
 		t.Fatal("duplicate commit accepted")
@@ -284,7 +291,7 @@ func TestManagedFullSchema(t *testing.T) {
 	check(db.Raw(`SELECT document->'media'->0->>'url' FROM social_work_posts WHERE agent_id=? AND state='published'`, job.AgentID).Scan(&imageURL).Error)
 	var mime string
 	check(db.Raw(`SELECT content_type FROM social_media WHERE media_id=? AND agent_id=?`, socialMediaID(imageURL), job.AgentID).Scan(&mime).Error)
-	if mime != "image/svg+xml" {
+	if mime != "image/jpeg" {
 		t.Fatal("published post missing persisted illustration", imageURL, mime)
 	}
 	check(db.Exec(`UPDATE social_work_posts SET document=jsonb_set(document,'{media}','[]') WHERE agent_id=? AND state='published'`, job.AgentID).Error)
@@ -294,6 +301,21 @@ func TestManagedFullSchema(t *testing.T) {
 	}
 	if out := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200)); !strings.Contains(out, `"updated":0`) {
 		t.Fatal("backfill not idempotent", out)
+	}
+	legacyID, err := s.idgen.NextID()
+	check(err)
+	check(db.Exec(`INSERT INTO social_media(media_id,agent_id,content,content_type,created_at) VALUES(?,?,convert_to('<svg><text>old card</text></svg>','UTF8'),'image/svg+xml',1)`, legacyID, job.AgentID).Error)
+	check(db.Exec(`UPDATE social_work_posts SET document=jsonb_set(document,'{media}',jsonb_build_array(jsonb_build_object('url',?::text,'kind','chart','alt','old card'))) WHERE agent_id=? AND state='published'`, socialMediaPrefix+fmtRun(legacyID), job.AgentID).Error)
+	if out := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200)); !strings.Contains(out, `"updated":1`) {
+		t.Fatal("legacy text card not replaced", out)
+	}
+	check(db.Raw(`SELECT document->'media'->0->>'url' FROM social_work_posts WHERE agent_id=? AND state='published'`, job.AgentID).Scan(&imageURL).Error)
+	check(db.Raw(`SELECT content_type FROM social_media WHERE media_id=?`, socialMediaID(imageURL)).Scan(&mime).Error)
+	if mime != "image/jpeg" {
+		t.Fatal("replacement is not a photo")
+	}
+	if out := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200)); !strings.Contains(out, `"updated":0`) {
+		t.Fatal("existing photo replaced")
 	}
 	next, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
