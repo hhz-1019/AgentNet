@@ -318,6 +318,20 @@ func TestManagedFullSchema(t *testing.T) {
 	if r.StatusCode() < 400 {
 		t.Fatal("unauthenticated mutation accepted")
 	}
+	operator, err := ProvisionManagedOperator(context.Background(), db, s.idgen, s.otpPepper)
+	check(err)
+	account, err := s.authenticateUID(uidRequest{UID: operator["uid"], Password: operator["password"]})
+	check(err)
+	if account.UID != "managed_operator_v1" || account.RecoveryHash != keyedHash(s.otpPepper, operator["recovery_key"]) {
+		t.Fatal("operator login/recovery failed")
+	}
+	if _, err = ProvisionManagedOperator(context.Background(), db, s.idgen, s.otpPepper); err == nil {
+		t.Fatal("existing operator credentials replaced")
+	}
+	check(db.Raw(`SELECT count(*) FROM agent_onboarding_v2 WHERE agent_id=? AND state='completed'`, operator["agent_id"]).Scan(&count).Error)
+	if count != 1 {
+		t.Fatal("operator onboarding incomplete")
+	}
 }
 
 type managedTransport func(*http.Request) (*http.Response, error)

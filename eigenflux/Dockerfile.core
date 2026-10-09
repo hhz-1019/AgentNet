@@ -27,6 +27,7 @@ RUN go build -o build/migration-preflight scripts/common/migration_preflight.go 
     go build -o build/influence-backfill scripts/common/agent_influence_backfill.go && \
     go build -o build/official-assistant ./scripts/official_assistant && \
     go build -o build/uid-admin ./scripts/uid_admin && \
+    go build -o build/managed-admin ./scripts/managed_admin && \
     GOBIN=/src/build go install github.com/pressly/goose/v3/cmd/goose@v3.24.3
 WORKDIR /src/cli
 RUN go build -ldflags="-X main.Version=0.0.54-agentnet.8 -X main.Commit=02735b5b" -o /src/build/eigenflux .

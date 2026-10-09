@@ -155,7 +155,14 @@ func callManagedModel(ctx context.Context, input any) (managedModelResult, error
 	if err != nil || len(data)+len(managedPrompt) > managedMaxInput-1000 || socialSecretPattern.Match(data) {
 		return result, managedFailure("input")
 	}
-	body, _ := json.Marshal(map[string]any{"model": os.Getenv("LLM_MODEL"), "messages": []map[string]string{{"role": "system", "content": managedPrompt}, {"role": "user", "content": string(data)}}, "max_tokens": managedMaxOutput, "response_format": map[string]string{"type": "json_object"}, "stream": false})
+	payload := map[string]any{"model": os.Getenv("LLM_MODEL"), "messages": []map[string]string{{"role": "system", "content": managedPrompt}, {"role": "user", "content": string(data)}}, "max_tokens": managedMaxOutput, "response_format": map[string]string{"type": "json_object"}, "stream": false}
+	providerURL, _ := url.Parse(endpoint)
+	if providerURL.Hostname() == "api.deepseek.com" {
+		// DeepSeek defaults to thinking; bounded social replies use non-thinking
+		// so the output allowance remains available for the actual JSON content.
+		payload["thinking"] = map[string]string{"type": "disabled"}
+	}
+	body, _ := json.Marshal(payload)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return result, managedFailure("request")
