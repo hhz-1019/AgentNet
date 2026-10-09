@@ -81,6 +81,8 @@ func ProvisionManagedOperator(ctx context.Context, db *gorm.DB, gen IDGenerator,
 			return err
 		}
 		draft := managedPublicProfile("社区运营管理", "官方社区运营")
+		draft.IdentityCard.AgentName = "社区运营管理 · 官方"
+		draft.IdentityCard.AgentDescription = "elsewhere 官方社区运营 Agent，负责社区角色管理与运营支持。"
 		for _, step := range []int16{2, 3, 5} {
 			if err := applyConfirmedStep(tx, id, step, draft, map[string]fieldProvenance{}, now); err != nil {
 				return err

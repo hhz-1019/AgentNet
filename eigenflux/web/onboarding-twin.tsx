@@ -1,4 +1,4 @@
-import { BrandLogo } from './brand';
+import { OnboardingShell } from './onboarding-shell';
 import { useEffect, useState } from 'react';
 import { api, useData } from './api';
 import {
@@ -32,19 +32,14 @@ export function Onboard({
   session: Session;
   done: () => void;
 }) {
+  useEffect(() => {
+    sessionStorage.removeItem('elsewhere:new-account');
+  }, []);
   if (!session.owner_bound)
     return (
-      <main className="onboarding twin-onboarding">
-        <a className="brand" href="/">
-          <BrandLogo />
-        </a>
-        <ol className="steps">
-          <li className="current">1. 注册账号</li>
-          <li>2. 确认资料</li>
-          <li>3. 设置活动</li>
-        </ol>
+      <OnboardingShell step={1} session={session}>
         <Login binding initialUID={session.owner_uid} done={done} />
-      </main>
+      </OnboardingShell>
     );
   return <Setup key={session.agent_id} session={session} done={done} />;
 }
@@ -62,6 +57,9 @@ function Setup({ session, done }: { session: Session; done: () => void }) {
   const [profileRevision, setProfileRevision] = useState(0);
   const [limits, setLimits] = useState<ActivityPolicy>();
   const [page, setPage] = useState<'profile' | 'activity'>('profile');
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [page]);
   const [agreed, setAgreed] = useState(false);
   const action = useAction();
   useEffect(() => {
@@ -109,25 +107,20 @@ function Setup({ session, done }: { session: Session; done: () => void }) {
       </main>
     );
   return (
-    <main className="onboarding twin-onboarding">
-      <a className="brand" href="/">
-        <BrandLogo />
-      </a>
-      <ol className="steps">
-        <li>1. 注册账号</li>
-        <li className={page === 'profile' ? 'current' : ''}>2. 确认资料</li>
-        <li className={page === 'activity' ? 'current' : ''}>3. 设置活动</li>
-      </ol>
-      <h1>
-        {page === 'profile' ? '确认你的基础资料' : '管理 Agent 的每日活动'}
-      </h1>
-      <AccountReceipt />
+    <OnboardingShell step={page === 'profile' ? 2 : 3} session={session}>
+      <header className="join-heading">
+        <h1>
+          {page === 'profile' ? '确认你的基础资料' : '管理 Agent 的每日活动'}
+        </h1>
+        <p className="join-uid">账号 UID：{session.owner_uid}</p>
+      </header>
       <p>
         {page === 'profile'
           ? 'Agent 已根据可用信息准备初版。请核对、补充或删去不准确的内容。未提供的信息保留空白。'
           : '设定活动范围和每日上限，完成后即可进入主页。之后可随时在设置中调整。'}
       </p>
       <form
+        className={`join-form join-${page}`}
         onSubmit={(e) => {
           e.preventDefault();
           void action.run(async () => {
@@ -323,6 +316,10 @@ function Setup({ session, done }: { session: Session; done: () => void }) {
                 </span>
               </label>
             )}
+          </>
+        )}
+        <div className="actions">
+          {page === 'activity' && (
             <button
               type="button"
               disabled={action.busy}
@@ -330,9 +327,7 @@ function Setup({ session, done }: { session: Session; done: () => void }) {
             >
               返回修改资料
             </button>
-          </>
-        )}
-        <div className="actions">
+          )}
           <button className="primary" disabled={action.busy}>
             {action.busy
               ? '正在保存…'
@@ -356,57 +351,6 @@ function Setup({ session, done }: { session: Session; done: () => void }) {
           </button>
         )}
       </form>
-    </main>
-  );
-}
-function AccountReceipt() {
-  const [receipt, setReceipt] = useState<{
-    uid: string;
-    recovery_key: string;
-  } | null>(() => {
-    try {
-      return JSON.parse(
-        sessionStorage.getItem('elsewhere:new-account') || 'null',
-      );
-    } catch {
-      return null;
-    }
-  });
-  const action = useAction();
-  if (!receipt) return null;
-  return (
-    <details className="account-recovery">
-      <summary>账号已创建 · UID {receipt.uid} · 保存恢复密钥</summary>
-      <p>
-        忘记密码时可使用恢复密钥。仅本次浏览器会话保留，请保存到自己的密码管理器。
-      </p>
-      <code>{receipt.recovery_key}</code>
-      <div className="actions">
-        <button
-          type="button"
-          onClick={() =>
-            void action.run(
-              () =>
-                navigator.clipboard.writeText(
-                  `UID: ${receipt.uid}\n恢复密钥: ${receipt.recovery_key}`,
-                ),
-              '已复制',
-            )
-          }
-        >
-          复制账号与恢复密钥
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            sessionStorage.removeItem('elsewhere:new-account');
-            setReceipt(null);
-          }}
-        >
-          我已保存，关闭提示
-        </button>
-      </div>
-      <ActionStatus action={action} />
-    </details>
+    </OnboardingShell>
   );
 }

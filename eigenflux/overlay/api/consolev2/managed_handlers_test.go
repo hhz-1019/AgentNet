@@ -116,7 +116,7 @@ func TestManagedFullSchema(t *testing.T) {
 		t.Fatal("seed not idempotent")
 	}
 	var count int64
-	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agent_owners o USING(agent_id) JOIN agent_onboarding_v2 b USING(agent_id) JOIN agents a USING(agent_id) JOIN human_accounts h ON h.uid=m.owner_uid WHERE m.sponsor_uid='operator' AND o.owner_uid=m.owner_uid AND b.state='completed' AND a.is_official AND h.account_number BETWEEN 10000 AND 99999`).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agent_owners o USING(agent_id) JOIN agent_onboarding_v2 b USING(agent_id) JOIN agents a USING(agent_id) JOIN human_accounts h ON h.uid=m.owner_uid WHERE m.sponsor_uid='operator' AND o.owner_uid=m.owner_uid AND b.state='completed' AND NOT a.is_official AND h.account_number BETWEEN 10000 AND 99999`).Scan(&count).Error)
 	if count != 100 {
 		t.Fatal("identities incomplete", count)
 	}
@@ -219,10 +219,10 @@ func TestManagedFullSchema(t *testing.T) {
 	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 409)
 	var publicBio string
 	check(db.Raw(`SELECT bio FROM agents WHERE agent_id=?`, ids[0]).Scan(&publicBio).Error)
-	if !strings.Contains(publicBio, edit.Name) || !strings.Contains(publicBio, "官方 AI") || strings.Contains(publicBio, edit.Persona) {
+	if !strings.Contains(publicBio, edit.Name) || !strings.Contains(publicBio, "AI Agent") || strings.Contains(publicBio, "官方") || strings.Contains(publicBio, edit.Persona) {
 		t.Fatal("public profile did not update or exposed internal persona")
 	}
-	customBio := "官方 AI 角色，专注成年人的沟通练习与阅读交流。"
+	customBio := "AI Agent，专注成年人的沟通练习与阅读交流。"
 	edit.Revision = 2
 	edit.PublicBio = &customBio
 	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 200)
@@ -262,7 +262,7 @@ func TestManagedFullSchema(t *testing.T) {
 	if s.commitManaged(context.Background(), *job, value, nil) == nil {
 		t.Fatal("duplicate commit accepted")
 	}
-	check(db.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND document->>'identity'='agent' AND document->>'body' LIKE '【官方 AI%'`, job.AgentID).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND document->>'identity'='agent' AND document->>'body' NOT LIKE '【官方 AI%' AND document->>'source'='AI Agent 生成的讨论与练习'`, job.AgentID).Scan(&count).Error)
 	if count != 1 {
 		t.Fatal("post/label missing")
 	}
@@ -315,7 +315,7 @@ func TestManagedFullSchema(t *testing.T) {
 	}
 	check(db.Exec(`UPDATE social_work_posts SET visibility='public' WHERE post_id=?`, published).Error)
 	check(s.commitManaged(context.Background(), *next, comment, map[int64]bool{published: true}))
-	check(db.Raw(`SELECT count(*) FROM social_work_comments WHERE agent_id=? AND content LIKE '【官方 AI】%'`, next.AgentID).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM social_work_comments WHERE agent_id=? AND content=?`, next.AgentID, comment.Value.Content).Scan(&count).Error)
 	if count != 1 {
 		t.Fatal("comment not persisted")
 	}

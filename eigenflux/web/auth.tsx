@@ -1,6 +1,6 @@
 import { PhoneFields, usePhoneVerification } from './phone';
 import { BrandLogo } from './brand';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
 import { AGREEMENT_VERSION } from './twin';
@@ -16,16 +16,18 @@ export function Login({
   switching?: boolean;
   initialUID?: string;
 }) {
-  const [mode, setMode] = useState<'login' | 'register' | 'reset'>(
+  const [mode, setMode] = useState<'login' | 'register'>(
     binding && !initialUID ? 'register' : 'login',
   );
   const [uid, setUID] = useState(initialUID);
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const passwordMismatch =
+    confirmPassword !== '' && confirmPassword !== password;
+  const passwordErrorId = useId();
   const [agreed, setAgreed] = useState(false);
-  const [recoveryKey, setRecoveryKey] = useState('');
   const [agents, setAgents] =
     useState<{ agent_id: string; display_name: string }[]>();
-  const [issued, setIssued] = useState<{ uid: string; recovery_key: string }>();
   const action = useAction();
   const verification = usePhoneVerification();
   const finish = async (agentId?: string) => {
@@ -40,54 +42,6 @@ export function Login({
     setPassword('');
     done();
   };
-  if (issued)
-    return (
-      <section className="login-form">
-        <h2>{mode === 'reset' ? '密码已重置' : '你的数字账号已创建'}</h2>
-        <p>
-          保存 UID
-          和恢复密钥。忘记密码时可用恢复密钥重置；密钥只显示这一次，请勿交给
-          Agent。
-        </p>
-        <dl className="account-recovery">
-          <dt>账号 UID</dt>
-          <dd>
-            <code>{issued.uid}</code>
-          </dd>
-          <dt>恢复密钥</dt>
-          <dd>
-            <code>{issued.recovery_key}</code>
-          </dd>
-        </dl>
-        <button
-          type="button"
-          disabled={action.busy}
-          onClick={() =>
-            void action.run(async () => {
-              await navigator.clipboard.writeText(
-                `elsewhere UID: ${issued.uid}\n恢复密钥: ${issued.recovery_key}`,
-              );
-            }, '账号信息已复制，请保存到密码管理器')
-          }
-        >
-          复制账号信息
-        </button>
-        <button
-          className="primary"
-          onClick={() => {
-            if (mode === 'reset') {
-              setIssued(undefined);
-              setMode('login');
-              setRecoveryKey('');
-              setPassword('');
-            } else done();
-          }}
-        >
-          {mode === 'reset' ? '返回 UID 登录' : '已保存，继续配置 Agent'}
-        </button>
-        <ActionStatus action={action} />
-      </section>
-    );
   if (agents)
     return (
       <section className="login-form">
@@ -138,30 +92,18 @@ export function Login({
         e.preventDefault();
         void action.run(async () => {
           if (mode === 'register') {
+            if (!confirmPassword || confirmPassword !== password)
+              throw new Error('两次输入的密码不一致，请重新确认。');
             if (!agreed) throw new Error('请先阅读并同意用户协议。');
-            const result = await api<{ uid: string; recovery_key: string }>(
-              'auth/uid/register',
-              {
-                password,
-                agreement_version: AGREEMENT_VERSION,
-                ...verification.payload,
-              },
-            );
-            sessionStorage.setItem(
-              'elsewhere:new-account',
-              JSON.stringify(result),
-            );
+            await api<{ uid: string }>('auth/uid/register', {
+              password,
+              agreement_version: AGREEMENT_VERSION,
+              ...verification.payload,
+            });
             verification.reset();
             setPassword('');
+            setConfirmPassword('');
             done();
-          } else if (mode === 'reset') {
-            const result = await api<{ uid: string; recovery_key: string }>(
-              'auth/uid/reset-password',
-              { uid, password, recovery_key: recoveryKey },
-            );
-            setIssued(result);
-            setPassword('');
-            setRecoveryKey('');
           } else {
             const result = await api<{
               agents: { agent_id: string; display_name: string }[];
@@ -178,13 +120,7 @@ export function Login({
         }, '');
       }}
     >
-      <h2>
-        {mode === 'register'
-          ? '验证手机号，创建账号'
-          : mode === 'reset'
-            ? '用恢复密钥重置密码'
-            : '使用 UID 登录'}
-      </h2>
+      <h2>{mode === 'register' ? '验证手机号，创建账号' : '使用 UID 登录'}</h2>
       <p>
         {mode === 'register'
           ? '一个手机号只能注册一个账号，对应一个 Agent。系统会分配唯一 UID。'
@@ -206,18 +142,8 @@ export function Login({
           onChange={(e) => setUID(e.target.value)}
         />
       )}
-      {mode === 'reset' && (
-        <Field
-          label="注册时保存的恢复密钥"
-          type="password"
-          required
-          autoComplete="off"
-          value={recoveryKey}
-          onChange={(e) => setRecoveryKey(e.target.value)}
-        />
-      )}
       <Field
-        label={mode === 'reset' ? '新密码' : '账号密码'}
+        label="账号密码"
         type="password"
         required
         minLength={mode === 'login' ? undefined : 12}
@@ -230,6 +156,28 @@ export function Login({
         <p className="hint">
           建议至少 12 位英文、数字或符号。密码只在此页面输入。
         </p>
+      )}
+      {mode === 'register' && (
+        <>
+          <Field
+            label="确认密码"
+            type="password"
+            required
+            minLength={12}
+            maxLength={72}
+            autoComplete="new-password"
+            placeholder="请再次输入账号密码"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            aria-invalid={passwordMismatch}
+            aria-describedby={passwordMismatch ? passwordErrorId : undefined}
+          />
+          {passwordMismatch && (
+            <p id={passwordErrorId} role="alert" className="error">
+              两次输入的密码不一致，请重新确认。
+            </p>
+          )}
+        </>
       )}
       {mode === 'register' && (
         <label className="agreement-row">
@@ -251,16 +199,18 @@ export function Login({
       <button
         className="primary"
         disabled={
-          action.busy || (mode === 'register' && !verification.challenge)
+          action.busy ||
+          (mode === 'register' &&
+            (!verification.challenge ||
+              !confirmPassword ||
+              confirmPassword !== password))
         }
       >
         {action.busy
           ? '正在处理…'
           : mode === 'register'
             ? '创建账号并认领 Agent'
-            : mode === 'reset'
-              ? '重置密码并更新恢复密钥'
-              : '登录'}
+            : '登录'}
       </button>
       {binding && !initialUID && (
         <button
@@ -269,32 +219,10 @@ export function Login({
           onClick={() => {
             setMode(mode === 'register' ? 'login' : 'register');
             setPassword('');
+            setConfirmPassword('');
           }}
         >
           {mode === 'register' ? '已有 UID，登录原账号' : '创建新的 UID 账号'}
-        </button>
-      )}
-      {mode === 'login' && (
-        <button
-          type="button"
-          disabled={action.busy}
-          onClick={() => {
-            setMode('reset');
-            setPassword('');
-          }}
-        >
-          忘记密码，用恢复密钥找回
-        </button>
-      )}
-      {mode === 'reset' && (
-        <button
-          type="button"
-          onClick={() => {
-            setMode('login');
-            setPassword('');
-          }}
-        >
-          返回登录
         </button>
       )}
       <ActionStatus action={action} />

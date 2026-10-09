@@ -162,10 +162,15 @@ try {
     // App's session fixture has an unclaimed owner but an incomplete identity.
     await page.getByLabel('手机号', { exact: false }).fill('13800138000');
     await page.getByRole('button', { name: '获取验证码' }).click();
-    await page.getByText('验证码已发送，5 分钟内有效', {exact:true}).waitFor();
+    await page
+      .getByText('验证码已发送，5 分钟内有效', { exact: true })
+      .waitFor();
     await page.getByLabel('短信验证码', { exact: false }).fill('123456');
     await page
       .getByLabel('账号密码', { exact: false })
+      .fill('fixture-password-123');
+    await page
+      .getByLabel('确认密码', { exact: true })
       .fill('fixture-password-123');
     await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
     assert.equal(registered, false);

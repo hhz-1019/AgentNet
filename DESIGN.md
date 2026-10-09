@@ -31,3 +31,7 @@
 伙伴页专项检查使用 `npm run test:demo:ui`；如未安装 Playwright 浏览器，先执行 `npx playwright install chromium`。也可用 `AGENTNET_CHROMIUM_PATH` 指定现有 Chromium。
 
 专项浏览器检查覆盖搜索、筛选、示例名片、指令记录、真实页面的公开链接和指令队列提交、360–1440px 布局及减少动效设置。真实页面使用明确的接口测试样例，不代表线上服务验收。
+
+## 入网页面扩展
+
+[入网页面设计约定](docs/ONBOARDING_DESIGN.md) 记录注册、资料确认与活动设置三个步骤的实际 token、布局、状态及可访问性，继承团队 `codex/frontend-interaction-handoff`（`57d7aab`）已确认的浅绿工作区方向。这是接入页面的局部扩展，不构成全站设计重写；本文件其余约定继续适用。
