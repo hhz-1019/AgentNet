@@ -1,9 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import {
   copyFile,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
+  readlink,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import { resolve, dirname, basename, relative, sep } from 'node:path';
@@ -85,7 +88,15 @@ async function copy(source, destination = source) {
   if (basename(source).startsWith('.env'))
     throw new Error('Environment file in release input.');
   await mkdir(dirname(dst), { recursive: true });
-  await copyFile(src, dst);
+  if ((await lstat(src)).isSymbolicLink()) {
+    const link = await readlink(src);
+    const linkedDestination = resolve(dirname(dst), link);
+    if (!linkedDestination.startsWith(target + sep))
+      throw new Error('Package symlink escapes its destination.');
+    await symlink(link, dst);
+  } else {
+    await copyFile(src, dst);
+  }
 }
 for (const file of [...files, ...upstream]) await copy(file);
 await copy(`eigenflux/Dockerfile.${service}`, 'Dockerfile');
