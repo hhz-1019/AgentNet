@@ -6,11 +6,12 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"eigenflux_server/pkg/owneruid"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/lib/pq"
@@ -118,6 +119,8 @@ func lockUID(tx *gorm.DB, account uidAccount) error {
 
 func uidFailure(c *app.RequestContext, err error) {
 	switch {
+	case errors.Is(err, owneruid.ErrClosed):
+		fail(c, 503, "UID_BATCH_CLOSED", "当前注册批次已暂停或名额已满，请等待下一批开放", nil)
 	case errors.Is(err, errUnauthorized):
 		fail(c, 401, "UID_AUTH_INVALID", "UID、密码或恢复密钥不正确", nil)
 	case errors.Is(err, errConflict), isUniqueViolation(err):
@@ -261,26 +264,13 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 		if err := s.consumePhoneCode(tx, c, phone, "register", req.ChallengeID, req.Code, now); err != nil {
 			return err
 		}
-		// Random public UID; retain legacy numbers and retry the unique index on collision.
-		created := false
-		for attempt := 0; attempt < 8; attempt++ {
-			random, err := rand.Int(rand.Reader, big.NewInt(900000000))
-			if err != nil {
-				return err
-			}
-			number := random.Int64() + 100000000
-			uid = strconv.FormatInt(number, 10)
-			result := tx.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,phone_hash,phone_last4,phone_verified_at,created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(account_number) DO NOTHING`, uid, number, string(hash), keyedHash(s.otpPepper, recovery), s.phoneHash(phone), phone[len(phone)-4:], now, now)
-			if result.Error != nil {
-				return result.Error
-			}
-			if result.RowsAffected == 1 {
-				created = true
-				break
-			}
+		number, err := owneruid.Allocate(tx, id, now)
+		if err != nil {
+			return err
 		}
-		if !created {
-			return errors.New("random UID allocation exhausted")
+		uid = strconv.FormatInt(number, 10)
+		if err := tx.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,phone_hash,phone_last4,phone_verified_at,created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, uid, number, string(hash), keyedHash(s.otpPepper, recovery), s.phoneHash(phone), phone[len(phone)-4:], now, now).Error; err != nil {
+			return err
 		}
 		if err := claimUIDAgent(tx, id, uid, now); err != nil {
 			return err
@@ -291,7 +281,6 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 		if err := tx.Exec(`INSERT INTO twin_agreement_acceptances(user_id,version,accepted_at) VALUES(?,?,?)`, uid, twinAgreementVersion, now).Error; err != nil {
 			return err
 		}
-		var err error
 		session, err = s.newUIDSession(tx, c, uid, id, now)
 		return err
 	})

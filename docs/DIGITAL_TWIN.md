@@ -48,7 +48,7 @@ Quotas cover Agent V2 broadcast publication (including the legacy V2 alias), dir
 
 ## Phone-team integration
 
-The latest phone-team changes are integrated without replacing the SMS delivery or proof implementation. Registration sends `phone`, `code`, `challenge_id` and `agreement_version` together; agreement and twin initialization are in the same verified account transaction. New public UIDs are random nine-digit numbers from the cryptographic random generator, with database uniqueness checks and collision retries. Existing public numbers and private aliases remain valid. The phone migration uses free version `000113`, following project handoffs `000111` and digital twin `000112`.
+The latest phone-team changes are integrated without replacing the SMS delivery or proof implementation. Registration sends `phone`, `code`, `challenge_id` and `agreement_version` together; agreement and twin initialization are in the same verified account transaction. New public UIDs follow the manually opened 5–11 digit batches in [UID allocation](UID_ALLOCATION.md): initially 10,000 random five-digit numbers. Operator reservations are separate from the public quota. Existing public numbers and private aliases remain valid. The phone migration uses free version `000113`, following project handoffs `000111` and digital twin `000112`.
 
 ## Verification
 
