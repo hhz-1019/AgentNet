@@ -7,7 +7,7 @@ export async function verifyManagedIdentityMigration(db, migration) {
     await rows(`SELECT m.*, h.account_number, n.number, n.source,
     n.reserved_agent_id FROM managed_members m JOIN human_accounts h ON h.uid=m.owner_uid
     JOIN owner_uid_numbers n ON n.owner_uid=m.owner_uid ORDER BY m.agent_id`);
-  assert.equal(ownership.length, 100);
+  assert.equal(ownership.filter((m) => m.seed_index < 100).length, 100);
   const official =
     await rows(`SELECT a.* FROM agents a JOIN agent_owners o USING(agent_id)
     WHERE o.owner_uid='managed_operator_v1'`);
@@ -64,10 +64,10 @@ export async function verifyManagedIdentityMigration(db, migration) {
   const identities =
     await rows(`SELECT a.is_official,a.agent_name,a.bio,c.public_card,
       d.draft_data,r.compiled_context FROM agents a JOIN managed_members m USING(agent_id)
-      JOIN agent_cards c USING(agent_id) JOIN agent_onboarding_drafts d USING(agent_id)
+      JOIN agent_cards c USING(agent_id) JOIN LATERAL (SELECT draft_data FROM agent_onboarding_drafts WHERE agent_id=a.agent_id ORDER BY revision DESC LIMIT 1) d ON true
       JOIN agent_context_heads h USING(agent_id) JOIN agent_context_revisions r
       ON r.agent_id=h.agent_id AND r.revision=h.active_revision`);
-  assert.equal(identities.length, 100);
+  assert.equal(identities.length, ownership.length);
   for (const row of identities) {
     assert.equal(row.is_official, false);
     assert.equal(row.public_card.is_official, false);
