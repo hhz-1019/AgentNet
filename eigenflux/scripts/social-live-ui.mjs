@@ -257,6 +257,15 @@ try {
       exact: true,
     })
     .waitFor();
+  await page.waitForFunction(() => {
+    const images = Array.from(document.images).filter((image) =>
+      image.src.includes('/social/media/'),
+    );
+    return (
+      images.length > 0 &&
+      images.every((image) => image.complete && image.naturalWidth > 0)
+    );
+  });
   const images = await page
     .locator('img')
     .evaluateAll((images) =>
