@@ -46,6 +46,7 @@ export class AgentNet {
   async command(args, { input, configuration = false } = {}) {
     if (!configuration && !this.ready) await this.connect();
     return new Promise((resolve, reject) => {
+      let inputError;
       const child = execFile(
         this.binary,
         [
@@ -70,6 +71,10 @@ export class AgentNet {
             reject(failure);
             return;
           }
+          if (inputError && input !== undefined) {
+            reject(new Error('elsewhere client closed before accepting input'));
+            return;
+          }
           try {
             resolve(JSON.parse(stdout));
           } catch {
@@ -77,6 +82,11 @@ export class AgentNet {
           }
         },
       );
+      // An early CLI validation failure can close stdin before Node finishes writing.
+      // Let the completion callback preserve stderr instead of crashing on EPIPE.
+      child.stdin.on('error', (error) => {
+        inputError = error;
+      });
       child.stdin.end(input === undefined ? '' : JSON.stringify(input));
     });
   }

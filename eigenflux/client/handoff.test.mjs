@@ -4,6 +4,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AgentNet } from './sdk.mjs';
 
+void test('early client exit rejects its command without an unhandled stdin error', async () => {
+  const client = new AgentNet({
+    binary: process.execPath,
+    home: join(tmpdir(), 'early-exit-home'),
+    endpoint: 'https://example.com',
+  });
+  // Node rejects the CLI-only arguments before reading this larger-than-pipe input.
+  await assert.rejects(
+    client.command([], {
+      configuration: true,
+      input: { payload: 'x'.repeat(2 * 1024 * 1024) },
+    }),
+    (error) => typeof error.exitCode === 'number' && /bad option/.test(error.message),
+  );
+});
+
 void test('project handoffs require owner authorization, preserve retries, and never run work', async () => {
   const client = new AgentNet({
     binary: join(tmpdir(), 'unused-cli'),
