@@ -84,7 +84,7 @@
 .sn-memory-form textarea {
   border: 1px solid #cfc5b5;
   border-radius: 3px;
-  background: #fffdf8;
+  background: var(--ew-surface);
   color: #302c26;
   padding: 13px 15px;
   font-size: 18px;
@@ -159,7 +159,7 @@
 .sn-person-home .sn-memory {
   border: 1px solid #cfc5b5;
   border-radius: 3px;
-  background: #f5f1e8;
+  background: var(--ew-paper);
   padding: 22px 24px 16px;
   min-width: 0;
 }
@@ -300,7 +300,7 @@
 .sn-portrait
   .sn-portrait-field
   :is(input:not([type='checkbox']), textarea):focus {
-  background: #fffdf8;
+  background: var(--ew-surface);
   border-color: #8a7962;
 }
 .sn-portrait :is(button, a):focus-visible,
@@ -316,7 +316,7 @@
 }
 .sn-portrait .sn-memory,
 .sn-person-home .sn-memory {
-  background: #fffdf8;
+  background: var(--ew-surface);
   border-color: #d7cdbc;
   box-shadow: 0 3px 0 #e9e0d066;
 }
@@ -341,7 +341,7 @@
 .sn-portrait .sn-portrait-status {
   position: static;
   padding: 14px 16px;
-  background: #e9e0d066;
+  background: var(--ew-tint);
   border-color: #cfc5b5;
   border-radius: 3px;
   line-height: 1.75;

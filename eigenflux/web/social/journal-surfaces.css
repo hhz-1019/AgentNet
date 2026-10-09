@@ -1,0 +1,209 @@
+/* The same opaque paper continues into every sheet opened from the journal. */
+.sw-dialog.sn-communication-dialog.ew-motion-dialog {
+  --sw-paper: var(--ew-surface);
+  --sw-mint: var(--ew-tint);
+  --sw-green: var(--ew-action);
+  --sw-ink: var(--ew-ink);
+  --sw-muted: var(--ew-muted);
+  --sw-line: var(--ew-line);
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  border-radius: 3px;
+  background-color: var(--ew-paper);
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+  box-shadow: 0 18px 60px rgb(62 43 23 / 21%);
+}
+
+/* Sticky headings have their own opaque stock so text never shows through. */
+.sw-dialog.sn-communication-dialog.ew-motion-dialog > .sw-dialog-heading {
+  border-color: var(--ew-line);
+  background-color: var(--ew-paper);
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+}
+
+.sw-dialog.sn-communication-dialog.ew-motion-dialog::backdrop {
+  background: rgb(57 43 25 / 34%);
+}
+
+.sw-dialog.sn-communication-dialog.ew-motion-dialog
+  :is(
+    .ew-share-preview-paper,
+    .sn-media-grid figure,
+    .sw-publish-preview .sw-post,
+    .sw-preflight,
+    .sw-evidence,
+    .sw-pack-details > div
+  ) {
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  background-color: var(--ew-surface);
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+}
+
+.sw-dialog.sn-communication-dialog.ew-motion-dialog
+  :is(.sw-quality-note, .sw-scope-banner, .sw-source-icon) {
+  background: var(--ew-tint);
+  color: var(--ew-muted);
+  border-color: var(--ew-line);
+}
+
+.sw-dialog.sn-communication-dialog.ew-motion-dialog
+  :is(
+    input:where(:not([type='checkbox']):not([type='radio']):not([type='file'])),
+    textarea,
+    select
+  ) {
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  background: var(--ew-surface);
+}
+
+/* Reading content stays on its parent sheet instead of gaining another tile. */
+.sw-dialog.sn-communication-dialog.ew-reading-dialog
+  :is(.sw-post.expanded, .sw-post-content, .sw-comments) {
+  background: transparent;
+}
+
+.sw-dialog.sn-communication-dialog.ew-reading-dialog .sw-post-media {
+  background: var(--ew-surface);
+}
+
+.ew-social.sn-social :is(.sn-inbox, .messages, .sn-settings-list, .sw-org-card),
+.ew-social.sn-social .sw-network-page :is(.sw-peer-card, .sw-connection-card),
+.ew-social.sn-social :is(.sn-portrait, .sn-person-home) .sn-memory,
+.ew-social.sn-social .sw-legacy > article {
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  background-color: var(--ew-surface);
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+}
+
+.ew-social.sn-social :is(.sn-conversations, .messages > aside),
+.ew-social.sn-social :is(.sn-chat > header, .ew-live-heading),
+.ew-social.sn-social :is(.sn-message-composer, .ew-live-composer) {
+  border-color: var(--ew-line);
+  background-color: var(--ew-paper);
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+}
+
+.ew-social.sn-social
+  :is(.sn-message-search, .sw-network-page .sw-peer-search, .sn-memory-search) {
+  background: var(--ew-surface);
+  border-color: var(--ew-line);
+}
+
+.ew-social.sn-social
+  :is(.sn-message-search, .sw-network-page .sw-peer-search, .sn-memory-search)
+  input {
+  background: transparent;
+}
+
+.ew-social.sn-social .sw-network-page .sw-peer-avatar > span {
+  background: var(--ew-paper);
+  border-color: var(--ew-line);
+  color: var(--ew-ink);
+}
+
+.ew-social.sn-social .sw-network-page .sw-count {
+  background: var(--ew-tint);
+  color: var(--ew-muted);
+}
+
+.ew-social.sn-social .sn-message:not(.own):not(.sender-owner) p,
+.ew-social.sn-social .ew-live-history .message:not(.own) p {
+  color: var(--ew-ink);
+  background: var(--ew-surface);
+  border-color: var(--ew-line);
+}
+
+.ew-social.sn-social .sn-message.own:not(.sender-owner) p,
+.ew-social.sn-social .ew-live-history .message.own p {
+  color: var(--ew-ink);
+  background: var(--ew-tint);
+  border-color: var(--ew-line);
+}
+
+.ew-social.sn-social
+  :is(.sn-portrait, .sw-legacy, .sn-settings)
+  :is(
+    input:where(:not([type='checkbox']):not([type='radio']):not([type='file'])),
+    textarea,
+    select
+  ) {
+  color: var(--ew-ink);
+  background: var(--ew-surface);
+  border-color: var(--ew-line);
+}
+
+.ew-social.sn-social .twin-fields input:disabled {
+  background: var(--ew-tint);
+  color: var(--ew-muted);
+}
+
+/* The real contact route opens a standalone public folio, outside the shell. */
+.public-agent-page .public-agent-sheet {
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  background-color: var(--ew-surface);
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+}
+
+.public-agent-page .public-agent-contact :is(input, textarea, select),
+.public-agent-page
+  .public-agent-contact
+  .login-form.auth-form
+  :is(input, select) {
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  background: var(--ew-surface);
+}
+
+.public-agent-page .public-agent-dock {
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  background-color: var(--ew-paper);
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+}
+
+/* Login can also appear inside a public folio, without the full auth scene. */
+.public-agent-page .public-agent-contact .login-form.auth-form {
+  border-color: var(--ew-line);
+  background-color: var(--ew-surface);
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+  box-shadow: var(--ew-paper-contact);
+}
+
+.public-agent-page
+  .public-agent-contact
+  .login-form.auth-form
+  .account-recovery {
+  background: var(--ew-tint);
+  border-color: var(--ew-line);
+}
+
+.public-agent-page
+  .public-agent-contact
+  .login-form.auth-form
+  > button.auth-form-link {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--ew-muted);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.public-agent-page
+  .public-agent-contact
+  .login-form.auth-form
+  > button.auth-form-link:enabled:hover {
+  color: var(--ew-ink);
+}

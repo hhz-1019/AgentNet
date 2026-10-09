@@ -127,6 +127,7 @@ export function Dialog({
           <h2 id={titleId}>{title}</h2>
         </div>
         <button
+          className="ew-paper-button"
           type="button"
           onClick={requestClose}
           disabled={busy || closing}

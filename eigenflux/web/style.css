@@ -1,24 +1,38 @@
 :root {
   --ew-serif: 'Iowan Old Style', 'Songti SC', 'Noto Serif SC', 'SimSun', serif;
-  --ew-paper: #f5f1e8;
-  --ew-surface: #fffdf8;
+  --ew-paper: #f4eddf;
+  --ew-surface: #f3ecdd;
   --ew-action: #302c26;
-  --ew-ink: #302c26;
-  --ew-muted: #746a5d;
-  --ew-line: #cfc5b5;
-  --ew-tint: #e9e0d0;
+  --ew-ink: #292620;
+  --ew-muted: #554e43;
+  --ew-line: #c9bba4;
+  --ew-tint: #e8ddc9;
+  --ew-paper-image:
+    linear-gradient(rgb(244 237 223 / 62%), rgb(244 237 223 / 62%)),
+    url('/textures/journal-paper.png');
+  --ew-paper-size: auto, 680px 680px;
+  --ew-control-bg: linear-gradient(180deg, #faf4e8, #ede2cf);
+  --ew-control-hover: linear-gradient(180deg, #fff9ed, #f4e9d7);
+  --ew-paper-contact:
+    0 1px 1px rgb(73 53 30 / 12%), 0 2px 3px rgb(73 53 30 / 5%),
+    inset 0 1px 0 rgb(255 253 246 / 88%);
+  --ew-paper-hover:
+    0 1px 2px rgb(73 53 30 / 17%), 0 3px 6px rgb(73 53 30 / 7%),
+    inset 0 1px 0 rgb(255 253 246 / 95%);
+  --ew-paper-pressed:
+    0 0 1px rgb(73 53 30 / 10%), inset 0 1px 2px rgb(73 53 30 / 10%);
   --ew-text-meta: 16px;
   --ew-text-control: 18px;
   --ew-text-body: 18px;
   --ew-text-title: 24px;
   font-family: var(--ew-serif);
   font-size: 18px;
-  color: #302c26;
-  background: #f5f1e8;
+  color: var(--ew-ink);
+  background: var(--ew-paper);
   font-synthesis: none;
   --accent: #302c26;
-  --line: #cfc5b5;
-  --muted: #746a5d;
+  --line: var(--ew-line);
+  --muted: var(--ew-muted);
 }
 * {
   box-sizing: border-box;

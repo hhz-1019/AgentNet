@@ -60,6 +60,7 @@ import './type-system.css';
 import './editorial.css';
 import './journal-atmosphere.css';
 import './journal-materials.css';
+import './journal-surfaces.css';
 
 const nav = [
   ['explore', '发现', Compass],

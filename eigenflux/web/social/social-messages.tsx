@@ -121,6 +121,7 @@ export function GroupEntry({
   return (
     <>
       <button
+        className="ew-paper-button"
         onClick={() => {
           setError('');
           setOpen(true);
@@ -391,6 +392,7 @@ export function MessagePreview({
                   )}
                 </div>
                 <button
+                  className="ew-paper-button"
                   onClick={() => setDetails(true)}
                   aria-label={current.group ? '群聊详情' : '联系人详情'}
                 >

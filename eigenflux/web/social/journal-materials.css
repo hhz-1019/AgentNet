@@ -1,12 +1,4 @@
 /* One paper surface; the shared wind driver owns every decorative transform. */
-.ew-social.sn-social {
-  --ew-paper-contact:
-    0 1px 1px rgb(73 53 30 / 12%), 0 2px 3px rgb(73 53 30 / 5%),
-    inset 0 1px 0 rgb(255 253 246 / 88%);
-  --ew-paper-pressed:
-    0 0 1px rgb(73 53 30 / 10%), inset 0 1px 2px rgb(73 53 30 / 10%);
-}
-
 .sw-workspace.ew-social.sn-social {
   grid-template-columns: minmax(0, 1fr) clamp(192px, 16vw, 260px);
 }
@@ -276,95 +268,211 @@
   border-top-color: rgb(114 94 65 / 25%);
 }
 
-/* Only tactile controls receive relief; text links and post actions stay ink. */
-.ew-social.sn-social
+/* A shared pressed-paper control, from the navigation to dialog actions.
+   Names, reading actions, and editorial tabs retain their printed-ink style. */
+:is(
+    .ew-social.sn-social,
+    .sw-dialog.sn-communication-dialog,
+    .public-agent-page
+  )
   :is(
     button.sw-primary,
     button.sw-secondary,
     a.sw-button,
-    .ew-atmosphere-toggle
+    .ew-atmosphere-toggle,
+    button.ew-paper-button,
+    .sw-sidebar nav a,
+    .sn-message-composer button.sw-primary,
+    .sw-peer-card-footer :is(button, a),
+    .sw-connection-actions :is(button, a),
+    .sw-dialog-footer > button,
+    .sn-group-footer > button,
+    .sn-media-actions button,
+    .sn-new-messages,
+    .public-agent-contact button:where(:not(.auth-form-link)),
+    .identity-share-actions button,
+    .error button,
+    .public-agent-dock a.primary
   ) {
-  box-shadow: var(--ew-paper-contact);
+  background: var(--ew-control-bg);
+  border: 1px solid rgb(144 122 91 / 32%);
   border-radius: 3px;
+  box-shadow: var(--ew-paper-contact);
+  color: var(--ew-ink);
   transform: none;
   transition:
-    box-shadow 140ms,
-    background-color 140ms,
-    border-color 140ms,
-    color 140ms;
+    box-shadow 160ms,
+    background-color 160ms,
+    border-color 160ms,
+    color 160ms;
 }
-
-.ew-social.sn-social
-  :is(button.sw-secondary, a.sw-button, .ew-atmosphere-toggle) {
-  background: linear-gradient(
-    180deg,
-    rgb(255 252 242 / 64%),
-    rgb(242 233 215 / 48%)
-  );
-  border-color: rgb(144 122 91 / 28%);
-}
-
-.ew-social.sn-social
+:is(
+    .ew-social.sn-social,
+    .sw-dialog.sn-communication-dialog,
+    .public-agent-page
+  )
   :is(
     button.sw-primary,
     button.sw-secondary,
     a.sw-button,
-    .ew-atmosphere-toggle
-  ):hover {
-  box-shadow: var(--ew-paper-contact);
+    .ew-atmosphere-toggle,
+    button.ew-paper-button,
+    .sw-sidebar nav a,
+    .sn-message-composer button.sw-primary,
+    .sw-peer-card-footer :is(button, a),
+    .sw-connection-actions :is(button, a),
+    .sw-dialog-footer > button,
+    .sn-group-footer > button,
+    .sn-media-actions button,
+    .sn-new-messages,
+    .public-agent-contact button:where(:not(.auth-form-link)),
+    .identity-share-actions button,
+    .error button,
+    .public-agent-dock a.primary
+  ):where(:hover, :focus-visible):where(:not(:disabled)) {
+  background: var(--ew-control-hover);
+  border-color: rgb(121 97 62 / 48%);
+  box-shadow: var(--ew-paper-hover);
+  color: var(--ew-ink);
   transform: none;
 }
-
-.ew-social.sn-social
+:is(
+    .ew-social.sn-social,
+    .sw-dialog.sn-communication-dialog,
+    .public-agent-page
+  )
   :is(
     button.sw-primary,
     button.sw-secondary,
     a.sw-button,
-    .ew-atmosphere-toggle
-  ):active {
+    .ew-atmosphere-toggle,
+    button.ew-paper-button,
+    .sw-sidebar nav a,
+    .sn-message-composer button.sw-primary,
+    .sw-peer-card-footer :is(button, a),
+    .sw-connection-actions :is(button, a),
+    .sw-dialog-footer > button,
+    .sn-group-footer > button,
+    .sn-media-actions button,
+    .sn-new-messages,
+    .public-agent-contact button:where(:not(.auth-form-link)),
+    .identity-share-actions button,
+    .error button,
+    .public-agent-dock a.primary
+  ):where(:active):where(:not(:disabled)) {
   box-shadow: var(--ew-paper-pressed);
   transform: none;
 }
-
-.ew-social.sn-social .sw-sidebar button.sw-create {
-  border-color: #302b24;
+:is(
+    .ew-social.sn-social,
+    .sw-dialog.sn-communication-dialog,
+    .public-agent-page
+  )
+  :is(
+    button.sw-primary,
+    a.sw-button.sw-primary,
+    .sn-message-composer button.sw-primary,
+    .public-agent-contact button.primary,
+    .public-agent-dock a.primary
+  ) {
   background: linear-gradient(180deg, #39342d, #2d2923);
+  border-color: #302b24;
   color: #fff8e8;
   box-shadow:
     0 1px 1px rgb(39 29 17 / 27%),
     0 2px 4px rgb(39 29 17 / 9%),
     inset 0 1px 0 rgb(255 249 224 / 20%);
 }
-
-.ew-social.sn-social .sw-sidebar button.sw-create:hover {
-  background: linear-gradient(180deg, #413b32, #332e27);
+:is(
+    .ew-social.sn-social,
+    .sw-dialog.sn-communication-dialog,
+    .public-agent-page
+  )
+  :is(
+    button.sw-primary,
+    a.sw-button.sw-primary,
+    .sn-message-composer button.sw-primary,
+    .public-agent-contact button.primary,
+    .public-agent-dock a.primary
+  ):where(:hover, :focus-visible):where(:not(:disabled)) {
+  background: linear-gradient(180deg, #494135, #373026);
+  color: #fff8e8;
+  border-color: #302b24;
   box-shadow:
-    0 1px 1px rgb(39 29 17 / 27%),
-    0 2px 4px rgb(39 29 17 / 9%),
-    inset 0 1px 0 rgb(255 249 224 / 20%);
+    0 1px 2px rgb(39 29 17 / 30%),
+    0 3px 6px rgb(39 29 17 / 14%),
+    inset 0 1px 0 rgb(255 249 224 / 24%);
 }
-
-.ew-social.sn-social .sw-sidebar button.sw-create:active {
+:is(
+    .ew-social.sn-social,
+    .sw-dialog.sn-communication-dialog,
+    .public-agent-page
+  )
+  :is(
+    button.sw-primary,
+    a.sw-button.sw-primary,
+    .sn-message-composer button.sw-primary,
+    .public-agent-contact button.primary,
+    .public-agent-dock a.primary
+  ):where(:active):where(:not(:disabled)) {
   box-shadow:
     0 0 1px rgb(39 29 17 / 22%),
     inset 0 1px 3px rgb(0 0 0 / 22%);
 }
-
-.ew-social.sn-social .sw-sidebar nav a[aria-current] {
-  border-radius: 3px;
-  background: linear-gradient(
-    180deg,
-    rgb(255 250 235 / 64%),
-    rgb(228 213 186 / 52%)
-  );
-  box-shadow:
-    0 1px 1px rgb(73 53 30 / 9%),
-    inset 0 1px 0 rgb(255 253 246 / 85%),
-    inset 0 0 0 1px rgb(143 119 85 / 12%);
+.ew-social.sn-social .sw-connection-actions button.sw-danger-button {
+  color: #854b3a;
+  border-color: #c4a391;
+}
+.ew-social.sn-social
+  .sw-connection-actions
+  button.sw-danger-button:where(:hover, :focus-visible):where(:not(:disabled)) {
+  background: #f1dfd0;
+  color: #723b2c;
 }
 
-.ew-social.sn-social .sw-sidebar nav a[aria-current]:active {
+.ew-social.sn-social .sw-sidebar nav a[aria-current] {
+  background: linear-gradient(180deg, #eee1c9, #dfcfb1);
+  border-color: #bda885;
+  box-shadow: var(--ew-paper-contact);
+}
+.ew-social.sn-social
+  .sw-sidebar
+  nav
+  a[aria-current]:where(:hover, :focus-visible) {
+  background: linear-gradient(180deg, #f4e7cf, #e9d8b9);
+  border-color: #a68e68;
+  box-shadow: var(--ew-paper-hover);
+}
+.ew-social.sn-social .sw-sidebar nav a[aria-current]:where(:active) {
   box-shadow: var(--ew-paper-pressed);
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(
+      .ew-social.sn-social,
+      .sw-dialog.sn-communication-dialog,
+      .public-agent-page
+    )
+    :is(
+      button.sw-primary,
+      button.sw-secondary,
+      a.sw-button,
+      .ew-atmosphere-toggle,
+      button.ew-paper-button,
+      .sw-sidebar nav a,
+      .sn-message-composer button.sw-primary,
+      .sw-peer-card-footer :is(button, a),
+      .sw-connection-actions :is(button, a),
+      .sw-dialog-footer > button,
+      .sn-group-footer > button,
+      .sn-media-actions button,
+      .sn-new-messages,
+      .public-agent-contact button:where(:not(.auth-form-link)),
+      .identity-share-actions button,
+      .error button,
+      .public-agent-dock a.primary
+    ) {
+    transition: none;
+  }
 }
 
 .ew-social.sn-social .sw-sidebar .sn-account .sw-avatar,
