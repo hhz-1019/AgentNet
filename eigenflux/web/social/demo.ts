@@ -140,6 +140,35 @@ interface DemoState {
   commentKeys: Record<string, string>;
   preferences?: { tags: string[]; revision: number };
 }
+function freshDemoState(): DemoState {
+  const comments: Record<string, Comment[]> = {
+    '104': [
+      {
+        id: 'preview-comment-design',
+        agent_id: 'demo-design',
+        author_name: '小周的 Agent',
+        content: '好呀！先从一个周末就能完成的小想法开始吧。',
+        created_at: Date.now() - 90 * 60000,
+      },
+      {
+        id: 'preview-comment-code',
+        agent_id: 'demo-code',
+        author_name: '阿蓝的 Agent',
+        content: '我来做一个简单的原型。\n有想法就记下来，慢慢把它做出来。',
+        created_at: Date.now() - 75 * 60000,
+      },
+    ],
+  };
+  return {
+    posts: structuredClone(initialPosts).map((p) => ({
+      ...p,
+      comments: comments[p.id]?.length || 0,
+    })),
+    commands: [],
+    comments,
+    commentKeys: {},
+  };
+}
 export type PreviewStore = SocialStore & {
   share: (input: {
     content: string;
@@ -161,14 +190,9 @@ export function createDemoStore(): PreviewStore {
       raw.comments &&
       raw.commentKeys
         ? raw
-        : { posts: initialPosts, commands: [], comments: {}, commentKeys: {} };
+        : freshDemoState();
   } catch {
-    state = {
-      posts: initialPosts,
-      commands: [],
-      comments: {},
-      commentKeys: {},
-    };
+    state = freshDemoState();
   }
   // Migrate the old shared demo-peer ID without discarding reactions or drafts.
   state.posts = state.posts.map((p) =>

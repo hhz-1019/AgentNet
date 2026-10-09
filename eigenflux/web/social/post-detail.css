@@ -40,7 +40,7 @@
 }
 .ew-note-detail .ew-detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 440px;
+  grid-template-columns: minmax(0, 1fr) 480px;
   height: 100%;
   min-height: 0;
 }
@@ -294,62 +294,138 @@
   color: #806047;
   font-size: 16px;
 }
-.ew-note-detail.sw-dialog .sw-post.expanded .ew-post-context {
-  margin-top: 20px;
-  padding-top: 12px;
+
+/* Muted metadata sits below the writing; comments share one continuous paper. */
+.ew-note-detail.sw-dialog .sw-post.expanded .ew-note-date {
+  margin: 16px 0 0;
+  color: #817566;
   font-size: 16px;
+  line-height: 1.6;
 }
 .ew-note-detail.sw-dialog .sw-comments {
   width: auto;
   max-width: none;
   margin: 0 28px;
   padding: 22px 0 30px;
-  border-top: 1px solid var(--ew-line);
+  border-top: 1px solid #bcae954a;
+  scroll-margin-top: 20px;
 }
 .ew-note-detail.sw-dialog .sw-comments h3 {
-  margin: 0 0 12px;
-  font-size: 18px;
-  font-weight: 400;
-  color: var(--ew-muted);
-}
-.ew-note-detail.sw-dialog .sw-comments article {
-  padding: 18px 0;
-  border-bottom: 1px solid #bcae9540;
-}
-.ew-note-detail.sw-dialog .sw-comments small {
-  display: block;
-  float: none;
-  margin-top: 4px;
-  color: var(--ew-muted);
+  margin: 0 0 20px;
   font-size: 16px;
+  font-weight: 400;
+  color: #817566;
 }
-.ew-note-detail.sw-dialog .sw-comments p {
-  margin: 10px 0 0;
+.ew-note-detail.sw-dialog .sw-comments article.ew-comment {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 12px;
+  padding: 0 0 28px;
+  border: 0;
+}
+.ew-note-detail .ew-comment-avatar,
+.ew-note-detail .ew-composer-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid #bcae954a;
+  border-radius: 50%;
+  background: #e8dcc4;
+  box-shadow:
+    inset 0 1px 0 #fff8,
+    0 1px 3px #47332212;
+  color: #645640;
   font-size: 18px;
-  line-height: 1.85;
+}
+.ew-note-detail .ew-comment-avatar:disabled {
+  opacity: 1;
+}
+.ew-note-detail .ew-comment-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+}
+.ew-note-detail.sw-dialog .sw-comments .sw-name-link {
+  display: inline;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: #817566;
+  font-size: 16px;
+  font-weight: 400;
+  text-align: left;
+  overflow-wrap: anywhere;
+  opacity: 1;
+}
+.ew-note-detail.sw-dialog .sw-comments .sw-name-link:enabled:hover {
+  color: var(--ew-ink);
+}
+.ew-note-detail .ew-comment-badge {
+  padding: 0 5px;
+  background: #e4d7c080;
+  border-radius: 4px;
+  color: #76634d;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.ew-note-detail.sw-dialog .sw-comments .ew-comment-content p {
+  margin: 4px 0 8px;
+  color: var(--ew-ink);
+  font-size: 18px;
+  line-height: 1.75;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.ew-note-detail.sw-dialog .ew-comment-date,
+.ew-note-detail.sw-dialog .ew-note-date time {
+  display: block;
+  color: #817566;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.ew-note-detail.sw-dialog .sw-comments > p {
+  margin: 16px 0;
+  color: #817566;
+  font-size: 16px;
+}
 .ew-note-detail .ew-detail-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
   flex-shrink: 0;
-  padding: 10px 24px 18px;
-  border-top: 1px solid var(--ew-line);
+  padding: 16px 24px;
+  border-top: 1px solid #bcae954a;
   background: var(--ew-paper);
 }
 .ew-note-detail .ew-detail-actions {
   display: flex;
-  gap: 24px;
-  margin-bottom: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  gap: 16px;
+  margin: 0;
 }
 .ew-note-detail .ew-detail-actions button {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   min-height: 44px;
   padding: 6px 0;
   border: 0;
   background: none;
   color: var(--ew-ink);
   font-size: 16px;
+  white-space: nowrap;
 }
 .ew-note-detail .ew-detail-actions button[aria-pressed='true'] {
   color: #994f3e;
@@ -360,42 +436,77 @@
 .ew-note-detail .ew-detail-composer {
   display: flex;
   align-items: flex-end;
+  flex: 1 1 150px;
   gap: 10px;
+  min-width: 0;
   margin: 0;
 }
 .ew-note-detail .ew-detail-composer label {
+  position: relative;
   display: block;
   flex: 1;
   min-width: 0;
   margin: 0;
 }
+.ew-note-detail .ew-composer-avatar {
+  position: absolute;
+  left: 9px;
+  top: 9px;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  pointer-events: none;
+}
 .ew-note-detail .ew-detail-composer textarea {
   display: block;
   width: 100%;
+  height: 46px;
   min-height: 46px;
   max-height: 120px;
   margin: 0;
-  padding: 10px 14px;
-  border: 1px solid #bdac8b70;
-  border-radius: 12px;
+  padding: 10px 12px 10px 44px;
+  border: 1px solid #bdac8b30;
+  border-radius: 24px;
   background: #eadeca80;
+  box-shadow: inset 0 1px 2px #48341d08;
+  color: var(--ew-ink);
   font: inherit;
-  font-size: 18px;
-  line-height: 1.5;
-  resize: vertical;
+  font-size: 16px;
+  line-height: 24px;
+  resize: none;
 }
-.ew-note-detail .ew-detail-composer textarea:focus {
-  min-height: 80px;
+.ew-note-detail .ew-detail-composer textarea::placeholder {
+  color: #817566;
 }
-.ew-note-detail .ew-detail-composer button {
+.ew-note-detail .ew-detail-composer > button {
+  display: none;
   flex-shrink: 0;
-  min-height: 46px;
-  padding: 10px 14px;
-  border-radius: 10px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 22px;
   font-size: 16px;
 }
+.ew-note-detail
+  .ew-detail-footer:is(.is-writing, :has(.ew-detail-composer:focus-within))
+  .ew-detail-composer {
+  flex-basis: 100%;
+}
+.ew-note-detail
+  .ew-detail-footer:is(.is-writing, :has(.ew-detail-composer:focus-within))
+  textarea {
+  height: 86px;
+  border-radius: 16px;
+  font-size: 18px;
+}
+.ew-note-detail
+  .ew-detail-footer:is(.is-writing, :has(.ew-detail-composer:focus-within))
+  .ew-detail-composer
+  > button {
+  display: block;
+}
 .ew-note-detail .ew-detail-footer .sw-error {
-  margin: 8px 0 0;
+  flex-basis: 100%;
+  margin: 0;
   max-height: 68px;
   overflow: auto;
   font-size: 16px;
@@ -468,6 +579,6 @@
     padding: 8px 16px max(12px, env(safe-area-inset-bottom));
   }
   .ew-note-detail .ew-detail-actions {
-    margin-bottom: 4px;
+    gap: 12px;
   }
 }

@@ -1023,6 +1023,10 @@ export function SocialWorkspace({
       {detail && (
         <PostDetail
           post={detail}
+          viewer={{
+            id: session.agent_id,
+            name: portrait.fields.name || session.agent_name,
+          }}
           sourceRect={detailOrigin.current}
           initialScroll={detailPosition.current}
           reactionError={reactionError}

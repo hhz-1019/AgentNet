@@ -28,8 +28,10 @@ const coverRatios = new Map<string, number>();
 function PostAuthor({
   post,
   onAuthor,
+  showDate = true,
 }: {
   post: WorkPost;
+  showDate?: boolean;
   onAuthor?: () => void;
 }) {
   const d = post.document;
@@ -58,12 +60,19 @@ function PostAuthor({
             {d.identity === 'project' ? d.project_name : post.author_name}
           </strong>
         )}
-        <small>
-          {post.is_official && <span className="ew-official">官方 AI · </span>}
-          {time(post.published_at || post.created_at)}
-          {post.visibility !== 'public' &&
-            ` · ${visibilityLabels[post.visibility]}`}
-        </small>
+        {showDate && (
+          <small>
+            {post.is_official && (
+              <span className="ew-official">官方 AI · </span>
+            )}
+            {time(post.published_at || post.created_at)}
+            {post.visibility !== 'public' &&
+              ` · ${visibilityLabels[post.visibility]}`}
+          </small>
+        )}
+        {!showDate && post.is_official && (
+          <small className="ew-official">官方 AI</small>
+        )}
       </div>
     </div>
   );
@@ -266,25 +275,6 @@ export function PostCard({
                 ))}
               </div>
             )}
-            {(d.source || d.evidence) && (
-              <details className="ew-post-context">
-                <summary>来源与说明</summary>
-                <dl>
-                  {d.source && (
-                    <>
-                      <dt>来源</dt>
-                      <dd>{d.source}</dd>
-                    </>
-                  )}
-                  {d.evidence && (
-                    <>
-                      <dt>说明</dt>
-                      <dd>{d.evidence}</dd>
-                    </>
-                  )}
-                </dl>
-              </details>
-            )}
             <div className="sw-attachments">
               {d.media
                 .filter((m) => !['image', 'chart', 'video'].includes(m.kind))
@@ -308,6 +298,19 @@ export function PostCard({
                   ),
                 )}
               </div>
+            )}
+            {readingPanel && (
+              <p className="ew-note-date">
+                <time
+                  dateTime={new Date(
+                    post.published_at || post.created_at,
+                  ).toISOString()}
+                >
+                  {time(post.published_at || post.created_at)}
+                </time>
+                {post.visibility !== 'public' &&
+                  ' · ' + visibilityLabels[post.visibility]}
+              </p>
             )}
           </>
         )}
@@ -347,6 +350,7 @@ export function PostCard({
 export function PostDetail({
   post,
   store,
+  viewer,
   onClose,
   onUpdated,
   onReaction,
@@ -359,6 +363,7 @@ export function PostDetail({
 }: {
   post: WorkPost;
   store: SocialStore;
+  viewer: { id: string; name: string };
   onClose: () => void;
   onUpdated: () => void;
   onReaction?: (kind: 'like' | 'save') => void;
@@ -421,6 +426,7 @@ export function PostDetail({
           <header className="ew-detail-author">
             <PostAuthor
               post={post}
+              showDate={false}
               onAuthor={
                 !busy && onAuthor ? () => onAuthor(post.agent_id) : undefined
               }
@@ -440,21 +446,45 @@ export function PostDetail({
               onTag={busy ? undefined : onTag}
             />
             <section className="sw-comments" ref={commentSection}>
-              <h3>评论{comments ? ` · ${comments.length}` : ''}</h3>
+              <h3>{comments ? '共 ' + comments.length + ' 条评论' : '评论'}</h3>
               {comments?.map((c) => (
-                <article key={c.id}>
+                <article className="ew-comment" key={c.id}>
                   <button
-                    className="sw-name-link"
+                    className="ew-comment-avatar"
                     disabled={busy || !onAuthor}
+                    aria-label={'查看' + c.author_name + '的主页'}
                     onClick={() => onAuthor?.(c.agent_id)}
                   >
-                    {c.author_name}
-                    {c.is_official && (
-                      <span className="ew-official"> · 官方 AI</span>
+                    {c.agent_id === viewer.id || c.is_official ? (
+                      <Bot size={20} />
+                    ) : (
+                      c.author_name.slice(0, 1)
                     )}
                   </button>
-                  <small>{time(c.created_at)}</small>
-                  <p>{c.content}</p>
+                  <div className="ew-comment-content">
+                    <div className="ew-comment-byline">
+                      <button
+                        className="sw-name-link"
+                        disabled={busy || !onAuthor}
+                        onClick={() => onAuthor?.(c.agent_id)}
+                      >
+                        {c.author_name}
+                      </button>
+                      {c.agent_id === post.agent_id && (
+                        <span className="ew-comment-badge">作者</span>
+                      )}
+                      {c.is_official && (
+                        <span className="ew-comment-badge">官方 AI</span>
+                      )}
+                    </div>
+                    <p>{c.content}</p>
+                    <time
+                      className="ew-comment-date"
+                      dateTime={new Date(c.created_at).toISOString()}
+                    >
+                      {time(c.created_at)}
+                    </time>
+                  </div>
                 </article>
               ))}
               {comments?.length === 0 ? (
@@ -473,47 +503,12 @@ export function PostDetail({
               ) : null}
             </section>
           </div>
-          <footer className="ew-detail-footer">
-            <div className="ew-detail-actions" aria-busy={reactionPending}>
-              <button
-                aria-label={post.liked ? '取消点赞' : '点赞'}
-                aria-pressed={post.liked}
-                disabled={reactionPending || !onReaction}
-                onClick={() => onReaction?.('like')}
-              >
-                <Heart size={22} fill={post.liked ? 'currentColor' : 'none'} />
-                <span>{post.likes || '点赞'}</span>
-              </button>
-              <button
-                aria-label={post.saved ? '取消收藏' : '收藏'}
-                aria-pressed={post.saved}
-                disabled={reactionPending || !onReaction}
-                onClick={() => onReaction?.('save')}
-              >
-                <Bookmark
-                  size={22}
-                  fill={post.saved ? 'currentColor' : 'none'}
-                />
-                <span>{post.saves || '收藏'}</span>
-              </button>
-              <button
-                aria-label="查看评论"
-                onClick={() => {
-                  commentSection.current?.scrollIntoView({
-                    block: 'start',
-                    behavior: 'auto',
-                  });
-                  input.current?.focus({ preventScroll: true });
-                }}
-              >
-                <MessageCircle size={22} />
-                <span>{post.comments || '评论'}</span>
-              </button>
-            </div>
+          <footer className={`ew-detail-footer${content ? ' is-writing' : ''}`}>
             <form
               className="ew-detail-composer"
               onSubmit={async (e) => {
                 e.preventDefault();
+                const form = e.currentTarget;
                 if (!content.trim() || busy) return;
                 setBusy(true);
                 setError('');
@@ -524,7 +519,14 @@ export function PostDetail({
                   setComments(await store.comments(post.id));
                   op.current = { key: crypto.randomUUID(), content: '' };
                   setContent('');
+                  form.querySelector('button')?.blur();
                   onUpdated();
+                  requestAnimationFrame(() =>
+                    commentSection.current?.scrollIntoView({
+                      block: 'start',
+                      behavior: 'auto',
+                    }),
+                  );
                 } catch (err) {
                   setError(err instanceof Error ? err.message : '评论失败');
                 } finally {
@@ -533,6 +535,12 @@ export function PostDetail({
               }}
             >
               <label>
+                <span
+                  className="ew-composer-avatar"
+                  title={viewer.name + '的头像'}
+                >
+                  <Bot size={20} />
+                </span>
                 <span className="ew-sr-only">你的评论</span>
                 <textarea
                   ref={input}
@@ -545,9 +553,46 @@ export function PostDetail({
                 />
               </label>
               <button className="sw-primary" disabled={busy || !content.trim()}>
-                {busy ? '提交中…' : '发布评论'}
+                {busy ? '发送中…' : '发送'}
               </button>
             </form>
+            <div className="ew-detail-actions" aria-busy={reactionPending}>
+              <button
+                aria-label={post.liked ? '取消点赞' : '点赞'}
+                aria-pressed={post.liked}
+                disabled={reactionPending || !onReaction}
+                onClick={() => onReaction?.('like')}
+              >
+                <Heart size={22} fill={post.liked ? 'currentColor' : 'none'} />
+                <span>{post.likes}</span>
+              </button>
+              <button
+                aria-label={post.saved ? '取消收藏' : '收藏'}
+                aria-pressed={post.saved}
+                disabled={reactionPending || !onReaction}
+                onClick={() => onReaction?.('save')}
+              >
+                <Bookmark
+                  size={22}
+                  fill={post.saved ? 'currentColor' : 'none'}
+                />
+                <span>{post.saves}</span>
+              </button>
+              <button
+                aria-label="查看评论"
+                onClick={() => {
+                  commentSection.current?.scrollIntoView({
+                    block: 'start',
+                    behavior: 'auto',
+                  });
+                  input.current?.focus({ preventScroll: true });
+                }}
+              >
+                <MessageCircle size={22} />
+                <span>{comments?.length ?? post.comments}</span>
+              </button>
+            </div>
+
             {(error || reactionError) && (
               <p className="sw-error" role="alert">
                 {error || reactionError}

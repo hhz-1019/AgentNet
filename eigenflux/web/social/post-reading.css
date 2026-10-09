@@ -1,4 +1,4 @@
-/* A post reads as a journal entry: title, byline, lead, body, then references. */
+/* A post reads as a journal entry: title, byline, lead, body, then topics. */
 :is(.ew-reading-dialog, .sw-publish-preview) .sw-post.expanded {
   --ew-reading-rule: var(--ew-line, #c9bba4);
   overflow-wrap: anywhere;
@@ -144,44 +144,6 @@
   .ew-reading-body
   p:last-child {
   margin-bottom: 0;
-}
-
-:is(.ew-reading-dialog, .sw-publish-preview)
-  .sw-post.expanded
-  .ew-post-context {
-  margin-top: 28px;
-  padding-top: 16px;
-  border-top: 1px solid var(--ew-reading-rule);
-  color: var(--ew-muted, #554e43);
-  font-size: 16px;
-  line-height: 1.85;
-}
-
-:is(.ew-reading-dialog, .sw-publish-preview)
-  .sw-post.expanded
-  .ew-post-context
-  summary {
-  min-height: 44px;
-  padding: 8px 0;
-  color: inherit;
-  cursor: pointer;
-}
-
-:is(.ew-reading-dialog, .sw-publish-preview)
-  .sw-post.expanded
-  .ew-post-context
-  dl {
-  display: grid;
-  grid-template-columns: 3em minmax(0, 1fr);
-  gap: 10px 16px;
-  margin: 12px 0 0;
-}
-
-:is(.ew-reading-dialog, .sw-publish-preview)
-  .sw-post.expanded
-  .ew-post-context
-  :is(dt, dd) {
-  margin: 0;
 }
 
 :is(.ew-reading-dialog, .sw-publish-preview)
