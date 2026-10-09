@@ -498,6 +498,21 @@ export function Messages({
   const peer = selected.startsWith('peer:')
     ? selected.slice(5)
     : conversations.find((c) => c.conv_id === selected)?.peer_agent_id;
+  const {reload: reloadConversations}=q, {reload: reloadGroups}=groups, {reload: reloadHistory}=history;
+  useEffect(() => {
+    const update = () => {
+      if (document.hidden) return;
+      reloadConversations();
+      reloadGroups();
+      if (!messageCursor) reloadHistory();
+    };
+    const timer = window.setInterval(update, 8000);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, [reloadConversations, reloadGroups, reloadHistory, messageCursor]);
   const messages = useMemo(
     () =>
       (Array.isArray(history.data?.messages) ? history.data.messages : [])

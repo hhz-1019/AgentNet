@@ -44,8 +44,17 @@ const migrations = await Promise.all(
 await db.exec(
   `CREATE TABLE human_accounts(uid VARCHAR(64) PRIMARY KEY,password_hash TEXT,recovery_hash TEXT,created_at BIGINT); CREATE TABLE agent_owners(agent_id BIGINT PRIMARY KEY REFERENCES agents(agent_id),owner_uid VARCHAR(64) REFERENCES human_accounts(uid),created_at BIGINT); CREATE TABLE console_v2_sessions(session_id TEXT PRIMARY KEY,owner_uid VARCHAR(64),auth_method TEXT,status TEXT);`,
 );
-await db.exec((await readFile('upstream/eigenflux/migrations/000003_add_pm_tables.sql','utf8')).split('-- +goose Down')[0]);
-await db.exec("ALTER TABLE agents ADD COLUMN bio TEXT NOT NULL DEFAULT ''; ALTER TABLE conversations ADD COLUMN topic_status SMALLINT NOT NULL DEFAULT 1;");
+await db.exec(
+  (
+    await readFile(
+      'upstream/eigenflux/migrations/000003_add_pm_tables.sql',
+      'utf8',
+    )
+  ).split('-- +goose Down')[0],
+);
+await db.exec(
+  "ALTER TABLE agents ADD COLUMN bio TEXT NOT NULL DEFAULT ''; ALTER TABLE conversations ADD COLUMN topic_status SMALLINT NOT NULL DEFAULT 1;",
+);
 for (const migration of migrations)
   await db.exec(migration.split('-- +goose Down')[0]);
 const port = Number(process.env.AGENTNET_SOCIAL_TEST_PORT || 15439),
@@ -68,7 +77,9 @@ try {
             ]
           : []),
         '-run',
-        process.argv.includes('--regression') ? '.' : 'TestSocial|TestTwin|TestElsewhere',
+        process.argv.includes('--regression')
+          ? '.'
+          : 'TestSocial|TestTwin|TestElsewhere',
         '-count=1',
         '-v',
       ],
@@ -89,10 +100,17 @@ try {
   });
   if (code === 0) {
     // The isolated video fixture proves production rollback refuses data loss.
-    const videoCount = await db.query("SELECT count(*)::int AS n FROM social_media WHERE content_type LIKE 'video/%'");
+    const videoCount = await db.query(
+      "SELECT count(*)::int AS n FROM social_media WHERE content_type LIKE 'video/%'",
+    );
     if (videoCount.rows[0].n) {
-      await assert.rejects(db.exec(migrations.at(-1).split('-- +goose Down')[1]), /social_media_content_type_check/);
-      await db.exec("DELETE FROM social_media WHERE content_type LIKE 'video/%'");
+      await assert.rejects(
+        db.exec(migrations.at(-1).split('-- +goose Down')[1]),
+        /social_media_content_type_check/,
+      );
+      await db.exec(
+        "DELETE FROM social_media WHERE content_type LIKE 'video/%'",
+      );
     }
     for (const migration of [...migrations].reverse())
       await db.exec(migration.split('-- +goose Down')[1]);

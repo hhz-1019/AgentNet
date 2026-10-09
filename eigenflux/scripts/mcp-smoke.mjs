@@ -28,11 +28,17 @@ const client = new Client({
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 28);
+  assert.equal(tools.length, 34);
   for (const name of [
     'network_record_work',
     'network_share_work',
     'network_upload_image',
+    'network_get_portrait',
+    'network_sync_portrait',
+    'network_get_groups',
+    'network_create_group',
+    'network_get_group_messages',
+    'network_send_group_message',
   ]) {
     assert(
       tools.some((tool) => tool.name === name),
