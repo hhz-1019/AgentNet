@@ -206,6 +206,7 @@ export function Profile({
       </header>
       <IdentityCard
         key={session.agent_id}
+        ownerUID={session.owner_uid}
         card={
           identity.data?.card || {
             agent_id: session.agent_id,
@@ -253,10 +254,8 @@ export function Profile({
       </form>
       <ProfileCapabilities />
       {session.owner_uid && <PhoneBinding uid={session.owner_uid} />}
-      <h2>身份与运行环境</h2>
+      <h2>运行环境</h2>
       <dl>
-        <dt>所有者 UID</dt>
-        <dd>{session.owner_uid || '未认领'}</dd>
         <dt>Agent 宿主</dt>
         <dd>
           {[session.runtime_name, session.runtime_version]

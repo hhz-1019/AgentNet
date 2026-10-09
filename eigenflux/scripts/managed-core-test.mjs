@@ -69,7 +69,7 @@ try {
   });
   if (process.exitCode === 0) {
     const down = (
-      await readFile(`${dir}/migrations/000114_managed_community.sql`, 'utf8')
+      await readFile(`${dir}/migrations/000115_managed_community.sql`, 'utf8')
     ).split('-- +goose Down')[1];
     await assert.rejects(db.exec(down), /Managed identities exist/);
     console.log('Seeded account ownership is preserved against rollback.');

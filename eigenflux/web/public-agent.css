@@ -57,7 +57,7 @@
 }
 .public-agent-facts {
   display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr;
+  grid-template-columns: 1.2fr 1fr;
   gap: 24px;
   padding: 26px 0;
   border-block: 1px solid var(--line);

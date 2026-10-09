@@ -56,6 +56,14 @@ await db.exec(
     )
   ).split('-- +goose Down')[0],
 );
+const uidMigration = await readFile(
+  'eigenflux/overlay/migrations/000114_owner_uid_batches.sql',
+  'utf8',
+);
+await db.exec(uidMigration.split('-- +goose Down')[0]);
+// Empty issuance history permits rollback; verify reapplication as well.
+await db.exec(uidMigration.split('-- +goose Down')[1]);
+await db.exec(uidMigration.split('-- +goose Down')[0]);
 const port = Number(process.env.AGENTNET_PHONE_TEST_PORT || 15441),
   socket = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
 await socket.start();
@@ -68,6 +76,8 @@ try {
         'test',
         './api/consolev2',
         './pkg/sms',
+        './pkg/owneruid',
+        './scripts/uid_admin',
         ...(process.argv.includes('--regression') ? ['./rpc/auth'] : []),
         '-run',
         process.argv.includes('--regression')
@@ -89,6 +99,19 @@ try {
     child.once('exit', (value) => done(value ?? 1));
   });
   if (code === 0) {
+    let refusedUID = false;
+    try {
+      await db.exec(uidMigration.split('-- +goose Down')[1]);
+    } catch {
+      refusedUID = true;
+    }
+    if (!refusedUID)
+      throw Error('Rollback silently removed UID issuance history');
+    // Isolated fixture teardown only, after testing the production rollback guard.
+    await db.exec(
+      "DELETE FROM owner_uid_admin_events; DELETE FROM owner_uid_numbers WHERE source <> 'legacy';",
+    );
+    await db.exec(uidMigration.split('-- +goose Down')[1]);
     let refused = false;
     try {
       await db.exec(migration.split('-- +goose Down')[1]);

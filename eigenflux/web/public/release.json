@@ -1,5 +1,5 @@
 {
-  "release": "elsewhere-digital-twin-20261009",
+  "release": "elsewhere-managed-community-20261009",
   "cli_version": "0.0.54-agentnet.8",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
@@ -8,5 +8,6 @@
   "llm_transport": "chat_completions",
   "product": "elsewhere",
   "onboarding": "console-first-twin",
-  "database_schema": "digital-twin-v1"
+  "database_schema": "digital-twin-v1",
+  "account_model": "one-phone-one-owner-one-agent"
 }

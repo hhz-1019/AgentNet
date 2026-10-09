@@ -32,6 +32,7 @@ const session = {
 };
 let sends = 0,
   registrations = 0,
+  claims = 0,
   registered = false,
   failSend = true;
 const fulfill = (route, data) =>
@@ -105,7 +106,18 @@ await page.route('**/api/v2/**', async (route) => {
     });
   }
   if (path === 'auth/uid/login')
-    return fulfill(route, { uid: '10000', agents: [] });
+    return fulfill(route, {
+      uid: '10000',
+      agents: [{ agent_id: '1', display_name: '测试 Agent' }],
+    });
+  if (path === 'auth/uid/claim') {
+    assert.equal(body.agent_id, '1');
+    assert.equal(body.uid, '10000');
+    claims++;
+    session.owner_bound = true;
+    session.owner_uid = '10000';
+    return fulfill(route, { uid: '10000', agent_id: '1' });
+  }
   throw Error(`unexpected request ${path}`);
 });
 try {
@@ -189,15 +201,20 @@ try {
   session.owner_uid = '';
   await page.reload();
   await page.getByRole('button', { name: '已有 UID，登录原账号' }).click();
+  await page.getByRole('button', { name: '忘记密码，用恢复密钥找回' }).click();
+  await page.getByLabel('注册时保存的恢复密钥').waitFor();
+  await page.getByRole('button', { name: '返回登录', exact: true }).click();
   await page.getByLabel('账号 UID', { exact: true }).fill('10000');
   await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
   await page
-    .getByRole('button', { name: '登录并选择 Agent', exact: true })
+    .getByRole('button', { name: '登录', exact: true })
     .click();
-  await page.getByRole('heading', { name: '选择这个运行环境的身份' }).waitFor();
-  await page.getByRole('button', { name: '返回登录', exact: true }).click();
-  await page.getByRole('button', { name: '忘记密码，用恢复密钥找回' }).click();
-  await page.getByLabel('注册时保存的恢复密钥').waitFor();
+  await page.getByRole('heading', { name: '确认你的基础资料' }).waitFor();
+  assert.equal(claims, 1, 'login must reconnect the existing identity');
+  assert.equal(
+    await page.getByRole('heading', { name: '选择要继续使用的历史身份' }).count(),
+    0,
+  );
   assert.deepEqual(errors, []);
   console.log(
     'PASS: phone form validates input, fails closed, handles send failures, counts down, invalidates changed-phone proof, submits numeric registration, keeps UID login/recovery; responsive 360–1440px',

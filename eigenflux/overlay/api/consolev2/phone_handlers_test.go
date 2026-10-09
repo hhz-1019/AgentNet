@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"eigenflux_server/pkg/owneruid"
+
 	"github.com/alicebob/miniredis/v2"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -103,6 +105,7 @@ func TestPhonePostgresRegistration(t *testing.T) {
 	h.POST("/send", inject, s.createPhoneChallenge)
 	h.POST("/register", inject, s.registerUID)
 	h.POST("/login", inject, s.loginUID)
+	h.POST("/claim", inject, s.claimUID)
 	h.POST("/bind", inject, s.bindPhone)
 	h.GET("/binding", inject, s.getPhoneBinding)
 	h.POST("/reset", inject, s.resetUIDPassword)
@@ -139,7 +142,7 @@ func TestPhonePostgresRegistration(t *testing.T) {
 	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "test-password-123", Phone: "13800138000", ChallengeID: id, Code: sender.code(id)}, "2", "", 400)
 	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "test-password-123", Phone: "13800138001", ChallengeID: id, Code: sender.code(id)}, "1", "", 400)
 	owner := register("+8613800138000", "1", id, 201)["data"].(map[string]any)
-	if len(owner["uid"].(string)) != 9 {
+	if len(owner["uid"].(string)) != 5 {
 		t.Fatal("random public UID was not allocated", owner)
 	}
 	register("13800138000", "1", id, 400)
@@ -151,6 +154,11 @@ func TestPhonePostgresRegistration(t *testing.T) {
 	_ = db.Raw(`SELECT count(*) FROM human_accounts WHERE phone_hash IS NOT NULL`).Scan(&count).Error
 	if count != 1 {
 		t.Fatal("duplicate account persisted")
+	}
+	// The same valid owner credentials cannot claim a second network identity.
+	blocked := call("POST", "/claim", uidRequest{UID: owner["uid"].(string), Password: "test-password-123"}, "2", "", 409)
+	if blocked["error"].(map[string]any)["code"] != "OWNER_HAS_AGENT" {
+		t.Fatal("second identity was not rejected by the owner limit", blocked)
 	}
 	// Attempts persist even though failed registration does not create an owner.
 	wrong := send("13800138002", "3")
@@ -177,14 +185,47 @@ func TestPhonePostgresRegistration(t *testing.T) {
 	register("13800138005", "6", rollback, 409)
 	_ = db.Exec(`DELETE FROM agent_owners WHERE agent_id=6`).Error
 	register("13800138005", "6", rollback, 201)
-	// New accounts receive distinct random nine-digit UIDs, independent of legacy sequence.
+	// New accounts receive distinct random five-digit UIDs, independent of legacy sequence.
 	nines := send("13800138006", "7")
 	first := register("13800138006", "7", nines, 201)["data"].(map[string]any)["uid"].(string)
 	six := send("13800138007", "8")
 	second := register("13800138007", "8", six, 201)["data"].(map[string]any)["uid"].(string)
-	if len(first) != 9 || len(second) != 9 || first == second || first == owner["uid"] {
+	if len(first) != 5 || len(second) != 5 || first == second || first == owner["uid"] {
 		t.Fatal("random UID uniqueness failed")
 	}
+	// Operator-assigned owner UID follows the same verified registration path,
+	// even while public issuance is paused. Browser UID input cannot choose a number.
+	r.FastForward(time.Hour)
+	if err := owneruid.Admin(db, owneruid.Command{Action: "assign", Number: 12345678901, AgentID: 9, Actor: "test", Reason: "internal account"}); err != nil {
+		t.Fatal(err)
+	}
+	var issuedBefore int64
+	_ = db.Raw(`SELECT issued FROM owner_uid_batches WHERE name='founding-5'`).Scan(&issuedBefore).Error
+	if issuedBefore != 4 {
+		t.Fatal("failed registration consumed a public slot", issuedBefore)
+	}
+	if err := owneruid.Admin(db, owneruid.Command{Action: "pause", Actor: "test", Reason: "manual pause"}); err != nil {
+		t.Fatal(err)
+	}
+	manualProof := send("13800138009", "9")
+	manual := call("POST", "/register", uidRequest{UID: "77777", AgreementVersion: twinAgreementVersion, Password: "test-password-123", Phone: "13800138009", ChallengeID: manualProof, Code: sender.code(manualProof)}, "9", "", 201)
+	if manual["data"].(map[string]any)["uid"] != "12345678901" {
+		t.Fatal("operator UID was not delivered", manual)
+	}
+	var issuedAfter int64
+	_ = db.Raw(`SELECT issued FROM owner_uid_batches WHERE name='founding-5'`).Scan(&issuedAfter).Error
+	if issuedBefore != issuedAfter {
+		t.Fatal("manual assignment consumed public quota")
+	}
+	pausedProof := send("13800138010", "10")
+	paused := register("13800138010", "10", pausedProof, 503)
+	if paused["error"].(map[string]any)["code"] != "UID_BATCH_CLOSED" {
+		t.Fatal("missing batch pause error", paused)
+	}
+	if err := owneruid.Admin(db, owneruid.Command{Action: "resume", Name: "founding-5", Actor: "test", Reason: "manual resume"}); err != nil {
+		t.Fatal(err)
+	}
+	register("13800138010", "10", pausedProof, 201)
 	// Legacy credentials work with both numeric UID and the original private alias.
 	hash, _ := bcrypt.GenerateFromPassword([]byte("legacy-password-123"), bcrypt.DefaultCost)
 	_ = db.Exec(`UPDATE human_accounts SET password_hash=?,recovery_hash=? WHERE uid='u_legacy_first'`, string(hash), keyedHash(s.otpPepper, "legacy-recovery")).Error

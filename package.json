@@ -10,7 +10,7 @@
     "build": "vite build --config eigenflux/web/vite.config.mjs",
     "start": "docker compose --env-file .env.eigenflux -f eigenflux/compose.yaml up -d --build",
     "typecheck": "tsc -p eigenflux/web/tsconfig.json",
-    "test": "node --test eigenflux/scripts/check.test.mjs eigenflux/web/onboarding.test.ts eigenflux/web/social/model.test.ts eigenflux/client/work.test.mjs eigenflux/client/runtime.test.mjs eigenflux/client/context.test.mjs eigenflux/client/handoff.test.mjs",
+    "test": "node --test eigenflux/scripts/check.test.mjs eigenflux/web/onboarding.test.ts eigenflux/web/social/model.test.ts eigenflux/client/work.test.mjs eigenflux/client/runtime.test.mjs eigenflux/client/context.test.mjs eigenflux/client/handoff.test.mjs eigenflux/client/prompts.test.mjs",
     "lint": "oxlint -c eigenflux/.oxlintrc.json eigenflux/web eigenflux/client eigenflux/scripts",
     "format": "oxfmt eigenflux/web eigenflux/client eigenflux/scripts",
     "core:configure": "node eigenflux/scripts/configure.mjs",
@@ -29,7 +29,9 @@
     "agent:host": "node eigenflux/client/host.mjs",
     "test:host:protocol": "node eigenflux/scripts/host-protocol-test.mjs",
     "test:phone:core": "node eigenflux/scripts/phone-auth-test.mjs",
-    "test:phone:ui": "node eigenflux/scripts/phone-ui-smoke.mjs"
+    "test:phone:ui": "node eigenflux/scripts/phone-ui-smoke.mjs",
+    "test:managed:core": "node eigenflux/scripts/managed-core-test.mjs",
+    "test:managed:ui": "node eigenflux/scripts/managed-ui-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

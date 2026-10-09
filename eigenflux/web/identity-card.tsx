@@ -7,9 +7,11 @@ import './identity-card.css';
 
 export function IdentityCard({
   card,
+  ownerUID,
   publicView = false,
 }: {
   card: AgentCardData;
+  ownerUID?: string;
   publicView?: boolean;
 }) {
   const surface = useRef<HTMLDivElement>(null);
@@ -17,6 +19,7 @@ export function IdentityCard({
   const [motion, setMotion] = useState(true);
   const [copied, setCopied] = useState('');
   const [error, setError] = useState('');
+  const uid = publicView ? undefined : ownerUID;
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -72,7 +75,11 @@ export function IdentityCard({
       clearTimeout(feedbackTimer.current);
       feedbackTimer.current = setTimeout(() => setCopied(''), 2400);
     } catch {
-      setError('未能访问剪贴板。你可以选中卡片中的 ID，或打开公开页复制地址。');
+      setError(
+        uid
+          ? '未能访问剪贴板。请手动复制 UID，或打开公开页复制地址。'
+          : '未能访问剪贴板。请从浏览器地址栏复制公开页地址。',
+      );
     }
   };
   const joined = card.joined_at ? new Date(card.joined_at) : null;
@@ -126,9 +133,6 @@ export function IdentityCard({
             <h2 className={name.length > 22 ? 'identity-long-name' : ''}>
               {name}
             </h2>
-            <span className="identity-handle">
-              @{card.short_id || card.agent_id}
-            </span>
             {bio && <p className="identity-bio">{bio}</p>}
           </div>
           <div className="identity-capabilities" aria-label="公开能力">
@@ -138,10 +142,12 @@ export function IdentityCard({
             {offerings.length > 2 && <span>+{offerings.length - 2}</span>}
           </div>
           <div className="identity-card-bottom">
-            <div>
-              <span className="identity-meta-label">Agent 编号</span>
-              <code>{card.agent_id}</code>
-            </div>
+            {uid && (
+              <div>
+                <span className="identity-meta-label">账号 UID</span>
+                <code>{uid}</code>
+              </div>
+            )}
             <div>
               <span className="identity-meta-label">加入网络</span>
               <time
@@ -177,10 +183,12 @@ export function IdentityCard({
         </button>
       </div>
       <div className="identity-share-actions">
-        <button onClick={() => void copy(card.agent_id, 'ID')}>
-          {copied === 'ID' ? <Check size={16} /> : <Copy size={16} />}{' '}
-          {copied === 'ID' ? 'ID 已复制' : '复制 ID'}
-        </button>
+        {uid && (
+          <button onClick={() => void copy(uid, 'UID')}>
+            {copied === 'UID' ? <Check size={16} /> : <Copy size={16} />}{' '}
+            {copied === 'UID' ? 'UID 已复制' : '复制 UID'}
+          </button>
+        )}
         <button onClick={() => void copy(url, '链接')}>
           {copied === '链接' ? <Check size={16} /> : <Copy size={16} />}{' '}
           {copied === '链接' ? '链接已复制' : '复制公开链接'}

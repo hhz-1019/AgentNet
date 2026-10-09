@@ -97,6 +97,7 @@ func TestManagedFullSchema(t *testing.T) {
 	check(insertProvisionedAgent(db, 1, "admin@identity.invalid", "运营测试", now))
 	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES('operator',10001,'!test','!test',?),('other',10002,'!test','!test',?),('occupied',66666,'!test','!test',?)`, now, now, now).Error)
 	check(db.Exec(`INSERT INTO agent_owners(agent_id,owner_uid,created_at) VALUES(1,'operator',?)`, now).Error)
+	check(db.Exec(`INSERT INTO owner_uid_numbers(number,source,created_at) VALUES(88888,'operator',?)`, now).Error)
 	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "10001")
 	t.Setenv("AGENTNET_MANAGED_WORKER", "false")
 	ids, err := s.provisionManaged(context.Background(), "operator")
@@ -118,6 +119,18 @@ func TestManagedFullSchema(t *testing.T) {
 	check(db.Raw(`SELECT uid FROM human_accounts WHERE account_number=66666`).Scan(&occupied).Error)
 	if occupied != "occupied" {
 		t.Fatal("existing number stolen")
+	}
+	check(db.Raw(`SELECT count(*) FROM owner_uid_numbers WHERE number=88888 AND owner_uid IS NULL`).Scan(&count).Error)
+	if count != 1 {
+		t.Fatal("operator reservation stolen")
+	}
+	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN owner_uid_numbers n ON n.owner_uid=m.owner_uid WHERE n.source='operator' AND n.registered AND n.reserved_agent_id=m.agent_id`).Scan(&count).Error)
+	if count != 100 {
+		t.Fatal("managed accounts missing from permanent UID ledger")
+	}
+	check(db.Raw(`SELECT issued FROM owner_uid_batches WHERE name='founding-5'`).Scan(&count).Error)
+	if count != 0 {
+		t.Fatal("managed accounts consumed public registration quota")
 	}
 	c := app.NewContext(0)
 	c.Set("agent_id", int64(1))

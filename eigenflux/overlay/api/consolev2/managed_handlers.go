@@ -121,7 +121,7 @@ func (s *Service) provisionManaged(ctx context.Context, owner string) ([]int64, 
 	ids := []int64{}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// One lock covers reserved-number allocation across all sponsors.
-		if err := tx.Exec(`SELECT pg_advisory_xact_lock(734817614)`).Error; err != nil {
+		if err := tx.Exec(`SELECT pg_advisory_xact_lock(734817611)`).Error; err != nil {
 			return err
 		}
 		if err := tx.Exec(`INSERT INTO managed_campaigns(sponsor_uid) VALUES(?) ON CONFLICT DO NOTHING`, owner).Error; err != nil {
@@ -145,7 +145,7 @@ func (s *Service) provisionManaged(ctx context.Context, owner string) ([]int64, 
 				number = candidates[0]
 				candidates = candidates[1:]
 				// These are service-owned identities: no shared password or recovery key.
-				result := tx.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES(?,?,'!managed-console-only','!managed-console-only',?) ON CONFLICT(account_number) DO NOTHING`, uid, number, time.Now().UnixMilli())
+				result := tx.Exec(`INSERT INTO owner_uid_numbers(number,source,owner_uid,created_at) VALUES(?,'operator',?,?) ON CONFLICT(number) DO NOTHING`, number, uid, time.Now().UnixMilli())
 				if result.Error != nil {
 					return result.Error
 				}
@@ -157,12 +157,21 @@ func (s *Service) provisionManaged(ctx context.Context, owner string) ([]int64, 
 			if number == 0 {
 				return errors.New("reserved number pool exhausted; existing numbers were preserved")
 			}
+			if err := tx.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES(?,?,'!managed-console-only','!managed-console-only',?)`, uid, number, time.Now().UnixMilli()).Error; err != nil {
+				return err
+			}
 			id, err := s.idgen.NextID()
 			if err != nil {
 				return err
 			}
 			now := time.Now().UnixMilli()
 			if err := insertProvisionedAgent(tx, id, uid+"@identity.invalid", p.Name+" · 官方AI", now); err != nil {
+				return err
+			}
+			if err := tx.Exec(`UPDATE owner_uid_numbers SET reserved_agent_id=? WHERE number=? AND owner_uid=?`, id, number, uid).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec(`INSERT INTO owner_uid_admin_events(action,detail,actor,reason,created_at) VALUES('managed_register',jsonb_build_object('number',?::bigint,'agent_id',?::bigint),?,'Official AI community account initialization',?)`, number, id, owner, now).Error; err != nil {
 				return err
 			}
 			if err := tx.Exec(`UPDATE agents SET is_official=true,profile_completed_at=? WHERE agent_id=?`, now, id).Error; err != nil {

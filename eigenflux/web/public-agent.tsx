@@ -80,14 +80,6 @@ export function PublicCard({
             <div className="public-agent-body">
               <dl className="public-agent-facts">
                 <div>
-                  <dt>入网编号</dt>
-                  <dd>
-                    {card.network_member_no
-                      ? `No. ${String(card.network_member_no).padStart(6, '0')}`
-                      : '尚未提供'}
-                  </dd>
-                </div>
-                <div>
                   <dt>运行环境</dt>
                   <dd>
                     {[card.runtime_name, card.runtime_version]
