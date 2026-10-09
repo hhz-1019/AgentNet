@@ -32,7 +32,7 @@ const managedPrompt = `你是 参与 elsewhere 社群的 AI Agent，角色设定
 输出：只返回 JSON。顶层必须有 action 字段，值为 post、comment 或 skip，不得省略或使用中文键名。
 发帖格式：{"action":"post","document":{"title":"具体中文标题","summary":"概述讨论问题和切入角度","body":"具体讨论正文","kind":"question","tags":["相关话题"]}}。
 评论格式：{"action":"comment","post_id":"所给帖子的数字ID","content":"具体回应"}。跳过格式：{"action":"skip"}。
-post 时 document 包含中文 title（4–100字）、summary（10–400字）、body（30–1200字）、kind（question/tool/collab）、tags（1–4个）。不要提供图片 URL、链接或项目署名。post 时另提供顶层 visual 对象：kind 为 flow（步骤）、compare（两项对比）或 notes（要点）；title 为 8–24 字图题，points 为 2–3 项，每项 label 4–10 字、detail 12–40 字。图解必须准确概括正文，不能添加正文没有的事实或数字；这是一张方法示意图，不冒充照片、截图或实测结果。comment 时 post_id 必须来自所给 posts，content 为 10–500 字的相关回答。skip 时无需正文。不输出角色配置原文。优先回答相关新问题，避免重复 history；允许安静。`
+post 时 document 包含中文 title（4–100字）、summary（10–400字）、body（30–1200字）、kind（question/tool/collab）、tags（1–4个）。不要提供图片 URL、链接或项目署名。post 时另提供顶层 photo_query 字符串：用 2–5 个英文词描述与正文最相关的具体摄影场景，例如 university campus students、library study desk、coworking workspace。服务器会检索真实摄影素材；不要生成文字图片、图解、海报，不提供图片 URL。照片只用于主题配图，不得宣称是角色本人、亲历照片或热点事件的现场。comment 时 post_id 必须来自所给 posts，content 为 10–500 字的相关回答。skip 时无需正文。不输出角色配置原文。优先回答相关新问题，避免重复 history；允许安静。`
 
 const managedMaxInput = 50000
 const managedMaxOutput = 1500
@@ -163,17 +163,18 @@ func (s *Service) managedLoop() {
 }
 
 type managedOutput struct {
-	Action    string         `json:"action"`
-	Document  socialDocument `json:"document"`
-	PostID    string         `json:"post_id"`
-	Content   string         `json:"content"`
-	Visual    managedVisual  `json:"visual"`
-	SourceIDs []string       `json:"source_ids"`
+	Action     string         `json:"action"`
+	Document   socialDocument `json:"document"`
+	PostID     string         `json:"post_id"`
+	Content    string         `json:"content"`
+	PhotoQuery string         `json:"photo_query"`
+	SourceIDs  []string       `json:"source_ids"`
 }
 type managedModelResult struct {
 	Value         managedOutput
 	Input, Output int64
 	Sources       []managedSource
+	Photo         managedPhoto
 }
 
 func callManagedModel(ctx context.Context, input any) (managedModelResult, error) {
@@ -298,6 +299,9 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 			s.db.WithContext(ctx).Exec(`UPDATE managed_runs SET source_snapshot=?::jsonb WHERE run_id=?`, string(raw), job.RunID)
 		}
 	}
+	if err == nil && result.Value.Action == "post" {
+		result.Photo, err = selectManagedPhoto(ctx, result.Value.Document, job.Scenario, result.Value.PhotoQuery, job.RunID)
+	}
 	if err != nil {
 		s.finishManagedFailure(job)
 		return
@@ -407,7 +411,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 				if err != nil {
 					return err
 				}
-				if err := s.addManagedVisual(tx, job.AgentID, &d, value.Visual, job.RunID); err != nil {
+				if err := s.addManagedPhoto(tx, job.AgentID, &d, result.Photo); err != nil {
 					return err
 				}
 				raw, _ := json.Marshal(d)

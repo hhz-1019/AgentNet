@@ -61,5 +61,5 @@ func managedEditorialPlan(tx *gorm.DB, job managedJob, now time.Time) (string, t
 	topicScene := []int{0, 1, 2, 3, 6, 7, 8, 5}[scene]
 	topic := topics[topicScene][(int(day)+int(published))%len(topics[topicScene])]
 	format := formats[int(day)%len(formats)]
-	return fmt.Sprintf("今日场景主题：%s。%s，发一篇有具体增量的图文帖；同时给出 visual 图解结构。参考 recent_scene_titles 避免重复角度，正文必须包含可实践的方法或清楚的假设示例，不能只抛问题。资料不足、不安全或没有新意时仍应 skip。", topic, format), time.Time{}, nil
+	return fmt.Sprintf("今日场景主题：%s。%s，发一篇有具体增量的图文帖；同时给出相关真实摄影场景的 photo_query。参考 recent_scene_titles 避免重复角度，正文必须包含可实践的方法或清楚的假设示例，不能只抛问题。资料不足、不安全或没有新意时仍应 skip。", topic, format), time.Time{}, nil
 }
