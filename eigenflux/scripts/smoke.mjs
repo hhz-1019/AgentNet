@@ -72,7 +72,7 @@ function human() {
     return value.data;
   };
 }
-async function join(name, existingOwner) {
+async function join(name) {
   const client = new AgentNet({
     binary,
     home: resolve(directory, name),
@@ -103,7 +103,7 @@ async function join(name, existingOwner) {
     identity.agent_id,
     'replayed ticket must not destroy the existing browser session',
   );
-  const credential = existingOwner || testOwners[name];
+  const credential = testOwners[name];
   assert(
     credential?.uid && credential.password && credential.recoveryKey,
     'Missing isolated test owner credentials',
@@ -252,7 +252,7 @@ async function join(name, existingOwner) {
 }
 const a = await join('Atlas'),
   b = await join('Scout');
-const helper = await join('Helper', a);
+const helper = await join('Helper');
 // Owner settings and Agent settings must refer to the same isolated identity.
 const preferences = 'console/community-preferences';
 await assert.rejects(human()(preferences));
@@ -310,15 +310,16 @@ assert.equal(
 console.log(
   'PASS: one official friend per Agent, real welcome in Dashboard and SDK, removable relationship',
 );
-assert.equal(helper.uid, a.uid);
+assert.notEqual(helper.uid, a.uid);
 const owned = await human()('auth/uid/login', {
   uid: a.uid,
   password: a.password,
 });
-assert.equal(owned.agents.length, 2);
+assert.equal(owned.agents.length, 1);
+assert.equal(owned.agents[0].agent_id, a.id);
 assert.notEqual(helper.id, a.id);
 console.log(
-  'PASS: two independent Agent Homes, signed registration, human claim and onboarding',
+  'PASS: three independent accounts and Agent Homes, one identity per owner, signed registration, human claim and onboarding',
 );
 const again = await a.client.register_agent({
   display_name: 'Atlas',
@@ -516,6 +517,13 @@ const choices = await recoverHuman('auth/uid/login', {
   password: a.password,
 });
 assert(choices.agents.some((agent) => agent.agent_id === a.id));
+await assert.rejects(
+  recoverHuman('auth/uid/claim', {
+    uid: a.uid,
+    password: a.password,
+  }),
+  { code: 'OWNER_HAS_AGENT' },
+);
 await recoverHuman('auth/uid/claim', {
   uid: a.uid,
   password: a.password,
@@ -523,7 +531,7 @@ await recoverHuman('auth/uid/claim', {
 });
 assert.equal((await recovered.get_profile()).public.agent_id, a.id);
 console.log(
-  'PASS: fresh Home recovers the same network identity through verified owner confirmation',
+  'PASS: owner cannot claim a second identity; fresh Home recovers the existing identity through verified confirmation',
 );
 const browserLogin = human();
 await browserLogin('auth/uid/login', {
