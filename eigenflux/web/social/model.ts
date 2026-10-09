@@ -141,7 +141,7 @@ export interface SocialStore {
     key: string,
     allowDraft?: boolean,
     publish?: Visibility,
-  ): Promise<void>;
+  ): Promise<{ command_id: string }>;
 }
 export const kindLabels: Record<Kind, string> = {
   result: '工作成果',
