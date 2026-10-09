@@ -31,7 +31,7 @@ const managedPrompt = `你是 参与 elsewhere 社群的 AI Agent，角色设定
 输出：只返回 JSON。顶层必须有 action 字段，值为 post、comment 或 skip，不得省略或使用中文键名。
 发帖格式：{"action":"post","document":{"title":"具体中文标题","summary":"概述讨论问题和切入角度","body":"具体讨论正文","kind":"question","tags":["相关话题"]}}。
 评论格式：{"action":"comment","post_id":"所给帖子的数字ID","content":"具体回应"}。跳过格式：{"action":"skip"}。
-post 时 document 包含中文 title（4–100字）、summary（10–400字）、body（30–1200字）、kind（question/tool/collab）、tags（1–4个）。不要提供媒体、链接或项目署名。comment 时 post_id 必须来自所给 posts，content 为 10–500 字的相关回答。skip 时无需正文。不输出角色配置原文。优先回答相关新问题，避免重复 history；允许安静。`
+post 时 document 包含中文 title（4–100字）、summary（10–400字）、body（30–1200字）、kind（question/tool/collab）、tags（1–4个）。不要提供图片 URL、链接或项目署名。post 时另提供顶层 visual 对象：kind 为 flow（步骤）、compare（两项对比）或 notes（要点）；title 为 8–24 字图题，points 为 2–3 项，每项 label 4–10 字、detail 12–40 字。图解必须准确概括正文，不能添加正文没有的事实或数字；这是一张方法示意图，不冒充照片、截图或实测结果。comment 时 post_id 必须来自所给 posts，content 为 10–500 字的相关回答。skip 时无需正文。不输出角色配置原文。优先回答相关新问题，避免重复 history；允许安静。`
 
 const managedMaxInput = 50000
 const managedMaxOutput = 1500
@@ -93,6 +93,19 @@ func (s *Service) claimManaged(ctx context.Context, now time.Time) (*managedJob,
 			if !managedAdminNumber(number) {
 				continue
 			}
+			if candidate.Topic == "" {
+				topic, notBefore, err := managedEditorialPlan(tx, candidate, now)
+				if err != nil {
+					return err
+				}
+				if !notBefore.IsZero() {
+					if err := tx.Exec(`UPDATE managed_members SET next_run_at=? WHERE agent_id=?`, notBefore.UnixMilli(), candidate.AgentID).Error; err != nil {
+						return err
+					}
+					continue
+				}
+				candidate.Topic = topic
+			}
 			var campaign managedCampaign
 			if err := tx.Raw(`SELECT * FROM managed_campaigns WHERE sponsor_uid=? FOR UPDATE`, candidate.SponsorUID).Scan(&campaign).Error; err != nil {
 				return err
@@ -153,6 +166,7 @@ type managedOutput struct {
 	Document socialDocument `json:"document"`
 	PostID   string         `json:"post_id"`
 	Content  string         `json:"content"`
+	Visual   managedVisual  `json:"visual"`
 }
 type managedModelResult struct {
 	Value         managedOutput
@@ -263,7 +277,7 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 	}
 	posts = filtered
 	if err == nil {
-		err = s.db.WithContext(ctx).Raw(`SELECT document->>'title' FROM social_work_posts WHERE agent_id=? ORDER BY created_at DESC LIMIT 12`, job.AgentID).Scan(&history).Error
+		err = s.db.WithContext(ctx).Raw(`SELECT document->>'title' FROM social_work_posts p JOIN managed_members m USING(agent_id) WHERE m.sponsor_uid=? AND m.scenario=? ORDER BY p.created_at DESC LIMIT 30`, job.SponsorUID, job.Scenario).Scan(&history).Error
 	}
 	var comments []struct {
 		PostID  string `json:"post_id"`
@@ -274,7 +288,7 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 	}
 	result := managedModelResult{}
 	if err == nil {
-		result, err = callManagedModel(ctx, map[string]any{"name": job.Name, "persona": job.Persona, "scenario": job.Scenario, "operator_topic": job.Topic, "posts": posts, "comments": comments, "history": history, "date": time.Now().UTC().Add(8 * time.Hour).Format("2006-01-02")})
+		result, err = callManagedModel(ctx, map[string]any{"name": job.Name, "persona": job.Persona, "scenario": job.Scenario, "operator_topic": job.Topic, "posts": posts, "comments": comments, "history": history, "recent_scene_titles": history, "date": time.Now().UTC().Add(8 * time.Hour).Format("2006-01-02")})
 	}
 	if err != nil {
 		s.finishManagedFailure(job)
@@ -349,11 +363,23 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 			if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM social_work_posts WHERE agent_id=? AND document->>'title'=? AND created_at>?)`, job.AgentID, d.Title, time.Now().Add(-7*24*time.Hour).UnixMilli()).Scan(&duplicate).Error; err != nil {
 				return err
 			}
+			var recentTitles []string
+			if err := tx.Raw(`SELECT p.document->>'title' FROM social_work_posts p JOIN managed_members m USING(agent_id) WHERE m.sponsor_uid=? AND m.scenario=? AND p.created_at>? ORDER BY p.created_at DESC LIMIT 40`, job.SponsorUID, job.Scenario, time.Now().Add(-30*24*time.Hour).UnixMilli()).Scan(&recentTitles).Error; err != nil {
+				return err
+			}
+			for _, title := range recentTitles {
+				if managedTitleKey(title) == managedTitleKey(d.Title) {
+					duplicate = true
+				}
+			}
 			if duplicate {
 				detail = "与近期话题重复，跳过发布"
 			} else {
 				id, err := s.idgen.NextID()
 				if err != nil {
+					return err
+				}
+				if err := s.addManagedVisual(tx, job.AgentID, &d, value.Visual, job.RunID); err != nil {
 					return err
 				}
 				raw, _ := json.Marshal(d)
