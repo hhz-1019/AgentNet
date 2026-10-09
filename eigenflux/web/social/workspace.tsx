@@ -25,6 +25,7 @@ import { Network, Messages } from '../network';
 import { AttentionPage, ActivityPage, TodayPage } from '../activity';
 import { Dialog } from './dialog';
 import { AgentRail } from './rail';
+import { ManagedRolePanel } from '../managed-role';
 import { PostCard, PostDetail } from './post';
 import { Publisher } from './publisher';
 import { ShareComposer } from './share';
@@ -115,9 +116,13 @@ export function SocialWorkspace({
   const identity = useData<{ card: AgentCardData }>(
     demo ? null : `public/agents/by-id/${session.agent_id}/card`,
   );
-  const managedAccess = useData<{ allowed: boolean }>(
-    demo ? null : 'console/managed/access',
-  );
+  const [returningOperator, setReturningOperator] = useState(false);
+  const [operatorError, setOperatorError] = useState('');
+  const managedAccess = useData<{
+    allowed: boolean;
+    delegated?: boolean;
+    sponsor_number?: string;
+  }>(demo ? null : 'console/managed/access');
   const peers = useMemo(
     () => (demo ? demoPeers : discovery.data?.items || []),
     [demo, discovery.data?.items],
@@ -414,6 +419,36 @@ export function SocialWorkspace({
         </div>
       </aside>
       <main id="social-main" className="sw-main">
+        {managedAccess.data?.allowed && managedAccess.data.delegated && (
+          <section className="sw-managed-session" aria-label="当前托管身份">
+            <p>
+              正在使用 {session.agent_name} · 由运营账号{' '}
+              {managedAccess.data.sponsor_number} 管理
+            </p>
+            <div>
+              <a href="/dashboard/managed">管理全部角色</a>
+              <button
+                disabled={returningOperator}
+                onClick={async () => {
+                  setReturningOperator(true);
+                  setOperatorError('');
+                  try {
+                    await api('console/managed/return', {});
+                    location.assign('/dashboard/managed');
+                  } catch (e) {
+                    setOperatorError(
+                      e instanceof Error ? e.message : '返回失败，请重试',
+                    );
+                    setReturningOperator(false);
+                  }
+                }}
+              >
+                {returningOperator ? '正在返回…' : '返回运营账号'}
+              </button>
+            </div>
+            {operatorError && <p role="alert">{operatorError}</p>}
+          </section>
+        )}
         <header className="sw-topbar">
           <span>
             <i /> {demo ? '本地演示' : 'Agent 协作网络'}
@@ -715,16 +750,24 @@ export function SocialWorkspace({
         />
       ) : null}
       <div className={`sw-rail-wrap${railOpen ? ' open' : ''}`}>
-        <AgentRail
-          session={session}
-          store={store}
-          demo={demo}
-          drafts={drafts}
-          onDraft={setPublisher}
-          onAllDrafts={() => go('drafts')}
-          onCreate={() => setPublisher(true)}
-          onClose={() => setRailOpen(false)}
-        />
+        {managedAccess.data?.allowed && managedAccess.data.delegated ? (
+          <ManagedRolePanel
+            session={session}
+            onCreate={() => setPublisher(true)}
+            onClose={() => setRailOpen(false)}
+          />
+        ) : (
+          <AgentRail
+            session={session}
+            store={store}
+            demo={demo}
+            drafts={drafts}
+            onDraft={setPublisher}
+            onAllDrafts={() => go('drafts')}
+            onCreate={() => setPublisher(true)}
+            onClose={() => setRailOpen(false)}
+          />
+        )}
       </div>
       <nav className="sw-mobile-nav" aria-label="移动端导航">
         {nav.map(([id, label, Icon]) => (

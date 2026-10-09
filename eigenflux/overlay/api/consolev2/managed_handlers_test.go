@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -105,6 +106,10 @@ func TestManagedFullSchema(t *testing.T) {
 	if len(ids) != 100 {
 		t.Fatal(len(ids))
 	}
+	for _, id := range ids {
+		_, _, err := s.loadOnboarding(id)
+		check(err)
+	}
 	again, err := s.provisionManaged(context.Background(), "operator")
 	check(err)
 	if len(again) != 0 {
@@ -150,6 +155,9 @@ func TestManagedFullSchema(t *testing.T) {
 	h.POST("/login/:member_id", inject, s.loginManaged)
 	h.PUT("/edit/:member_id", inject, s.putManagedMember)
 	h.POST("/batch", inject, s.batchManaged)
+	h.POST("/queue/:member_id", inject, s.queueManaged)
+	h.POST("/revoke/:member_id", inject, s.revokeManagedSessions)
+	h.POST("/return", inject, s.returnManagedOperator)
 	call := func(method, path string, body any, sessionID string, want int) []byte {
 		t.Helper()
 		raw, _ := json.Marshal(body)
@@ -213,6 +221,17 @@ func TestManagedFullSchema(t *testing.T) {
 	check(db.Raw(`SELECT bio FROM agents WHERE agent_id=?`, ids[0]).Scan(&publicBio).Error)
 	if !strings.Contains(publicBio, edit.Name) || !strings.Contains(publicBio, "官方 AI") || strings.Contains(publicBio, edit.Persona) {
 		t.Fatal("public profile did not update or exposed internal persona")
+	}
+	customBio := "官方 AI 角色，专注成年人的沟通练习与阅读交流。"
+	edit.Revision = 2
+	edit.PublicBio = &customBio
+	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 200)
+	edit.Revision = 3
+	edit.PublicBio = nil
+	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 200)
+	check(db.Raw(`SELECT bio FROM agents WHERE agent_id=?`, ids[0]).Scan(&publicBio).Error)
+	if publicBio != customBio {
+		t.Fatal("role edit overwrote independent public bio")
 	}
 	unsafeEdit := edit
 	unsafeEdit.Revision = 2
@@ -311,6 +330,49 @@ func TestManagedFullSchema(t *testing.T) {
 	if state != "skipped" {
 		t.Fatal("revoked operator published")
 	}
+	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "10001")
+	t.Setenv("AGENTNET_MANAGED_WORKER", "true")
+	t.Setenv("LLM_BASE_URL", "https://provider.test/v1")
+	t.Setenv("LLM_API_KEY", "test-key-do-not-output")
+	t.Setenv("LLM_MODEL", "fixture-model")
+	call("POST", "/revoke/1", map[string]any{}, session.ID, 403)
+	call("POST", "/revoke/"+fmtRun(ids[0]), map[string]any{}, session.ID, 200)
+	if r := ut.PerformRequest(actual.Engine, "GET", "/posts", nil, cookieHeader).Result(); r.StatusCode() != 401 {
+		t.Fatal("revoked browser still has access", r.StatusCode())
+	}
+	call("POST", "/login/"+fmtRun(ids[0]), map[string]any{}, session.ID, 200)
+	check(db.Raw(`SELECT d.session_id FROM managed_delegations d JOIN console_v2_sessions cs USING(session_id) WHERE cs.status='active' ORDER BY cs.issued_at DESC LIMIT 1`).Scan(&delegated).Error)
+	call("POST", "/return", map[string]any{}, delegated, 200)
+	call("GET", "/managed", nil, delegated, 403)
+	check(db.Raw(`SELECT count(*) FROM console_v2_sessions WHERE owner_uid='operator' AND agent_id=1 AND status='active'`).Scan(&count).Error)
+	if count < 2 {
+		t.Fatal("operator return did not issue normal owner session")
+	}
+	check(db.Exec(`UPDATE managed_campaigns SET enabled=true,monthly_budget_fen=10000`).Error)
+	check(db.Exec(`UPDATE managed_members SET enabled=false`).Error)
+	call("POST", "/queue/"+fmtRun(ids[99]), map[string]any{}, session.ID, 409)
+	call("POST", "/queue/1", map[string]any{}, session.ID, 403)
+	check(db.Exec(`UPDATE managed_members SET enabled=true,daily_limit=0 WHERE agent_id=?`, ids[99]).Error)
+	call("POST", "/queue/"+fmtRun(ids[99]), map[string]any{}, session.ID, 409)
+	check(db.Exec(`UPDATE managed_members SET daily_limit=2 WHERE agent_id=?`, ids[99]).Error)
+	call("POST", "/queue/"+fmtRun(ids[99]), map[string]any{"topic": "用一个假设例子讨论团队分工"}, session.ID, 200)
+	queued, err := s.claimManaged(context.Background(), time.Now())
+	check(err)
+	if queued == nil || queued.AgentID != ids[99] || queued.Topic != "用一个假设例子讨论团队分工" {
+		t.Fatal("queued topic or identity lost")
+	}
+	call("POST", "/queue/"+fmtRun(ids[99]), map[string]any{}, session.ID, 409)
+	check(s.commitManaged(context.Background(), *queued, value, nil))
+	var recorded struct{ ProviderHost, Model, PendingTopic string }
+	check(db.Raw(`SELECT r.provider_host,r.model,m.pending_topic FROM managed_runs r JOIN managed_members m USING(agent_id) WHERE r.run_id=?`, queued.RunID).Scan(&recorded).Error)
+	if recorded.ProviderHost != "provider.test" || recorded.Model != "fixture-model" || recorded.PendingTopic != "" {
+		t.Fatal("billing provenance or one-shot topic invalid", recorded)
+	}
+	s.managedBeat("ready")
+	overview := string(call("GET", "/managed", nil, session.ID, 200))
+	if !strings.Contains(overview, `"healthy":true`) || !strings.Contains(overview, `"provider_host":"provider.test"`) || strings.Contains(overview, "test-key-do-not-output") {
+		t.Fatal("health or billing readout incorrect")
+	}
 	// Real middleware rejects mutations without a session and CSRF proof.
 	protected := server.New()
 	protected.POST("/pause", s.consoleAuth(true), s.pauseManaged)
@@ -331,6 +393,13 @@ func TestManagedFullSchema(t *testing.T) {
 	check(db.Raw(`SELECT count(*) FROM agent_onboarding_v2 WHERE agent_id=? AND state='completed'`, operator["agent_id"]).Scan(&count).Error)
 	if count != 1 {
 		t.Fatal("operator onboarding incomplete")
+	}
+	operatorID, err := strconv.ParseInt(operator["agent_id"], 10, 64)
+	check(err)
+	operatorState, operatorDraft, err := s.loadOnboarding(operatorID)
+	check(err)
+	if operatorState.State != "completed" || operatorDraft.Revision != 1 {
+		t.Fatal("operator browser session cannot load completed onboarding")
 	}
 }
 
