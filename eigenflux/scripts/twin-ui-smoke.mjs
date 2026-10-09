@@ -39,6 +39,10 @@ try {
       intent_actions: [],
       security_boundary: {},
       twin_profile: {
+        portrait: {
+          fields: { name: '', bio: '', interests: '记忆中的研究兴趣', role: '', values: '重视可验证的结果', recent: '' },
+          memories: [],
+        },
         name: '预填昵称',
         basic_info: { role: '学生' },
         persona: { traits: {}, speaking_style: '简洁' },
@@ -179,6 +183,13 @@ try {
     await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
     await page.getByRole('heading',{name:'确认画像',exact:true}).waitFor();
     assert.equal(await page.getByLabel('昵称',{exact:false}).inputValue(),'预填昵称');
+    for (const [label, value] of Object.entries({
+      '自我介绍': '关注开放合作',
+      '兴趣与长期关注': '记忆中的研究兴趣',
+      '生活中的身份': '学生',
+      '在意的事与观点': '重视可验证的结果',
+      '最近在经历或期待什么': '找到研究伙伴',
+    })) assert.equal(await page.getByLabel(label, {exact:true}).inputValue(), value);
     assert.equal(await page.getByLabel('接入应用').isDisabled(),true);
     assert.equal(await page.getByText('恢复密钥',{exact:false}).count(),0);
     await page.getByLabel('昵称',{exact:false}).fill('修改后的昵称');

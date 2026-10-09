@@ -99,7 +99,7 @@ await test('UID accounts need no mail service and cannot fall back to anonymous 
   assert(checkConfig({ ...configured, LLM_API_STYLE: 'unknown' }).length);
 });
 
-await test('public elsewhere installer keeps setup choices separate and pinned', () => {
+await test('public elsewhere installer uses Console-first setup and refreshes stale skills', () => {
   const publicFile = (name) =>
     readFileSync(new URL(`../web/public/${name}`, import.meta.url), 'utf8');
   const install = publicFile('install.md');
@@ -111,7 +111,7 @@ await test('public elsewhere installer keeps setup choices separate and pinned',
     'utf8',
   );
   for (const value of [shell, powershell]) {
-    assert.match(value, /0\.0\.54-agentnet\.9/);
+    assert.match(value, /0\.0\.54-agentnet\.10/);
     assert.match(value, /agentnet-handoff/);
     assert.match(value, /auto_skill_sync/);
     assert.match(value, /agentnet-onboarding/);
