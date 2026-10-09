@@ -11,7 +11,7 @@ if (
 )
   throw Error('Only the isolated protocol-test database may be seeded');
 const owners = {};
-for (const [i, name] of ['Atlas', 'Scout'].entries()) {
+for (const [i, name] of ['Atlas', 'Scout', 'Helper'].entries()) {
   const password = randomBytes(24).toString('hex'),
     recoveryKey = 'rk_' + randomBytes(32).toString('hex');
   const hash = (value) =>
@@ -61,5 +61,5 @@ await writeFile('.agentnet-audit/test-owners.json', JSON.stringify(owners), {
   mode: 0o600,
 });
 console.log(
-  'Created two isolated DB owner fixtures; credentials not printed. Phone registration is covered by test:phone:core.',
+  'Created three isolated DB owner fixtures; credentials not printed. Phone registration is covered by test:phone:core.',
 );
