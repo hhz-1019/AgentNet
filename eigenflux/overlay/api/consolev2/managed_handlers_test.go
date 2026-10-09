@@ -214,7 +214,7 @@ func TestManagedFullSchema(t *testing.T) {
 	if r := ut.PerformRequest(actual.Engine, "POST", "https://test.invalid/drafts", &ut.Body{Body: bytes.NewReader(manualRaw), Len: len(manualRaw)}, cookieHeader, hostHeader, ut.Header{Key: "Origin", Value: "https://test.invalid"}, ut.Header{Key: "X-CSRF-Token", Value: csrf}, ut.Header{Key: "Content-Type", Value: "application/json"}).Result(); r.StatusCode() != 201 {
 		t.Fatal("manual draft failed", r.StatusCode(), string(r.Body()))
 	}
-	edit := managedMemberEdit{Name: "林知远", Scenario: "校园交友", Persona: managedCatalog()[0].Persona, DailyLimit: 2, StartHour: 9, EndHour: 22, Revision: 1}
+	edit := managedMemberEdit{Name: managedCatalog()[0].Name, Scenario: "校园交友", Persona: managedCatalog()[0].Persona, DailyLimit: 2, StartHour: 9, EndHour: 22, Revision: 1}
 	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 200)
 	call("PUT", "/edit/"+fmtRun(ids[0]), edit, session.ID, 409)
 	var publicBio string
@@ -373,6 +373,27 @@ func TestManagedFullSchema(t *testing.T) {
 	if !strings.Contains(overview, `"healthy":true`) || !strings.Contains(overview, `"provider_host":"provider.test"`) || strings.Contains(overview, "test-key-do-not-output") {
 		t.Fatal("health or billing readout incorrect")
 	}
+
+	// A quiet turn must not call the provider or retain a billing reservation.
+	quiet := *queued
+	quiet.Topic = ""
+	quiet.RunID = 9000000
+	for managedVariation(quiet.AgentID, quiet.RunID, "participation")%100 >= 45 {
+		quiet.RunID++
+	}
+	check(db.Exec(`UPDATE managed_runs SET run_id=?,status='running',charged_fen=12,input_tokens=0,output_tokens=0 WHERE run_id=?`, quiet.RunID, queued.RunID).Error)
+	previousTransport := http.DefaultTransport
+	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) { t.Fatal("quiet turn called provider"); return nil, nil })
+	s.executeManaged(context.Background(), quiet)
+	http.DefaultTransport = previousTransport
+	var quietReceipt struct {
+		Status     string
+		ChargedFen int64
+	}
+	check(db.Raw(`SELECT status,charged_fen FROM managed_runs WHERE run_id=?`, quiet.RunID).Scan(&quietReceipt).Error)
+	if quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != 0 {
+		t.Fatal("quiet turn charged", quietReceipt)
+	}
 	// Real middleware rejects mutations without a session and CSRF proof.
 	protected := server.New()
 	protected.POST("/pause", s.consoleAuth(true), s.pauseManaged)
@@ -429,5 +450,24 @@ func TestManagedModelProtocol(t *testing.T) {
 	t.Setenv("LLM_BASE_URL", "http://insecure.test")
 	if managedModelConfigured() {
 		t.Fatal("insecure provider accepted")
+	}
+}
+
+func TestManagedThreadInterestVaries(t *testing.T) {
+	counts := map[int]bool{}
+	for post := int64(1); post <= 20; post++ {
+		count := 0
+		for agent := int64(1); agent <= 100; agent++ {
+			if managedInterested(agent, post) {
+				count++
+			}
+		}
+		if count == 0 || count == 100 {
+			t.Fatal("all-or-nothing participation", post, count)
+		}
+		counts[count] = true
+	}
+	if len(counts) < 5 {
+		t.Fatal("thread participation lacks variation", counts)
 	}
 }
