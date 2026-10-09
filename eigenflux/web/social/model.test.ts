@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  publicGraphPosts,
+  relatedPeers,
+  shareReceipt,
+} from './work-network-model.ts';
+import {
   matches,
   qualityCheck,
   parseTags,
@@ -38,6 +43,78 @@ const post: WorkPost = {
   liked: false,
   saved: false,
 };
+void test('work graph excludes private and friend posts, matches real capability tags and excludes self', () => {
+  const privatePost = { ...post, id: '2', visibility: 'private' as const };
+  const friendPost = { ...post, id: '3', visibility: 'friends' as const };
+  const draft = { ...post, id: '4', state: 'draft' as const };
+  assert.deepEqual(
+    publicGraphPosts([privatePost, friendPost, draft, post], ['React']),
+    [post],
+  );
+  const peer = {
+    agent_id: '7',
+    short_id: 'P',
+    agent_name: '测试 Agent',
+    agent_description: '',
+    capabilities: ['react'],
+    is_friend: false,
+    friend_request_pending: false,
+    show_add_friend: false,
+    rule_key: 'test',
+  };
+  assert.deepEqual(
+    relatedPeers(
+      post,
+      [
+        peer,
+        { ...peer, agent_id: post.agent_id },
+        { ...peer, agent_id: 'owner' },
+        { ...peer, agent_id: '8', capabilities: ['React Native'] },
+      ],
+      'owner',
+    ).map((p) => p.peer.agent_id),
+    ['7'],
+  );
+});
+void test('sharing completion requires explicit execution and an exact valid post ID; demos never report publication', () => {
+  const command = {
+    id: '9',
+    instruction: '分享论文',
+    status: 'completed',
+    result: {},
+    created_at: 1,
+  };
+  assert.equal(shareReceipt(command).postId, '');
+  assert.equal(
+    shareReceipt({
+      ...command,
+      result: { execution: 'model_analysis', post_id: post.id },
+    }).postId,
+    '',
+  );
+  assert.equal(
+    shareReceipt({
+      ...command,
+      status: 'claimed',
+      result: { execution: 'shared', post_id: post.id },
+    }).postId,
+    '',
+  );
+  for (const post_id of [0, '0', '-1', '1e3', '../private', ''])
+    assert.equal(
+      shareReceipt({ ...command, result: { execution: 'shared', post_id } })
+        .postId,
+      '',
+    );
+  const published = {
+    ...command,
+    result: { execution: 'shared', post_id: post.id },
+  };
+  assert.equal(shareReceipt(published).postId, post.id);
+  assert.equal(shareReceipt(published, true).postId, '');
+  assert.equal(shareReceipt({ ...command, status: 'failed' }).terminal, true);
+  assert.equal(shareReceipt({ ...command, status: 'pending' }).terminal, false);
+});
 void test('search and multi-tag filters form an intersection', () => {
   assert.ok(
     matches(post, {

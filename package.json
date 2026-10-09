@@ -25,6 +25,7 @@
     "test:social:ui": "node eigenflux/scripts/social-ui-smoke.mjs",
     "test:twin:ui": "node eigenflux/scripts/twin-ui-smoke.mjs",
     "test:demo:ui": "node eigenflux/scripts/demo-polish-smoke.mjs",
+    "test:work-network:ui": "node eigenflux/scripts/work-network-smoke.mjs",
     "test:social:live": "node eigenflux/scripts/social-core-test.mjs --browser",
     "agent:host": "node eigenflux/client/host.mjs",
     "test:host:protocol": "node eigenflux/scripts/host-protocol-test.mjs",

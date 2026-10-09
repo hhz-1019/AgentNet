@@ -324,7 +324,8 @@ export function createDemoStore(): SocialStore {
     },
     commands: async () => clone(state.commands),
     instruct: async (instruction, opKey) => {
-      if (state.commands.some((c) => c.id === opKey)) return;
+      if (state.commands.some((c) => c.id === opKey))
+        return { command_id: opKey };
       state.commands.unshift({
         id: opKey,
         instruction,
@@ -333,6 +334,7 @@ export function createDemoStore(): SocialStore {
         created_at: Date.now(),
       });
       save();
+      return { command_id: opKey };
     },
   };
 }

@@ -28,6 +28,7 @@ import { AgentRail } from './rail';
 import { PostCard, PostDetail } from './post';
 import { Publisher } from './publisher';
 import { ShareComposer } from './share';
+import { WorkNetwork } from './work-network';
 import { Organizations } from './organizations';
 import {
   kindLabels,
@@ -109,6 +110,11 @@ export function SocialWorkspace({
   const [interestDialog, setInterestDialog] = useState(false),
     [interestText, setInterestText] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
+  const [shareInstruction, setShareInstruction] = useState('');
+  function shareProject(instruction = '') {
+    setShareInstruction(instruction);
+    setPublisher(true);
+  }
   const discovery = useData<{ items: Peer[] }>(
     demo ? null : 'console/home/discovery',
   );
@@ -356,10 +362,7 @@ export function SocialWorkspace({
             </a>
           ))}
         </nav>
-        <button
-          className="sw-primary sw-create"
-          onClick={() => setPublisher(true)}
-        >
+        <button className="sw-primary sw-create" onClick={() => shareProject()}>
           <Plus size={19} /> 分享工作
         </button>
         <div className="sw-nav-divider" />
@@ -449,6 +452,20 @@ export function SocialWorkspace({
                 <Compass size={22} />
               </button>
             </section>
+            {route === 'explore' && (
+              <WorkNetwork
+                posts={base}
+                peers={peers}
+                interests={effectiveInterests}
+                ownerAgentId={session.agent_id}
+                demo={demo}
+                onOpenWork={setDetail}
+                onOpenAgent={(id) =>
+                  demo ? go('network') : location.assign('/agent/' + id)
+                }
+                onShare={shareProject}
+              />
+            )}
             {drafts.length && route === 'explore' ? (
               <section className="sw-pending-drafts">
                 <FileText size={18} />
@@ -646,10 +663,10 @@ export function SocialWorkspace({
                           setQuery('');
                           setTags([]);
                           setKind('all');
-                        } else setPublisher(true);
+                        } else shareProject();
                       }}
                     >
-                      {query || tags.length ? '清除筛选' : '整理一份草稿'}
+                      {query || tags.length ? '清除筛选' : '让 Agent 分享工作'}
                     </button>
                   </div>
                 ) : null}
@@ -682,7 +699,7 @@ export function SocialWorkspace({
             ) : demo ? (
               <DemoSection
                 route={route}
-                onDraft={() => setPublisher(true)}
+                onDraft={() => shareProject()}
                 onExplore={() => go('explore')}
               />
             ) : route === 'profile' ? (
@@ -722,7 +739,7 @@ export function SocialWorkspace({
           drafts={drafts}
           onDraft={setPublisher}
           onAllDrafts={() => go('drafts')}
-          onCreate={() => setPublisher(true)}
+          onCreate={() => shareProject()}
           onClose={() => setRailOpen(false)}
         />
       </div>
@@ -772,8 +789,16 @@ export function SocialWorkspace({
         <ShareComposer
           store={store}
           demo={demo}
+          initialInstruction={shareInstruction}
+          onOpenPost={async (id) => {
+            const post = await store.get(id);
+            setPublisher(undefined);
+            setDetail(post);
+            reload();
+          }}
           onClose={() => {
             setPublisher(undefined);
+            setShareInstruction('');
             reload();
           }}
         />
