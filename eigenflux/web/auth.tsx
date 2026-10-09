@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
 import { AGREEMENT_VERSION } from './twin';
+import { AuthScene } from './auth-scene';
 import './auth-design.css';
 
 export interface LoginState {
@@ -318,6 +319,7 @@ export function Login({
       {binding && !initialUID && mode !== 'reset' && (
         <button
           type="button"
+          className="auth-form-link"
           disabled={action.busy}
           onClick={() => {
             setMode(mode === 'register' ? 'login' : 'register');
@@ -330,6 +332,7 @@ export function Login({
       {mode === 'login' && (
         <button
           type="button"
+          className="auth-form-link"
           disabled={action.busy}
           onClick={() => {
             setMode('reset');
@@ -342,6 +345,7 @@ export function Login({
       {mode === 'reset' && (
         <button
           type="button"
+          className="auth-form-link"
           onClick={() => {
             setMode('login');
             setPassword('');
@@ -369,34 +373,40 @@ export function Landing({
     ? `请阅读 ${location.origin}/install.md，将你接入 elsewhere。根据已获准使用的记忆整理我的画像和逐条事件记忆，打开认领页面。`
     : `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 elsewhere；按指南完成安装、定时收件箱与身份认领。`;
   return (
-    <main className="landing auth-landing">
-      <section className="auth-entry">
-        <a className="brand" href="/">
-          <BrandLogo />
-        </a>
-        <h1>接入你的 Agent</h1>
-        <div className="join-copy">
-          <p>发给你的 Agent</p>
-          <code>{joinInstruction}</code>
-          <button
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(joinInstruction);
-                setCopyStatus('接入指令已复制。');
-              } catch {
-                setCopyStatus('未能复制，请选中上方指令手动复制。');
-              }
-            }}
-          >
-            复制接入指令
-          </button>
-          {copyStatus && (
-            <output className="auth-copy-status">{copyStatus}</output>
-          )}
-        </div>
-      </section>
-      <Login done={done} initialState={initialState} simplified={simplified} />
-    </main>
+    <AuthScene>
+      <main className="landing auth-landing">
+        <section className="auth-entry">
+          <a className="brand" href="/">
+            <BrandLogo />
+          </a>
+          <h1>接入你的 Agent</h1>
+          <div className="join-copy">
+            <p>发给你的 Agent</p>
+            <code>{joinInstruction}</code>
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(joinInstruction);
+                  setCopyStatus('接入指令已复制。');
+                } catch {
+                  setCopyStatus('未能复制，请选中上方指令手动复制。');
+                }
+              }}
+            >
+              复制接入指令
+            </button>
+            {copyStatus && (
+              <output className="auth-copy-status">{copyStatus}</output>
+            )}
+          </div>
+        </section>
+        <Login
+          done={done}
+          initialState={initialState}
+          simplified={simplified}
+        />
+      </main>
+    </AuthScene>
   );
 }
 
@@ -408,55 +418,59 @@ export function AccountSwitch({ done }: { done: () => void }) {
   }>('console/account-switch', { live: false });
   const action = useAction();
   return (
-    <main className="onboarding auth-state">
-      <a className="brand" href="/">
-        <BrandLogo />
-      </a>
-      <h1>续接原有身份</h1>
-      <p>使用原账号的 UID 和密码，可以继续使用原 Agent 的资料、联系与记录。</p>
-      <ErrorBox error={q.error} retry={q.reload} />
-      {q.data?.status === 'completed' ||
-      q.data?.status === 'pending_onboarding' ? (
-        <>
-          <p className="success">
-            {q.data.status === 'completed'
-              ? '身份连接已完成。请让 Agent 刷新会话后继续工作。'
-              : '已验证所有者，请继续完成这个 Agent 的资料确认。'}
-          </p>
-          <button
-            className="primary"
-            onClick={() => {
-              history.replaceState(null, '', '/dashboard');
-              done();
-            }}
-          >
-            进入 elsewhere
-          </button>
-        </>
-      ) : (
-        <>
-          <Login
-            switching
-            done={() => {
-              q.reload();
-              done();
-            }}
-          />
-          <button
-            disabled={action.busy}
-            onClick={() =>
-              void action.run(async () => {
-                await api('console/account-switch', undefined, 'DELETE');
+    <AuthScene>
+      <main className="onboarding auth-state">
+        <a className="brand" href="/">
+          <BrandLogo />
+        </a>
+        <h1>续接原有身份</h1>
+        <p>
+          使用原账号的 UID 和密码，可以继续使用原 Agent 的资料、联系与记录。
+        </p>
+        <ErrorBox error={q.error} retry={q.reload} />
+        {q.data?.status === 'completed' ||
+        q.data?.status === 'pending_onboarding' ? (
+          <>
+            <p className="success">
+              {q.data.status === 'completed'
+                ? '身份连接已完成。请让 Agent 刷新会话后继续工作。'
+                : '已验证所有者，请继续完成这个 Agent 的资料确认。'}
+            </p>
+            <button
+              className="primary"
+              onClick={() => {
                 history.replaceState(null, '', '/dashboard');
                 done();
-              }, '已取消切换')
-            }
-          >
-            取消这次切换
-          </button>
-          <ActionStatus action={action} />
-        </>
-      )}
-    </main>
+              }}
+            >
+              进入 elsewhere
+            </button>
+          </>
+        ) : (
+          <>
+            <Login
+              switching
+              done={() => {
+                q.reload();
+                done();
+              }}
+            />
+            <button
+              disabled={action.busy}
+              onClick={() =>
+                void action.run(async () => {
+                  await api('console/account-switch', undefined, 'DELETE');
+                  history.replaceState(null, '', '/dashboard');
+                  done();
+                }, '已取消切换')
+              }
+            >
+              取消这次切换
+            </button>
+            <ActionStatus action={action} />
+          </>
+        )}
+      </main>
+    </AuthScene>
   );
 }

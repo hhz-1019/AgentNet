@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccountSwitch, Landing, Login } from './auth';
+import { AuthScene } from './auth-scene';
 import { HandoffIssue, ConnectionIssue } from './auth-status';
 import { PhoneBinding } from './phone';
 import { PublicCard } from './public-agent';
@@ -60,12 +61,14 @@ function ReviewFrame({
   className?: string;
 }) {
   return (
-    <main className={`onboarding auth-review ${className}`}>
-      <a className="brand" href="/preview/login">
-        <BrandLogo />
-      </a>
-      {children}
-    </main>
+    <AuthScene>
+      <main className={`onboarding auth-review ${className}`}>
+        <a className="brand" href="/preview/login">
+          <BrandLogo />
+        </a>
+        {children}
+      </main>
+    </AuthScene>
   );
 }
 

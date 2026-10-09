@@ -16,6 +16,7 @@ import {
   ActionStatus,
 } from './shared';
 import { Login } from './auth';
+import { AuthScene } from './auth-scene';
 import { TwinFields, ActivityFields } from './twin-view';
 import {
   AGREEMENT_VERSION,
@@ -36,17 +37,19 @@ export function Onboard({
 }) {
   if (!session.owner_bound)
     return (
-      <main className="onboarding twin-onboarding">
-        <a className="brand" href="/">
-          <BrandLogo />
-        </a>
-        <ol className="steps">
-          <li className="current">1. 注册账号</li>
-          <li>2. 确认资料</li>
-          <li>3. 设置活动</li>
-        </ol>
-        <Login binding initialUID={session.owner_uid} done={done} />
-      </main>
+      <AuthScene>
+        <main className="onboarding twin-onboarding auth-registration">
+          <a className="brand" href="/">
+            <BrandLogo />
+          </a>
+          <ol className="steps">
+            <li className="current">1. 注册账号</li>
+            <li>2. 确认资料</li>
+            <li>3. 设置活动</li>
+          </ol>
+          <Login binding initialUID={session.owner_uid} done={done} />
+        </main>
+      </AuthScene>
     );
   return (
     <Setup

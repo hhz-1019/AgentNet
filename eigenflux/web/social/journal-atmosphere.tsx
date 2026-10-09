@@ -188,8 +188,9 @@ export function useJournalAtmosphere(
         reset();
       }
       const reading =
-        ['explore', 'me', 'liked', 'saved', 'network'].includes(state.route) ||
-        state.route.startsWith('person/');
+        ['explore', 'me', 'liked', 'saved', 'network', 'auth'].includes(
+          state.route,
+        ) || state.route.startsWith('person/');
       resting =
         state.paused ||
         state.reduced ||

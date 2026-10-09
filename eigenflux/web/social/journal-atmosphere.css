@@ -1,5 +1,6 @@
 /* Paper, projected daylight, and loose inserts share one physical surface. */
-.sw-workspace.ew-social.sn-social {
+.sw-workspace.ew-social.sn-social,
+.auth-scene {
   --ew-paper: #f4eddf;
   --ew-ink: #292620;
   --ew-muted: #554e43;
@@ -8,7 +9,9 @@
 }
 
 .ew-social.sn-social .ew-journal-atmosphere,
-.ew-social.sn-social .ew-journal-light-wash {
+.ew-social.sn-social .ew-journal-light-wash,
+.auth-scene .ew-journal-atmosphere,
+.auth-scene .ew-journal-light-wash {
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -16,7 +19,8 @@
   pointer-events: none;
   user-select: none;
 }
-.ew-social.sn-social .ew-journal-atmosphere {
+.ew-social.sn-social .ew-journal-atmosphere,
+.auth-scene .ew-journal-atmosphere {
   background: var(--ew-paper);
 }
 .ew-journal-atmosphere > :is(.ew-paper-grain, svg),
@@ -82,7 +86,8 @@
     rotate(calc(var(--ew-wind-turn, 0deg) * -0.45));
 }
 /* A faint continuation falls across physical inserts without veiling the ink. */
-.ew-social.sn-social .ew-journal-light-wash {
+.ew-social.sn-social .ew-journal-light-wash,
+.auth-scene .ew-journal-light-wash {
   z-index: 3;
   opacity: 0.12;
   mix-blend-mode: multiply;
@@ -262,6 +267,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ew-social.sn-social :is(.ew-canopy-near, .ew-canopy-far),
+  .auth-scene :is(.ew-canopy-near, .ew-canopy-far),
   .ew-social.sn-social
     article.sw-post[data-breeze-surface]
     :is(.ew-print-sheet, .ew-paper-stock) {
