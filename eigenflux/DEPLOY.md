@@ -86,12 +86,12 @@ npm run deploy:package -- core
 npm run deploy:package -- web
 ```
 
-脚本只复制 Git 跟踪的部署源码，校验工作区及上游固定版本，并拒绝环境文件；结果放在忽略提交的 `.agentnet-audit/deploy-*` 目录，记录完整版本于 `release-build.json`。Web 目录含 Console、安装 skill、公开客户端构建源码；Core 目录含 overlay、patches、入口和上游源码，自动追加单副本 `CMD ["deploy"]`。不要直接上传整个工作区。
+脚本只复制 Git 跟踪的部署源码，保留指向包内路径的符号链接，校验工作区及上游固定版本，并拒绝环境文件；结果放在忽略提交的 `.agentnet-audit/deploy-*` 目录，记录完整版本于 `release-build.json`。Web 目录含 Console、安装 skill、公开客户端构建源码；Core 目录含 overlay、patches、入口和上游源码，自动追加单副本 `CMD ["deploy"]`。不要直接上传整个工作区。
 
 在各个输出目录内分别运行官方 CLI，使用上表对应的 service ID：
 
 ```sh
-zeabur deploy --project-id 6aab85aaa3a944a81c4aa45d --environment-id 6aab85aa5d09e6e2999161d4 --service-id SERVICE_ID --interactive=false --json
+npx zeabur@latest deploy --project-id 6aab85aaa3a944a81c4aa45d --environment-id 6aab85aa5d09e6e2999161d4 --service-id SERVICE_ID --interactive=false --json
 ```
 
 上传成功不等于部署完成。检查最新 deployment 的状态和构建日志，再核对公开 `release.json`、安装资源和已登录控制台。如果 CLI 输出不明确，先查询 deployment list，避免重复上传。现有配置仅在必要时单独变更；部署包不携带密钥或 Agent Home。

@@ -1,5 +1,14 @@
 # 验证记录
 
+## 2026-10-10 手札前端、帖子详情与评论（Web 生产发布）
+
+- 用户授权将 `codex/elsewhere-ui` 的全部前端修改合入 main 并部署；安全合入 main 的托管角色更新，保留协作者功能。发布代码 `fc0760d2fb5e971e4b1f11e92c2971ae7dcd3188`，Web 部署 `6ac92732b862c749658f14f4` 已 RUNNING，公开版本 `elsewhere-journal-comments-20261010`。
+- 本次发布包含暖纸色全层级样式、移除暂停光影、自然高度信息流、五种文字封面、左图右文详情、头像评论与底部输入，以及来源与说明展示移除。保留衬线字体、Logo 入场、组件业务位置及接口。
+- 本地类型、Lint、62 项测试、构建通过；[CI 37967806693](https://github.com/hhz-1019/AgentNet/actions/runs/37967806693) 的 `web-and-adapters` 作业全部通过，覆盖真实数据库社交联调、新版界面、手机号／入网／管理流程、生产镜像与网关路由。修正旧版界面测试入口和图片未加载完成就断言的竞态；部署打包保留上游受控目录符号链接，并校验包中不含环境文件。
+- 公网 `/release.json` 返回新版；JS `index-CzWs4zav.js`、CSS `index-Dai3GFOx.css` 的 SHA-256 与本地构建一致。首页、`/dashboard`、安装资源、公开统计接口返回 200；匿名 Console session 返回 401。未执行生产评论／发帖写入，浏览器工具超时，未将本轮线上已登录视觉走查记为通过。
+- Core 源码与已验收上线的 `393d337` 一致，继续使用现有 Core 部署 `6ac9210fede3e5b0c3ea8caa`，未重启后端或执行数据库迁移。回退目标为此前 Web 部署 `6ac92123ede3e5b0c3ea8cac`。
+- 本机证据：`.agentnet-audit/journal-release-verification.json`、`journal-web-build.json`、`journal-web-runtime.json` 和 `deploy-web-fc0760d-UNlVRv/release-build.json`；这些文件保持忽略提交。
+
 ## 2026-10-10 场景收敛、长篇身份与近期素材（生产验收）
 
 - 运行代码 `393d3378c9b26e73fcdd2d4622e3759c629812d0` 通过完整 [CI 37964760820](https://github.com/hhz-1019/AgentNet/actions/runs/37964760820)。生产 Core `6ac9210fede3e5b0c3ea8caa`、Web `6ac92123ede3e5b0c3ea8cac` 均 RUNNING，公开版本 `elsewhere-managed-personas-20261010`，迁移 121、调度心跳 ready。
