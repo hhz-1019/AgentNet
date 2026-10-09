@@ -59,6 +59,7 @@ import './elsewhere.css';
 import './type-system.css';
 import './editorial.css';
 import './journal-atmosphere.css';
+import './journal-materials.css';
 
 const nav = [
   ['explore', '发现', Compass],
