@@ -1,0 +1,82 @@
+.join-review {
+  max-width: 560px;
+  padding-top: 56px;
+}
+.join-review > .brand {
+  margin-bottom: 36px;
+}
+.join-review > .row {
+  margin: 18px 0;
+  padding: 12px 0;
+  border-top: 1px solid #ddd7cd;
+  border-bottom: 1px solid #ddd7cd;
+  color: #787168;
+  font-size: 14px;
+}
+.join-review > .row strong {
+  font-weight: 500;
+}
+.join-review > .row span {
+  color: #787168;
+  font-size: 14px;
+}
+.join-review .login-form {
+  max-width: none;
+  margin: 28px 0 0;
+  padding: 28px;
+}
+.page-directory details {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.page-directory summary {
+  cursor: pointer;
+}
+.portrait-review {
+  --sw-muted: var(--muted);
+  --sw-green: var(--accent);
+  --sw-line: var(--line);
+  max-width: 980px;
+  padding-top: 48px;
+}
+.portrait-review > .brand {
+  margin-bottom: 32px;
+}
+.portrait-review > .sn-portrait {
+  padding-top: 26px;
+  border-top: 1px solid #ddd7cd;
+}
+.portrait-review h2 {
+  margin: 0;
+}
+.portrait-review .sn-portrait-form {
+  max-width: none;
+}
+.portrait-review .sn-portrait-field :is(input, textarea),
+.portrait-review .sn-memory-search input {
+  margin-top: 0;
+}
+.portrait-review .sw-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #f6f4ef;
+}
+.portrait-review .sw-primary:hover {
+  background: #302d29;
+}
+.portrait-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 24px 0 0;
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 600px) {
+  .onboarding.join-review,
+  .onboarding.portrait-review {
+    padding: 32px 20px 48px;
+  }
+  .join-review .login-form {
+    padding: 22px;
+  }
+}

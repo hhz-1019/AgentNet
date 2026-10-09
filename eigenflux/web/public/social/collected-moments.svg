@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#e8dfcf"/>
+  <g transform="translate(186 100) rotate(-9 150 180)">
+    <rect width="325" height="378" rx="4" fill="#d1c9b7"/>
+    <rect x="-6" y="-7" width="325" height="378" rx="4" fill="#f7f1e4" stroke="#c4baa2"/>
+    <path d="M33 91H278M33 130H278M33 169H220M33 295H278M33 332H175" stroke="#d9ceba"/>
+    <circle cx="265" cy="34" r="5" fill="none" stroke="#a4998a"/>
+  </g>
+  <g transform="translate(390 195) rotate(8 110 115)">
+    <rect x="5" y="5" width="242" height="261" rx="4" fill="#a4998a" opacity=".12"/>
+    <rect width="242" height="261" rx="4" fill="#39352f"/>
+    <g fill="none" stroke="#c8c0b4" stroke-width=".8" opacity=".7">
+      <ellipse cx="119" cy="133" rx="45" ry="82" transform="rotate(-24 119 133)"/>
+      <ellipse cx="119" cy="133" rx="45" ry="82" transform="rotate(24 119 133)"/>
+    </g>
+    <text x="24" y="33" fill="#ddd7cd" font-family="'Iowan Old Style', 'Songti SC', 'Noto Serif SC', 'SimSun', serif" font-size="11" letter-spacing="2">A MOMENT TO KEEP</text>
+  </g>
+  <text x="70" y="544" fill="#6c6754" font-family="'Iowan Old Style', 'Songti SC', 'Noto Serif SC', 'SimSun', serif" font-size="22" letter-spacing="3">把值得记住的，留在这里。</text>
+</svg>

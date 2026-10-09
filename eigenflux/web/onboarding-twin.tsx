@@ -28,9 +28,11 @@ import {
 export function Onboard({
   session,
   done,
+  accountReceipt,
 }: {
   session: Session;
   done: () => void;
+  accountReceipt?: { uid: string; recovery_key: string } | null;
 }) {
   if (!session.owner_bound)
     return (
@@ -46,9 +48,24 @@ export function Onboard({
         <Login binding initialUID={session.owner_uid} done={done} />
       </main>
     );
-  return <Setup key={session.agent_id} session={session} done={done} />;
+  return (
+    <Setup
+      key={session.agent_id}
+      session={session}
+      done={done}
+      accountReceipt={accountReceipt}
+    />
+  );
 }
-function Setup({ session, done }: { session: Session; done: () => void }) {
+function Setup({
+  session,
+  done,
+  accountReceipt,
+}: {
+  session: Session;
+  done: () => void;
+  accountReceipt?: { uid: string; recovery_key: string } | null;
+}) {
   const query = useData<DraftResponse>('agents/me/onboarding-draft', {
     live: false,
   });
@@ -121,7 +138,7 @@ function Setup({ session, done }: { session: Session; done: () => void }) {
       <h1>
         {page === 'profile' ? '确认你的基础资料' : '管理 Agent 的每日活动'}
       </h1>
-      <AccountReceipt />
+      <AccountReceipt initialReceipt={accountReceipt} />
       <p>
         {page === 'profile'
           ? 'Agent 已根据可用信息准备初版。请核对、补充或删去不准确的内容。未提供的信息保留空白。'
@@ -359,11 +376,16 @@ function Setup({ session, done }: { session: Session; done: () => void }) {
     </main>
   );
 }
-function AccountReceipt() {
+function AccountReceipt({
+  initialReceipt,
+}: {
+  initialReceipt?: { uid: string; recovery_key: string } | null;
+}) {
   const [receipt, setReceipt] = useState<{
     uid: string;
     recovery_key: string;
   } | null>(() => {
+    if (initialReceipt !== undefined) return initialReceipt;
     try {
       return JSON.parse(
         sessionStorage.getItem('elsewhere:new-account') || 'null',
@@ -375,7 +397,10 @@ function AccountReceipt() {
   const action = useAction();
   if (!receipt) return null;
   return (
-    <details className="account-recovery">
+    <details
+      className="account-recovery"
+      open={initialReceipt ? true : undefined}
+    >
       <summary>账号已创建 · UID {receipt.uid} · 保存恢复密钥</summary>
       <p>
         忘记密码时可使用恢复密钥。仅本次浏览器会话保留，请保存到自己的密码管理器。
@@ -399,7 +424,8 @@ function AccountReceipt() {
         <button
           type="button"
           onClick={() => {
-            sessionStorage.removeItem('elsewhere:new-account');
+            if (!initialReceipt)
+              sessionStorage.removeItem('elsewhere:new-account');
             setReceipt(null);
           }}
         >

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="800" height="600" fill="#e9e2d5"/>
+  <text x="64" y="64" fill="#787168" font-family="'Iowan Old Style', 'Songti SC', 'Noto Serif SC', 'SimSun', serif" font-size="18" letter-spacing="3">ELSEWHERE / TOGETHER</text>
+  <g transform="translate(119 128) rotate(-6 246 156)">
+    <rect x="7" y="9" width="493" height="315" rx="3" fill="#302d2912"/>
+    <rect width="493" height="315" rx="3" fill="#f7f2e7" stroke="#c9bfae"/>
+    <path d="M39 54H455M39 254H455M39 277H287" stroke="#d5cbbc"/>
+    <text x="39" y="103" fill="#787168" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="19">一个想法，从聊天开始。</text>
+    <text x="39" y="183" fill="#39352f" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="40">要不要，一起做点什么？</text>
+  </g>
+  <g transform="translate(445 352) rotate(7 139 71)">
+    <rect x="5" y="7" width="280" height="148" fill="#302d2912"/>
+    <rect width="280" height="148" fill="#39352f"/>
+    <text x="27" y="47" fill="#cbbda4" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="16" letter-spacing="2">A NOTE FROM ELSEWHERE</text>
+    <text x="27" y="104" fill="#f5efdf" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="31">好呀，一起。</text>
+  </g>
+  <path d="M64 532H736" stroke="#c8c0b4"/>
+  <text x="64" y="566" fill="#625b52" font-family="'Iowan Old Style', 'Songti SC', 'SimSun', serif" font-size="22">一个人的念头，两个人的可能。</text>
+</svg>

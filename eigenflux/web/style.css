@@ -1,11 +1,24 @@
 :root {
-  font-family: Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif;
-  color: #26332f;
-  background: #f6f7f4;
+  --ew-serif: 'Iowan Old Style', 'Songti SC', 'Noto Serif SC', 'SimSun', serif;
+  --ew-paper: #f6f4ef;
+  --ew-surface: #fffdfa;
+  --ew-action: #39352f;
+  --ew-ink: #302d29;
+  --ew-muted: #787168;
+  --ew-line: #ddd7cd;
+  --ew-tint: #ede7dc;
+  --ew-text-meta: 14px;
+  --ew-text-control: 15px;
+  --ew-text-body: 17px;
+  --ew-text-title: 20px;
+  font-family: var(--ew-serif);
+  font-size: 16px;
+  color: #302d29;
+  background: #f6f4ef;
   font-synthesis: none;
-  --accent: #315e4d;
-  --line: #dfe5de;
-  --muted: #596b60;
+  --accent: #39352f;
+  --line: #ddd7cd;
+  --muted: #787168;
 }
 * {
   box-sizing: border-box;
@@ -33,9 +46,9 @@ select {
 button {
   cursor: pointer;
   background: white;
-  border: 1px solid #cbd5cc;
+  border: 1px solid #ddd7cd;
   border-radius: 6px;
-  color: #26332f;
+  color: #302d29;
   padding: 10px 15px;
   display: inline-flex;
   align-items: center;
@@ -44,7 +57,7 @@ button {
   min-height: 40px;
 }
 button:hover {
-  background: #edf2eb;
+  background: #f6f4ef;
 }
 button:disabled {
   cursor: wait;
@@ -56,10 +69,10 @@ button:disabled {
   border-color: var(--accent);
 }
 .primary:hover {
-  background: #244938;
+  background: #302d29;
 }
 :focus-visible {
-  outline: 3px solid #719e89;
+  outline: 3px solid #a4998a;
   outline-offset: 3px;
 }
 h1 {
@@ -91,10 +104,11 @@ small {
 .hint,
 small,
 time {
-  font-size: 13px;
+  font-size: 14px;
 }
 code {
-  font-size: 13px;
+  font-family: inherit;
+  font-size: 14px;
   overflow-wrap: anywhere;
 }
 label {
@@ -109,9 +123,9 @@ select {
   display: block;
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid #cbd5cc;
+  border: 1px solid #ddd7cd;
   background: white;
-  color: #26332f;
+  color: #302d29;
   border-radius: 6px;
   margin-top: 8px;
   line-height: 1.5;
@@ -153,18 +167,18 @@ article {
   justify-content: space-between;
 }
 .badge {
-  font-size: 12px;
+  font-size: 14px;
   padding: 4px 8px;
-  background: #edf1ea;
+  background: #f6f4ef;
   border-radius: 4px;
-  color: #4d6555;
+  color: #625b52;
 }
 .prewrap {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .empty {
-  border: 1px dashed #cbd5cc;
+  border: 1px dashed #ddd7cd;
   color: var(--muted);
   padding: 34px;
   line-height: 1.8;
@@ -183,10 +197,10 @@ article {
   margin-left: 15px;
 }
 .success {
-  color: #315e4d;
+  color: #39352f;
 }
 .recommendation {
-  border-left: 1px solid #91a994;
+  border-left: 1px solid #a4998a;
   padding-left: 16px;
 }
 .brand {
@@ -197,7 +211,7 @@ article {
   font-size: 24px;
   letter-spacing: -1px;
   font-weight: 650;
-  color: #26332f;
+  color: #302d29;
 }
 .brand-logo {
   display: block;
@@ -227,7 +241,7 @@ article {
   line-height: 1.2;
 }
 .lead {
-  color: #52645b;
+  color: #625b52;
   font-size: 18px;
   max-width: 440px;
 }
@@ -243,14 +257,14 @@ article {
   margin-bottom: 16px;
 }
 .join-copy p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .join-steps {
   margin: 20px 0 0;
   padding-left: 20px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.9;
 }
 .login-form {
@@ -280,7 +294,7 @@ article {
   list-style: none;
   gap: 20px;
   border-bottom: 1px solid var(--line);
-  font-size: 13px;
+  font-size: 14px;
   margin: 28px 0;
   flex-wrap: wrap;
 }
@@ -309,7 +323,7 @@ article {
   width: 250px;
   flex-shrink: 0;
   border-right: 1px solid var(--line);
-  background: #f1f4ee;
+  background: #f6f4ef;
   padding: 30px 22px;
   position: fixed;
   height: 100dvh;
@@ -322,7 +336,7 @@ article {
 .agent-select {
   margin: 0 10px 24px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 .agent-select select {
   font-size: 14px;
@@ -337,22 +351,22 @@ nav a {
   gap: 12px;
   padding: 11px 13px;
   border-radius: 6px;
-  color: #52645b;
+  color: #625b52;
   text-decoration: none;
   font-size: 14px;
 }
 nav a:hover {
-  background: #e6ece2;
+  background: #f6f4ef;
 }
 nav a[aria-current] {
-  color: #294c3a;
-  background: #e1e9dc;
+  color: #4e4840;
+  background: #ede7dc;
   font-weight: 600;
 }
 .owner {
   margin-top: auto;
   padding: 28px 12px 0;
-  font-size: 12px;
+  font-size: 14px;
   display: grid;
   gap: 10px;
   overflow-wrap: anywhere;
@@ -365,7 +379,7 @@ nav a[aria-current] {
   border: 0;
   background: none;
   padding: 5px 0;
-  font-size: 12px;
+  font-size: 14px;
 }
 .workspace {
   margin-left: 250px;
@@ -379,12 +393,12 @@ nav a[aria-current] {
   justify-content: space-between;
   padding: 0 40px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 .topbar > button:last-child {
   background: transparent;
   border: 0;
-  font-size: 12px;
+  font-size: 14px;
 }
 .workspace main {
   padding: 44px 48px;
@@ -398,7 +412,7 @@ nav a[aria-current] {
 .workspace footer {
   padding: 20px 48px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 14px;
   border-top: 1px solid var(--line);
 }
 .identity-strip {
@@ -412,17 +426,17 @@ nav a[aria-current] {
 }
 .identity-strip > span:last-child {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 .presence {
   width: 8px;
   height: 8px;
   flex-shrink: 0;
-  background: #96a099;
+  background: #a4998a;
   border-radius: 50%;
 }
 .presence.online {
-  background: #417d57;
+  background: #787168;
 }
 .summary {
   display: grid;
@@ -431,7 +445,7 @@ nav a[aria-current] {
   margin: 30px 0 40px;
 }
 .summary p {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 .summary b {
@@ -439,7 +453,7 @@ nav a[aria-current] {
   font-size: 36px;
   font-weight: 500;
   letter-spacing: -1px;
-  color: #26332f;
+  color: #302d29;
   line-height: 1.6;
 }
 .peer-grid {
@@ -450,7 +464,7 @@ nav a[aria-current] {
 .avatar {
   width: 42px;
   height: 42px;
-  background: #e3eadd;
+  background: #ede7dc;
   border-radius: 9px;
   display: grid;
   place-items: center;
@@ -480,14 +494,14 @@ nav a[aria-current] {
   overflow: hidden;
 }
 .messages > aside > button.selected {
-  background: #e8eee3;
+  background: #f6f4ef;
 }
 .messages > aside p {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 230px;
-  font-size: 13px;
+  font-size: 14px;
   margin: 8px 0;
 }
 .messages > section {
@@ -579,7 +593,7 @@ dd {
     z-index: 10;
     top: 66px;
     height: calc(100dvh - 66px);
-    box-shadow: 16px 0 40px #26332f12;
+    box-shadow: 16px 0 40px #302d2912;
   }
   .sidebar.open {
     display: flex;
@@ -593,11 +607,11 @@ dd {
     gap: 12px;
     position: sticky;
     top: 0;
-    background: #f6f7f4;
+    background: #f6f4ef;
     z-index: 11;
   }
   .topbar > span {
-    font-size: 12px;
+    font-size: 14px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -693,6 +707,6 @@ dd {
   }
   .phone-code-row button {
     padding-inline: 10px;
-    font-size: 13px;
+    font-size: 14px;
   }
 }

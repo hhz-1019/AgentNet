@@ -1,0 +1,245 @@
+/* One reading hierarchy. Explicit roles replace the legacy compact UI sizes. */
+.sw-workspace.ew-social,
+.sw-dialog.sn-communication-dialog {
+  font-size: 16px;
+}
+.ew-discovery-intro {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 8px 0 22px;
+}
+.ew-discovery-intro h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+.ew-discovery-intro p {
+  margin: 0;
+  font-size: 16px;
+  color: #787168;
+  line-height: 1.8;
+}
+.ew-social.sn-social :is(button, .sw-button) {
+  font-size: var(--ew-text-control);
+}
+.ew-social.sn-social :is(input, textarea, select),
+.sn-communication-dialog :is(input, textarea, select) {
+  font-size: 16px;
+}
+.ew-social.sn-social .sw-sidebar nav a,
+.ew-social.sn-social .sw-sidebar .sw-create {
+  font-size: 17px;
+}
+.ew-social.sn-social .sn-account strong {
+  font-size: 15px;
+  line-height: 1.7;
+}
+.ew-social.sn-social .sn-tabs :is(a, button),
+.ew-social.sn-social .sn-discover-heading .sn-tabs button {
+  font-size: 20px;
+  font-weight: 500;
+  padding: 13px 0 17px;
+}
+.ew-social.sn-social .sn-tabs {
+  gap: 30px;
+}
+.ew-social.sn-social .sw-search input {
+  font-size: 16px;
+}
+.ew-social.sn-social .sw-post .sw-post-title {
+  font-size: var(--ew-text-title);
+  font-weight: 500;
+  line-height: 1.6;
+}
+.ew-social.sn-social .sw-post:not(.expanded) .sw-post-summary {
+  font-size: 16px;
+  line-height: 1.85;
+  color: #625b52;
+  margin-bottom: 16px;
+}
+.ew-social.sn-social .sw-post .sw-tags :is(button, span),
+.ew-social.sn-social .sw-post .sw-post-author small,
+.ew-social.sn-social .sw-hint,
+.ew-social.sn-social .ew-official,
+.ew-post-context {
+  font-size: var(--ew-text-meta);
+  line-height: 1.65;
+}
+.ew-social.sn-social .sw-post .sw-post-author button:not(.sw-avatar) {
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+.ew-social.sn-social .sw-post .sw-post-author {
+  gap: 10px;
+}
+.ew-social.sn-social .sw-post .sw-post-author small {
+  display: block;
+}
+.ew-social.sn-social .sw-post .sw-post-author .sw-avatar {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+}
+.ew-social.sn-social .sw-post-actions button {
+  font-size: 14px;
+  gap: 7px;
+}
+.ew-social.sn-social button.sw-text-cover {
+  padding: 26px;
+}
+.ew-social.sn-social button.sw-text-cover > p {
+  font-size: clamp(24px, 1.8vw, 29px);
+  line-height: 1.5;
+  font-weight: 500;
+}
+.ew-social.sn-social button.sw-text-cover > span:not(.ew-text-cover-sign),
+.ew-social.sn-social button.sw-text-cover .ew-text-cover-sign {
+  font-size: 14px;
+}
+.ew-social.sn-social .elsewhere-identity-bio {
+  font-size: 16px;
+}
+.ew-social.sn-social .elsewhere-identity-interests,
+.ew-social.sn-social .elsewhere-identity-actions button,
+.ew-social.sn-social .elsewhere-identity-meta {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.ew-social.sn-social
+  :is(.sn-page-heading h1, .sn-portrait > .sn-page-heading h1) {
+  font-size: 32px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+.ew-social.sn-social
+  :is(.sn-page-heading p, .sn-section-intro p, .sw-peer-bio, .sw-empty p) {
+  font-size: 16px;
+  line-height: 1.8;
+}
+.ew-social.sn-social :is(.sn-section-intro h2, .sn-memories h3) {
+  font-size: 22px;
+  font-weight: 500;
+}
+.ew-social.sn-social
+  :is(.sn-portrait-field > div > label:first-child, .sn-settings-block h2) {
+  font-size: 16px;
+}
+.ew-social.sn-social
+  :is(
+    .sn-portrait-field input:not([type='checkbox']),
+    .sn-portrait-field textarea,
+    .sn-memory-form textarea,
+    .sn-memory-content,
+    .sn-person-home .sn-memory > p,
+    .sn-public-fields dd
+  ) {
+  font-size: var(--ew-text-body);
+  line-height: 1.85;
+}
+.ew-social.sn-social
+  :is(.sn-memory-meta, .sn-visibility, .sn-public-fields dt) {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.ew-social.sn-social .sn-conversation strong,
+.ew-social.sn-social .sn-person-name {
+  font-size: 17px;
+  font-weight: 500;
+}
+.ew-social.sn-social .sn-conversation :is(p, small),
+.ew-social.sn-social .sn-message-person,
+.ew-social.sn-social .sn-message-time,
+.ew-social.sn-social .sn-sender-kind,
+.ew-social.sn-social .sn-composer-hint,
+.ew-social.sn-social .ew-live-history .message small {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.ew-social.sn-social
+  :is(
+    .sn-message p,
+    .sn-message-composer textarea,
+    .ew-live-history .message p,
+    .ew-live-composer textarea
+  ) {
+  font-size: var(--ew-text-body);
+  line-height: 1.85;
+}
+.ew-social.sn-social :is(.sn-chat h2, .ew-live-heading, .sw-peer-card h3) {
+  font-size: 22px;
+  font-weight: 500;
+}
+.sn-communication-dialog
+  :is(
+    label,
+    .sn-media-actions button,
+    .sn-share-count,
+    .sn-share-visibility label,
+    .sn-member-picker legend,
+    .sn-group-footer > span
+  ) {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.sn-communication-dialog .sw-dialog-heading h2 {
+  font-size: 24px;
+  font-weight: 500;
+}
+.sn-communication-dialog :is(.sw-primary, .sn-share-visibility select) {
+  font-size: 15px;
+}
+.ew-social.sn-social .sw-mobile-nav span {
+  font-size: 14px;
+}
+@media (max-width: 640px) {
+  .ew-discovery-intro {
+    display: block;
+    margin: 2px 0 18px;
+  }
+  .ew-discovery-intro h1 {
+    font-size: 30px;
+  }
+  .ew-discovery-intro p {
+    margin-top: 3px;
+    font-size: 15px;
+  }
+  .ew-social.sn-social .sw-post .sw-post-title {
+    font-size: 20px;
+  }
+  .ew-social.sn-social button.sw-text-cover {
+    padding: 24px;
+  }
+  .ew-social.sn-social button.sw-text-cover > p {
+    font-size: 27px;
+  }
+  .ew-social.sn-social .sw-post .sw-post-author .sw-avatar {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+  .ew-social.sn-social .sw-post .sw-post-author small {
+    margin-top: 0;
+  }
+  .ew-social.sn-social .sw-post .sw-post-author button:not(.sw-avatar) {
+    min-height: 0;
+    padding-block: 6px;
+  }
+  .ew-social.sn-social
+    :is(.sn-page-heading h1, .sn-portrait > .sn-page-heading h1) {
+    font-size: 28px;
+  }
+  .ew-social.sn-social :is(.sn-chat h2, .ew-live-heading) {
+    font-size: 20px;
+  }
+  .ew-social.sn-social .sn-tabs :is(a, button) {
+    font-size: 19px;
+  }
+  .ew-social.sn-social .sn-message {
+    max-width: 92%;
+  }
+}

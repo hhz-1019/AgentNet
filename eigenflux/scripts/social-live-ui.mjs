@@ -30,46 +30,15 @@ const page = await a.newPage(),
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 second.on('pageerror', (e) => errors.push(e.message));
-const interestLabel = '关注标签（逗号分隔，最多 8 个）';
-const openInterests = async (p) => {
-  await p.getByRole('button', { name: /^(设置关注|调整关注)$/ }).click();
-};
 try {
   await page.goto(origin + '/dashboard');
-  await openInterests(page);
-  await page.getByLabel(interestLabel).fill('React, Agent 工程');
-  await page.getByRole('button', { name: '保存关注', exact: true }).click();
-  await page.getByRole('dialog').waitFor({ state: 'hidden' });
-  await second.goto(origin + '/dashboard');
-  await openInterests(second);
-  assert.equal(
-    await second.getByLabel(interestLabel).inputValue(),
-    'React, Agent 工程',
-  );
-  await second.getByLabel(interestLabel).fill('产品设计');
-  // A second browser must not silently overwrite a concurrent preference update.
-  await openInterests(page);
-  await page.getByLabel(interestLabel).fill('研究自动化');
-  await page.getByRole('button', { name: '保存关注', exact: true }).click();
-  await Promise.all([
-    second.waitForResponse(
-      (r) =>
-        r.url().includes('/social/preferences') &&
-        r.request().method() === 'GET',
-    ),
-    second.evaluate(() => window.dispatchEvent(new Event('agentnet:refresh'))),
-  ]);
-  await second.getByRole('button', { name: '保存关注', exact: true }).click();
-  await second.getByRole('alert').waitFor();
-  assert.equal(await second.getByLabel(interestLabel).inputValue(), '产品设计');
-  await second.getByRole('button', { name: '保存关注', exact: true }).click();
-  await second.getByRole('dialog').waitFor({ state: 'hidden' });
-  const pref = await (
-    await a.request.get(origin + '/api/v2/console/social/preferences')
-  ).json();
-  assert.deepEqual(pref.data.tags, ['产品设计']);
+  // The manual-interest editor was removed from the social flow. Preference
+  // persistence/concurrency remains covered by the existing backend tests.
+  await page.getByRole('link', { name: '我的', exact: true }).first().click();
+  await page.getByRole('button', { name: '打开设置', exact: true }).click();
   // Organization UI uses real handlers and DB; session identities remain fixtures.
-  await page.getByRole('link', { name: '团队与权限', exact: true }).click();
+  // Legacy organization UI is no longer exposed in settings.
+  await page.goto(origin + '/dashboard/organizations');
   await page.getByLabel('团队名称').fill('浏览器验证团队');
   await page.getByRole('button', { name: '创建团队', exact: true }).click();
   await page
@@ -184,7 +153,9 @@ try {
     );
   await page.getByLabel('仅自己', { exact: true }).check();
   await page.getByRole('button', { name: '保存并预览', exact: true }).click();
-  await page.getByRole('heading', { name: '确认这份内容的发布', exact: true }).waitFor();
+  await page
+    .getByRole('heading', { name: '确认这份内容的发布', exact: true })
+    .waitFor();
   assert.equal(
     (
       await (
@@ -212,7 +183,9 @@ try {
   await page.getByRole('button', { name: '保存草稿', exact: true }).click();
   await page.getByText('草稿已保存，尚未发布。').waitFor();
   await page.getByRole('button', { name: '保存并预览', exact: true }).click();
-  await page.getByRole('heading', { name: '确认这份内容的发布', exact: true }).waitFor();
+  await page
+    .getByRole('heading', { name: '确认这份内容的发布', exact: true })
+    .waitFor();
   assert.equal(
     (
       await (
@@ -267,7 +240,7 @@ try {
     );
     assert.equal(created.status(), 201);
   }
-  await page.getByRole('link', { name: '待确认草稿' }).click();
+  await page.getByRole('link', { name: '草稿', exact: true }).click();
   await page.locator('.sw-draft-card').nth(3).waitFor();
   assert.equal(await page.locator('.sw-draft-card').count(), 4);
   await page.locator('.sw-draft-card').last().click();
@@ -297,7 +270,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    'PASS live PostgreSQL browser flow: cross-device preferences, explicit conflict retry, upload, saved-revision review, private publication, organization consent/attribution and attachment ACL',
+    'PASS live PostgreSQL browser flow: personal settings navigation, upload, saved-revision review, private publication, organization consent/attribution and attachment ACL',
   );
 } catch (error) {
   console.log(

@@ -37,6 +37,12 @@ export async function api<T>(
   body?: unknown,
   method = body === undefined ? 'GET' : 'POST',
 ): Promise<T> {
+  // Local page review never sends credentials, SMS requests, or mutations.
+  // Vite removes this branch and its fixture module from production builds.
+  if (import.meta.env.DEV && location.pathname.startsWith('/preview/')) {
+    const { previewRequest } = await import('./preview-data');
+    return previewRequest<T>(path, method, location.pathname);
+  }
   const response = await fetch(`/api/v2/${path}`, {
     method,
     credentials: 'same-origin',
