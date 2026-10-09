@@ -20,16 +20,16 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const scenes = [
   '校园交友',
-  '求职与招聘',
+  '求职招聘',
   '创业共创',
   '学习互助',
-  '开源技术',
-  '设计创作',
   '科研交流',
   '城市兴趣',
-  '公益协作',
-  '职业成长',
+  '无障碍共益',
+  '文化保护',
 ];
+const sceneFor = (i) =>
+  scenes[[24, 46, 66, 84, 92, 98, 99, 100].findIndex((end) => i < end)];
 const names = [
   '知远',
   '予安',
@@ -42,7 +42,19 @@ const names = [
   '书言',
   '明澈',
 ];
+const fixturePersona = '合成测试角色的背景、学习路径与协作方法。'.repeat(70);
 const data = {
+  profile_templates: [
+    { Name: '新角色', Scenario: '校园交友', Persona: fixturePersona },
+  ],
+  sources: [
+    {
+      feed_url: 'https://sspai.com/feed',
+      fetched_at: Date.now(),
+      status: 'ready',
+      item_count: 4,
+    },
+  ],
   sponsor_number: '10001',
   worker_configured: true,
   model_configured: true,
@@ -82,9 +94,8 @@ const data = {
       ['林', '许', '沈', '顾', '夏', '程', '苏', '陆', '叶', '周'][
         Math.floor(i / 10)
       ] + names[i % 10],
-    scenario: scenes[Math.floor(i / 10)],
-    persona:
-      'AI 虚构角色，设定年龄 24 岁；温和耐心，喜欢用具体例子说明问题。讨论成年人之间的平等沟通和兴趣交友，尊重边界，不虚构真实在校经历或线下邀约。',
+    scenario: sceneFor(i),
+    persona: fixturePersona,
     enabled: i % 4 !== 0,
     daily_limit: 2,
     start_hour: 9,
@@ -187,6 +198,39 @@ await page.route('**/api/v2/**', async (route) => {
     );
     return send({ updated: body.ids.length });
   }
+  if (path.endsWith('/managed/members') && method === 'POST') {
+    data.members.push({
+      ...data.members[0],
+      ...body,
+      id: '999001',
+      number: '67876',
+      enabled: false,
+      revision: 1,
+      deleted_at: 0,
+    });
+    return send({ created: 1 });
+  }
+  if (path.endsWith('/restore')) {
+    data.members = data.members.map((m) =>
+      m.id === path.split('/').at(-2)
+        ? { ...m, deleted_at: 0, enabled: false, revision: m.revision + 1 }
+        : m,
+    );
+    return send({ restored: true });
+  }
+  if (/\/managed\/members\/\d+$/.test(path) && method === 'DELETE') {
+    data.members = data.members.map((m) =>
+      m.id === path.split('/').at(-1)
+        ? {
+            ...m,
+            deleted_at: Date.now(),
+            enabled: false,
+            revision: m.revision + 1,
+          }
+        : m,
+    );
+    return send({ deleted: true });
+  }
   if (/\/managed\/members\/\d+$/.test(path)) {
     if (failedSave) {
       failedSave = false;
@@ -214,11 +258,41 @@ try {
   await page.goto('http://127.0.0.1:4325/dashboard/managed');
   await page.getByRole('heading', { name: '社区角色管理' }).waitFor();
   await page.getByRole('button', { name: '编辑林知远', exact: true }).waitFor();
+  await page.getByRole('button', { name: '添加 Agent', exact: true }).click();
+  await page
+    .locator('.managed-create')
+    .getByLabel('公开昵称', { exact: true })
+    .fill('新角色验收');
+  await page.getByRole('button', { name: '创建 Agent', exact: true }).click();
+  await page
+    .getByText('Agent 已创建并分配靓号，初始保持暂停。', { exact: true })
+    .waitFor();
+  await page
+    .getByRole('button', { name: '编辑新角色验收', exact: true })
+    .click();
+  await page.getByLabel('输入靓号 67876 确认').fill('67876');
+  await page.getByRole('button', { name: '删除此 Agent', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: '筛选状态' })
+    .selectOption('deleted');
+  await page
+    .getByRole('button', { name: '编辑新角色验收', exact: true })
+    .click();
+  await page.getByRole('button', { name: '恢复 Agent', exact: true }).click();
+  await page.getByRole('combobox', { name: '筛选状态' }).selectOption('all');
+  await page
+    .getByRole('button', { name: '编辑新角色验收', exact: true })
+    .click();
+  await page.getByLabel('输入靓号 67876 确认').fill('67876');
+  await page.getByRole('button', { name: '删除此 Agent', exact: true }).click();
+  await page
+    .getByText('角色已删除，活动和登录已停止。', { exact: true })
+    .waitFor();
   assert.equal(await page.locator('tbody tr').count(), 100);
   await page
     .getByRole('combobox', { name: '筛选场景' })
     .selectOption('校园交友');
-  assert.equal(await page.locator('tbody tr').count(), 10);
+  assert.equal(await page.locator('tbody tr').count(), 24);
   await page.getByRole('button', { name: '编辑林知远', exact: true }).click();
   await page.getByLabel('公开昵称', { exact: true }).fill('林知远（更新）');
   await page
@@ -288,7 +362,7 @@ try {
     .waitFor();
   assert.equal(
     data.members.filter((m) => m.scenario === '校园交友' && m.enabled).length,
-    10,
+    24,
   );
   await page.getByRole('button', { name: '预算与调度', exact: true }).click();
   await page.getByLabel('每月预算（元）', { exact: true }).fill('200');
@@ -314,8 +388,8 @@ try {
     .click();
   await page.waitForURL('**/dashboard');
   assert.equal(loginCount, 1);
-  await page.getByRole('link',{name:'我的',exact:true}).first().click();
-  await page.getByRole('button',{name:'打开设置',exact:true}).click();
+  await page.getByRole('link', { name: '我的', exact: true }).first().click();
+  await page.getByRole('button', { name: '打开设置', exact: true }).click();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page
     .getByRole('heading', { name: '托管角色控制', exact: true })

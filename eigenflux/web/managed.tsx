@@ -12,6 +12,7 @@ import {
 import { api } from './api';
 import type { Session } from './types';
 import './managed.css';
+import { ManagedCreate } from './managed-create';
 
 type Campaign = {
   enabled: boolean;
@@ -20,7 +21,18 @@ type Campaign = {
   output_fen_per_million: number;
   revision: number;
 };
+type PublicIdentity = {
+  geo?: string;
+  timezone?: string;
+  offering?: string[];
+  seeking?: string[];
+  current_focus?: string[];
+  working_languages?: string[];
+};
 type Member = {
+  public_identity?: PublicIdentity;
+  deleted_at?: number;
+  profile_version?: number;
   id: string;
   number: string;
   name: string;
@@ -57,6 +69,13 @@ type Run = {
 };
 type Audit = { action: string; agent_id: string | null; created_at: number };
 type Data = {
+  profile_templates?: { Name: string; Scenario: string; Persona: string }[];
+  sources?: {
+    feed_url: string;
+    fetched_at: number;
+    status: string;
+    item_count: number;
+  }[];
   sponsor_number: string;
   campaign: Campaign | null;
   spent_fen: number;
@@ -95,6 +114,10 @@ const labels: Record<string, string> = {
 };
 const auditLabels: Record<string, string> = {
   seed_100: '初始化角色库',
+  provision_members: '注册托管角色',
+  delete_member: '删除角色（可恢复）',
+  restore_member: '恢复角色',
+  refresh_profiles: '升级身份档案',
   update_campaign: '修改预算与调度',
   update_member: '修改角色资料',
   login_member: '进入角色账号',
@@ -126,6 +149,8 @@ const date = (value: number | null) =>
 // viewport; selecting a row opens the adjacent editor without losing filters.
 export function ManagedConsole({ session }: { session: Session }) {
   const [data, setData] = useState<Data>();
+  const [creating, setCreating] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
   const [topic, setTopic] = useState('');
   const [revokeID, setRevokeID] = useState('');
   const [error, setError] = useState(''),
@@ -143,6 +168,7 @@ export function ManagedConsole({ session }: { session: Session }) {
     editTrigger.current = trigger;
     setTopic(member.pending_topic || '');
     setRevokeID('');
+    setDeleteConfirm('');
     setEditing({ ...member });
   }
   function closeEditor() {
@@ -206,12 +232,16 @@ export function ManagedConsole({ session }: { session: Session }) {
   const visible = members.filter(
     (m) =>
       (scenario === '全部场景' || m.scenario === scenario) &&
-      (status === 'all' || (status === 'enabled' ? m.enabled : !m.enabled)) &&
+      (status === 'deleted'
+        ? !!m.deleted_at
+        : !m.deleted_at &&
+          (status === 'all' ||
+            (status === 'enabled' ? m.enabled : !m.enabled))) &&
       `${m.name} ${m.number} ${m.scenario} ${m.persona}`
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
-  const enabled = members.filter((m) => m.enabled).length;
+  const enabled = members.filter((m) => !m.deleted_at && m.enabled).length;
   const allVisible =
     visible.length > 0 && visible.every((m) => selected.includes(m.id));
   const selectVisible = () =>
@@ -285,7 +315,8 @@ export function ManagedConsole({ session }: { session: Session }) {
           <>
             <div className="managed-summary">
               <span>
-                <strong>{members.length}</strong> / 100 个角色
+                <strong>{members.filter((m) => !m.deleted_at).length}</strong>{' '}
+                个角色 · {members.filter((m) => m.deleted_at).length} 个已删除
               </span>
               <span>
                 <strong>{enabled}</strong> 个已启用
@@ -350,14 +381,90 @@ export function ManagedConsole({ session }: { session: Session }) {
                 <RefreshCw size={17} />
               </button>
             </nav>
+            {data.sources && (
+              <details className="managed-source-status">
+                <summary>
+                  联网素材 ·{' '}
+                  {data.sources.filter((s) => s.status === 'ready').length}{' '}
+                  个来源可用
+                </summary>
+                <p>
+                  自动读取近 14 天的公开订阅摘要，30
+                  分钟更新一次。来源不可用时退回一般方法讨论，不编造最新消息。
+                </p>
+                {data.sources.map((source) => (
+                  <p key={source.feed_url}>
+                    {new URL(source.feed_url).hostname} ·{' '}
+                    {source.status === 'ready'
+                      ? source.item_count + ' 条近期素材'
+                      : source.status === 'no_recent_items'
+                        ? '暂无近期素材'
+                        : '暂时不可用'}{' '}
+                    · {date(source.fetched_at)}
+                  </p>
+                ))}
+              </details>
+            )}
             {tab === 'members' && (
               <>
+                <div className="managed-roster-tools">
+                  <p>前四个场景优先参与；长篇身份档案仅管理员可见。</p>
+                  <button
+                    className="managed-primary"
+                    disabled={busy}
+                    onClick={() => {
+                      setCreating(!creating);
+                      closeEditor();
+                    }}
+                  >
+                    添加 Agent
+                  </button>
+                </div>
+                {creating && (
+                  <ManagedCreate
+                    templates={data.profile_templates || []}
+                    busy={busy}
+                    onCancel={() => setCreating(false)}
+                    onSave={async (member) => {
+                      await act(async () => {
+                        await api('console/managed/members', member);
+                        setCreating(false);
+                      }, 'Agent 已创建并分配靓号，初始保持暂停。');
+                    }}
+                  />
+                )}
+                <div className="managed-scene-strip" aria-label="场景分布">
+                  {[
+                    ...new Set(
+                      members
+                        .filter((m) => !m.deleted_at)
+                        .map((m) => m.scenario),
+                    ),
+                  ].map((scene) => (
+                    <button
+                      key={scene}
+                      aria-pressed={scenario === scene}
+                      onClick={() =>
+                        setScenario(scenario === scene ? '全部场景' : scene)
+                      }
+                    >
+                      {scene}{' '}
+                      <strong>
+                        {
+                          members.filter(
+                            (m) => !m.deleted_at && m.scenario === scene,
+                          ).length
+                        }
+                      </strong>
+                    </button>
+                  ))}
+                </div>
                 {!members.length ? (
                   <div className="managed-empty">
                     <Users size={32} />
                     <h2>准备你的 100 位社区角色</h2>
                     <p>
-                      10 个场景，100
+                      六个主要场景与两个特色方向，100
                       个不同的成人虚构角色。注册真实可管理账号、分配未占用靓号，初始保持暂停。
                     </p>
                     <button
@@ -403,11 +510,16 @@ export function ManagedConsole({ session }: { session: Session }) {
                       <select
                         aria-label="筛选状态"
                         value={status}
-                        onChange={(e) => setStatus(e.target.value)}
+                        onChange={(e) => {
+                          setStatus(e.target.value);
+                          setSelected([]);
+                          closeEditor();
+                        }}
                       >
                         <option value="all">全部状态</option>
                         <option value="enabled">已启用</option>
                         <option value="paused">已暂停</option>
+                        <option value="deleted">已删除（可恢复）</option>
                       </select>
                     </div>
                     <div className="managed-selection">
@@ -423,7 +535,9 @@ export function ManagedConsole({ session }: { session: Session }) {
                         {visible.length} 个结果 · 已选 {selected.length} 个
                       </span>
                       <button
-                        disabled={busy || !selected.length}
+                        disabled={
+                          busy || !selected.length || status === 'deleted'
+                        }
                         onClick={() =>
                           void act(
                             () =>
@@ -513,8 +627,12 @@ export function ManagedConsole({ session }: { session: Session }) {
                                 <td>
                                   {m.scenario}
                                   <small>
-                                    {m.enabled ? '已启用' : '已暂停'} ·{' '}
-                                    {m.start_hour}:00–{m.end_hour}:00
+                                    {m.deleted_at
+                                      ? '已删除'
+                                      : m.enabled
+                                        ? '已启用'
+                                        : '已暂停'}{' '}
+                                    · {m.start_hour}:00–{m.end_hour}:00
                                   </small>
                                 </td>
                                 <td>
@@ -545,10 +663,10 @@ export function ManagedConsole({ session }: { session: Session }) {
                                       openEditor(m, e.currentTarget)
                                     }
                                   >
-                                    编辑
+                                    {m.deleted_at ? '查看' : '编辑'}
                                   </button>
                                   <button
-                                    disabled={busy}
+                                    disabled={busy || !!m.deleted_at}
                                     aria-label={`进入${m.name}账号`}
                                     onClick={() => void login(m)}
                                   >
@@ -578,6 +696,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                   scenario: editing.scenario,
                                   persona: editing.persona,
                                   public_bio: editing.public_bio,
+                                  public_identity: editing.public_identity,
                                   enabled: editing.enabled,
                                   daily_limit: editing.daily_limit,
                                   start_hour: editing.start_hour,
@@ -592,7 +711,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                         >
                           <header>
                             <h2 ref={editorHeading} tabIndex={-1}>
-                              编辑角色
+                              {editing.deleted_at ? '已删除的角色' : '编辑角色'}
                             </h2>
                             <button type="button" onClick={closeEditor}>
                               关闭
@@ -601,177 +720,10 @@ export function ManagedConsole({ session }: { session: Session }) {
                           <p className="managed-subtle">
                             靓号 {editing.number} · 按普通 Agent 展示
                           </p>
-                          <label>
-                            公开昵称
-                            <input
-                              required
-                              maxLength={30}
-                              value={editing.name}
-                              onChange={(e) =>
-                                setEditing({ ...editing, name: e.target.value })
-                              }
-                            />
-                          </label>
-                          <label>
-                            场景
-                            <input
-                              required
-                              maxLength={30}
-                              value={editing.scenario}
-                              onChange={(e) =>
-                                setEditing({
-                                  ...editing,
-                                  scenario: e.target.value,
-                                })
-                              }
-                            />
-                          </label>
-                          <label>
-                            公开简介
-                            <textarea
-                              aria-label="公开简介"
-                              rows={4}
-                              maxLength={1000}
-                              value={editing.public_bio || ''}
-                              onChange={(e) =>
-                                setEditing({
-                                  ...editing,
-                                  public_bio: e.target.value,
-                                })
-                              }
-                            />
-                            <small>
-                              展示在公开身份中；内部角色设定不会作为简介公开。
-                            </small>
-                          </label>
-                          <label>
-                            身份、性格与交流方式
-                            <textarea
-                              required
-                              rows={8}
-                              maxLength={2000}
-                              value={editing.persona}
-                              onChange={(e) =>
-                                setEditing({
-                                  ...editing,
-                                  persona: e.target.value,
-                                })
-                              }
-                            />
-                          </label>
-                          <label>
-                            每日活动尝试上限
-                            <input
-                              type="number"
-                              required
-                              min={0}
-                              max={12}
-                              value={editing.daily_limit}
-                              onChange={(e) =>
-                                setEditing({
-                                  ...editing,
-                                  daily_limit: Number(e.target.value),
-                                })
-                              }
-                            />
-                          </label>
-                          <div className="managed-hours">
-                            <label>
-                              开始时间
-                              <input
-                                type="number"
-                                required
-                                min={0}
-                                max={23}
-                                value={editing.start_hour}
-                                onChange={(e) =>
-                                  setEditing({
-                                    ...editing,
-                                    start_hour: Number(e.target.value),
-                                  })
-                                }
-                              />
-                            </label>
-                            <label>
-                              结束时间
-                              <input
-                                type="number"
-                                required
-                                min={editing.start_hour + 1}
-                                max={24}
-                                value={editing.end_hour}
-                                onChange={(e) =>
-                                  setEditing({
-                                    ...editing,
-                                    end_hour: Number(e.target.value),
-                                  })
-                                }
-                              />
-                            </label>
-                          </div>
-                          <label className="managed-check">
-                            <input
-                              type="checkbox"
-                              checked={editing.enabled}
-                              onChange={(e) =>
-                                setEditing({
-                                  ...editing,
-                                  enabled: e.target.checked,
-                                })
-                              }
-                            />{' '}
-                            启用此角色的自动活动
-                          </label>
-                          <button className="managed-primary" disabled={busy}>
-                            {busy ? '正在保存…' : '保存资料'}
-                          </button>
-                          <label>
-                            下一次讨论主题（可选）
-                            <textarea
-                              aria-label="下一次讨论主题"
-                              rows={3}
-                              maxLength={600}
-                              value={topic}
-                              onChange={(e) => setTopic(e.target.value)}
-                              placeholder="例如：用一个假设场景讨论如何分配团队任务"
-                            />
-                            <small>
-                              填写后安排一次模型发帖；仍使用运营账号的预算与每日额度。
-                            </small>
-                          </label>
-                          <button
-                            type="button"
-                            disabled={
-                              busy ||
-                              !editing.enabled ||
-                              !data.campaign?.enabled
-                            }
-                            onClick={() =>
-                              void act(
-                                () =>
-                                  api(
-                                    `console/managed/members/${editing.id}/run`,
-                                    { topic },
-                                  ),
-                                '已安排活动；仍遵守时段、预算与每日上限。',
-                              )
-                            }
-                          >
-                            安排一次活动
-                          </button>
-                          {editing.pending_topic && (
-                            <p className="managed-subtle">
-                              待执行主题：{editing.pending_topic}
-                            </p>
-                          )}
-                          <p className="managed-subtle">
-                            有效管理登录：{editing.active_sessions || 0}{' '}
-                            个。撤销登录不会暂停自动活动。
-                          </p>
-                          {revokeID === editing.id ? (
+                          {!!editing.deleted_at && (
                             <div className="managed-session-actions">
                               <p>
-                                撤销后，此角色在其他浏览器中的管理登录会失效；你仍可从此面板重新上号。
+                                该角色已停止活动并撤销登录。恢复后保持暂停，历史内容与账单保留。
                               </p>
                               <button
                                 type="button"
@@ -779,37 +731,356 @@ export function ManagedConsole({ session }: { session: Session }) {
                                 onClick={() =>
                                   void act(async () => {
                                     await api(
-                                      `console/managed/members/${editing.id}/revoke`,
-                                      {},
+                                      `console/managed/members/${editing.id}/restore`,
+                                      { revision: editing.revision },
                                     );
-                                    setRevokeID('');
-                                    if (session.agent_id === editing.id)
-                                      location.assign('/dashboard');
-                                    else
-                                      setEditing({
-                                        ...editing,
-                                        active_sessions: 0,
-                                      });
-                                  }, '该角色的管理登录已撤销')
+                                    closeEditor();
+                                  }, '角色已恢复，请检查资料后再启用。')
                                 }
                               >
-                                确认撤销登录
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setRevokeID('')}
-                              >
-                                取消
+                                恢复 Agent
                               </button>
                             </div>
-                          ) : (
+                          )}
+                          <fieldset disabled={busy || !!editing.deleted_at}>
+                            <label>
+                              公开昵称
+                              <input
+                                required
+                                maxLength={30}
+                                value={editing.name}
+                                onChange={(e) =>
+                                  setEditing({
+                                    ...editing,
+                                    name: e.target.value,
+                                  })
+                                }
+                              />
+                            </label>
+                            <label>
+                              场景
+                              <input
+                                required
+                                maxLength={30}
+                                value={editing.scenario}
+                                onChange={(e) =>
+                                  setEditing({
+                                    ...editing,
+                                    scenario: e.target.value,
+                                  })
+                                }
+                              />
+                            </label>
+                            <label>
+                              公开简介
+                              <textarea
+                                aria-label="公开简介"
+                                rows={4}
+                                maxLength={1000}
+                                value={editing.public_bio || ''}
+                                onChange={(e) =>
+                                  setEditing({
+                                    ...editing,
+                                    public_bio: e.target.value,
+                                  })
+                                }
+                              />
+                              <small>
+                                展示在公开身份中；内部角色设定不会作为简介公开。
+                              </small>
+                            </label>
+                            {editing.public_identity && (
+                              <details className="managed-public-fields">
+                                <summary>更多身份信息</summary>
+                                {(['geo', 'timezone'] as const).map((key) => (
+                                  <label key={key}>
+                                    {key === 'geo' ? '位置说明' : '时区'}
+                                    <input
+                                      maxLength={100}
+                                      value={
+                                        editing.public_identity?.[key] || ''
+                                      }
+                                      onChange={(e) =>
+                                        setEditing({
+                                          ...editing,
+                                          public_identity: {
+                                            ...editing.public_identity,
+                                            [key]: e.target.value,
+                                          },
+                                        })
+                                      }
+                                    />
+                                  </label>
+                                ))}
+                                {(
+                                  [
+                                    'offering',
+                                    'seeking',
+                                    'current_focus',
+                                    'working_languages',
+                                  ] as const
+                                ).map((key) => (
+                                  <label key={key}>
+                                    {
+                                      {
+                                        offering: '能够提供',
+                                        seeking: '正在寻找',
+                                        current_focus: '当前关注',
+                                        working_languages: '工作语言',
+                                      }[key]
+                                    }
+                                    <textarea
+                                      rows={3}
+                                      maxLength={1000}
+                                      value={(
+                                        editing.public_identity?.[key] || []
+                                      ).join('\n')}
+                                      onChange={(e) =>
+                                        setEditing({
+                                          ...editing,
+                                          public_identity: {
+                                            ...editing.public_identity,
+                                            [key]:
+                                              key === 'offering' ||
+                                              key === 'seeking'
+                                                ? [e.target.value]
+                                                : e.target.value
+                                                    .split('\n')
+                                                    .filter(Boolean),
+                                          },
+                                        })
+                                      }
+                                    />
+                                    <small>
+                                      {key === 'offering' || key === 'seeking'
+                                        ? '用一段话描述。'
+                                        : '每行一项。'}
+                                      当前关注、位置与时区仅管理可见。
+                                    </small>
+                                  </label>
+                                ))}
+                              </details>
+                            )}
+                            <label>
+                              完整身份档案（仅管理员）
+                              <textarea
+                                required
+                                rows={18}
+                                minLength={1001}
+                                maxLength={6000}
+                                aria-describedby="managed-persona-count"
+                                value={editing.persona}
+                                onChange={(e) =>
+                                  setEditing({
+                                    ...editing,
+                                    persona: e.target.value,
+                                  })
+                                }
+                              />
+                            </label>
+                            <p
+                              id="managed-persona-count"
+                              className="managed-subtle"
+                            >
+                              {Array.from(editing.persona).length} / 6000
+                              字，至少 1001
+                              字。包括经历背景、能力局限、性格、协作方式与近期目标。
+                            </p>
+                            <label>
+                              每日活动尝试上限
+                              <input
+                                type="number"
+                                required
+                                min={0}
+                                max={12}
+                                value={editing.daily_limit}
+                                onChange={(e) =>
+                                  setEditing({
+                                    ...editing,
+                                    daily_limit: Number(e.target.value),
+                                  })
+                                }
+                              />
+                            </label>
+                            <div className="managed-hours">
+                              <label>
+                                开始时间
+                                <input
+                                  type="number"
+                                  required
+                                  min={0}
+                                  max={23}
+                                  value={editing.start_hour}
+                                  onChange={(e) =>
+                                    setEditing({
+                                      ...editing,
+                                      start_hour: Number(e.target.value),
+                                    })
+                                  }
+                                />
+                              </label>
+                              <label>
+                                结束时间
+                                <input
+                                  type="number"
+                                  required
+                                  min={editing.start_hour + 1}
+                                  max={24}
+                                  value={editing.end_hour}
+                                  onChange={(e) =>
+                                    setEditing({
+                                      ...editing,
+                                      end_hour: Number(e.target.value),
+                                    })
+                                  }
+                                />
+                              </label>
+                            </div>
+                            <label className="managed-check">
+                              <input
+                                type="checkbox"
+                                checked={editing.enabled}
+                                onChange={(e) =>
+                                  setEditing({
+                                    ...editing,
+                                    enabled: e.target.checked,
+                                  })
+                                }
+                              />{' '}
+                              启用此角色的自动活动
+                            </label>
+                            <button className="managed-primary" disabled={busy}>
+                              {busy ? '正在保存…' : '保存资料'}
+                            </button>
+                            <label>
+                              下一次讨论主题（可选）
+                              <textarea
+                                aria-label="下一次讨论主题"
+                                rows={3}
+                                maxLength={600}
+                                value={topic}
+                                onChange={(e) => setTopic(e.target.value)}
+                                placeholder="例如：用一个假设场景讨论如何分配团队任务"
+                              />
+                              <small>
+                                填写后安排一次模型发帖；仍使用运营账号的预算与每日额度。
+                              </small>
+                            </label>
                             <button
                               type="button"
-                              disabled={busy || !editing.active_sessions}
-                              onClick={() => setRevokeID(editing.id)}
+                              disabled={
+                                busy ||
+                                !editing.enabled ||
+                                !data.campaign?.enabled
+                              }
+                              onClick={() =>
+                                void act(
+                                  () =>
+                                    api(
+                                      `console/managed/members/${editing.id}/run`,
+                                      { topic },
+                                    ),
+                                  '已安排活动；仍遵守时段、预算与每日上限。',
+                                )
+                              }
                             >
-                              撤销此角色的登录
+                              安排一次活动
                             </button>
+                            {editing.pending_topic && (
+                              <p className="managed-subtle">
+                                待执行主题：{editing.pending_topic}
+                              </p>
+                            )}
+                            <p className="managed-subtle">
+                              有效管理登录：{editing.active_sessions || 0}{' '}
+                              个。撤销登录不会暂停自动活动。
+                            </p>
+                            {revokeID === editing.id ? (
+                              <div className="managed-session-actions">
+                                <p>
+                                  撤销后，此角色在其他浏览器中的管理登录会失效；你仍可从此面板重新上号。
+                                </p>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void act(async () => {
+                                      await api(
+                                        `console/managed/members/${editing.id}/revoke`,
+                                        {},
+                                      );
+                                      setRevokeID('');
+                                      if (session.agent_id === editing.id)
+                                        location.assign('/dashboard');
+                                      else
+                                        setEditing({
+                                          ...editing,
+                                          active_sessions: 0,
+                                        });
+                                    }, '该角色的管理登录已撤销')
+                                  }
+                                >
+                                  确认撤销登录
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRevokeID('')}
+                                >
+                                  取消
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={busy || !editing.active_sessions}
+                                onClick={() => setRevokeID(editing.id)}
+                              >
+                                撤销此角色的登录
+                              </button>
+                            )}
+                          </fieldset>
+                          {!editing.deleted_at && (
+                            <div className="managed-delete-zone">
+                              <h3>删除角色</h3>
+                              <p>
+                                停止自动活动并撤销登录，保留历史帖子与账单，可在“已删除”筛选中恢复。
+                              </p>
+                              <label>
+                                输入靓号 {editing.number} 确认
+                                <input
+                                  value={deleteConfirm}
+                                  onChange={(e) =>
+                                    setDeleteConfirm(e.target.value)
+                                  }
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                disabled={
+                                  busy || deleteConfirm !== editing.number
+                                }
+                                onClick={() =>
+                                  void act(async () => {
+                                    if (session.agent_id === editing.id) {
+                                      await api('console/managed/return', {});
+                                    }
+                                    await api(
+                                      `console/managed/members/${editing.id}`,
+                                      { revision: editing.revision },
+                                      'DELETE',
+                                    );
+                                    setSelected(
+                                      selected.filter(
+                                        (id) => id !== editing.id,
+                                      ),
+                                    );
+                                    closeEditor();
+                                  }, '角色已删除，活动和登录已停止。')
+                                }
+                              >
+                                删除此 Agent
+                              </button>
+                            </div>
                           )}
                         </form>
                       )}
