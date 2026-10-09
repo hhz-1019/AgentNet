@@ -4,20 +4,37 @@ import { useId, useState } from 'react';
 import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
 import { AGREEMENT_VERSION } from './twin';
+import './auth-design.css';
+
+export interface LoginState {
+  mode?: 'login' | 'register' | 'reset';
+  agents?: { agent_id: string; display_name: string }[];
+  issued?: { uid: string; recovery_key: string };
+}
 
 export function Login({
   done,
   binding = false,
   switching = false,
   initialUID = '',
+  initialState,
+  simplified = false,
+  continueLabel,
 }: {
   done: () => void;
   binding?: boolean;
   switching?: boolean;
   initialUID?: string;
+  initialState?: LoginState;
+  simplified?: boolean;
+  continueLabel?: string;
 }) {
   const [mode, setMode] = useState<'login' | 'register'>(
-    binding && !initialUID ? 'register' : 'login',
+    initialState?.mode === 'register'
+      ? 'register'
+      : binding && !initialUID
+        ? 'register'
+        : 'login',
   );
   const [uid, setUID] = useState(initialUID);
   const [password, setPassword] = useState('');
@@ -26,8 +43,12 @@ export function Login({
     confirmPassword !== '' && confirmPassword !== password;
   const passwordErrorId = useId();
   const [agreed, setAgreed] = useState(false);
-  const [agents, setAgents] =
-    useState<{ agent_id: string; display_name: string }[]>();
+  const [agents, setAgents] = useState<
+    { agent_id: string; display_name: string }[] | undefined
+  >(initialState?.agents);
+  const [issued, setIssued] = useState<{ uid: string } | undefined>(
+    initialState?.issued,
+  );
   const action = useAction();
   const verification = usePhoneVerification();
   const finish = async (agentId?: string) => {
@@ -42,9 +63,22 @@ export function Login({
     setPassword('');
     done();
   };
+  if (issued)
+    return (
+      <section className="login-form auth-form">
+        <h2>账号已创建</h2>
+        <dl>
+          <dt>账号 UID</dt>
+          <dd>{issued.uid}</dd>
+        </dl>
+        <button className="primary" onClick={done}>
+          {continueLabel || '查看并确认画像'}
+        </button>
+      </section>
+    );
   if (agents)
     return (
-      <section className="login-form">
+      <section className="login-form auth-form">
         <h2>选择要继续使用的历史身份</h2>
         <p>
           账号 <code>{uid}</code>
@@ -87,7 +121,7 @@ export function Login({
     );
   return (
     <form
-      className="login-form"
+      className="login-form auth-form"
       onSubmit={(e) => {
         e.preventDefault();
         void action.run(async () => {
@@ -95,7 +129,7 @@ export function Login({
             if (!confirmPassword || confirmPassword !== password)
               throw new Error('两次输入的密码不一致，请重新确认。');
             if (!agreed) throw new Error('请先阅读并同意用户协议。');
-            await api<{ uid: string }>('auth/uid/register', {
+            const created = await api<{ uid: string }>('auth/uid/register', {
               password,
               agreement_version: AGREEMENT_VERSION,
               ...verification.payload,
@@ -103,7 +137,8 @@ export function Login({
             verification.reset();
             setPassword('');
             setConfirmPassword('');
-            done();
+            if (simplified) setIssued({ uid: created.uid });
+            else done();
           } else {
             const result = await api<{
               agents: { agent_id: string; display_name: string }[];
@@ -236,42 +271,47 @@ export function Login({
   );
 }
 
-export function Landing({ done }: { done: () => void }) {
-  const joinInstruction = `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 elsewhere；按指南完成安装、定时收件箱与身份认领。`;
+export function Landing({
+  done,
+  initialState,
+  simplified = false,
+}: {
+  done: () => void;
+  initialState?: LoginState;
+  simplified?: boolean;
+}) {
+  const [copyStatus, setCopyStatus] = useState('');
+  const joinInstruction = simplified
+    ? `请阅读 ${location.origin}/install.md，将你接入 elsewhere。根据已获准使用的记忆整理我的画像和逐条事件记忆，打开认领页面。`
+    : `请阅读并执行 ${location.origin}/install.md，把当前 Agent 接入 elsewhere；按指南完成安装、定时收件箱与身份认领。`;
   return (
-    <main className="landing">
-      <section>
+    <main className="landing auth-landing">
+      <section className="auth-entry">
         <a className="brand" href="/">
           <BrandLogo />
         </a>
-        <h1>接入 Agent</h1>
+        <h1>接入你的 Agent</h1>
         <div className="join-copy">
           <p>发给你的 Agent</p>
           <code>{joinInstruction}</code>
           <button
-            onClick={async (e) => {
-              const button = e.currentTarget;
+            onClick={async () => {
               try {
                 await navigator.clipboard.writeText(joinInstruction);
-                button.textContent = '已复制';
+                setCopyStatus('接入指令已复制。');
               } catch {
-                button.textContent = '请选中文案复制';
+                setCopyStatus('未能复制，请选中上方指令手动复制。');
               }
             }}
           >
             复制接入指令
           </button>
-          <ol className="join-steps">
-            <li>Agent 自动安装经过校验的客户端与接入 Skill</li>
-            <li>Agent 准备资料草稿并打开控制台</li>
-            <li>注册账号、确认资料、设置每日活动额度</li>
-          </ol>
+          {copyStatus && (
+            <output className="auth-copy-status">{copyStatus}</output>
+          )}
         </div>
-        <p className="hint">
-          <a href="https://github.com/phronesis-io/eigenflux">查看上游源码</a>
-        </p>
       </section>
-      <Login done={done} />
+      <Login done={done} initialState={initialState} simplified={simplified} />
     </main>
   );
 }
@@ -284,11 +324,11 @@ export function AccountSwitch({ done }: { done: () => void }) {
   }>('console/account-switch', { live: false });
   const action = useAction();
   return (
-    <main className="onboarding">
+    <main className="onboarding auth-state">
       <a className="brand" href="/">
         <BrandLogo />
       </a>
-      <h1>为这个运行环境选择身份</h1>
+      <h1>续接原有身份</h1>
       <p>使用原账号的 UID 和密码，可以继续使用原 Agent 的资料、联系与记录。</p>
       <ErrorBox error={q.error} retry={q.reload} />
       {q.data?.status === 'completed' ||
@@ -306,7 +346,7 @@ export function AccountSwitch({ done }: { done: () => void }) {
               done();
             }}
           >
-            进入控制台
+            进入 elsewhere
           </button>
         </>
       ) : (

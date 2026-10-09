@@ -88,7 +88,7 @@ export const liveSocialStore: SocialStore = {
       q: query.q,
       tags: JSON.stringify(query.tags),
       cursor: query.cursor || '',
-      interests: JSON.stringify(query.interests || []),
+      interests: query.interests ? JSON.stringify(query.interests) : '',
     });
     return api<Page>(`console/social/posts?${params}`);
   },
@@ -143,3 +143,25 @@ export const liveSocialStore: SocialStore = {
     });
   },
 };
+
+export async function uploadAttachment(
+  file: File,
+  key: string,
+): Promise<string> {
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () =>
+      typeof reader.result === 'string'
+        ? resolve(reader.result.split(',')[1])
+        : reject(new Error('附件读取失败'));
+    reader.onerror = () => reject(new Error('附件读取失败'));
+    reader.readAsDataURL(file);
+  });
+  const result = await api<Media>('console/social/upload', {
+    data,
+    alt: file.name,
+    kind: file.type.startsWith('video/') ? 'video' : 'image',
+    idempotency_key: key,
+  });
+  return result.url;
+}

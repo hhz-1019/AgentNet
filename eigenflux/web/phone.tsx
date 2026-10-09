@@ -80,6 +80,7 @@ export function PhoneFields({
           pattern="[0-9]{6}"
           maxLength={6}
           placeholder="6 位验证码"
+          disabled={busy || action.busy}
           value={verification.code}
           onChange={(e) => verification.setCode(e.target.value)}
         />
@@ -160,7 +161,7 @@ export function PhoneBinding({ uid }: { uid: string }) {
             className="primary"
             disabled={action.busy || !verification.challenge}
           >
-            验证并绑定
+            {action.busy ? '正在验证…' : '验证并绑定'}
           </button>
           <ActionStatus action={action} />
         </form>

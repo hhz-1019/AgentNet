@@ -23,7 +23,7 @@ try {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     let registered = false,
-      personalRevision = 1,
+      personalRevision = 0,
       policyRevision = 0;
     let state = { state: 'in_progress', current_step: 2, revision: 1 };
     let draft = {
@@ -48,15 +48,7 @@ try {
         current_goal: '找到研究伙伴',
       },
     };
-    let profile = {
-      name: '',
-      basic_info: {},
-      persona: { traits: {} },
-      episodes: [],
-      knowledge: [],
-      relationships: [],
-      current_goal: '',
-    };
+    let profile = {fields:{name:'',bio:'',interests:'',role:'',values:'',recent:''},visible:['name','bio','interests'],memories:[]};
     let policy = {
       daily_posts: 3,
       daily_searches: 20,
@@ -113,6 +105,10 @@ try {
           state: body.step === 5 ? 'completed' : 'in_progress',
         };
         data = state;
+      } else if (path === 'console/portrait') {
+        if(method==='PUT') {assert.equal(body.expected_revision,personalRevision);profile.fields={...profile.fields,...body.fields};profile.visible=body.visible;profile.memories=(profile.memories||[]).filter((m)=>!body.deletes.includes(m.id));for(const m of body.upserts){profile.memories=profile.memories.filter((old)=>old.id!==m.id);profile.memories.push(m);}data={revision:++personalRevision};}
+        else data={...profile,revision:personalRevision,next_cursor:'',total:profile.memories.length};
+      } else if(path==='console/portrait/confirm') {assert.equal(body.revision,personalRevision);assert.equal(body.agreed,true);state={...state,state:'completed'};data={completed:true};
       } else if (path === 'console/twin') {
         if (method === 'PUT') {
           assert.equal(body.expected_revision, personalRevision);
@@ -158,6 +154,7 @@ try {
       });
     });
     await page.goto('http://127.0.0.1:4324/dashboard');
+    await page.locator('.ew-brand-entry').waitFor({state:'hidden'});
     // Start from an unowned handoff session; the first page is registration.
     // App's session fixture has an unclaimed owner but an incomplete identity.
     await page.getByLabel('手机号', { exact: false }).fill('13800138000');
@@ -180,87 +177,33 @@ try {
       fullPage: true,
     });
     await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
-    await page.getByRole('heading', { name: '确认你的基础资料' }).waitFor();
-    assert.equal(
-      await page.getByLabel('你的昵称', { exact: false }).inputValue(),
-      '预填昵称',
-    );
-    assert.equal(
-      await page.getByLabel('Agent 宿主', { exact: false }).isDisabled(),
-      true,
-    );
-    await page.getByLabel('你的昵称', { exact: false }).fill('修改后的昵称');
-    await page.screenshot({
-      path: `${dir}/profile-${width}.png`,
-      fullPage: true,
-    });
-    assert.equal(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-      true,
-    );
-    await page.getByRole('button', { name: '保存资料，设置活动' }).click();
-    await page
-      .getByRole('heading', { name: '管理 Agent 的每日活动' })
-      .waitFor();
-    assert.equal(profile.name, '修改后的昵称');
-    await page.getByLabel('每日发帖上限', { exact: false }).fill('2');
-    await page.getByLabel('每日搜索／发现上限', { exact: false }).fill('12');
-    await page.getByLabel('每日反馈上限', { exact: false }).fill('6');
-    await page.reload();
-    await page
-      .getByRole('heading', { name: '管理 Agent 的每日活动' })
-      .waitFor();
-    await page.getByLabel('每日发帖上限', { exact: false }).fill('2');
-    await page.getByLabel('每日搜索／发现上限', { exact: false }).fill('12');
-    await page.getByLabel('每日反馈上限', { exact: false }).fill('6');
-    await page.screenshot({
-      path: `${dir}/activity-${width}.png`,
-      fullPage: true,
-    });
-    await page.getByRole('button', { name: '完成设置，进入主页' }).click();
+    await page.getByRole('heading',{name:'确认画像',exact:true}).waitFor();
+    assert.equal(await page.getByLabel('昵称',{exact:false}).inputValue(),'预填昵称');
+    assert.equal(await page.getByLabel('接入应用').isDisabled(),true);
+    assert.equal(await page.getByText('恢复密钥',{exact:false}).count(),0);
+    await page.getByLabel('昵称',{exact:false}).fill('修改后的昵称');
+    await page.getByRole('checkbox',{name:/我同意/}).check();
+    await page.screenshot({path:`${dir}/profile-${width}.png`,fullPage:true});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.getByRole('button',{name:'确认画像，进入 elsewhere'}).click();
     await page.locator('.sw-workspace').waitFor();
-    assert.equal(state.state, 'completed');
-    assert.equal(policy.daily_posts, 2);
-    assert.equal(policy.daily_searches, 12);
-    assert.equal(policy.daily_feedback, 6);
-    await page.goto('http://127.0.0.1:4324/dashboard/settings');
-    await page
-      .getByRole('heading', { name: '个人资料与 Agent 活动' })
-      .waitFor();
-    assert.equal(
-      await page.getByLabel('你的昵称', { exact: false }).inputValue(),
-      '修改后的昵称',
-    );
-    await page
-      .getByLabel('你的昵称', { exact: false })
-      .fill('设置中修改的昵称');
-    await page
-      .getByRole('button', { name: '保存个人资料', exact: true })
-      .click();
-    await page.getByLabel('每日发帖上限', { exact: false }).fill('1');
-    await page
-      .getByRole('button', { name: '保存活动额度', exact: true })
-      .click();
-    await page.reload();
-    await page
-      .getByRole('heading', { name: '个人资料与 Agent 活动' })
-      .waitFor();
-    await page.getByLabel('你的昵称', { exact: false }).waitFor();
-    assert.equal(
-      await page.getByLabel('你的昵称', { exact: false }).inputValue(),
-      '设置中修改的昵称',
-    );
-    assert.equal(
-      await page.getByLabel('每日发帖上限', { exact: false }).inputValue(),
-      '1',
-    );
+    assert.equal(state.state,'completed');assert.equal(profile.fields.name,'修改后的昵称');
+    await page.goto('http://127.0.0.1:4324/dashboard/profile');
+    await page.getByLabel('昵称',{exact:false}).fill('设置中修改的昵称');
+    await page.getByRole('button',{name:'保存资料',exact:true}).click();
+    await page.getByText('资料已保存。',{exact:true}).waitFor();
+    await page.reload();await page.getByLabel('昵称',{exact:false}).waitFor();
+    assert.equal(await page.getByLabel('昵称',{exact:false}).inputValue(),'设置中修改的昵称');
+    await page.goto('http://127.0.0.1:4324/dashboard/security');
+    await page.getByLabel('每日发帖上限',{exact:false}).fill('1');
+    await page.getByRole('button',{name:'保存活动额度',exact:true}).click();
+    await page.getByText('已保存',{exact:false}).first().waitFor();
+    assert.equal(policy.daily_posts,1);
     assert.deepEqual(errors, []);
     await page.close();
   }
   console.log(
-    'Twin registration/profile/activity/resume UI passed at 1440px and 390px. API/auth are explicit fixtures.',
+    'Registration/portrait confirmation/profile persistence/activity settings UI passed at 1440px and 390px. API/auth are explicit fixtures.',
   );
 } finally {
   await browser.close();

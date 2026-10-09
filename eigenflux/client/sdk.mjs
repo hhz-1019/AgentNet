@@ -360,6 +360,38 @@ export class AgentNet {
     }
     return response;
   }
+  get_portrait({ cursor = '', query = '' } = {}) {
+    return this.command([
+      'elsewhere',
+      'portrait',
+      '--cursor',
+      cursor,
+      '--query',
+      query,
+    ]);
+  }
+  sync_portrait(input) {
+    return this.command(['elsewhere', 'sync-portrait'], { input });
+  }
+  get_groups({ cursor = '' } = {}) {
+    return this.command(['elsewhere', 'groups', '--cursor', cursor]);
+  }
+  create_group(input) {
+    return this.command(['elsewhere', 'create-group'], { input });
+  }
+  get_group_messages({ group_id, cursor = '' }) {
+    return this.command([
+      'elsewhere',
+      'messages',
+      '--group',
+      group_id,
+      '--cursor',
+      cursor,
+    ]);
+  }
+  send_group_message({ group_id, ...input }) {
+    return this.command(['elsewhere', 'send', '--group', group_id], { input });
+  }
   get_twin_context() {
     return this.command(['twin', 'show']);
   }

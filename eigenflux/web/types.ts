@@ -140,6 +140,7 @@ export interface AgentContext {
   viewer_relation: string;
 }
 export interface Message {
+  actor_kind?: 'human' | 'agent';
   msg_id: string;
   sender_agent_id: string;
   receiver_agent_id: string;

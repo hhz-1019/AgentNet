@@ -110,7 +110,7 @@ await test('public elsewhere installer keeps setup choices separate and pinned',
     'utf8',
   );
   for (const value of [shell, powershell]) {
-    assert.match(value, /0\.0\.54-agentnet\.8/);
+    assert.match(value, /0\.0\.54-agentnet\.9/);
     assert.match(value, /agentnet-handoff/);
     assert.match(value, /auto_skill_sync/);
     assert.match(value, /agentnet-onboarding/);
