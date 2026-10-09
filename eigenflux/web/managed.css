@@ -234,7 +234,7 @@
   gap: 25px;
 }
 .managed-roster.has-editor {
-  grid-template-columns: minmax(0, 1fr) 310px;
+  grid-template-columns: minmax(0, 1fr) 440px;
 }
 .managed-table-wrap {
   overflow: auto;
@@ -510,4 +510,88 @@
   font-weight: normal;
   color: #596b60;
   line-height: 1.6;
+}
+.managed-roster-tools,
+.managed-create header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 20px 0;
+}
+.managed-scene-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0 24px;
+}
+.managed-scene-strip button[aria-pressed='true'] {
+  background: #39352f;
+  color: #fff;
+}
+.managed-create {
+  background: #fff;
+  border: 1px solid var(--managed-line);
+  padding: 24px;
+  margin: 20px 0;
+}
+.managed-create label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+.managed-create textarea {
+  width: 100%;
+  line-height: 1.7;
+}
+.managed-create-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.managed-editor fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.managed-editor textarea {
+  line-height: 1.65;
+}
+.managed-delete-zone {
+  border-top: 1px solid var(--managed-line);
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.managed-delete-zone p,
+.managed-source-status p {
+  line-height: 1.7;
+}
+.managed-delete-zone button {
+  color: #943628;
+  margin-top: 12px;
+}
+.managed-source-status {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--managed-line);
+}
+.managed-source-status summary {
+  cursor: pointer;
+}
+@media (max-width: 640px) {
+  .managed-create-fields {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .managed-roster-tools {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .managed-create {
+    padding: 16px;
+  }
 }

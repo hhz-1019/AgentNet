@@ -24,6 +24,23 @@ func (s *Service) managedBeat(state string) {
 }
 
 func (s *Service) managedOverview(owner string, payload map[string]any) error {
+	templates := []managedPersona{}
+	index := 0
+	for _, count := range managedSceneCounts {
+		templates = append(templates, managedRichPersona(index, "新角色"))
+		index += count
+	}
+	payload["profile_templates"] = templates
+	var sources []struct {
+		FeedURL   string `json:"feed_url"`
+		FetchedAt int64  `json:"fetched_at"`
+		Status    string `json:"status"`
+		ItemCount int    `json:"item_count"`
+	}
+	if err := s.db.Raw(`SELECT feed_url,fetched_at,status,jsonb_array_length(items) AS item_count FROM managed_source_cache ORDER BY feed_url`).Scan(&sources).Error; err != nil {
+		return err
+	}
+	payload["sources"] = sources
 	var health struct {
 		LastSeenAt int64  `json:"last_seen_at"`
 		State      string `json:"state"`

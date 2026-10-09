@@ -16,21 +16,28 @@ func managedEditorialPlan(tx *gorm.DB, job managedJob, now time.Time) (string, t
 	if err := tx.Raw(`SELECT count(*) FROM social_work_posts p JOIN managed_members m USING(agent_id) WHERE m.sponsor_uid=? AND m.scenario=? AND p.state='published' AND p.visibility='public' AND p.published_at>=?`, job.SponsorUID, job.Scenario, midnight.UnixMilli()).Scan(&published).Error; err != nil {
 		return "", time.Time{}, err
 	}
-	if published > 0 {
+	scene := managedSceneIndex(job.Scenario)
+	if scene < 0 {
+		return "", time.Time{}, nil
+	}
+	targets := []int64{3, 3, 2, 2, 1, 1, 1, 1}
+	if scene >= 6 && (day+int64(scene))%3 != 0 {
+		return "", time.Time{}, nil
+	}
+	if published >= targets[scene] {
 		return "", time.Time{}, nil
 	}
 	var lead struct {
 		AgentID                       int64
 		SeedIndex, StartHour, EndHour int
 	}
-	if err := tx.Raw(`SELECT m.agent_id,m.seed_index,m.start_hour,m.end_hour FROM managed_members m JOIN agents a USING(agent_id) WHERE m.sponsor_uid=? AND m.scenario=? AND m.enabled AND m.daily_limit>0 AND a.identity_state='active' AND m.end_hour>? AND (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.day=?::date)<m.daily_limit ORDER BY mod(m.seed_index+?,10),m.seed_index LIMIT 1`, job.SponsorUID, job.Scenario, local.Hour(), local.Format("2006-01-02"), day).Scan(&lead).Error; err != nil {
+	if err := tx.Raw(`SELECT m.agent_id,m.seed_index,m.start_hour,m.end_hour FROM managed_members m JOIN agents a USING(agent_id) WHERE m.sponsor_uid=? AND m.scenario=? AND m.enabled AND m.deleted_at=0 AND m.daily_limit>0 AND a.identity_state='active' AND m.end_hour>? AND (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.day=?::date)<m.daily_limit ORDER BY md5(m.agent_id::text || ?),m.seed_index LIMIT 1`, job.SponsorUID, job.Scenario, local.Hour(), local.Format("2006-01-02"), fmt.Sprintf("%d:%d", day, published)).Scan(&lead).Error; err != nil {
 		return "", time.Time{}, err
 	}
 	if lead.AgentID != job.AgentID {
 		return "", time.Time{}, nil
 	}
-	scene := lead.SeedIndex / 10
-	offset := min(45, (lead.EndHour-lead.StartHour)*6) * scene
+	offset := (lead.EndHour-lead.StartHour)*60*int(published)/int(targets[scene]) + min(20, (lead.EndHour-lead.StartHour)*2)*scene/2
 	due := midnight.Add(time.Duration(lead.StartHour*60+offset) * time.Minute)
 	if now.Before(due) {
 		return "", due, nil
@@ -51,7 +58,8 @@ func managedEditorialPlan(tx *gorm.DB, job managedJob, now time.Time) (string, t
 		return "", time.Time{}, nil
 	}
 	formats := []string{"用三步可执行流程", "比较两个方案并说明适用条件", "给出一个具体的假设例子和拆解", "列出三个常见误区及修正办法", "提供一份简短可复用清单", "解释一个反例和改进过程"}
-	topic := topics[scene][int(day)%len(topics[scene])]
+	topicScene := []int{0, 1, 2, 3, 6, 7, 8, 5}[scene]
+	topic := topics[topicScene][(int(day)+int(published))%len(topics[topicScene])]
 	format := formats[int(day)%len(formats)]
 	return fmt.Sprintf("今日场景主题：%s。%s，发一篇有具体增量的图文帖；同时给出 visual 图解结构。参考 recent_scene_titles 避免重复角度，正文必须包含可实践的方法或清楚的假设示例，不能只抛问题。资料不足、不安全或没有新意时仍应 skip。", topic, format), time.Time{}, nil
 }

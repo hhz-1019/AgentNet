@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -41,14 +42,17 @@ func TestManagedCatalogAndCredentialBoundary(t *testing.T) {
 		if names[p.Name] || !strings.Contains(p.Persona, "AI") {
 			t.Fatal(p)
 		}
+		if utf8.RuneCountInString(p.Persona) < 1001 || utf8.RuneCountInString(p.Persona) > 6000 {
+			t.Fatal("profile length", p.Name, utf8.RuneCountInString(p.Persona))
+		}
 		names[p.Name] = true
 		scenes[p.Scenario]++
 	}
-	if len(scenes) != 10 {
+	if len(scenes) != 8 {
 		t.Fatal(scenes)
 	}
-	for _, n := range scenes {
-		if n != 10 {
+	for i, name := range managedScenes {
+		if scenes[name] != managedSceneCounts[i] {
 			t.Fatal(scenes)
 		}
 	}
@@ -159,6 +163,10 @@ func TestManagedFullSchema(t *testing.T) {
 	h.POST("/queue/:member_id", inject, s.queueManaged)
 	h.POST("/revoke/:member_id", inject, s.revokeManagedSessions)
 	h.POST("/return", inject, s.returnManagedOperator)
+	h.POST("/create", inject, s.createManagedMember)
+	h.POST("/profiles", inject, s.refreshManagedProfiles)
+	h.DELETE("/delete/:member_id", inject, s.deleteManagedMember)
+	h.POST("/restore/:member_id", inject, s.restoreManagedMember)
 	call := func(method, path string, body any, sessionID string, want int) []byte {
 		t.Helper()
 		raw, _ := json.Marshal(body)
@@ -168,6 +176,10 @@ func TestManagedFullSchema(t *testing.T) {
 		}
 		return r.Body()
 	}
+	call("POST", "/create", map[string]any{}, "invalid", 403)
+	call("POST", "/profiles", map[string]any{}, "invalid", 403)
+	call("DELETE", "/delete/1", map[string]any{"revision": 1}, "invalid", 403)
+	call("POST", "/restore/1", map[string]any{"revision": 1}, "invalid", 403)
 	call("GET", "/managed", nil, "invalid", 403)
 	call("POST", "/illustrate", map[string]any{}, "invalid", 403)
 	raw := call("GET", "/managed", nil, session.ID, 200)
@@ -411,8 +423,43 @@ func TestManagedFullSchema(t *testing.T) {
 	if quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != 0 {
 		t.Fatal("quiet turn charged", quietReceipt)
 	}
+	createBody := map[string]any{"name": "新增验收角色", "scenario": "科研交流", "persona": managedCatalog()[84].Persona}
+	created := call("POST", "/create", createBody, session.ID, 201)
+	var createdEnvelope struct {
+		Data struct {
+			AgentID string `json:"agent_id"`
+		} `json:"data"`
+	}
+	check(json.Unmarshal(created, &createdEnvelope))
+	customID := createdEnvelope.Data.AgentID
+	if customID == "" {
+		t.Fatal("missing created ID")
+	}
+	call("POST", "/create", createBody, session.ID, 409)
+	call("DELETE", "/delete/1", map[string]any{"revision": 1}, session.ID, 409)
+	call("DELETE", "/delete/"+customID, map[string]any{"revision": 1}, session.ID, 200)
+	call("POST", "/login/"+customID, map[string]any{}, session.ID, 403)
+	call("POST", "/batch", map[string]any{"ids": []string{customID}, "enabled": true}, session.ID, 403)
+	call("POST", "/restore/"+customID, map[string]any{"revision": 1}, session.ID, 409)
+	call("POST", "/restore/"+customID, map[string]any{"revision": 2}, session.ID, 200)
+	call("POST", "/login/"+customID, map[string]any{}, session.ID, 200)
+	call("DELETE", "/delete/"+customID, map[string]any{"revision": 3}, session.ID, 200)
+	check(db.Exec("UPDATE managed_members SET profile_version=0 WHERE seed_index<100").Error)
+	upgraded := call("POST", "/profiles", map[string]any{}, session.ID, 200)
+	if !strings.Contains(string(upgraded), "100") {
+		t.Fatal("profiles not upgraded")
+	}
+	repeated := call("POST", "/profiles", map[string]any{}, session.ID, 200)
+	if !strings.Contains(string(repeated), `"updated":0`) {
+		t.Fatal("profile refresh not idempotent")
+	}
+	var shortest int
+	check(db.Raw("SELECT min(length(persona)) FROM managed_members WHERE deleted_at=0").Scan(&shortest).Error)
+	if shortest < 1001 {
+		t.Fatal(shortest)
+	}
 	editorialTX := db.Begin()
-	check(editorialTX.Exec(`UPDATE managed_members SET enabled=true,daily_limit=2,start_hour=0,end_hour=24`).Error)
+	check(editorialTX.Exec(`UPDATE managed_members SET enabled=true,daily_limit=2,start_hour=0,end_hour=24 WHERE deleted_at=0`).Error)
 	tomorrow := time.Now().UTC().Add(48 * time.Hour)
 	tomorrow = time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 15, 0, 0, 0, time.UTC)
 	leads := 0
@@ -426,7 +473,14 @@ func TestManagedFullSchema(t *testing.T) {
 			t.Fatal("editorial slot unexpectedly deferred")
 		}
 	}
-	if leads != 10 {
+	day := tomorrow.UTC().Add(8*time.Hour).Unix() / 86400
+	expected := 6
+	for scene := 6; scene < 8; scene++ {
+		if (day+int64(scene))%3 == 0 {
+			expected++
+		}
+	}
+	if leads != expected {
 		t.Fatal("expected one lead per scene", leads)
 	}
 	check(editorialTX.Rollback().Error)
