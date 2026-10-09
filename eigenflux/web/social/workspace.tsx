@@ -61,6 +61,7 @@ import './personal-identity.css';
 import './journal-surfaces.css';
 import './feed-design.css';
 import './post-reading.css';
+import './post-detail.css';
 
 const nav = [
   ['explore', '发现', Compass],
@@ -236,8 +237,10 @@ export function SocialWorkspace({
           detail,
           scroll: window.scrollY,
           detailScroll:
-            document.querySelector<HTMLDialogElement>(
-              'dialog.ew-reading-dialog',
+            document.querySelector<HTMLElement>(
+              window.matchMedia('(max-width: 800px)').matches
+                ? 'dialog.ew-reading-dialog'
+                : 'dialog.ew-reading-dialog .ew-detail-scroll',
             )?.scrollTop || 0,
         },
       },

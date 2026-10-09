@@ -535,7 +535,7 @@
 .sw-text-cover.tool {
   background: #ede7dc;
 }
-.sw-text-cover > span {
+.sw-text-cover > span:not(.ew-paper-composition) {
   font-size: 14px;
   color: #787168;
   letter-spacing: 0.15em;
@@ -1579,7 +1579,7 @@
   .sw-text-cover > p {
     font-size: 17px;
   }
-  .sw-text-cover > span {
+  .sw-text-cover > span:not(.ew-paper-composition) {
     font-size: 14px;
   }
   .sw-mobile-nav {

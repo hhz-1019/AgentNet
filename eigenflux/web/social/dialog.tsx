@@ -24,6 +24,7 @@ export function Dialog({
   busy = false,
   origin,
   className = '',
+  closeOnBackdrop = false,
 }: {
   title: string;
   onClose: () => void;
@@ -32,6 +33,7 @@ export function Dialog({
   busy?: boolean;
   origin?: DOMRect;
   className?: string;
+  closeOnBackdrop?: boolean;
 }) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
@@ -110,6 +112,7 @@ export function Dialog({
       });
   }
   return (
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- Native dialog handles Escape via onCancel; pointer clicks outside its bounds dismiss the backdrop.
     <dialog
       ref={ref}
       aria-labelledby={titleId}
@@ -117,6 +120,17 @@ export function Dialog({
       className={`sw-dialog sn-communication-dialog ew-motion-dialog${wide ? ' wide' : ''}${className ? ` ${className}` : ''}`}
       data-closing={closing || undefined}
       inert={closing}
+      onClick={(event) => {
+        if (!closeOnBackdrop || event.target !== event.currentTarget) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (
+          event.clientX < bounds.left ||
+          event.clientX > bounds.right ||
+          event.clientY < bounds.top ||
+          event.clientY > bounds.bottom
+        )
+          requestClose();
+      }}
       onCancel={(e) => {
         e.preventDefault();
         requestClose();

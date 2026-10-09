@@ -1,0 +1,202 @@
+/* Five compositions, one material language. All words come from the post. */
+.ew-paper-composition {
+  container-type: inline-size;
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 34px 28px 40px;
+  overflow: hidden;
+  isolation: isolate;
+  color: #302c26;
+  background: #ded9cc;
+  background-image: linear-gradient(125deg, #ffffff24, #94846a0a);
+  font-family: var(--ew-serif, 'Songti SC', serif);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-align: left;
+}
+.ew-paper-composition > .ew-paper-underlay {
+  position: absolute;
+  inset: 35px 42px 36px 30px;
+  background: #f7f0e2;
+  border: 1px solid #baad9547;
+  box-shadow: 2px 4px 5px #3d2f1920;
+  transform: rotate(3deg);
+  pointer-events: none;
+}
+.ew-paper-composition .ew-paper-leaf {
+  display: block;
+  position: relative;
+  padding: 28px 24px 34px;
+  min-height: 230px;
+  z-index: 1;
+  transform: rotate(-4deg);
+}
+.ew-paper-composition .ew-paper-stock {
+  display: block;
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: 1px solid #b8ab934d;
+  background: #fbf7ee;
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+  box-shadow: 1px 4px 5px #3d2f1926;
+  pointer-events: none;
+}
+.ew-paper-composition .ew-paper-heading {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  position: relative;
+  overflow: hidden;
+  font-size: clamp(26px, 9cqi, 40px);
+  line-height: 1.6;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.ew-paper-composition .ew-paper-caption {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  margin-top: 22px;
+  font-size: clamp(18px, 5.5cqi, 22px);
+  line-height: 1.9;
+  color: #655b4d;
+  overflow-wrap: anywhere;
+}
+.ew-paper-composition .ew-paper-slip {
+  display: none;
+}
+
+/* An invitation on a large sheet, with a small ink-colored note laid across it. */
+.ew-paper-invitation {
+  padding-bottom: 32px;
+}
+.ew-paper-invitation .ew-paper-leaf {
+  padding-top: 38px;
+  padding-bottom: 52px;
+}
+.ew-paper-invitation .ew-paper-leaf::before,
+.ew-paper-invitation .ew-paper-leaf::after {
+  content: '';
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  height: 1px;
+  background: #ab99744d;
+}
+.ew-paper-invitation .ew-paper-leaf::before {
+  top: 20px;
+}
+.ew-paper-invitation .ew-paper-leaf::after {
+  bottom: 24px;
+}
+.ew-paper-invitation .ew-paper-caption {
+  display: none;
+}
+.ew-paper-invitation .ew-paper-slip {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  position: relative;
+  z-index: 2;
+  width: 78%;
+  margin: -28px -8px 0 auto;
+  padding: 16px 18px;
+  overflow: hidden;
+  background: #302c26;
+  color: #faf3e6;
+  box-shadow: 2px 4px 5px #3d2f1938;
+  transform: rotate(5deg);
+  font-size: clamp(20px, 7cqi, 28px);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+/* A dark keepsake over a blank lined page, echoing the reference image. */
+.ew-paper-keepsake {
+  padding: 66px 24px 35px 72px;
+  background-color: #d8d2c5;
+}
+.ew-paper-keepsake .ew-paper-underlay {
+  inset: 26px 60px 40px 33px;
+  transform: rotate(-7deg);
+  background: repeating-linear-gradient(#faf6ec 0 31px, #d6cbb845 31px 32px);
+}
+.ew-paper-keepsake .ew-paper-leaf {
+  transform: rotate(5deg);
+  padding: 24px;
+  min-height: 218px;
+}
+.ew-paper-keepsake .ew-paper-stock {
+  background: #302c26;
+  border-color: #302c26;
+}
+.ew-paper-keepsake .ew-paper-heading {
+  color: #fff7e7;
+  font-size: clamp(26px, 9cqi, 38px);
+}
+.ew-paper-keepsake .ew-paper-caption {
+  color: #e3d6bf;
+  font-size: 18px;
+}
+
+/* A ruled journal page, a quiet letter, and a note with a broad margin. */
+.ew-paper-journal {
+  background-color: #dfd8c7;
+  padding: 24px 26px 28px;
+}
+.ew-paper-journal .ew-paper-leaf {
+  transform: rotate(-1.5deg);
+  padding: 30px 25px;
+}
+.ew-paper-journal .ew-paper-stock {
+  background: repeating-linear-gradient(#faf4e5 0 35px, #b9a48438 35px 36px);
+}
+.ew-paper-journal .ew-paper-heading {
+  font-size: clamp(26px, 8cqi, 34px);
+}
+.ew-paper-letter {
+  background-color: #e6dccb;
+  padding: 30px 28px 36px;
+}
+.ew-paper-letter .ew-paper-leaf {
+  transform: rotate(2deg);
+  padding: 36px 24px;
+}
+.ew-paper-letter .ew-paper-caption {
+  padding-top: 18px;
+  border-top: 1px solid #baad9566;
+}
+.ew-paper-margin {
+  background-color: #d9dccf;
+  padding: 28px 25px 34px;
+}
+.ew-paper-margin .ew-paper-leaf {
+  transform: rotate(-2deg);
+  padding: 26px 20px 30px 34px;
+}
+.ew-paper-margin .ew-paper-stock {
+  background-color: #f3f2e6;
+}
+.ew-paper-margin .ew-paper-leaf::before {
+  content: '';
+  position: absolute;
+  inset: 20px auto 20px 19px;
+  width: 1px;
+  background: #a281645c;
+}
+.ew-paper-margin .ew-paper-heading {
+  font-size: clamp(26px, 8.5cqi, 36px);
+}
+@media (max-width: 420px) {
+  .ew-paper-composition {
+    padding-inline: 22px;
+  }
+  .ew-paper-keepsake {
+    padding-left: 58px;
+  }
+}

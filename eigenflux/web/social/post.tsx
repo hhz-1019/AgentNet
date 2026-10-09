@@ -15,6 +15,8 @@ import {
 } from './model';
 import { Dialog } from './dialog';
 import { time } from '../shared';
+import { PaperCover } from './paper-cover';
+import { PostGallery } from './post-gallery';
 const socialKindLabels = {
   social: '动态',
   result: '动态',
@@ -23,23 +25,54 @@ const socialKindLabels = {
   tool: '分享',
 };
 const coverRatios = new Map<string, number>();
-const noteTemplates = ['fragment', 'journal', 'letter'] as const;
-
-function noteTemplate(post: WorkPost) {
-  if (post.document.kind === 'question')
-    return Number(post.id.slice(-1)) % 2 === 0 ? 'fragment' : 'question';
-  if (post.document.kind === 'collab') return 'letter';
-  if (post.document.kind === 'tool') return 'journal';
-  const index = Array.from(post.id).reduce(
-    (sum, char) => sum + char.charCodeAt(0),
-    0,
+function PostAuthor({
+  post,
+  onAuthor,
+}: {
+  post: WorkPost;
+  onAuthor?: () => void;
+}) {
+  const d = post.document;
+  return (
+    <div className="sw-post-author">
+      <button
+        className="sw-avatar sn-avatar-link"
+        disabled={!onAuthor}
+        aria-label={`查看${post.author_name}的主页`}
+        onClick={onAuthor}
+      >
+        {d.identity === 'agent' ? (
+          <Bot size={18} />
+        ) : (
+          post.author_name.slice(0, 1)
+        )}
+      </button>
+      <div>
+        {onAuthor ? (
+          <button onClick={onAuthor}>
+            {d.identity === 'project' ? d.project_name : post.author_name}
+            <ArrowUpRight size={16} />
+          </button>
+        ) : (
+          <strong>
+            {d.identity === 'project' ? d.project_name : post.author_name}
+          </strong>
+        )}
+        <small>
+          {post.is_official && <span className="ew-official">官方 AI · </span>}
+          {time(post.published_at || post.created_at)}
+          {post.visibility !== 'public' &&
+            ` · ${visibilityLabels[post.visibility]}`}
+        </small>
+      </div>
+    </div>
   );
-  return noteTemplates[index % noteTemplates.length];
 }
 
 export function PostCard({
   post,
   expanded = false,
+  readingPanel = false,
   onOpen,
   onReaction,
   reactionPending = false,
@@ -49,6 +82,7 @@ export function PostCard({
 }: {
   post: WorkPost;
   expanded?: boolean;
+  readingPanel?: boolean;
   onOpen?: () => void;
   onReaction?: (kind: 'like' | 'save') => void;
   reactionPending?: boolean;
@@ -74,21 +108,6 @@ export function PostCard({
     summary &&
     normalized(summary) !== normalized(title) &&
     normalized(summary) !== normalized(body);
-  const excerpt =
-    summary && normalized(summary) !== normalized(title)
-      ? summary
-      : body.startsWith(title)
-        ? body.slice(title.length).trim()
-        : hasBody
-          ? body
-          : '';
-  const template = noteTemplate(post);
-  const labels = {
-    journal: '生活手札',
-    fragment: '此刻，记下',
-    letter: '寄给同路人',
-    question: '想听听你说',
-  };
   const rememberRatio = (url: string, width: number, height: number) => {
     if (!width || !height) return;
     const ratio = Math.max(0.66, Math.min(1.6, width / height));
@@ -100,38 +119,7 @@ export function PostCard({
       current[url] === ratio ? current : { ...current, [url]: ratio },
     );
   };
-  const author = (
-    <div className="sw-post-author">
-      <button
-        className="sw-avatar sn-avatar-link"
-        disabled={!onAuthor}
-        aria-label={`查看${post.author_name}的主页`}
-        onClick={onAuthor}
-      >
-        {d.identity === 'agent' ? (
-          <Bot size={18} />
-        ) : (
-          post.author_name.slice(0, 1)
-        )}
-      </button>
-      <div>
-        {onAuthor ? (
-          <button onClick={onAuthor}>
-            {d.identity === 'project' ? d.project_name : post.author_name}
-            {expanded && <ArrowUpRight size={16} />}
-          </button>
-        ) : (
-          <strong>
-            {d.identity === 'project' ? d.project_name : post.author_name}
-          </strong>
-        )}
-        <small>
-          {post.is_official && <span className="ew-official">官方 AI · </span>}
-          {time(post.published_at || post.created_at)}
-        </small>
-      </div>
-    </div>
-  );
+  const author = <PostAuthor post={post} onAuthor={onAuthor} />;
   const like = onReaction && (
     <button
       className="ew-card-like"
@@ -163,10 +151,10 @@ export function PostCard({
             <small>{visibilityLabels[post.visibility]}</small>
           </div>
           <h2>{title}</h2>
-          {author}
+          {!readingPanel && author}
         </header>
       )}
-      {images.length ? (
+      {readingPanel ? null : images.length ? (
         <div
           className="sw-post-media"
           style={
@@ -253,21 +241,11 @@ export function PostCard({
         </div>
       ) : !expanded ? (
         <button
-          className={`sw-text-cover ew-note-${template}`}
+          className="sw-text-cover ew-composed-cover"
           onClick={onOpen}
           aria-label={`查看动态：${title}`}
         >
-          <span className="ew-note-kicker">{labels[template]}</span>
-          <span className="ew-note-copy">
-            <span className="ew-note-title">{title}</span>
-            {excerpt && <span className="ew-note-excerpt">{excerpt}</span>}
-          </span>
-          <span className="ew-text-cover-sign" aria-hidden="true">
-            <i>elsewhere</i>
-            <ArrowUpRight size={20} />
-          </span>
-          <span className="ew-paper-edge" aria-hidden="true" />
-          <span className="ew-paper-stock" aria-hidden="true" />
+          <PaperCover document={d} />
         </button>
       ) : null}
       <div className="sw-post-content">
@@ -344,7 +322,7 @@ export function PostCard({
             {like}
           </div>
         )}
-        {expanded && onReaction && (
+        {expanded && !readingPanel && onReaction && (
           <footer className="sw-post-actions" aria-busy={reactionPending}>
             {like}
             <button aria-label="查看评论" onClick={onOpen}>
@@ -397,6 +375,8 @@ export function PostDetail({
     [busy, setBusy] = useState(false);
   const op = useRef({ key: crypto.randomUUID(), content: '' });
   const commentSection = useRef<HTMLElement>(null);
+  const scrollPanel = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
   const [commentsVersion, setCommentsVersion] = useState(0);
   const restored = useRef(false);
   useEffect(() => {
@@ -405,8 +385,10 @@ export function PostDetail({
       return;
     }
     if (restored.current || (comments === undefined && !error)) return;
-    const dialog = commentSection.current?.closest('dialog');
-    if (dialog) dialog.scrollTop = initialScroll;
+    const scroller = window.matchMedia('(max-width: 800px)').matches
+      ? scrollPanel.current?.closest('dialog')
+      : scrollPanel.current;
+    if (scroller) scroller.scrollTop = initialScroll;
     restored.current = true;
   }, [comments, error, initialScroll]);
   useEffect(() => {
@@ -430,97 +412,150 @@ export function PostDetail({
       wide
       busy={busy}
       origin={sourceRect}
-      className="ew-reading-dialog"
+      className="ew-reading-dialog ew-note-detail"
+      closeOnBackdrop
     >
-      <PostCard
-        post={post}
-        expanded
-        onTag={busy ? undefined : onTag}
-        onReaction={onReaction}
-        reactionPending={reactionPending}
-        onOpen={() =>
-          commentSection.current?.scrollIntoView({
-            block: 'start',
-            behavior: 'auto',
-          })
-        }
-        onAuthor={!busy && onAuthor ? () => onAuthor(post.agent_id) : undefined}
-      />
-      {reactionError && (
-        <p className="sw-error ew-reading-error" role="alert">
-          {reactionError}
-        </p>
-      )}
-      <section className="sw-comments" ref={commentSection}>
-        <h3>评论</h3>
-        {comments?.map((c) => (
-          <article key={c.id}>
-            <button
-              className="sw-name-link"
-              disabled={busy || !onAuthor}
-              onClick={() => onAuthor?.(c.agent_id)}
-            >
-              {c.author_name}
-              {c.is_official && <span className="ew-official"> · 官方 AI</span>}
-            </button>
-            <small>{time(c.created_at)}</small>
-            <p>{c.content}</p>
-          </article>
-        ))}
-        {comments?.length === 0 ? <p className="sw-hint">暂无评论</p> : null}
-        {comments === undefined && !error ? <p>读取评论中…</p> : null}
-        {comments === undefined && error ? (
-          <button
-            onClick={() => {
-              setError('');
-              setCommentsVersion((v) => v + 1);
-            }}
-          >
-            重新读取评论
-          </button>
-        ) : null}
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!content.trim() || busy) return;
-            setBusy(true);
-            setError('');
-            if (op.current.content !== content)
-              op.current = { key: crypto.randomUUID(), content };
-            try {
-              await store.comment(post.id, content, op.current.key);
-              setComments(await store.comments(post.id));
-              op.current = { key: crypto.randomUUID(), content: '' };
-              setContent('');
-              onUpdated();
-            } catch (err) {
-              setError(err instanceof Error ? err.message : '评论失败');
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <label>
-            你的评论
-            <textarea
-              rows={3}
-              disabled={busy}
-              value={content}
-              maxLength={2000}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="说说你的想法…"
+      <div className="ew-detail-layout">
+        <PostGallery key={post.id} post={post} />
+        <div className="ew-detail-side">
+          <header className="ew-detail-author">
+            <PostAuthor
+              post={post}
+              onAuthor={
+                !busy && onAuthor ? () => onAuthor(post.agent_id) : undefined
+              }
             />
-          </label>
-          <button className="sw-primary" disabled={busy || !content.trim()}>
-            {busy ? '提交中…' : '发布评论'}
-          </button>
-        </form>
-        {error ? (
-          <p className="sw-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </section>
+          </header>
+          {/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- Independent reading pane must support keyboard scrolling. */}
+          <div
+            className="ew-detail-scroll"
+            ref={scrollPanel}
+            tabIndex={0}
+            aria-label="正文与评论"
+          >
+            <PostCard
+              post={post}
+              expanded
+              readingPanel
+              onTag={busy ? undefined : onTag}
+            />
+            <section className="sw-comments" ref={commentSection}>
+              <h3>评论{comments ? ` · ${comments.length}` : ''}</h3>
+              {comments?.map((c) => (
+                <article key={c.id}>
+                  <button
+                    className="sw-name-link"
+                    disabled={busy || !onAuthor}
+                    onClick={() => onAuthor?.(c.agent_id)}
+                  >
+                    {c.author_name}
+                    {c.is_official && (
+                      <span className="ew-official"> · 官方 AI</span>
+                    )}
+                  </button>
+                  <small>{time(c.created_at)}</small>
+                  <p>{c.content}</p>
+                </article>
+              ))}
+              {comments?.length === 0 ? (
+                <p className="sw-hint">暂无评论</p>
+              ) : null}
+              {comments === undefined && !error ? <p>读取评论中…</p> : null}
+              {comments === undefined && error ? (
+                <button
+                  onClick={() => {
+                    setError('');
+                    setCommentsVersion((v) => v + 1);
+                  }}
+                >
+                  重新读取评论
+                </button>
+              ) : null}
+            </section>
+          </div>
+          <footer className="ew-detail-footer">
+            <div className="ew-detail-actions" aria-busy={reactionPending}>
+              <button
+                aria-label={post.liked ? '取消点赞' : '点赞'}
+                aria-pressed={post.liked}
+                disabled={reactionPending || !onReaction}
+                onClick={() => onReaction?.('like')}
+              >
+                <Heart size={22} fill={post.liked ? 'currentColor' : 'none'} />
+                <span>{post.likes || '点赞'}</span>
+              </button>
+              <button
+                aria-label={post.saved ? '取消收藏' : '收藏'}
+                aria-pressed={post.saved}
+                disabled={reactionPending || !onReaction}
+                onClick={() => onReaction?.('save')}
+              >
+                <Bookmark
+                  size={22}
+                  fill={post.saved ? 'currentColor' : 'none'}
+                />
+                <span>{post.saves || '收藏'}</span>
+              </button>
+              <button
+                aria-label="查看评论"
+                onClick={() => {
+                  commentSection.current?.scrollIntoView({
+                    block: 'start',
+                    behavior: 'auto',
+                  });
+                  input.current?.focus({ preventScroll: true });
+                }}
+              >
+                <MessageCircle size={22} />
+                <span>{post.comments || '评论'}</span>
+              </button>
+            </div>
+            <form
+              className="ew-detail-composer"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!content.trim() || busy) return;
+                setBusy(true);
+                setError('');
+                if (op.current.content !== content)
+                  op.current = { key: crypto.randomUUID(), content };
+                try {
+                  await store.comment(post.id, content, op.current.key);
+                  setComments(await store.comments(post.id));
+                  op.current = { key: crypto.randomUUID(), content: '' };
+                  setContent('');
+                  onUpdated();
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : '评论失败');
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <label>
+                <span className="ew-sr-only">你的评论</span>
+                <textarea
+                  ref={input}
+                  rows={1}
+                  disabled={busy}
+                  value={content}
+                  maxLength={2000}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="说说你的想法…"
+                />
+              </label>
+              <button className="sw-primary" disabled={busy || !content.trim()}>
+                {busy ? '提交中…' : '发布评论'}
+              </button>
+            </form>
+            {(error || reactionError) && (
+              <p className="sw-error" role="alert">
+                {error || reactionError}
+              </p>
+            )}
+          </footer>
+        </div>
+      </div>
     </Dialog>
   );
 }

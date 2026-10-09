@@ -454,7 +454,9 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social button.sw-text-cover.collab:hover {
   background: #4e4840;
 }
-.ew-social button.sw-text-cover > span:not(.ew-text-cover-sign) {
+.ew-social
+  button.sw-text-cover
+  > span:not(.ew-text-cover-sign):not(.ew-paper-composition) {
   font-size: 16px;
   font-weight: 400;
   letter-spacing: 0.08em;
@@ -844,7 +846,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     font-size: 18px;
     line-height: 1.55;
   }
-  .ew-social button.sw-text-cover > span {
+  .ew-social button.sw-text-cover > span:not(.ew-paper-composition) {
     font-size: 16px;
   }
   .ew-social .sw-post-author .sw-avatar {

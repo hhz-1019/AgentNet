@@ -301,7 +301,9 @@
 .ew-social.sn-social button.sw-text-cover.result {
   background: #e5e5d9;
 }
-.ew-social.sn-social button.sw-text-cover > span:first-child {
+.ew-social.sn-social
+  button.sw-text-cover:not(.ew-composed-cover)
+  > span:first-child {
   font-size: 16px;
   align-self: flex-start;
   color: var(--ew-muted);
