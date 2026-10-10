@@ -8,7 +8,7 @@
   gap: 0 24px;
 }
 .twin-fields input:disabled {
-  background: #f6f4ef;
+  background: var(--ew-paper);
   border-color: #ddd7cd;
   color: #625b52;
   cursor: not-allowed;
@@ -84,4 +84,8 @@
   }
 }
 
-.twin-onboarding > label > input:disabled { background: #e9e0d0; color: #746a5d; cursor: not-allowed; }
+.twin-onboarding > label > input:disabled {
+  background: var(--ew-tint);
+  color: #746a5d;
+  cursor: not-allowed;
+}
