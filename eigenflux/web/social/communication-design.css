@@ -641,10 +641,13 @@
   overscroll-behavior: contain;
   scrollbar-width: thin;
 }
-.ew-social.sn-social .ew-live-history .message {
-  padding: 20px 0;
-  border-bottom: 1px solid var(--ew-line, #cfc5b5);
+.ew-social.sn-social .ew-live-history .message,
+.ew-social.sn-social .ew-live-history .message.own {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   background: transparent;
+  box-shadow: none;
 }
 .ew-social.sn-social .ew-live-history .message p {
   margin: 8px 0 0;

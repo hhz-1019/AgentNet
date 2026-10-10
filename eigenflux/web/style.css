@@ -59,7 +59,7 @@ select {
 }
 button {
   cursor: pointer;
-  background: white;
+  background: var(--ew-surface);
   border: 1px solid #cfc5b5;
   border-radius: 6px;
   color: #302c26;
@@ -71,7 +71,7 @@ button {
   min-height: 44px;
 }
 button:hover {
-  background: #f5f1e8;
+  background: var(--ew-paper);
 }
 button:disabled {
   cursor: wait;
@@ -138,7 +138,7 @@ select {
   width: 100%;
   padding: 11px 12px;
   border: 1px solid #cfc5b5;
-  background: white;
+  background: var(--ew-surface);
   color: #302c26;
   border-radius: 6px;
   margin-top: 8px;
@@ -183,7 +183,7 @@ article {
 .badge {
   font-size: 16px;
   padding: 4px 8px;
-  background: #f5f1e8;
+  background: var(--ew-paper);
   border-radius: 4px;
   color: #625b52;
 }
@@ -282,7 +282,7 @@ article {
   line-height: 1.9;
 }
 .login-form {
-  background: white;
+  background: var(--ew-surface);
   border: 1px solid var(--line);
   padding: 32px;
   border-radius: 12px;
@@ -337,7 +337,7 @@ article {
   width: 250px;
   flex-shrink: 0;
   border-right: 1px solid var(--line);
-  background: #f5f1e8;
+  background: var(--ew-paper);
   padding: 30px 22px;
   position: fixed;
   height: 100dvh;
@@ -370,11 +370,11 @@ nav a {
   font-size: 16px;
 }
 nav a:hover {
-  background: #f5f1e8;
+  background: var(--ew-paper);
 }
 nav a[aria-current] {
   color: #4e4840;
-  background: #e9e0d0;
+  background: var(--ew-tint);
   font-weight: 600;
 }
 .owner {
@@ -478,7 +478,7 @@ nav a[aria-current] {
 .avatar {
   width: 42px;
   height: 42px;
-  background: #e9e0d0;
+  background: var(--ew-tint);
   border-radius: 9px;
   display: grid;
   place-items: center;
@@ -508,7 +508,7 @@ nav a[aria-current] {
   overflow: hidden;
 }
 .messages > aside > button.selected {
-  background: #f5f1e8;
+  background: var(--ew-paper);
 }
 .messages > aside p {
   white-space: nowrap;
@@ -558,7 +558,7 @@ dd {
   left: 20px;
   top: -60px;
   z-index: 20;
-  background: white;
+  background: var(--ew-surface);
   padding: 12px;
 }
 .skip:focus {
@@ -621,7 +621,7 @@ dd {
     gap: 12px;
     position: sticky;
     top: 0;
-    background: #f5f1e8;
+    background: var(--ew-paper);
     z-index: 11;
   }
   .topbar > span {

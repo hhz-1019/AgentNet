@@ -1,11 +1,10 @@
-/* Reference: codex/frontend-interaction-handoff @ 57d7aab.
-   This surface extends its green social workspace; authentication is unchanged. */
+/* Registration shares the journal palette, including focus and disabled states. */
 .join-shell {
-  --accent: #2b6351;
-  --muted: #5d7166;
-  --line: #dfe7dd;
-  color: #233c33;
-  background: #f5f8f4;
+  --accent: var(--ew-action);
+  --muted: var(--ew-muted);
+  --line: var(--ew-line);
+  color: var(--ew-ink);
+  background: var(--ew-paper);
   font-family:
     Inter, 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   display: grid;
@@ -13,8 +12,8 @@
   min-height: 100dvh;
 }
 .join-shell ::selection {
-  background: #d7e8dc;
-  color: #173e30;
+  background: var(--ew-tint);
+  color: var(--ew-ink);
 }
 .join-rail {
   grid-column: 2;
@@ -25,7 +24,7 @@
   display: flex;
   flex-direction: column;
   padding: 34px 24px 26px;
-  background: #fcfefb;
+  background: var(--ew-surface);
   border-left: 1px solid var(--line);
 }
 .join-rail .brand {
@@ -59,9 +58,9 @@
   color: var(--muted);
 }
 .join-shell .steps li.current {
-  background: #e8f0e5;
-  border-color: #dbe6d7;
-  color: #234e3d;
+  background: var(--ew-tint);
+  border-color: var(--ew-line);
+  color: var(--ew-ink);
 }
 .join-step-number {
   display: flex;
@@ -71,7 +70,7 @@
   height: 26px;
   font-size: 12px;
   font-weight: 650;
-  border: 1px solid #c9d7c8;
+  border: 1px solid var(--ew-line);
   border-radius: 50%;
   font-variant-numeric: tabular-nums;
 }
@@ -152,11 +151,11 @@
 }
 .join-uid {
   margin: 0 0 0 auto;
-  background: #e9efe7;
+  background: var(--ew-tint);
   border-radius: 7px;
   padding: 5px 10px;
   font-size: 12px;
-  color: #496152;
+  color: var(--ew-muted);
   font-variant-numeric: tabular-nums;
 }
 .join-content > p {
@@ -167,13 +166,13 @@
 }
 .join-shell .login-form,
 .join-form {
-  background: #fff;
+  background: var(--ew-surface);
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 30px;
   max-width: none;
   margin: 24px 0 0;
-  box-shadow: 0 5px 18px -12px #25443424;
+  box-shadow: 0 5px 18px -12px #49351e24;
 }
 .join-shell .login-form {
   margin: 0;
@@ -198,9 +197,9 @@
 }
 .join-shell :is(input, textarea, select) {
   font-weight: 400;
-  color: #233c33;
-  background: #fff;
-  border: 1px solid #cfdbce;
+  color: var(--ew-ink);
+  background: var(--ew-surface);
+  border: 1px solid var(--ew-line);
   border-radius: 10px;
   padding: 11px 13px;
   margin-top: 8px;
@@ -209,20 +208,20 @@
   transition: border-color 160ms ease;
 }
 .join-shell :is(input, textarea)::placeholder {
-  color: #6c796f;
+  color: var(--ew-muted);
   font-weight: 400;
 }
 .join-shell :is(input, textarea, select):hover:not(:disabled) {
-  border-color: #8da58f;
+  border-color: var(--ew-muted);
 }
 .join-shell :is(input, textarea, select, button, a, summary):focus-visible {
-  outline: 2px solid #527d62;
+  outline: 2px solid var(--ew-muted);
   outline-offset: 3px;
 }
 .join-shell input:disabled {
-  background: #eef1ee;
-  border-color: #e0e6df;
-  color: #637468;
+  background: var(--ew-tint);
+  border-color: var(--ew-line);
+  color: var(--ew-muted);
 }
 .join-shell input[aria-invalid='true'] {
   border-color: #b4473b;
@@ -238,17 +237,17 @@
 .join-shell button {
   min-height: 44px;
   border-radius: 10px;
-  color: #2b4c3b;
-  border-color: #d8e3d4;
-  background: #f7f9f4;
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  background: var(--ew-surface);
   font-size: 13px;
   transition:
     background 160ms ease,
     border-color 160ms ease;
 }
 .join-shell button:hover:not(:disabled) {
-  background: #eaf1e6;
-  border-color: #b7cbb4;
+  background: var(--ew-tint);
+  border-color: var(--ew-line);
 }
 .join-shell button:disabled {
   cursor: not-allowed;
@@ -261,8 +260,8 @@
   font-weight: 600;
 }
 .join-shell .primary:hover:not(:disabled) {
-  background: #214f40;
-  border-color: #214f40;
+  background: var(--ew-action);
+  border-color: var(--ew-action);
 }
 .join-shell .phone-code-row {
   gap: 12px;
@@ -298,7 +297,7 @@
   color: var(--accent);
 }
 .join-shell .login-form > button:not(.primary):hover {
-  background: #f1f6ed;
+  background: var(--ew-tint);
 }
 .join-shell .twin-grid {
   gap: 0 22px;
@@ -314,11 +313,11 @@
 .join-shell .twin-fields summary {
   font-weight: 550;
   font-size: 14px;
-  color: #294b3b;
+  color: var(--ew-ink);
   line-height: 1.8;
 }
 .join-shell .twin-fields summary::marker {
-  color: #69826b;
+  color: var(--ew-muted);
 }
 .join-shell .twin-fields summary span {
   color: var(--muted);
@@ -343,7 +342,7 @@
   padding: 20px 16px;
   border: 1px solid var(--line);
   border-radius: 13px;
-  background: #f7f9f5;
+  background: var(--ew-surface);
   margin: 10px 0 20px;
   line-height: 1.8;
 }
@@ -352,7 +351,7 @@
   font-weight: 550;
   font-variant-numeric: tabular-nums;
   margin-top: 16px;
-  background: #fff;
+  background: var(--ew-surface);
 }
 .join-activity .twin-fields > p:first-child {
   margin-top: 0;
