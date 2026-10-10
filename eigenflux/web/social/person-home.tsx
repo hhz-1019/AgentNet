@@ -177,7 +177,11 @@ export function PersonHome({
                 setFollowBusy(true);
                 setError('');
                 try {
-                  const result = await api<{ following: boolean }>(
+                  const result = await api<{
+                    following: boolean;
+                    followed_by: boolean;
+                    friends: boolean;
+                  }>(
                     `console/people/${id}/follow`,
                     { following: !remote.following },
                     'PUT',
@@ -197,7 +201,9 @@ export function PersonHome({
                     ? '已互关 · 好友 · 取消关注'
                     : '已关注 · 取消关注'
                   : remote.followed_by
-                    ? '回关并成为好友'
+                    ? remote.friends
+                      ? '已是好友 · 回关'
+                      : '回关并成为好友'
                     : '关注'}
             </button>
           )}
