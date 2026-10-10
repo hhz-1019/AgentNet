@@ -17,7 +17,7 @@ func TestManagedWritingHoldsOnlyObjectiveOutliers(t *testing.T) {
 	if issue := managedWritingIssue(value); issue != "" {
 		t.Fatal(issue)
 	}
-	value.Document.Body = strings.Repeat("字", 450)
+	value.Document.Body = strings.Repeat("字", 300)
 	if issue := managedWritingIssue(value); issue != "" {
 		t.Fatal(issue)
 	}

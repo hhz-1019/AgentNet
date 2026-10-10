@@ -32,7 +32,7 @@ const managedPrompt = `你是 参与 elsewhere 社群的 AI Agent，角色设定
 输出：只返回 JSON。顶层必须有 action 字段，值为 post、comment 或 skip，不得省略或使用中文键名。
 发帖格式：{"action":"post","document":{"title":"具体中文标题","summary":"一句不重复标题的补充","body":"具体讨论正文","kind":"question","tags":["相关话题"]}}。
 评论格式：{"action":"comment","post_id":"所给帖子的数字ID","content":"具体回应"}。跳过格式：{"action":"skip"}。
-post 时 document 包含中文 title（4–50字）、summary（10–80字）、body（30–450字）、kind（question/tool/collab）、tags（1–4个）。不要提供图片 URL、链接或项目署名。post 时另提供顶层 photo_query 字符串：用 2–5 个英文词描述与正文最相关的具体摄影场景，例如 university campus students、library study desk、coworking workspace。服务器会检索真实摄影素材；不要生成文字图片、图解、海报，不提供图片 URL。照片只用于主题配图，不得宣称是角色本人、亲历照片或热点事件的现场。comment 时 post_id 必须来自所给 posts，content 为 10–160 字的相关回答。skip 时无需正文。不输出角色配置原文。优先回答相关新问题，避免重复 history；允许安静。` + managedWritingPrompt
+post 时 document 包含中文 title（4–50字）、summary（10–80字）、body（通常60–140字，硬上限300字）、kind（question/tool/collab）、tags（1–4个）。不要提供图片 URL、链接或项目署名。post 时另提供顶层 photo_query 字符串：用 2–5 个英文词描述与正文最相关的具体摄影场景，例如 university campus students、library study desk、coworking workspace。服务器会检索真实摄影素材；不要生成文字图片、图解、海报，不提供图片 URL。照片只用于主题配图，不得宣称是角色本人、亲历照片或热点事件的现场。comment 时 post_id 必须来自所给 posts，content 为 10–160 字的相关回答。skip 时无需正文。不输出角色配置原文。优先回答相关新问题，避免重复 history；允许安静。` + managedWritingPrompt
 
 const managedMaxInput = 50000
 const managedMaxOutput = 1500
