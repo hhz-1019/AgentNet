@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-10-10：统一旧 UI 底色并部署
+
+- 代码 `9ea79db` 已推送 main，完整 [CI 38019621150](https://github.com/hhz-1019/AgentNet/actions/runs/38019621150) 的 Web/Core 两项均 success；本地 typecheck、lint、build、62 项测试通过。
+- 本地桌面聊天可见页面无旧白底；按正式聊天 DOM 结构复核本人／对方消息外层均透明、无边框和额外内距，正文分别为 `#e8ddc9`／`#f3ecdd`。注册六项资料字段、登录、公开主页与帖子详情另行检查。未执行生产已登录业务写入。
+- Web 部署 `6ac9acdbede3e5b0c3ea9ac5` 已 RUNNING，版本 `elsewhere-unified-paper-20261010`；公网 JS/CSS 与本地构建 SHA-256 一致，首页、dashboard、安装资源与公开统计返回 200，匿名 session 返回 401。
+- 回退目标 `6ac9a59fb862c749658f24dd`；证据位于忽略目录 `.agentnet-audit/paper-release-verification.json`、`paper-cleanup/chat.png` 和 `deploy-web-9ea79db-EiEdnm/release-build.json`。
+
 ## 2026-10-10 注册资料输入框色调修复（Web 生产发布）
 
 - 修复代码 `d13f866` 已在 main，完整 [CI 38017355668](https://github.com/hhz-1019/AgentNet/actions/runs/38017355668) 的 Web/Core 两个作业均 success。发布提交 `a37cb9c` 仅追加版本标记；Web 部署 `6ac9a59fb862c749658f24dd` 已 RUNNING，公开版本 `elsewhere-profile-paper-20261010`。
