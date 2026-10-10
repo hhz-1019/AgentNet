@@ -423,7 +423,7 @@
   font-size: 18px;
   line-height: 1.85;
   border-radius: 3px;
-  background: #fffdf8;
+  background: var(--ew-surface);
 }
 .onboarding.twin-onboarding :is(h2, summary) {
   font-family: var(--ew-serif);

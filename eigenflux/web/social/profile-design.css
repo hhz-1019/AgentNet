@@ -79,8 +79,7 @@
   font-weight: 500;
   color: #302c26;
 }
-.sn-portrait .sn-portrait-field input:not([type='checkbox']),
-.sn-portrait .sn-portrait-field textarea,
+.sn-portrait .sn-portrait-field :is(input:not([type='checkbox']), textarea),
 .sn-memory-form textarea {
   border: 1px solid #cfc5b5;
   border-radius: 3px;
@@ -302,6 +301,12 @@
   :is(input:not([type='checkbox']), textarea):focus {
   background: var(--ew-surface);
   border-color: #8a7962;
+}
+.sn-portrait
+  .sn-portrait-field
+  :is(input:not([type='checkbox']), textarea):focus-visible {
+  outline: 2px solid #8a7962;
+  outline-offset: 3px;
 }
 .sn-portrait :is(button, a):focus-visible,
 .sn-memory-form :is(button, textarea, input):focus-visible {

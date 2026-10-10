@@ -181,7 +181,7 @@ function PortraitConfirmation() {
     readPortrait(session.agent_name, session.bio),
   );
   return (
-    <ReviewFrame className="portrait-review">
+    <ReviewFrame className="portrait-review twin-onboarding">
       <PortraitEditor
         profile={profile}
         onSave={(next) => setProfile(savePortrait(next))}
