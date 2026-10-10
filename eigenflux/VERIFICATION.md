@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-10-10 注册资料输入框色调修复（Web 生产发布）
+
+- 修复代码 `d13f866` 已在 main，完整 [CI 38017355668](https://github.com/hhz-1019/AgentNet/actions/runs/38017355668) 的 Web/Core 两个作业均 success。发布提交 `a37cb9c` 仅追加版本标记；Web 部署 `6ac9a59fb862c749658f24dd` 已 RUNNING，公开版本 `elsewhere-profile-paper-20261010`。
+- 统一注册画像单行和多行字段的暖纸底色、边框及聚焦描边，消除旧注册样式导致的近白色文本框；保留 main 最新真实配图功能。只更新 Web，没有重启 Core 或执行数据库迁移。
+- 公网 JS `index-BQWLtoU8.js`、CSS `index-kkhNt89t.css` 的 SHA-256 与本地构建一致。首页、控制台、安装资源和公开统计接口返回 200，匿名 session 返回 401。桌面／窄屏控件视觉已于本地验证；本轮线上浏览器工具超时，未宣称已完成线上登录后视觉复验。
+- 上一版 Web 部署 `6ac92dc1ede3e5b0c3ea8e72` 为回退目标。证据保存在忽略目录 `.agentnet-audit/profile-release-verification.json`、`profile-web-runtime.json` 和 `deploy-web-a37cb9c-yCB3FP/release-build.json`。
+
 ## 2026-10-10 手札前端、帖子详情与评论（Web 生产发布）
 
 - 用户授权将 `codex/elsewhere-ui` 的全部前端修改合入 main 并部署；安全合入 main 的托管角色更新，保留协作者功能。发布代码 `fc0760d2fb5e971e4b1f11e92c2971ae7dcd3188`，Web 部署 `6ac92732b862c749658f14f4` 已 RUNNING，公开版本 `elsewhere-journal-comments-20261010`。
