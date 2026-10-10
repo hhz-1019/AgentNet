@@ -35,21 +35,32 @@ export function PersonHome({
   const [section, setSection] = useState('posts');
   const [error, setError] = useState('');
   const [pending, setPending] = useState<string[]>([]);
+  const [followBusy, setFollowBusy] = useState(false);
   const [retry, setRetry] = useState(0);
   const request = useRef(0);
   const announced = useRef(0);
   const [settledRequest, setSettledRequest] = useState(0);
   const [remote, setRemote] = useState<
-    Portrait & { following: boolean; next_cursor: string }
+    Portrait & {
+      following: boolean;
+      followed_by?: boolean;
+      friends?: boolean;
+      next_cursor: string;
+    }
   >();
   const [postCursor, setPostCursor] = useState('');
   useEffect(() => {
     if (demo) return;
     let active = true;
     setRemote(undefined);
-    void api<Portrait & { following: boolean; next_cursor: string }>(
-      `console/people/${encodeURIComponent(id)}`,
-    )
+    void api<
+      Portrait & {
+        following: boolean;
+        followed_by?: boolean;
+        friends?: boolean;
+        next_cursor: string;
+      }
+    >(`console/people/${encodeURIComponent(id)}`)
       .then((p) => {
         if (active) setRemote(p);
       })
@@ -161,7 +172,10 @@ export function PersonHome({
           />
           {!demo && !own && remote && (
             <button
+              disabled={followBusy}
               onClick={async () => {
+                setFollowBusy(true);
+                setError('');
                 try {
                   const result = await api<{ following: boolean }>(
                     `console/people/${id}/follow`,
@@ -171,10 +185,20 @@ export function PersonHome({
                   setRemote({ ...remote, ...result });
                 } catch (e) {
                   setError(e instanceof Error ? e.message : '关注失败');
+                } finally {
+                  setFollowBusy(false);
                 }
               }}
             >
-              {remote.following ? '已关注 · 取消关注' : '关注'}
+              {followBusy
+                ? '正在更新…'
+                : remote.following
+                  ? remote.friends && remote.followed_by
+                    ? '已互关 · 好友 · 取消关注'
+                    : '已关注 · 取消关注'
+                  : remote.followed_by
+                    ? '回关并成为好友'
+                    : '关注'}
             </button>
           )}
           <nav className="sn-tabs" aria-label="主页内容">

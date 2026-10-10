@@ -68,7 +68,29 @@ type Run = {
   model: string;
 };
 type Audit = { action: string; agent_id: string | null; created_at: number };
+type DailySummary = {
+  attempts: number;
+  active_accounts: number;
+  published: number;
+  commented: number;
+  liked: number;
+  skipped: number;
+  failed: number;
+  running: number;
+  charged_fen: number;
+  errors: {
+    name: string;
+    status: string;
+    detail: string;
+    created_at: number;
+  }[];
+};
 type Data = {
+  daily_feedback?: {
+    day: string;
+    today: DailySummary;
+    reports: { day: string; summary: DailySummary; generated_at: number }[];
+  };
   profile_templates?: { Name: string; Scenario: string; Persona: string }[];
   sources?: {
     feed_url: string;
@@ -98,6 +120,7 @@ type Data = {
       output_tokens: number;
       published: number;
       commented: number;
+      liked?: number;
       skipped: number;
       failed: number;
       successful_accounts: number;
@@ -108,6 +131,7 @@ const labels: Record<string, string> = {
   running: '执行中',
   published: '已发帖',
   commented: '已回复',
+  liked: '已点赞',
   skipped: '本次跳过',
   failed: '执行失败',
   uncertain: '结果待核对',
@@ -346,11 +370,37 @@ export function ManagedConsole({ session }: { session: Session }) {
                   本月 {data.billing.usage.successful_accounts} 个账号已成功活动
                   · {data.billing.usage.published} 篇帖子 ·{' '}
                   {data.billing.usage.commented} 条评论 ·{' '}
+                  {data.billing.usage.liked || 0} 次点赞 ·{' '}
                   {data.billing.usage.skipped} 次跳过 ·{' '}
                   {data.billing.usage.failed} 次需检查
                 </span>
               )}
             </div>
+            {data.daily_feedback && (
+              <section className="managed-daily" aria-label="每日运营反馈">
+                <h2>每日反馈</h2>
+                <p>
+                  北京时间 {data.daily_feedback.day} ·
+                  今日实时统计；完整日报每日 00:10 后自动归档，保留最近 7
+                  天供查阅。
+                </p>
+                <DailyFeedback summary={data.daily_feedback.today} />
+                {data.daily_feedback.reports.map((report) => (
+                  <details key={report.day}>
+                    <summary>
+                      {report.day} ·{' '}
+                      {report.summary.failed
+                        ? report.summary.failed + ' 次异常'
+                        : '无执行异常'}
+                    </summary>
+                    <DailyFeedback summary={report.summary} />
+                  </details>
+                ))}
+                {!data.daily_feedback.reports.length && (
+                  <p>首份完整日报将在次日生成。调度暂停时仍汇总已有记录。</p>
+                )}
+              </section>
+            )}
             <nav className="managed-tabs" aria-label="运营管理页面">
               {(
                 [
@@ -1288,6 +1338,30 @@ export function ManagedConsole({ session }: { session: Session }) {
           </>
         )}
       </main>
+    </div>
+  );
+}
+
+function DailyFeedback({ summary: s }: { summary: DailySummary }) {
+  return (
+    <div className="managed-daily-summary">
+      <p>
+        {s.active_accounts} 个账号参与 · {s.attempts} 次尝试 · {s.published}{' '}
+        篇帖子 · {s.commented} 条评论 · {s.liked} 次点赞 · {s.skipped} 次跳过 ·{' '}
+        {s.running} 次执行中 · {s.failed} 次异常 · 计入 ¥{money(s.charged_fen)}
+      </p>
+      {s.errors.length > 0 && (
+        <ul>
+          {s.errors.map((e, i) => (
+            <li key={i}>
+              {e.name}：{e.detail || '执行结果待核查'}
+            </li>
+          ))}
+        </ul>
+      )}
+      {s.failed > s.errors.length && (
+        <p>仅列出最近 20 次异常；完整记录保留在账本中。</p>
+      )}
     </div>
   );
 }

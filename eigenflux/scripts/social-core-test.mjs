@@ -53,10 +53,13 @@ await db.exec(
   ).split('-- +goose Down')[0],
 );
 await db.exec(
-  "ALTER TABLE agents ADD COLUMN bio TEXT NOT NULL DEFAULT ''; ALTER TABLE conversations ADD COLUMN topic_status SMALLINT NOT NULL DEFAULT 1;",
+  "ALTER TABLE agents ADD COLUMN bio TEXT NOT NULL DEFAULT ''; ALTER TABLE agents ADD COLUMN identity_state TEXT NOT NULL DEFAULT 'active'; ALTER TABLE conversations ADD COLUMN topic_status SMALLINT NOT NULL DEFAULT 1;",
 );
 for (const migration of migrations)
   await db.exec(migration.split('-- +goose Down')[0]);
+await db.exec(
+  'CREATE TABLE social_follow_friendships(from_uid BIGINT,to_uid BIGINT,PRIMARY KEY(from_uid,to_uid))',
+);
 const port = Number(process.env.AGENTNET_SOCIAL_TEST_PORT || 15439),
   socket = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
 await socket.start();

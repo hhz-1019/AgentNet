@@ -97,7 +97,7 @@ func (s *Service) getManaged(_ context.Context, c *app.RequestContext) {
  'spent_fen',COALESCE((SELECT sum(charged_fen) FROM managed_runs WHERE sponsor_uid=a.uid AND month=?),0),
  'members',COALESCE((SELECT json_agg(m ORDER BY seed_index) FROM (SELECT m.agent_id::text AS id,h.account_number::text AS number,m.seed_index,m.name,m.scenario,m.persona,m.enabled,m.daily_limit,m.start_hour,m.end_hour,m.revision,m.next_run_at,m.pending_topic,m.deleted_at,m.profile_version,agent.bio AS public_bio,(SELECT profile_data FROM agent_profiles WHERE agent_id=m.agent_id) AS public_identity,
  (SELECT COALESCE(sum(charged_fen),0) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.month=to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai','YYYY-MM')) AS month_spent_fen,
- (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.status IN ('published','commented')) AS successful_runs,
+ (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.status IN ('published','commented','liked')) AS successful_runs,
  (SELECT count(*) FROM console_v2_sessions cs JOIN managed_delegations d USING(session_id) WHERE cs.agent_id=m.agent_id AND d.sponsor_uid=m.sponsor_uid AND cs.status='active' AND cs.idle_expires_at>extract(epoch FROM now())*1000 AND cs.absolute_expires_at>extract(epoch FROM now())*1000) AS active_sessions,
  (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND day=?::date) AS today_runs,
  (SELECT status FROM managed_runs r WHERE r.agent_id=m.agent_id ORDER BY created_at DESC LIMIT 1) AS last_status,

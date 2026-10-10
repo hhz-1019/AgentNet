@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	pmdal "eigenflux_server/rpc/pm/dal"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/lib/pq"
@@ -370,7 +371,12 @@ func (s *Service) getPerson(ctx context.Context, c *app.RequestContext) {
 		s.socialFailure(c, e)
 		return
 	}
-	reply(c, 200, map[string]any{"agent_id": strconv.FormatInt(id, 10), "is_official": p.IsOfficial, "fields": fields, "visible": visible, "memories": memories, "next_cursor": next, "following": following})
+	state, e := readFollowState(s.db, viewer, id)
+	if e != nil {
+		s.socialFailure(c, e)
+		return
+	}
+	reply(c, 200, map[string]any{"agent_id": strconv.FormatInt(id, 10), "is_official": p.IsOfficial, "fields": fields, "visible": visible, "memories": memories, "next_cursor": next, "following": following, "followed_by": state.FollowedBy, "friends": state.Friends})
 }
 func (s *Service) putFollow(ctx context.Context, c *app.RequestContext) {
 	viewer, _ := agentID(c)
@@ -382,26 +388,57 @@ func (s *Service) putFollow(ctx context.Context, c *app.RequestContext) {
 		fail(c, 400, "INVALID_FOLLOW", "关注对象无效", nil)
 		return
 	}
-	var valid bool
-	e := s.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM agents a WHERE a.agent_id=? AND NOT EXISTS(SELECT 1 FROM user_relations WHERE rel_type=2 AND ((from_uid=? AND to_uid=?) OR (to_uid=? AND from_uid=?))))`, id, viewer, id, viewer, id).Scan(&valid).Error
+	var state followState
+	e := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := pmdal.LockRelationPair(tx, viewer, id); err != nil {
+			return err
+		}
+		var valid bool
+		if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM agents a WHERE a.agent_id=? AND a.identity_state='active' AND NOT EXISTS(SELECT 1 FROM user_relations WHERE rel_type=2 AND ((from_uid=? AND to_uid=?) OR (to_uid=? AND from_uid=?))))", id, viewer, id, viewer, id).Scan(&valid).Error; err != nil {
+			return err
+		}
+		if req.Following && !valid {
+			return gorm.ErrRecordNotFound
+		}
+		if req.Following {
+			if err := tx.Exec("INSERT INTO social_follows(follower_id,followed_id) VALUES(?,?) ON CONFLICT DO NOTHING", viewer, id).Error; err != nil {
+				return err
+			}
+			var reciprocal bool
+			if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM social_follows WHERE follower_id=? AND followed_id=?)", id, viewer).Scan(&reciprocal).Error; err != nil {
+				return err
+			}
+			if reciprocal {
+				if err := tx.Exec("WITH added AS (INSERT INTO user_relations(from_uid,to_uid,rel_type,created_at) VALUES(?,?,1,?),(?,?,1,?) ON CONFLICT DO NOTHING RETURNING from_uid,to_uid) INSERT INTO social_follow_friendships SELECT * FROM added ON CONFLICT DO NOTHING", viewer, id, time.Now().UnixMilli(), id, viewer, time.Now().UnixMilli()).Error; err != nil {
+					return err
+				}
+				if err := tx.Exec("UPDATE friend_requests SET status=1,updated_at=? WHERE status=0 AND ((from_uid=? AND to_uid=?) OR (from_uid=? AND to_uid=?))", time.Now().UnixMilli(), viewer, id, id, viewer).Error; err != nil {
+					return err
+				}
+			}
+		} else {
+			if err := tx.Exec("DELETE FROM social_follows WHERE follower_id=? AND followed_id=?", viewer, id).Error; err != nil {
+				return err
+			}
+			removed := tx.Exec("DELETE FROM user_relations r USING social_follow_friendships f WHERE r.from_uid=f.from_uid AND r.to_uid=f.to_uid AND r.rel_type=1 AND ((f.from_uid=? AND f.to_uid=?) OR (f.from_uid=? AND f.to_uid=?))", viewer, id, id, viewer)
+			if removed.Error != nil {
+				return removed.Error
+			}
+			if removed.RowsAffected > 0 {
+				if err := tx.Exec("UPDATE friend_requests SET status=4,updated_at=? WHERE status=1 AND ((from_uid=? AND to_uid=?) OR (from_uid=? AND to_uid=?))", time.Now().UnixMilli(), viewer, id, id, viewer).Error; err != nil {
+					return err
+				}
+			}
+		}
+		var err error
+		state, err = readFollowState(tx, viewer, id)
+		return err
+	})
 	if e != nil {
 		s.socialFailure(c, e)
 		return
 	}
-	if !valid {
-		s.socialFailure(c, gorm.ErrRecordNotFound)
-		return
-	}
-	if req.Following {
-		e = s.db.Exec(`INSERT INTO social_follows VALUES(?,?) ON CONFLICT DO NOTHING`, viewer, id).Error
-	} else {
-		e = s.db.Exec(`DELETE FROM social_follows WHERE follower_id=? AND followed_id=?`, viewer, id).Error
-	}
-	if e != nil {
-		s.socialFailure(c, e)
-		return
-	}
-	reply(c, 200, map[string]any{"following": req.Following})
+	reply(c, 200, state)
 }
 
 // The social onboarding confirms the reviewed portrait in one transaction. It
@@ -479,4 +516,16 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	reply(c, 200, map[string]any{"completed": true})
+}
+
+type followState struct {
+	Following  bool `json:"following"`
+	FollowedBy bool `json:"followed_by"`
+	Friends    bool `json:"friends"`
+}
+
+func readFollowState(db *gorm.DB, viewer, id int64) (followState, error) {
+	var state followState
+	err := db.Raw("SELECT EXISTS(SELECT 1 FROM social_follows WHERE follower_id=? AND followed_id=?) AS following,EXISTS(SELECT 1 FROM social_follows WHERE follower_id=? AND followed_id=?) AS followed_by,EXISTS(SELECT 1 FROM user_relations WHERE from_uid=? AND to_uid=? AND rel_type=1) AS friends", viewer, id, id, viewer, viewer, id).Scan(&state).Error
+	return state, err
 }

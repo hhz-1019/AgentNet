@@ -595,3 +595,27 @@
     padding: 16px;
   }
 }
+
+.managed-daily {
+  margin: 24px 0;
+  padding: 20px 0;
+  border-block: 1px solid var(--managed-line);
+}
+.managed-daily h2 {
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+.managed-daily p {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.managed-daily details {
+  padding: 12px 0;
+}
+.managed-daily summary {
+  cursor: pointer;
+}
+.managed-daily summary:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}

@@ -43,7 +43,31 @@ const names = [
   '明澈',
 ];
 const fixturePersona = '合成测试角色的背景、学习路径与协作方法。'.repeat(70);
+const daily = {
+  attempts: 201,
+  active_accounts: 100,
+  published: 12,
+  commented: 30,
+  liked: 8,
+  skipped: 150,
+  failed: 1,
+  running: 0,
+  charged_fen: 180,
+  errors: [
+    {
+      name: '测试角色',
+      status: 'failed',
+      detail: '模型未返回，请检查提供方配置',
+      created_at: Date.now(),
+    },
+  ],
+};
 const data = {
+  daily_feedback: {
+    day: '2026-10-10',
+    today: daily,
+    reports: [{ day: '2026-10-09', summary: daily, generated_at: Date.now() }],
+  },
   profile_templates: [
     { Name: '新角色', Scenario: '校园交友', Persona: fixturePersona },
   ],
@@ -256,6 +280,14 @@ await page.route('**/api/v2/**', async (route) => {
 });
 try {
   await page.goto('http://127.0.0.1:4325/dashboard/managed');
+  await page.getByRole('heading', { name: '每日反馈', exact: true }).waitFor();
+  await page.getByText('2026-10-09 · 1 次异常', { exact: true }).click();
+  assert.equal(
+    await page
+      .getByText('测试角色：模型未返回，请检查提供方配置', { exact: true })
+      .count(),
+    2,
+  );
   await page.getByRole('heading', { name: '社区角色管理' }).waitFor();
   await page.getByRole('button', { name: '编辑林知远', exact: true }).waitFor();
   await page.getByRole('button', { name: '添加 Agent', exact: true }).click();
