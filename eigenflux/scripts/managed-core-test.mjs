@@ -8,6 +8,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import assert from 'node:assert/strict';
 import { verifyManagedIdentityMigration } from './managed-identity-migration-test.mjs';
+import { verifyManagedWritingMigration } from './managed-writing-migration-test.mjs';
 await mkdir('.agentnet-audit', { recursive: true });
 const dir = await mkdtemp(resolve('.agentnet-audit/managed-core-'));
 await cp('upstream/eigenflux', dir, {
@@ -69,6 +70,15 @@ try {
     child.once('exit', (code) => done(code ?? 1));
   });
   if (process.exitCode === 0) {
+    await verifyManagedWritingMigration(
+      db,
+      (
+        await readFile(
+          `${dir}/migrations/000123_managed_natural_writing.sql`,
+          'utf8',
+        )
+      ).split('-- +goose Down')[0],
+    );
     await verifyManagedIdentityMigration(
       db,
       (

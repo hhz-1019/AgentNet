@@ -328,6 +328,22 @@ func TestManagedFullSchema(t *testing.T) {
 	if next == nil {
 		t.Fatal("new budget unavailable")
 	}
+	longPost := value
+	longPost.Value.Document.Body = strings.Repeat("长", 451)
+	check(s.commitManaged(context.Background(), *next, longPost, nil))
+	var held struct {
+		Status, Detail                                string
+		ChargedFen, InputTokens, OutputTokens, PostID int64
+	}
+	check(db.Raw(`SELECT status,detail,charged_fen,input_tokens,output_tokens,post_id FROM managed_runs WHERE run_id=?`, next.RunID).Scan(&held).Error)
+	if held.Status != "skipped" || held.Detail != "文字过长，暂不发布" || held.PostID != 0 || held.InputTokens != value.Input || held.OutputTokens != value.Output || held.ChargedFen != managedCost(value.Input, value.Output, next.InputRate, next.OutputRate) {
+		t.Fatal("style hold must not publish or lose actual usage", held)
+	}
+	next, err = s.claimManaged(context.Background(), time.Now())
+	check(err)
+	if next == nil {
+		t.Fatal("claim unavailable after style hold")
+	}
 	check(db.Exec(`UPDATE managed_campaigns SET enabled=false`).Error)
 	check(s.commitManaged(context.Background(), *next, value, nil))
 	var state string
@@ -490,6 +506,11 @@ func TestManagedFullSchema(t *testing.T) {
 		check(err)
 		if topic != "" {
 			leads++
+			for _, template := range []string{"三步可执行流程", "列出三个常见误区", "可复用清单", "正文必须包含可实践的方法"} {
+				if strings.Contains(topic, template) {
+					t.Fatal("editorial plan imposes a template", topic)
+				}
+			}
 		}
 		if !wait.IsZero() {
 			t.Fatal("editorial slot unexpectedly deferred")
