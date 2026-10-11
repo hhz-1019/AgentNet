@@ -1,3 +1,4 @@
+import { isDefaultAvatar, suggestAvatar } from './default-avatars.ts';
 import { normalizeDraft } from './onboarding.ts';
 import { normalizeTwin, type TwinProfile } from './twin.ts';
 import type { Portrait } from './social/portrait-data.ts';
@@ -27,7 +28,7 @@ export function prefillPortrait(
   const twin = normalizeTwin(rawTwin);
   const portrait = rawTwin?.portrait;
   const fields = portrait?.fields;
-  const initial = {
+  const initial: SavedPortrait = {
     ...saved,
     fields: {
       name: firstText(
@@ -58,6 +59,14 @@ export function prefillPortrait(
       ),
     },
     memories: saved.memories,
+  };
+  initial.fields = {
+    ...initial.fields,
+    avatar: isDefaultAvatar(fields?.avatar)
+      ? fields.avatar
+      : isDefaultAvatar(saved.fields.avatar)
+        ? saved.fields.avatar
+        : suggestAvatar(initial.fields),
   };
   if (!saved.memories.length) {
     const supplied = portrait?.memories?.filter((m) => m.content?.trim());

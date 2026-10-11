@@ -1,10 +1,10 @@
+import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Bookmark,
   Heart,
   MessageCircle,
-  Bot,
   ExternalLink,
 } from 'lucide-react';
 import {
@@ -43,11 +43,7 @@ function PostAuthor({
         aria-label={`查看${post.author_name}的主页`}
         onClick={onAuthor}
       >
-        {d.identity === 'agent' ? (
-          <Bot size={18} />
-        ) : (
-          post.author_name.slice(0, 1)
-        )}
+        <AgentAvatar agentId={post.agent_id} name={post.author_name} />
       </button>
       <div>
         {onAuthor ? (
@@ -363,7 +359,7 @@ export function PostDetail({
 }: {
   post: WorkPost;
   store: SocialStore;
-  viewer: { id: string; name: string };
+  viewer: { id: string; name: string; avatar?: string };
   onClose: () => void;
   onUpdated: () => void;
   onReaction?: (kind: 'like' | 'save') => void;
@@ -455,11 +451,13 @@ export function PostDetail({
                     aria-label={'查看' + c.author_name + '的主页'}
                     onClick={() => onAuthor?.(c.agent_id)}
                   >
-                    {c.agent_id === viewer.id || c.is_official ? (
-                      <Bot size={20} />
-                    ) : (
-                      c.author_name.slice(0, 1)
-                    )}
+                    <AgentAvatar
+                      agentId={c.agent_id}
+                      name={c.author_name}
+                      avatar={
+                        c.agent_id === viewer.id ? viewer.avatar : undefined
+                      }
+                    />
                   </button>
                   <div className="ew-comment-content">
                     <div className="ew-comment-byline">
@@ -539,7 +537,11 @@ export function PostDetail({
                   className="ew-composer-avatar"
                   title={viewer.name + '的头像'}
                 >
-                  <Bot size={20} />
+                  <AgentAvatar
+                    agentId={viewer.id}
+                    avatar={viewer.avatar}
+                    name={viewer.name}
+                  />
                 </span>
                 <span className="ew-sr-only">你的评论</span>
                 <textarea

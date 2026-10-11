@@ -1,3 +1,9 @@
+import { AgentAvatar } from '../avatar';
+import {
+  defaultAvatars,
+  isDefaultAvatar,
+  suggestAvatar,
+} from '../default-avatars';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
   ArrowRight,
@@ -31,7 +37,12 @@ export function PortraitEditor({
   onComplete?: () => void;
 }) {
   const formId = useId();
-  const [fields, setFields] = useState(profile.fields);
+  const [fields, setFields] = useState(() => ({
+    ...profile.fields,
+    avatar: isDefaultAvatar(profile.fields.avatar)
+      ? profile.fields.avatar
+      : suggestAvatar(profile.fields),
+  }));
   const [visible, setVisible] = useState(profile.visible);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(12);
@@ -113,6 +124,28 @@ export function PortraitEditor({
             if (saved) onComplete?.();
           }}
         >
+          <fieldset className="ew-avatar-picker" disabled={busy}>
+            <legend>我的头像</legend>
+            <p>让一抹颜色代表你。Agent 会根据你的兴趣选择，你也可以换一款。</p>
+            <div className="ew-avatar-options">
+              {defaultAvatars.map((avatar) => (
+                <button
+                  key={avatar.id}
+                  type="button"
+                  className="ew-avatar-option"
+                  aria-pressed={fields.avatar === avatar.id}
+                  aria-label={avatar.name}
+                  onClick={() => {
+                    setFields((current) => ({ ...current, avatar: avatar.id }));
+                    setStatus('');
+                  }}
+                >
+                  <AgentAvatar avatar={avatar.id} />
+                  <span>{avatar.name}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
           <div className="sn-portrait-grid">
             {portraitFields.map((field) => (
               <div

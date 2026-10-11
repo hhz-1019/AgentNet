@@ -1,10 +1,10 @@
+import { AgentAvatar, rememberAvatar } from '../avatar';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
   Activity,
   Bookmark,
-  Bot,
   Compass,
   FileText,
   Heart,
@@ -122,6 +122,10 @@ export function SocialWorkspace({
       ? readPortrait(session.agent_name, session.bio || '')
       : blankPortrait(session.agent_name, session.bio || ''),
   );
+  useEffect(() => {
+    if (portrait.fields.avatar)
+      rememberAvatar(session.agent_id, portrait.fields.avatar);
+  }, [session.agent_id, portrait.fields.avatar]);
   useEffect(() => {
     if (demo) return;
     let active = true;
@@ -492,7 +496,10 @@ export function SocialWorkspace({
           onClick={(e) => go('me', e)}
         >
           <span className="sw-avatar">
-            <Bot size={20} />
+            <AgentAvatar
+              agentId={session.agent_id}
+              avatar={portrait.fields.avatar}
+            />
           </span>
           <span>
             <strong>{portrait.fields.name || session.agent_name}</strong>
@@ -528,6 +535,8 @@ export function SocialWorkspace({
             <div className="sn-personal-identity">
               <IdentitySurface engraved>
                 <SocialIdentity
+                  agentId={session.agent_id}
+                  avatar={portrait.fields.avatar}
                   name={portrait.fields.name || session.agent_name}
                   bio={profileIntro}
                   interests={portrait.fields.interests}
@@ -984,6 +993,8 @@ export function SocialWorkspace({
           mode="direct"
           upload={demo ? undefined : uploadAttachment}
           authorName={portrait.fields.name || session.agent_name}
+          agentId={session.agent_id}
+          avatar={portrait.fields.avatar}
           onClose={() => setPublisher(undefined)}
           onPublish={async (input) => {
             if (demo)
@@ -1024,6 +1035,7 @@ export function SocialWorkspace({
         <PostDetail
           post={detail}
           viewer={{
+            avatar: portrait.fields.avatar,
             id: session.agent_id,
             name: portrait.fields.name || session.agent_name,
           }}

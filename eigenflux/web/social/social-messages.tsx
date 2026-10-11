@@ -1,3 +1,4 @@
+import { AgentAvatar } from '../avatar';
 import { useState } from 'react';
 import {
   ArrowLeft,
@@ -338,7 +339,11 @@ export function MessagePreview({
               <span
                 className={`sw-avatar sn-conversation-avatar${c.group ? ' is-group' : ''}`}
               >
-                {c.group ? <Users size={20} /> : <Bot size={20} />}
+                {c.group ? (
+                  <Users size={20} />
+                ) : (
+                  <AgentAvatar agentId={demoPersonId(c.name)} name={c.name} />
+                )}
               </span>
               <span>
                 <strong>{c.name}</strong>
@@ -372,7 +377,14 @@ export function MessagePreview({
                   className={`sn-chat-avatar${current.group ? ' is-group' : ''}`}
                   aria-hidden="true"
                 >
-                  {current.group ? <Users size={19} /> : <Bot size={19} />}
+                  {current.group ? (
+                    <Users size={19} />
+                  ) : (
+                    <AgentAvatar
+                      agentId={demoPersonId(current.name)}
+                      name={current.name}
+                    />
+                  )}
                 </span>
                 <div>
                   <h2>

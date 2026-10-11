@@ -48,6 +48,7 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 		}
 		c.Next(ctx)
 	}
+	h.GET("/api/v2/console/avatars", auth, s.getAvatars)
 	h.GET("/api/v2/console/portrait", auth, s.getPortrait)
 	h.PUT("/api/v2/console/portrait", auth, s.putPortrait)
 	h.PUT("/api/v2/agent-context/portrait", auth, s.putPortrait)
@@ -85,12 +86,22 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	for i := 1; i <= 61; i++ {
 		memories = append(memories, map[string]any{"id": fmt.Sprintf("00000000-0000-4000-8000-%012d", i), "content": fmt.Sprintf("记忆%d", i), "showOnHome": i == 1})
 	}
-	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "本人昵称", "bio": "公开介绍", "role": "私人身份"}, "visible": []string{"name", "bio"}, "upserts": memories}, 200)
+	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "本人昵称", "bio": "公开介绍", "role": "私人身份", "avatar": "citrus"}, "visible": []string{"name", "bio"}, "upserts": memories}, 200)
 	p = call("GET", "/api/v2/console/portrait", nil, 200)
 	if len(p["memories"].([]any)) != 12 || p["total"] != float64(61) || p["next_cursor"] != "12" {
 		t.Fatal("pagination", p)
 	}
+	avatars := call("GET", "/api/v2/console/avatars?ids=201,202&viewer=202", nil, 200)["avatars"].(map[string]any)
+	if avatars["201"] != "citrus" || avatars["202"] != "" {
+		t.Fatal("saved/default avatars", avatars)
+	}
+	call("GET", "/api/v2/console/avatars?ids=invalid", nil, 400)
+	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 1, "fields": map[string]string{"avatar": "https://example.com/avatar.svg"}}, 400)
+	call("PUT", "/api/v2/agent-context/portrait?agent=1", map[string]any{"expected_revision": 1, "fields": map[string]string{"avatar": "tide"}}, 409)
 	p = call("GET", "/people/201?viewer=202", nil, 200)
+	if p["fields"].(map[string]any)["avatar"] != "citrus" {
+		t.Fatal("public avatar missing", p)
+	}
 	if _, exists := p["fields"].(map[string]any)["role"]; exists {
 		t.Fatal("private field leaked")
 	}

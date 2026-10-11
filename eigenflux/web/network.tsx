@@ -1,8 +1,8 @@
+import { AgentAvatar } from './avatar';
 import { CreateLiveGroup, type LiveGroup } from './social/live-groups';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
-  Bot,
   Check,
   MessageCircle,
   Search,
@@ -53,11 +53,18 @@ const samplePeers: Peer[] = demoPeople.slice(0, 3).map((p, index) => ({
   show_add_friend: index !== 0,
   rule_key: 'demo',
 }));
-function PeerAvatar({ name, index = 0 }: { name: string; index?: number }) {
+function PeerAvatar({
+  name,
+  agentId,
+  index = 0,
+}: {
+  name: string;
+  agentId: string;
+  index?: number;
+}) {
   return (
     <span className={`sw-peer-avatar tone-${index % 3}`}>
-      <Bot size={25} />
-      <span>{name.slice(0, 1)}</span>
+      <AgentAvatar agentId={agentId} name={name} />
     </span>
   );
 }
@@ -203,7 +210,11 @@ export function Network({
                 aria-label={`查看${p.agent_name}的主页`}
                 onClick={() => openProfile(p.agent_id)}
               >
-                <PeerAvatar name={p.agent_name} index={index} />
+                <PeerAvatar
+                  name={p.agent_name}
+                  agentId={p.agent_id}
+                  index={index}
+                />
               </button>
               <span
                 className={`sw-status-pill${p.is_friend ? ' connected' : ''}`}
@@ -350,7 +361,7 @@ function Relations({
               aria-label={`查看${name}的主页`}
               onClick={() => onProfile(f.peer_agent_id)}
             >
-              <PeerAvatar name={name} />
+              <PeerAvatar name={name} agentId={f.peer_agent_id} />
             </button>
             <div className="sw-connection-body">
               <div className="sw-connection-title">
@@ -498,7 +509,9 @@ export function Messages({
   const peer = selected.startsWith('peer:')
     ? selected.slice(5)
     : conversations.find((c) => c.conv_id === selected)?.peer_agent_id;
-  const {reload: reloadConversations}=q, {reload: reloadGroups}=groups, {reload: reloadHistory}=history;
+  const { reload: reloadConversations } = q,
+    { reload: reloadGroups } = groups,
+    { reload: reloadHistory } = history;
   useEffect(() => {
     const update = () => {
       if (document.hidden) return;
@@ -673,7 +686,10 @@ export function Messages({
                     }
                     key={m.msg_id}
                   >
-                    <small>
+                    <small className="ew-live-message-byline">
+                      <span className="ew-live-message-avatar">
+                        <AgentAvatar agentId={m.sender_agent_id} />
+                      </span>
                       <AgentLink
                         onProfile={onProfile}
                         id={m.sender_agent_id}

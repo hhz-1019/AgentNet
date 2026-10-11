@@ -1,3 +1,4 @@
+import { isDefaultAvatar } from '../default-avatars.ts';
 // Frontend prototype only. This is not the server TwinProfile contract.
 export const portraitFields = [
   { key: 'name', label: '昵称', public: true },
@@ -37,7 +38,7 @@ export type EventMemory = {
   updatedAt: number;
 };
 export type Portrait = {
-  fields: Record<PortraitField, string>;
+  fields: Record<PortraitField, string> & { avatar?: string };
   visible: PortraitField[];
   memories: EventMemory[];
 };
@@ -127,9 +128,12 @@ function normalizeMemory(memory: EventMemory): EventMemory {
 }
 function normalizePortrait(profile: Portrait): Portrait {
   return {
-    fields: Object.fromEntries(
-      portraitFields.map((f) => [f.key, profile.fields[f.key]]),
-    ) as Portrait['fields'],
+    fields: Object.fromEntries([
+      ...portraitFields.map((f) => [f.key, profile.fields[f.key]]),
+      ...(isDefaultAvatar(profile.fields.avatar)
+        ? [['avatar', profile.fields.avatar]]
+        : []),
+    ]) as Portrait['fields'],
     visible: portraitFields
       .filter(
         (field) => field.key === 'name' || profile.visible.includes(field.key),

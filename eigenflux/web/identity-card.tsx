@@ -67,6 +67,7 @@ export function IdentityCard({
     <section className="identity-showcase" aria-label="Agent 网络身份卡">
       <IdentitySurface>
         <SocialIdentity
+          agentId={card.agent_id}
           name={name}
           bio={bio}
           headingAs="h2"

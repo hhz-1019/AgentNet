@@ -19,7 +19,7 @@ import (
 )
 
 var errPortraitConflict = errors.New("portrait revision conflict")
-var portraitKeys = map[string]int{"name": 80, "bio": 1000, "interests": 1000, "role": 200, "values": 1000, "recent": 1000}
+var portraitKeys = map[string]int{"name": 80, "bio": 1000, "interests": 1000, "role": 200, "values": 1000, "recent": 1000, "avatar": 20}
 
 // Optional initial Agent prefill inside the existing onboarding twin_profile envelope.
 type portraitDraft struct {
@@ -30,7 +30,7 @@ type portraitDraft struct {
 func validatePortraitDraft(p portraitDraft) error {
 	for k, v := range p.Fields {
 		limit, ok := portraitKeys[k]
-		if !ok || utf8.RuneCountInString(v) > limit {
+		if !ok || utf8.RuneCountInString(v) > limit || (k == "avatar" && !validDefaultAvatar(v)) {
 			return errors.New("画像字段无效或过长")
 		}
 	}
@@ -64,6 +64,7 @@ type portraitRow struct {
 }
 
 func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
+	h.GET("/api/v2/console/avatars", s.consoleAuth(false), s.requireCompleted, s.getAvatars)
 	h.GET("/api/v2/console/portrait", s.consoleAuth(false), s.getPortrait)
 	h.PUT("/api/v2/console/portrait", s.consoleAuth(true), s.putPortrait)
 	h.POST("/api/v2/console/portrait/confirm", s.consoleAuth(true), s.confirmPortrait)
@@ -171,7 +172,7 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 	}
 	for k, v := range req.Fields {
 		limit, ok := portraitKeys[k]
-		if !ok || utf8.RuneCountInString(v) > limit || (k == "name" && strings.TrimSpace(v) == "") {
+		if !ok || utf8.RuneCountInString(v) > limit || (k == "name" && strings.TrimSpace(v) == "") || (k == "avatar" && !validDefaultAvatar(v)) {
 			fail(c, 400, "INVALID_PORTRAIT", "昵称必填，资料请遵守长度限制", nil)
 			return
 		}
@@ -356,6 +357,7 @@ func (s *Service) getPerson(ctx context.Context, c *app.RequestContext) {
 			for _, k := range visible {
 				fields[k] = raw[k]
 			}
+			fields["avatar"] = raw["avatar"]
 			if fields["name"] == "" {
 				fields["name"] = p.AgentName
 			}

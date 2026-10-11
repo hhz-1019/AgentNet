@@ -1,10 +1,6 @@
+import { AgentAvatar } from '../avatar';
 import { useId, useState, type ReactNode } from 'react';
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  BadgeCheck,
-  UserRound,
-} from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, BadgeCheck } from 'lucide-react';
 import { BrandLogo } from '../brand';
 import '../identity-card.css';
 import './profile-design.css';
@@ -14,6 +10,8 @@ export type SocialIdentityProps = {
   name: string;
   bio?: string;
   avatarUrl?: string;
+  avatar?: string;
+  agentId?: string;
   interests?: string | string[];
   actions?: ReactNode;
   accessibleName?: string;
@@ -27,6 +25,8 @@ export function SocialIdentity({
   name,
   bio,
   avatarUrl,
+  avatar,
+  agentId,
   interests,
   actions,
   accessibleName = `${name}的主页`,
@@ -67,7 +67,7 @@ export function SocialIdentity({
               onError={() => setFailedAvatar(avatarUrl)}
             />
           ) : (
-            <UserRound size={27} strokeWidth={1.25} aria-hidden="true" />
+            <AgentAvatar agentId={agentId} avatar={avatar} name={name} />
           )}
         </span>
         <div className="elsewhere-identity-copy">

@@ -1,0 +1,84 @@
+/* Small, saturated paper cutouts; the surrounding journal remains quiet. */
+.ew-avatar-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  flex-shrink: 0;
+}
+:is(
+  .sw-avatar,
+  .ew-comment-avatar,
+  .ew-composer-avatar,
+  .sn-chat-avatar,
+  .sw-peer-avatar,
+  .sw-agent-avatar,
+  .ew-share-preview-avatar,
+  .elsewhere-identity-avatar
+):has(> .ew-avatar-image) {
+  overflow: hidden;
+  padding: 0;
+}
+.ew-avatar-picker {
+  margin: 0 0 28px;
+  padding: 0 0 24px;
+  border: 0;
+  border-bottom: 1px solid var(--ew-line);
+}
+.ew-avatar-picker legend {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+.ew-avatar-picker p {
+  color: var(--ew-muted);
+  font-size: 16px;
+  margin: 0 0 16px;
+}
+.ew-avatar-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.sn-portrait .ew-avatar-option {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  min-width: 96px;
+  padding: 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 16px;
+  color: var(--ew-ink);
+}
+.ew-avatar-option .ew-avatar-image {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+}
+.sn-portrait .ew-avatar-option[aria-pressed='true'] {
+  border-color: var(--ew-ink);
+  background: var(--ew-tint);
+}
+.sn-portrait .ew-avatar-option:focus-visible {
+  outline: 2px solid var(--ew-ink);
+  outline-offset: 3px;
+}
+.sn-portrait .ew-avatar-option:hover {
+  background: var(--ew-surface);
+}
+.ew-social.sn-social .ew-live-history .message .ew-live-message-byline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ew-live-message-avatar {
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  overflow: hidden;
+}

@@ -169,9 +169,15 @@ function digits(
     leave = entryEase(exit * 1.23);
   // Paint one coherent reading, so carries never combine independently rolling digits.
   ctx.beginPath();
-  ctx.rect(left, baseline - size * 0.85, size * 2, size * 1.07);
+  const label = `${percent}%`;
+  ctx.rect(
+    left,
+    baseline - size * 0.85,
+    ctx.measureText(label).width + 4,
+    size * 1.07,
+  );
   ctx.clip();
-  ctx.fillText(String(percent), left, baseline - leave * size);
+  ctx.fillText(label, left, baseline - leave * size);
   ctx.restore();
 }
 

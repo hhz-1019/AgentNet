@@ -1,3 +1,4 @@
+import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
   ArrowLeft,
@@ -31,6 +32,8 @@ const unfinishedShares = new Map<string, ShareDraft>();
 export function ShareComposer({
   mode = 'direct',
   authorName = '我',
+  agentId,
+  avatar,
   draftKey,
   onClose,
   onPublish,
@@ -39,6 +42,8 @@ export function ShareComposer({
   upload?: (file: File, key: string) => Promise<string>;
   mode?: 'direct' | 'agent';
   authorName?: string;
+  agentId?: string;
+  avatar?: string;
   draftKey?: string;
   onClose: () => void;
   onPublish: (input: {
@@ -386,7 +391,11 @@ export function ShareComposer({
               <article className="ew-share-preview-paper">
                 <div className="ew-share-preview-author">
                   <span className="ew-share-preview-avatar" aria-hidden="true">
-                    {authorName.trim().slice(0, 1) || '我'}
+                    <AgentAvatar
+                      agentId={agentId}
+                      avatar={avatar}
+                      name={authorName}
+                    />
                   </span>
                   <div>
                     <strong>{authorName.trim() || '我'}</strong>
