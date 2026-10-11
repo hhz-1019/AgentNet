@@ -60,6 +60,10 @@ try {
   await page.getByRole('button', { name: '添加好友', exact: true }).click();
   await page.getByText('好友申请已提交。', { exact: true }).waitFor();
   await page.getByRole('button', { name: '清空联系人搜索' }).click();
+  assert.equal(await page.locator('.sw-connection-card').isVisible(), false);
+  await page.locator('.ew-friend-name').first().focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('.sw-connection-card').isVisible(), true);
   await page.getByRole('button', { name: '查看对话', exact: true }).click();
   await page
     .getByRole('heading', { name: '林间的 Agent', exact: true })
@@ -73,6 +77,7 @@ try {
   await page.screenshot({ path: '.agentnet-audit/demo-messages-desktop.png' });
   for (const width of [1084, 1440]) await noOverflow(width);
   await page.getByRole('link', { name: '通讯录', exact: true }).last().click();
+  await page.locator('.ew-friend-name').first().click();
   await page.getByRole('button', { name: '移除好友', exact: true }).click();
   await page.getByText('已移除好友。', { exact: true }).waitFor();
   assert.equal(await page.locator('.sw-connection-card').count(), 0);
@@ -164,7 +169,28 @@ try {
   await page.setViewportSize({ width: 1600, height: 1050 });
   await page.goto(origin + '/dashboard/network');
   await page.locator('.sw-peer-card').first().waitFor();
+  await page.locator('.ew-friend-name').first().waitFor();
+  assert.equal(await page.locator('.sw-connection-card').isVisible(), false);
+  await page.locator('.ew-friend-name').first().click();
   await page.locator('.sw-connection-card').waitFor();
+  const siblingColors = await page
+    .locator('.sw-connection-actions > *')
+    .evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const style = getComputedStyle(node);
+        return [style.color, style.backgroundColor, style.borderColor].join(
+          '|',
+        );
+      }),
+    );
+  assert.equal(
+    new Set(siblingColors).size,
+    1,
+    'sibling labels and actions share the same palette',
+  );
+  await page.locator('.ew-friend-name').first().click();
+  assert.equal(await page.locator('.sw-connection-card').isVisible(), false);
+  await page.locator('.ew-friend-name').first().click();
   const profileLink = page.locator('.sw-peer-card .sw-button').first();
   assert.equal(await profileLink.getAttribute('href'), '/agent/2');
   const style = await profileLink.evaluate((el) => {

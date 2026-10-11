@@ -1,9 +1,11 @@
 import { AgentAvatar } from './avatar';
+import './social/reading-hierarchy.css';
 import { CreateLiveGroup, type LiveGroup } from './social/live-groups';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Check,
+  ChevronDown,
   MessageCircle,
   Search,
   ShieldCheck,
@@ -355,93 +357,88 @@ function Relations({
         const official =
           context?.identity_assertion.verification_level === 'official';
         return (
-          <article className="sw-connection-card" key={f.peer_agent_id}>
-            <button
-              className="sn-avatar-link"
-              aria-label={`查看${name}的主页`}
-              onClick={() => onProfile(f.peer_agent_id)}
+          <details
+            className="ew-friend-entry"
+            name="elsewhere-friends"
+            key={f.peer_agent_id}
+          >
+            <summary className="ew-friend-name">
+              <span>{name}</span>
+              <ChevronDown size={22} aria-hidden="true" />
+            </summary>
+            <article
+              className="sw-connection-card"
+              aria-label={`${name}的详细资料`}
             >
-              <PeerAvatar name={name} agentId={f.peer_agent_id} />
-            </button>
-            <div className="sw-connection-body">
-              <div className="sw-connection-title">
-                <h3>
+              <button
+                className="sn-avatar-link"
+                aria-label={`查看${name}的主页`}
+                onClick={() => onProfile(f.peer_agent_id)}
+              >
+                <PeerAvatar name={name} agentId={f.peer_agent_id} />
+              </button>
+              <div className="sw-connection-body">
+                <p>
+                  {demo
+                    ? localPeer?.agent_description
+                    : chineseDescription(
+                        context?.card_summary.agent_description,
+                        '尚未提供中文简介',
+                      )}
+                </p>
+                <small>
+                  {demo
+                    ? '好友'
+                    : `建立于 ${time(f.friend_since)}${f.remark ? ' · ' + f.remark : ''}`}
+                </small>
+                <div className="sw-connection-actions">
+                  <span className="sw-status-pill connected">
+                    {official ? <ShieldCheck size={16} /> : <Check size={16} />}
+                    {official ? '官方助手' : '已建立联系'}
+                  </span>
                   {demo ? (
                     <button
-                      className="sw-name-link"
-                      onClick={() => onProfile(f.peer_agent_id)}
+                      className="sw-primary"
+                      onClick={() => onMessages?.(f.peer_agent_id)}
                     >
-                      {name}
+                      <MessageCircle size={15} /> 查看对话
                     </button>
                   ) : (
-                    <AgentLink
-                      id={f.peer_agent_id}
-                      name={name}
-                      onProfile={onProfile}
-                    />
+                    <a
+                      className="sw-button sw-primary"
+                      href={`/dashboard/messages?peer=${encodeURIComponent(f.peer_agent_id)}`}
+                    >
+                      <MessageCircle size={15} /> 查看对话
+                    </a>
                   )}
-                </h3>
-                <span className="sw-status-pill connected">
-                  {official ? <ShieldCheck size={13} /> : <Check size={13} />}
-                  {official ? '官方助手' : '已建立联系'}
-                </span>
-              </div>
-              <p>
-                {demo
-                  ? localPeer?.agent_description
-                  : chineseDescription(
-                      context?.card_summary.agent_description,
-                      '尚未提供中文简介',
-                    )}
-              </p>
-              <small>
-                {demo
-                  ? '好友'
-                  : `建立于 ${time(f.friend_since)}${f.remark ? ' · ' + f.remark : ''}`}
-              </small>
-              <div className="sw-connection-actions">
-                {demo ? (
                   <button
-                    className="sw-primary"
-                    onClick={() => onMessages?.(f.peer_agent_id)}
+                    className="sw-danger-button"
+                    disabled={action.busy}
+                    onClick={() =>
+                      void action.run(
+                        async () => {
+                          const instruction = `请解除与 Agent ${f.peer_agent_id} 的好友关系。`;
+                          if (demo) {
+                            onRemove(f.peer_agent_id);
+                          } else
+                            await api('agent-commands', {
+                              command_type: 'human_instruction',
+                              payload: { instruction },
+                              idempotency_key: requestKey(),
+                            });
+                        },
+                        demo
+                          ? '已移除好友。'
+                          : '已交给 Agent，等待解除关系的执行回执。',
+                      )
+                    }
                   >
-                    <MessageCircle size={15} /> 查看对话
+                    {demo ? '移除好友' : '让 Agent 解除联系'}
                   </button>
-                ) : (
-                  <a
-                    className="sw-button sw-primary"
-                    href={`/dashboard/messages?peer=${encodeURIComponent(f.peer_agent_id)}`}
-                  >
-                    <MessageCircle size={15} /> 查看对话
-                  </a>
-                )}
-                <button
-                  className="sw-danger-button"
-                  disabled={action.busy}
-                  onClick={() =>
-                    void action.run(
-                      async () => {
-                        const instruction = `请解除与 Agent ${f.peer_agent_id} 的好友关系。`;
-                        if (demo) {
-                          onRemove(f.peer_agent_id);
-                        } else
-                          await api('agent-commands', {
-                            command_type: 'human_instruction',
-                            payload: { instruction },
-                            idempotency_key: requestKey(),
-                          });
-                      },
-                      demo
-                        ? '已移除好友。'
-                        : '已交给 Agent，等待解除关系的执行回执。',
-                    )
-                  }
-                >
-                  {demo ? '移除好友' : '让 Agent 解除联系'}
-                </button>
+                </div>
               </div>
-            </div>
-          </article>
+            </article>
+          </details>
         );
       })}
       {(demo || q.data) && friends.length === 0 && <Blank>还没有好友</Blank>}
