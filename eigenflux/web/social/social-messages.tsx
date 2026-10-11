@@ -432,29 +432,21 @@ export function MessagePreview({
                     className={`sn-message${['我的 Agent', '你'].includes(m.name) ? ' own' : ''}${m.name === '你' ? ' sender-owner' : ' sender-agent'}`}
                     key={m.id || i}
                   >
-                    <div className="sn-message-byline">
-                      <button
-                        className="sn-message-person"
-                        onClick={() => openProfile(m.name)}
-                      >
-                        {m.name}
-                      </button>
-                      <span className="sn-sender-kind">
-                        {m.name === '你' ? '本人' : 'Agent'}
-                      </span>
-                    </div>
+                    <button
+                      className="ew-chat-avatar"
+                      aria-label={`查看${m.name}的主页`}
+                      onClick={() => openProfile(m.name)}
+                    >
+                      <AgentAvatar
+                        agentId={
+                          ['我的 Agent', '你'].includes(m.name)
+                            ? 'demo-owner'
+                            : demoPersonId(m.name)
+                        }
+                        name={m.name}
+                      />
+                    </button>
                     <p>{m.text}</p>
-                    {m.createdAt && (
-                      <time
-                        className="sn-message-time"
-                        dateTime={new Date(m.createdAt).toISOString()}
-                      >
-                        {new Date(m.createdAt).toLocaleTimeString('zh-CN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </time>
-                    )}
                   </article>
                 ))}
                 {!current.messages.length && (

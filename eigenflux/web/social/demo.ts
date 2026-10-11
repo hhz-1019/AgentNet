@@ -171,6 +171,8 @@ function freshDemoState(): DemoState {
 }
 export type PreviewStore = SocialStore & {
   share: (input: {
+    title?: string;
+    tags?: string[];
     content: string;
     visibility: Visibility;
     media: Media[];
@@ -230,8 +232,8 @@ export function createDemoStore(): PreviewStore {
   };
   const clone = <T>(value: T): T => structuredClone(value);
   return {
-    share: async ({ content, visibility, media, name }) => {
-      if (!content.trim() && !media.length)
+    share: async ({ title, tags = [], content, visibility, media, name }) => {
+      if (!title?.trim() && !content.trim() && !media.length)
         throw new Error('请填写内容或添加图片、视频。');
       const post: WorkPost = {
         id: crypto.randomUUID(),
@@ -243,12 +245,13 @@ export function createDemoStore(): PreviewStore {
         document: {
           ...common,
           title:
+            title?.trim() ||
             content.trim().slice(0, 70) ||
             (media[0]?.kind === 'video' ? '分享视频' : '分享图片'),
           summary: '',
           body: content.trim(),
           kind: 'result',
-          tags: [],
+          tags,
           identity: 'human',
           media,
         },

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { LoaderCircle, Send } from 'lucide-react';
 import './communication-design.css';
+import './composer-refinement.css';
 
 export function MessageComposer({
   value,

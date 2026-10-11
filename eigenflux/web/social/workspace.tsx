@@ -1006,6 +1006,8 @@ export function SocialWorkspace({
               });
             else
               await api('console/social/share', {
+                title: input.title,
+                tags: input.tags,
                 content: input.content,
                 visibility: input.visibility,
                 media: input.media,

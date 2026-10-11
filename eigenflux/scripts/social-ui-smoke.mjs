@@ -5,9 +5,10 @@ import { mkdir } from 'node:fs/promises';
 await mkdir('.agentnet-audit', { recursive: true });
 const server = await createServer({
   configFile: 'eigenflux/web/vite.config.mjs',
-  server: { port: 4322, host: '127.0.0.1' },
+  server: { port: 0, host: '127.0.0.1' },
 });
 await server.listen();
+const origin = server.resolvedUrls.local[0].replace(/\/$/, '');
 const browser = await chromium.launch({
   ...(process.env.AGENTNET_CHROMIUM_PATH
     ? { executablePath: process.env.AGENTNET_CHROMIUM_PATH }
@@ -23,7 +24,7 @@ try {
   page.on('request', (r) => {
     if (r.url().includes('/api/')) requests.push(r.url());
   });
-  await page.goto('http://127.0.0.1:4322/preview');
+  await page.goto(origin + '/preview');
   await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
   await page.locator('.sw-post').first().waitFor();
   assert.equal(
@@ -111,7 +112,7 @@ try {
       i + 1,
     );
   }
-  assert.equal(await page.locator('.ew-comment-avatar svg').count(), 2);
+  assert.equal(await page.locator('.ew-comment-avatar img').count(), 2);
   assert.equal(await page.getByLabel('你的评论').inputValue(), '');
   assert.equal(
     await page.getByRole('button', { name: '发送', exact: true }).isVisible(),
@@ -147,6 +148,24 @@ try {
     .waitFor();
   await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await page.getByRole('dialog').waitFor({ state: 'hidden' });
+  assert.equal(
+    await page
+      .locator('.sn-message-byline, .sn-message-time, .sn-sender-kind')
+      .count(),
+    0,
+  );
+  await page.getByLabel('输入消息', { exact: true }).focus();
+  const inputAppearance = await page
+    .getByLabel('输入消息', { exact: true })
+    .evaluate((el) => ({
+      outline: getComputedStyle(el).outlineStyle,
+      placeholder: getComputedStyle(el, '::placeholder').fontSize,
+      body: getComputedStyle(el).fontSize,
+    }));
+  assert.equal(inputAppearance.outline, 'none');
+  assert.ok(
+    parseFloat(inputAppearance.placeholder) > parseFloat(inputAppearance.body),
+  );
   await page.getByLabel('输入消息', { exact: true }).fill('周末一起去书店吧。');
   await page.getByLabel('输入消息', { exact: true }).press('Shift+Enter');
   assert.equal(
@@ -159,6 +178,7 @@ try {
     .getByText('周末一起去书店吧。', { exact: true })
     .waitFor();
   assert.equal(await page.getByLabel('输入消息').inputValue(), '');
+  assert.ok((await page.locator('.sn-message .ew-chat-avatar').count()) > 0);
   await page.reload();
   await page
     .locator('.sn-message.own')
@@ -166,8 +186,55 @@ try {
     .waitFor();
   await page.getByRole('button', { name: '发布', exact: true }).first().click();
   await page
-    .getByLabel('想分享什么？', { exact: true })
-    .fill('分享今天散步的发现');
+    .getByLabel('正文', { exact: true })
+    .fill('沿着河边走，发现一家新的书店。');
+  await page.getByLabel('标题', { exact: true }).fill('分享今天散步的发现');
+  await page.getByLabel(/^Tag/).fill('日常，散步，日常');
+  assert.equal(
+    await page.locator('.ew-share-tags .ew-share-tag-list > span').count(),
+    2,
+  );
+  assert.equal(
+    await page
+      .getByRole('button', { name: '添加图片', exact: true })
+      .innerText(),
+    '',
+  );
+  assert.equal(
+    await page
+      .getByRole('button', { name: '添加视频', exact: true })
+      .innerText(),
+    '',
+  );
+  await page.getByLabel('正文', { exact: true }).focus();
+  assert.equal(
+    await page
+      .getByLabel('正文', { exact: true })
+      .evaluate((el) => getComputedStyle(el).outlineStyle),
+    'none',
+  );
+  assert.equal(
+    await page
+      .getByLabel('正文', { exact: true })
+      .evaluate((el) => getComputedStyle(el).boxShadow),
+    'none',
+  );
+  await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await page.getByRole('button', { name: '发布', exact: true }).first().click();
+  assert.equal(
+    await page.getByLabel('标题', { exact: true }).inputValue(),
+    '分享今天散步的发现',
+  );
+  assert.equal(await page.getByLabel(/^Tag/).inputValue(), '日常，散步，日常');
+  await page.getByLabel(/^Tag/).fill('一，二，三，四，五，六，七，八，九');
+  assert.equal(
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: '发布', exact: true })
+      .isDisabled(),
+    true,
+  );
+  await page.getByLabel(/^Tag/).fill('日常，散步');
   await page.getByLabel('谁可以看', { exact: true }).selectOption('好友');
   await page
     .getByRole('dialog')
@@ -181,6 +248,20 @@ try {
   await page
     .getByRole('button', { name: '查看动态：分享今天散步的发现', exact: true })
     .waitFor();
+  await page
+    .getByRole('button', { name: '查看动态：分享今天散步的发现', exact: true })
+    .click();
+  await page
+    .getByRole('dialog')
+    .locator('.ew-reading-body')
+    .getByText('沿着河边走，发现一家新的书店。', { exact: true })
+    .waitFor();
+  assert.ok(
+    (await page.getByRole('dialog').locator('.sw-tags').innerText()).includes(
+      '散步',
+    ),
+  );
+  await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
   for (const route of [
     'explore',
     'messages',
@@ -192,7 +273,7 @@ try {
     'memories',
     'person/demo-research',
   ]) {
-    await page.goto('http://127.0.0.1:4322/preview#' + route);
+    await page.goto(origin + '/preview#' + route);
     await page.locator('#social-main').waitFor();
     assert.doesNotMatch(
       await page.locator('body').innerText(),

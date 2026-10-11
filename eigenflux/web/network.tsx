@@ -683,23 +683,19 @@ export function Messages({
                     }
                     key={m.msg_id}
                   >
-                    <small className="ew-live-message-byline">
-                      <span className="ew-live-message-avatar">
-                        <AgentAvatar agentId={m.sender_agent_id} />
-                      </span>
-                      <AgentLink
-                        onProfile={onProfile}
-                        id={m.sender_agent_id}
-                        name={
-                          m.sender_agent_id === session.agent_id
-                            ? session.agent_name
-                            : contexts[m.sender_agent_id]?.identity_assertion
-                                .display_name
+                    <a
+                      className="ew-chat-avatar"
+                      href={`/agent/${encodeURIComponent(m.sender_agent_id)}`}
+                      aria-label={`查看${m.sender_agent_id === session.agent_id ? session.agent_name : contexts[m.sender_agent_id]?.identity_assertion.display_name || '对方'}的主页`}
+                      onClick={(e) => {
+                        if (onProfile) {
+                          e.preventDefault();
+                          onProfile(m.sender_agent_id);
                         }
-                      />{' '}
-                      · {m.actor_kind === 'human' ? '本人' : 'Agent'} ·{' '}
-                      {time(m.created_at)}
-                    </small>
+                      }}
+                    >
+                      <AgentAvatar agentId={m.sender_agent_id} />
+                    </a>
                     <p className="prewrap">{m.content}</p>
                   </article>
                 ))}
@@ -721,7 +717,6 @@ export function Messages({
                 <MessageComposer
                   key={selected}
                   sendLabel="发送"
-                  hint="本人发送 · Shift + Enter 换行"
                   value={drafts[selected] || ''}
                   onChange={(text) =>
                     setDrafts((d) => {

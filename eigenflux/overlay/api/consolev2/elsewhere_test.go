@@ -184,8 +184,21 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	rangeRead("201", "bytes=99-", 416)
 	rangeRead("202", "bytes=0-3", 404) // unshared upload is private
 	call("POST", "/api/v2/console/social/share?viewer=202", map[string]any{"content": "", "media": []any{media}, "visibility": "public", "idempotency_key": "foreign-media-request"}, 403)
-	post := map[string]any{"content": "一条普通动态", "media": []any{media}, "visibility": "friends", "idempotency_key": "direct-share-request"}
+	post := map[string]any{"title": "周末的散步", "tags": []string{"日常", "散步"}, "content": "一条普通动态", "media": []any{media}, "visibility": "friends", "idempotency_key": "direct-share-request"}
+	invalid := map[string]any{"content": "测试正文", "tags": []string{"重复", "重复"}, "visibility": "public", "idempotency_key": "invalid-tags-request"}
+	call("POST", "/api/v2/console/social/share", invalid, 400)
+	invalid["tags"] = []string{strings.Repeat("字", 31)}
+	call("POST", "/api/v2/console/social/share", invalid, 400)
+	invalid["tags"] = []string{"一", "二", "三", "四", "五", "六", "七", "八", "九"}
+	call("POST", "/api/v2/console/social/share", invalid, 400)
+	invalid["tags"] = []string{}
+	invalid["title"] = strings.Repeat("字", 101)
+	call("POST", "/api/v2/console/social/share", invalid, 400)
 	published := call("POST", "/api/v2/console/social/share", post, 201)
+	document := published["document"].(map[string]any)
+	if document["title"] != "周末的散步" || document["body"] != "一条普通动态" || len(document["tags"].([]any)) != 2 {
+		t.Fatal("title, body or tags were not preserved", document)
+	}
 	again = call("POST", "/api/v2/console/social/share", post, 201)
 	if published["id"] != again["id"] {
 		t.Fatal("duplicate social post")
