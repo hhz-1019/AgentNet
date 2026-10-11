@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { LoaderCircle, Send } from 'lucide-react';
+import { LoaderCircle, Send } from '../icons';
 import './communication-design.css';
 import './composer-refinement.css';
 

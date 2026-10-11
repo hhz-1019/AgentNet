@@ -6,7 +6,7 @@ import {
   Heart,
   MessageCircle,
   ExternalLink,
-} from 'lucide-react';
+} from '../icons';
 import {
   visibilityLabels,
   type WorkPost,

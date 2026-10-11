@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 func (s *Service) registerElsewhereCommunication(h *server.Hertz) {
 	h.POST("/api/v2/console/pm/send", s.consoleAuth(true), s.requireCompleted, s.sendHumanPM)
+	h.POST("/api/v2/console/pm/conversations/:conv_id/read", s.consoleAuth(true), s.requireCompleted, s.readHumanPM)
 	for _, p := range []string{"/api/v2/console/groups", "/api/v2/communication/groups"} {
 		read, write := s.consoleAuth(false), s.consoleAuth(true)
 		if strings.Contains(p, "communication") {
@@ -27,6 +29,41 @@ func (s *Service) registerElsewhereCommunication(h *server.Hertz) {
 		h.GET(p+"/:group_id/messages", read, s.requireCompleted, s.groupMessages)
 		h.POST(p+"/:group_id/messages", write, s.requireCompleted, s.sendGroupMessage)
 	}
+}
+
+// Acknowledge only messages up to the one actually displayed by the owner.
+// A newer message arriving during this request must remain unread.
+func (s *Service) readHumanPM(ctx context.Context, c *app.RequestContext) {
+	viewer, _ := agentID(c)
+	conv, err := strconv.ParseInt(c.Param("conv_id"), 10, 64)
+	var req struct {
+		ThroughMessageID string `json:"through_message_id"`
+	}
+	body, _ := c.Body()
+	if err != nil || conv <= 0 || json.Unmarshal(body, &req) != nil {
+		fail(c, http.StatusBadRequest, "INVALID_READ_RECEIPT", "invalid read receipt", nil)
+		return
+	}
+	through, err := strconv.ParseInt(req.ThroughMessageID, 10, 64)
+	if err != nil || through <= 0 {
+		fail(c, http.StatusBadRequest, "INVALID_READ_RECEIPT", "invalid message ID", nil)
+		return
+	}
+	var allowed bool
+	if err = s.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM conversations c JOIN private_messages m ON m.conv_id=c.conv_id WHERE c.conv_id=? AND c.status=0 AND (c.participant_a=? OR c.participant_b=?) AND m.msg_id=?)`, conv, viewer, viewer, through).Scan(&allowed).Error; err != nil {
+		fail(c, http.StatusInternalServerError, "READ_RECEIPT_FAILED", "could not verify conversation", nil)
+		return
+	}
+	if !allowed {
+		fail(c, http.StatusNotFound, "CONVERSATION_NOT_FOUND", "conversation or message not found", nil)
+		return
+	}
+	result := s.db.WithContext(ctx).Exec(`UPDATE private_messages SET is_read=true WHERE conv_id=? AND receiver_id=? AND msg_id<=? AND is_read=false`, conv, viewer, through)
+	if result.Error != nil {
+		fail(c, http.StatusInternalServerError, "READ_RECEIPT_FAILED", "could not mark messages read", nil)
+		return
+	}
+	reply(c, http.StatusOK, map[string]any{"read_count": result.RowsAffected})
 }
 func canCommunicate(tx *gorm.DB, a, b int64, friend bool) error {
 	var allowed bool

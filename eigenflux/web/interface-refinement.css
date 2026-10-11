@@ -1,0 +1,181 @@
+/* White is the shared canvas; warmth is reserved for a few writing surfaces. */
+html[data-theme]
+  :is(button, [role='button'], .sw-button, .sw-sidebar nav a, .sw-mobile-nav a),
+html[data-theme] :is(button, [role='button'], .sw-button)::before,
+html[data-theme] :is(button, [role='button'], .sw-button)::after {
+  background-image: none !important;
+}
+html[data-theme]
+  :is(
+    .sw-dialog,
+    .sw-dialog > header,
+    .sw-dialog > footer,
+    .sn-demo-settings,
+    .sw-publisher,
+    .sn-settings-list
+  ) {
+  background-color: var(--ew-surface);
+  background-image: none;
+}
+html[data-theme]
+  .ew-social.sn-social
+  :is(.sn-settings-list, .sn-settings-list > a, .sn-demo-settings .sw-empty),
+html[data-theme]
+  .ew-social.sn-social[data-page='activity']
+  :is(article, .sw-empty) {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+html[data-theme] .ew-social.sn-social .sn-message-composer {
+  background: var(--ew-input-tint);
+}
+html[data-theme]
+  :is(.sw-dialog, .sn-demo-settings)
+  :is(input, textarea, select, fieldset, .ew-share-writing) {
+  background-color: var(--ew-surface);
+  background-image: none;
+}
+/* Dot size is independent of text size; accessible labels retain the count. */
+.ew-unread-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: #ef3340;
+  box-shadow: 0 0 0 2px var(--ew-paper);
+}
+html[data-theme] :is(.sn-conversation, .messages > aside > button) {
+  position: relative;
+}
+html[data-theme]
+  :is(.sn-conversation, .messages > aside > button)
+  > .ew-unread-dot {
+  position: absolute;
+  right: 15px;
+  top: 18px;
+}
+/* Two faces occupy one slot: selection turns the label away and reveals the icon. */
+html[data-theme]
+  .ew-social.sn-social
+  :is(.sw-sidebar nav, .sw-mobile-nav)
+  a.ew-flip-nav {
+  position: relative;
+  min-height: 64px;
+  justify-content: center;
+  overflow: visible;
+}
+html[data-theme] .ew-flip-nav .ew-nav-stage {
+  display: grid;
+  width: 100%;
+  min-width: 78px;
+  height: 44px;
+  align-items: center;
+  justify-items: center;
+  perspective: 420px;
+}
+html[data-theme] .ew-flip-nav :is(.ew-nav-label, .ew-nav-icon) {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+  transition:
+    transform 380ms cubic-bezier(0.22, 0.7, 0.18, 1),
+    opacity 260ms ease;
+}
+html[data-theme] .ew-flip-nav .ew-nav-label {
+  opacity: 1;
+  transform: translateX(0) rotateY(0deg);
+  transform-origin: left center;
+}
+html[data-theme] .ew-flip-nav .ew-nav-icon {
+  opacity: 0;
+  transform: translateX(30px) rotateY(85deg);
+  transform-origin: right center;
+  pointer-events: none;
+}
+html[data-theme] .ew-flip-nav[aria-current] .ew-nav-label {
+  opacity: 0;
+  transform: translateX(-30px) rotateY(-85deg);
+}
+html[data-theme] .ew-flip-nav[aria-current] .ew-nav-icon {
+  opacity: 1;
+  transform: translateX(0) rotateY(0deg);
+  transition-delay: 60ms;
+}
+html[data-theme] .ew-social.sn-social .ew-flip-nav .ew-nav-icon svg {
+  width: 40px;
+  height: 40px;
+}
+html[data-theme] .ew-flip-nav > .ew-unread-dot {
+  position: absolute;
+  right: 22%;
+  top: 13px;
+}
+.ew-generated-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+html[data-theme]
+  :is(.sn-conversation-avatar, .sn-chat-avatar).is-group
+  .ew-generated-icon {
+  width: 30px;
+  height: 30px;
+}
+.ew-generated-icon image {
+  filter: grayscale(1);
+}
+html[data-theme]
+  :is(.ew-nav-icon, .ew-theme-switch, .sn-media-actions)
+  .ew-generated-icon
+  image,
+html[data-theme] button[aria-pressed='true'] .ew-generated-icon image {
+  filter: none;
+}
+/* The companion is a small brand accent, even outside the active navigation. */
+html[data-theme] .ew-generated-icon[data-icon='Bot'] image {
+  filter: none;
+}
+html[data-theme='night'] .ew-generated-icon image {
+  filter: grayscale(1) invert(0.9);
+}
+html[data-theme='night']
+  .sn-conversation[aria-pressed='true']
+  .ew-generated-icon
+  image {
+  filter: grayscale(1) invert(0.9);
+}
+html[data-theme='night']
+  :is(.ew-nav-icon, .ew-theme-switch, .sn-media-actions)
+  .ew-generated-icon
+  image {
+  /* Preserve saturated accents while making the dark contour legible. */
+  filter: drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #ffffff);
+}
+html[data-theme]
+  :is(.sw-primary, .primary, .ew-identity-details-toggle)
+  .ew-generated-icon
+  image {
+  filter: brightness(0) invert(1);
+}
+@media (max-width: 760px) {
+  html[data-theme] .ew-social.sn-social .sw-mobile-nav a.ew-flip-nav {
+    min-height: 48px;
+  }
+  html[data-theme] .ew-social.sn-social .sw-mobile-nav .ew-nav-icon svg {
+    width: 30px;
+    height: 30px;
+  }
+  html[data-theme] .ew-flip-nav > .ew-unread-dot {
+    right: 18%;
+    top: 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme] .ew-flip-nav :is(.ew-nav-label, .ew-nav-icon) {
+    transition: none;
+  }
+}

@@ -1,6 +1,6 @@
 import { AgentAvatar } from '../avatar';
 import { useId, useState, type ReactNode } from 'react';
-import { ArrowDownLeft, ArrowUpRight, BadgeCheck } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, BadgeCheck } from '../icons';
 import { BrandLogo } from '../brand';
 import '../identity-card.css';
 import './profile-design.css';

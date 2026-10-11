@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { X } from 'lucide-react';
+import { X } from '../icons';
 import type { SocialStore, WorkPost } from './model';
 import { PostCard } from './post';
 import { demoPeople } from './people';

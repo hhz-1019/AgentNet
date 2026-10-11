@@ -183,7 +183,7 @@
 }
 
 .ew-social.sn-social .sw-sidebar nav a[aria-current] {
-  background: linear-gradient(180deg, var(--ew-tint), var(--ew-tint));
+  background: var(--ew-tint);
   border-color: var(--ew-line);
   box-shadow: var(--ew-paper-contact);
 }
@@ -191,7 +191,7 @@
   .sw-sidebar
   nav
   a[aria-current]:where(:hover, :focus-visible) {
-  background: linear-gradient(180deg, var(--ew-tint), var(--ew-tint));
+  background: var(--ew-tint);
   border-color: #a68e68;
   box-shadow: var(--ew-paper-hover);
 }

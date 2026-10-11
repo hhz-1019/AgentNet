@@ -41,7 +41,7 @@ try {
     backgrounds.add(
       await page
         .locator('body')
-        .evaluate((el) => getComputedStyle(el).backgroundColor),
+        .evaluate((el) => getComputedStyle(el).getPropertyValue('--ew-input-tint')),
     );
     assert.equal(
       await page.locator('.ew-tree-shadow, .ew-window-projection').count(),

@@ -1,16 +1,17 @@
 /* Shared appearance tokens apply to the console, registration and native dialogs. */
 :root[data-theme] {
   color-scheme: light;
-  --ew-paper: #f4eddf;
-  --ew-surface: #f9f3e7;
-  --ew-tint: #e8ddc9;
+  --ew-paper: #ffffff;
+  --ew-surface: #ffffff;
+  --ew-tint: #f3f1ed;
+  --ew-input-tint: #faf6ee;
   --ew-ink: #292620;
   --ew-muted: #716858;
-  --ew-line: #c9bba4;
+  --ew-line: #deddd9;
   --ew-action: #302c26;
   --ew-on-action: #fff8e8;
   --ew-focus: #8d7653;
-  --ew-grain-opacity: 0.16;
+  --ew-grain-opacity: 0;
   --ew-radius-control: 18px;
   --ew-radius-panel: 30px;
   --ew-control-bg: var(--ew-surface);
@@ -26,29 +27,31 @@
   color: var(--ew-ink);
 }
 :root[data-theme='cool'] {
-  --ew-paper: #edf2f5;
-  --ew-surface: #f6f9fb;
-  --ew-tint: #dce7ee;
+  --ew-paper: #ffffff;
+  --ew-surface: #ffffff;
+  --ew-tint: #eef3f8;
+  --ew-input-tint: #f2f6fb;
   --ew-ink: #263845;
   --ew-muted: #627583;
   --ew-line: #b8c9d4;
   --ew-action: #2c4252;
   --ew-on-action: #f5faff;
   --ew-focus: #557f9c;
-  --ew-grain-opacity: 0.07;
+  --ew-grain-opacity: 0;
 }
 :root[data-theme='night'] {
   color-scheme: dark;
   --ew-paper: #191b20;
   --ew-surface: #24272e;
   --ew-tint: #303640;
+  --ew-input-tint: #282c34;
   --ew-ink: #e9e7e1;
   --ew-muted: #adafb8;
   --ew-line: #454b56;
   --ew-action: #39434f;
   --ew-on-action: #f4f1e8;
   --ew-focus: #a7bdce;
-  --ew-grain-opacity: 0.025;
+  --ew-grain-opacity: 0;
   --ew-paper-contact: 0 1px 3px rgb(0 0 0 / 15%);
   --ew-paper-hover: 0 3px 12px rgb(0 0 0 / 20%);
 }
@@ -230,6 +233,9 @@ body:has(.sw-workspace) .ew-theme-floating {
 /* White in the supplied wordmark is an image matte, not a UI surface. */
 html[data-theme] .brand-logo {
   mix-blend-mode: multiply;
+}
+html[data-theme] .brand-logo.brand-logo-inverse {
+  mix-blend-mode: screen;
 }
 html[data-theme='night'] .brand-logo:not(.brand-logo-inverse) {
   mix-blend-mode: screen;

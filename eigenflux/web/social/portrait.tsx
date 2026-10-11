@@ -12,7 +12,7 @@ import {
   LockKeyhole,
   Plus,
   Search,
-} from 'lucide-react';
+} from '../icons';
 import { Dialog } from './dialog';
 import {
   emptyMemory,

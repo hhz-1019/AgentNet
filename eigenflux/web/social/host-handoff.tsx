@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check } from '../icons';
 import { Dialog } from './dialog';
 
 // A clipboard handoff only. The host owns the conversation and execution.

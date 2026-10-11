@@ -8,7 +8,7 @@ import {
   Search,
   ShieldCheck,
   Users,
-} from 'lucide-react';
+} from './icons';
 import { api } from './api';
 import type { Session } from './types';
 import './managed.css';

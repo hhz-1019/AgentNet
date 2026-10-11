@@ -1,3 +1,4 @@
+import { UnreadDot } from './unread';
 import { AgentAvatar } from './avatar';
 import './social/reading-hierarchy.css';
 import { CreateLiveGroup, type LiveGroup } from './social/live-groups';
@@ -11,7 +12,7 @@ import {
   ShieldCheck,
   UserPlus,
   X,
-} from 'lucide-react';
+} from './icons';
 import { api, requestKey, useData } from './api';
 import { AgentLink } from './public-agent';
 import { chineseDescription } from './chinese';
@@ -503,6 +504,46 @@ export function Messages({
         ? `console/pm/conversations/${selected}/messages?cursor=${encodeURIComponent(messageCursor)}`
         : null,
   );
+  const { reload: refreshReadConversations } = q;
+  const { reload: refreshReadGroups } = groups;
+  useEffect(() => {
+    if (!history.data || messageCursor || document.hidden) return;
+    let active = true;
+    const refreshReadState = () => {
+      if (!active) return;
+      refreshReadConversations();
+      refreshReadGroups();
+      window.dispatchEvent(new Event('elsewhere:messages-read'));
+    };
+    if (selected.startsWith('g:')) refreshReadState();
+    else {
+      const incoming = history.data.messages.filter(
+        (m) => m.receiver_agent_id === session.agent_id && !m.is_read,
+      );
+      if (incoming.length) {
+        const through = incoming.reduce((a, b) =>
+          BigInt(a.msg_id) > BigInt(b.msg_id) ? a : b,
+        ).msg_id;
+        void api(`console/pm/conversations/${selected}/read`, {
+          through_message_id: through,
+        })
+          .then(refreshReadState)
+          .catch(() => {
+            /* Keep the dot; the next history refresh retries the receipt. */
+          });
+      }
+    }
+    return () => {
+      active = false;
+    };
+  }, [
+    history.data,
+    messageCursor,
+    selected,
+    session.agent_id,
+    refreshReadConversations,
+    refreshReadGroups,
+  ]);
   const peer = selected.startsWith('peer:')
     ? selected.slice(5)
     : conversations.find((c) => c.conv_id === selected)?.peer_agent_id;
@@ -585,7 +626,7 @@ export function Messages({
             >
               <strong>{g.name}</strong>
               <p>群聊 · {g.members.length} 位成员</p>
-              <small>{g.unread_count} 未读</small>
+              <UnreadDot count={g.unread_count} />
             </button>
           ))}
           <Pager
@@ -608,6 +649,7 @@ export function Messages({
                 setMessageCursor('');
               }}
             >
+              <UnreadDot count={c.unread_count} />
               <strong>
                 {contexts[c.peer_agent_id]?.identity_assertion.display_name ||
                   c.peer_agent_id}
@@ -621,9 +663,7 @@ export function Messages({
                   ? `草稿 · ${drafts[c.conv_id]}`
                   : c.last_message?.content || '会话已建立'}
               </p>
-              <small>
-                {time(c.updated_at)} · {c.unread_count} 未读
-              </small>
+              <small>{time(c.updated_at)}</small>
             </button>
           ))}
           {q.data && conversations.length === 0 && <Blank>还没有会话。</Blank>}

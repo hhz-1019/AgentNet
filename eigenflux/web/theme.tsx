@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
-import { Sun, CloudSun, Moon } from 'lucide-react';
+import { Sun, CloudSun, Moon } from './icons';
 import './theme.css';
+import './interface-refinement.css';
 
 const key = 'elsewhere-appearance';
 const themes = [

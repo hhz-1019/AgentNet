@@ -55,6 +55,7 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	h.GET("/people/:person_id", auth, s.getPerson)
 	h.PUT("/people/:person_id/follow", auth, s.putFollow)
 	h.POST("/api/v2/console/pm/send", auth, s.sendHumanPM)
+	h.POST("/api/v2/console/pm/conversations/:conv_id/read", auth, s.readHumanPM)
 	h.POST("/api/v2/console/groups", auth, s.createGroup)
 	h.GET("/api/v2/console/groups", auth, s.listGroups)
 	h.GET("/api/v2/console/groups/:group_id/messages", auth, s.groupMessages)
@@ -132,6 +133,26 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	db.Raw(`SELECT actor_kind FROM private_messages WHERE msg_id=?`, sent["msg_id"]).Scan(&actor)
 	if actor != "human" {
 		t.Fatal("actor attribution")
+	}
+	readPath := "/api/v2/console/pm/conversations/" + sent["conv_id"].(string) + "/read"
+	receipt := map[string]any{"through_message_id": sent["msg_id"]}
+	call("POST", readPath+"?viewer=203", receipt, 404)
+	call("POST", readPath+"?viewer=202", map[string]any{"through_message_id": "invalid"}, 400)
+	call("POST", readPath+"?viewer=202", map[string]any{"through_message_id": "999999999999999999"}, 404)
+	newer := call("POST", "/api/v2/console/pm/send", map[string]any{"receiver_id": "202", "content": "arrived after the displayed page", "idempotency_key": "pm-read-newer"}, 201)
+	if read := call("POST", readPath, receipt, 200); read["read_count"] != float64(0) {
+		t.Fatal("sender must not mark recipient messages read", read)
+	}
+	if read := call("POST", readPath+"?viewer=202", receipt, 200); read["read_count"] != float64(1) {
+		t.Fatal("recipient read receipt", read)
+	}
+	if read := call("POST", readPath+"?viewer=202", receipt, 200); read["read_count"] != float64(0) {
+		t.Fatal("read receipt must be idempotent", read)
+	}
+	var newerRead bool
+	db.Raw(`SELECT is_read FROM private_messages WHERE msg_id=?`, newer["msg_id"]).Scan(&newerRead)
+	if newerRead {
+		t.Fatal("read receipt swallowed a newer unread message")
 	}
 	request["content"] = "different"
 	call("POST", "/api/v2/console/pm/send", request, 409)

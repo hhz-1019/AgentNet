@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bot, X } from 'lucide-react';
+import { Bot, X } from './icons';
 import { api } from './api';
 import type { Session } from './types';
 

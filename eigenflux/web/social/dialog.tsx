@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { X } from '../icons';
 import './communication-design.css';
 import './reading-motion.css';
 

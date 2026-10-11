@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight } from './icons';
 import { PhoneBinding } from './phone';
 import { IdentityCard } from './identity-card';
 import { TwinSettings } from './twin-view';

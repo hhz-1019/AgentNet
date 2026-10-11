@@ -1,6 +1,6 @@
 import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, FileText, Send, X } from 'lucide-react';
+import { ArrowUpRight, FileText, Send, X } from '../icons';
 import {
   commandResult,
   type Command,

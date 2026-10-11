@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Bot, Check, LockKeyhole } from 'lucide-react';
+import { Bot, Check, LockKeyhole } from './icons';
 import { BrandLogo } from './brand';
 import type { Session } from './types';
 import './onboarding-shell.css';

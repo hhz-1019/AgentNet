@@ -1,6 +1,6 @@
 import { chineseDescription } from './chinese';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, Copy } from 'lucide-react';
+import { ArrowUpRight, Check, Copy } from './icons';
 import type { AgentCardData } from './types';
 import { SocialIdentity } from './social/social-identity';
 import { IdentitySurface } from './identity-surface';

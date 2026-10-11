@@ -1,4 +1,5 @@
 import { ThemeSwitcher } from '../theme';
+import { UnreadDot, useUnreadMessages } from '../unread';
 import { AgentAvatar, rememberAvatar } from '../avatar';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import {
@@ -18,7 +19,7 @@ import {
   UserRound,
   Users,
   X,
-} from 'lucide-react';
+} from '../icons';
 import { api, refreshData, useData } from '../api';
 import { BrandLogo } from '../brand';
 import type { Session, Account } from '../types';
@@ -143,6 +144,7 @@ export function SocialWorkspace({
     setPortrait(savePortrait(next));
   }
   const [route, setRoute] = useState(() => readRoute(demo));
+  const hasUnreadMessages = useUnreadMessages(demo, session.agent_id);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [topic, setTopic] = useState('');
@@ -454,9 +456,24 @@ export function SocialWorkspace({
           href={href(id)}
           onClick={(e) => go(id, e)}
           aria-current={activeNav === id ? 'page' : undefined}
+          aria-label={label}
+          aria-describedby={
+            id === 'messages' && hasUnreadMessages
+              ? 'ew-unread-message-description'
+              : undefined
+          }
+          title={label}
+          className="ew-flip-nav"
         >
-          <Icon size={21} />
-          <span>{label}</span>
+          <span className="ew-nav-stage" aria-hidden="true">
+            <span className="ew-nav-label">{label}</span>
+            <span className="ew-nav-icon">
+              <Icon size={36} />
+            </span>
+          </span>
+          {id === 'messages' && (
+            <UnreadDot count={hasUnreadMessages ? 1 : 0} hiddenLabel />
+          )}
         </a>
       ));
   return (
@@ -466,6 +483,11 @@ export function SocialWorkspace({
       ref={workspace}
     >
       <JournalAtmosphere background={atmosphere.background} />
+      {hasUnreadMessages && (
+        <span id="ew-unread-message-description" className="sw-sr-only">
+          有未读消息
+        </span>
+      )}
       <a className="sw-skip" href="#social-main">
         跳到内容
       </a>

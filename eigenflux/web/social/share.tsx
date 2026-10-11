@@ -11,7 +11,7 @@ import {
   Users,
   Video,
   X,
-} from 'lucide-react';
+} from '../icons';
 import { Dialog } from './dialog';
 import { parseTags, type Media, type Visibility } from './model';
 import './composer-refinement.css';
