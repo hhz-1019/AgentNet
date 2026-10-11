@@ -43,7 +43,7 @@ import {
   portraitFields,
   type Portrait,
 } from './portrait-data';
-import { MovingTabs, useFeedMotion } from './content-motion';
+import { ContentTabs, useFeedMotion } from './content-motion';
 import { JournalAtmosphere, useJournalAtmosphere } from './journal-atmosphere';
 import { DemoSettings } from './social-settings';
 import type { WorkPost, SocialStore, Page } from './model';
@@ -447,9 +447,11 @@ export function SocialWorkspace({
     }
   }
   const activeNav = personal ? 'me' : route;
-  const renderNav = () =>
+  const renderNav = (
+    ids: readonly string[] = ['explore', 'messages', 'network'],
+  ) =>
     nav
-      .filter(([id]) => id !== 'me')
+      .filter(([id]) => ids.includes(id))
       .map(([id, label, Icon]) => (
         <a
           key={id}
@@ -597,7 +599,7 @@ export function SocialWorkspace({
                 </div>
               </div>
             </div>
-            <MovingTabs className="sn-tabs" label="我的内容" active={route}>
+            <ContentTabs className="sn-tabs" label="我的内容">
               {personalTabs.map(([id, label]) => (
                 <a
                   key={id}
@@ -608,7 +610,7 @@ export function SocialWorkspace({
                   {label}
                 </a>
               ))}
-            </MovingTabs>
+            </ContentTabs>
           </>
         )}
         {notice && <output className="sw-hint">{notice}</output>}
@@ -640,11 +642,7 @@ export function SocialWorkspace({
             >
               {route === 'explore' && (
                 <div className="sn-discover-heading">
-                  <MovingTabs
-                    className="sn-tabs"
-                    label="发现频道"
-                    active={feed}
-                  >
+                  <ContentTabs className="sn-tabs" label="发现频道">
                     {[
                       ['recommended', '推荐'],
                       ['following', '关注'],
@@ -661,7 +659,7 @@ export function SocialWorkspace({
                         {label}
                       </button>
                     ))}
-                  </MovingTabs>
+                  </ContentTabs>
                 </div>
               )}
               <form
@@ -994,7 +992,7 @@ export function SocialWorkspace({
         )}
       </main>
       <nav className="sw-mobile-nav" aria-label="移动导航">
-        {renderNav()}
+        {renderNav(['explore', 'messages'])}
         <button
           className="ew-mobile-publish"
           onClick={() => setPublisher(true)}
@@ -1002,14 +1000,7 @@ export function SocialWorkspace({
           <Plus size={21} />
           <span>发布</span>
         </button>
-        <a
-          href={href('me')}
-          onClick={(e) => go('me', e)}
-          aria-current={personal ? 'page' : undefined}
-        >
-          <UserRound size={21} />
-          <span>我的</span>
-        </a>
+        {renderNav(['network', 'me'])}
       </nav>
       {publisher === true ? (
         <ShareComposer

@@ -2,38 +2,18 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { WorkPost } from './model';
 import './content-motion.css';
 
-export function MovingTabs({
+export function ContentTabs({
   children,
   className,
   label,
-  active,
 }: {
   children: ReactNode;
   className: string;
   label: string;
-  active: string;
 }) {
-  const ref = useRef<HTMLElement>(null);
-  useLayoutEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const measure = () => {
-      const selected = node.querySelector<HTMLElement>(
-        '[aria-current], [aria-pressed="true"]',
-      );
-      if (!selected) return;
-      node.style.setProperty('--tab-left', `${selected.offsetLeft}px`);
-      node.style.setProperty('--tab-width', `${selected.offsetWidth}px`);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [active]);
   return (
-    <nav ref={ref} className={`${className} ew-moving-tabs`} aria-label={label}>
+    <nav className={className} aria-label={label}>
       {children}
-      <span className="ew-tab-indicator" aria-hidden="true" />
     </nav>
   );
 }
@@ -127,18 +107,24 @@ export function useFeedMotion(items?: WorkPost[]) {
       );
     });
     positions.current = next;
+    let layoutFrame = 0;
     const observer = new ResizeObserver(() => {
-      if (disposed) return;
-      const changed = pack();
-      const settled = readPositions();
-      const moved = [...settled].some(([id, point]) => {
-        const before = positions.current.get(id);
-        return before && (before.x !== point.x || before.y !== point.y);
+      if (disposed || layoutFrame) return;
+      // Writing grid spans inside ResizeObserver causes another resize in the
+      // same delivery cycle. Batch responsive packing into the next frame.
+      layoutFrame = requestAnimationFrame(() => {
+        layoutFrame = 0;
+        if (disposed) return;
+        const changed = pack();
+        const settled = readPositions();
+        const moved = [...settled].some(([id, point]) => {
+          const before = positions.current.get(id);
+          return before && (before.x !== point.x || before.y !== point.y);
+        });
+        // Do not retain stale FLIP offsets after media or viewport changes.
+        if (changed || moved) stopAnimations();
+        positions.current = settled;
       });
-      // An in-flight FLIP must not keep stale offsets after media or width
-      // changes. The observer's initial unchanged notification leaves it alone.
-      if (changed || moved) stopAnimations();
-      positions.current = settled;
     });
     observer.observe(node);
     children.forEach((child) => observer.observe(child));
@@ -148,6 +134,7 @@ export function useFeedMotion(items?: WorkPost[]) {
     media.addEventListener('change', reduceMotion);
     return () => {
       disposed = true;
+      cancelAnimationFrame(layoutFrame);
       observer.disconnect();
       media.removeEventListener('change', reduceMotion);
       stopAnimations();

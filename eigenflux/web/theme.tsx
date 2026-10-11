@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { Sun, CloudSun, Moon } from './icons';
 import './theme.css';
 import './interface-refinement.css';
+import './mobile-refinement.css';
 
 const key = 'elsewhere-appearance';
 const themes = [

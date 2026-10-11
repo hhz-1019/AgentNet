@@ -36,6 +36,56 @@ html[data-theme]
   background-color: var(--ew-surface);
   background-image: none;
 }
+/* Content filters use a quiet solid pill, with no stacked selection rules. */
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-tabs, .sn-message-filters) {
+  gap: 8px;
+  border: 0;
+}
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-tabs, .sn-message-filters)
+  :is(a, button) {
+  padding: 9px 14px;
+  min-height: 42px;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: none;
+  text-decoration: none;
+  background: transparent;
+  color: var(--ew-muted);
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
+}
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-tabs, .sn-message-filters)
+  :is(a, button):is([aria-current], [aria-pressed='true']) {
+  background: var(--ew-tint);
+  color: var(--ew-ink);
+  box-shadow: none;
+  font-weight: 500;
+}
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-tabs, .sn-message-filters)
+  :is(a, button):hover {
+  background: var(--ew-tint);
+  color: var(--ew-ink);
+}
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-tabs, .sn-message-filters)
+  :is(a, button)::before,
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-tabs, .sn-message-filters)
+  :is(a, button)::after {
+  content: none;
+  display: none;
+}
 /* Dot size is independent of text size; accessible labels retain the count. */
 .ew-unread-dot {
   display: inline-block;
