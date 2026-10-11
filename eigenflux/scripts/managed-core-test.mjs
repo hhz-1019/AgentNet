@@ -1,3 +1,4 @@
+import './managed-photo-migration-test.mjs';
 // Full schema + patched Go HTTP handlers against isolated PostgreSQL (PGlite).
 // No production account, SMS, model key or paid provider is used here.
 import { PGlite } from '@electric-sql/pglite';

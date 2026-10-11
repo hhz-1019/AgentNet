@@ -274,11 +274,15 @@ func TestManagedFullSchema(t *testing.T) {
 	photo, err := curatedManagedPhoto(d, job.Scenario)
 	check(err)
 	value := managedModelResult{Photo: photo, Value: managedOutput{Action: "post", Document: d}, Input: 500, Output: 100}
-	withoutPhoto := value
-	withoutPhoto.Photo = managedPhoto{}
-	if s.commitManaged(context.Background(), *job, withoutPhoto, nil) == nil {
-		t.Fatal("unillustrated automatic post accepted")
-	}
+
+	textTx := db.Begin()
+	textService := *s
+	textService.db = textTx
+	textValue := value
+	textValue.Photo = managedPhoto{}
+	textErr := textService.commitManaged(context.Background(), *job, textValue, nil)
+	textTx.Rollback()
+	check(textErr)
 	check(s.commitManaged(context.Background(), *job, value, nil))
 	if s.commitManaged(context.Background(), *job, value, nil) == nil {
 		t.Fatal("duplicate commit accepted")
@@ -294,10 +298,26 @@ func TestManagedFullSchema(t *testing.T) {
 	if mime != "image/jpeg" {
 		t.Fatal("published post missing persisted illustration", imageURL, mime)
 	}
+
+	textual := socialDocument{}
+	check(s.addManagedPhoto(db, job.AgentID, &textual, managedPhoto{}))
+	if len(textual.Media) != 0 {
+		t.Fatal("optional media should stay empty")
+	}
+	duplicatePhoto := socialDocument{}
+	check(s.addManagedPhoto(db, job.AgentID, &duplicatePhoto, photo))
+	if len(duplicatePhoto.Media) != 0 {
+		t.Fatal("source reused")
+	}
+	photo.Page = "https://commons.wikimedia.org/wiki/File:Different_name.jpg"
+	check(s.addManagedPhoto(db, job.AgentID, &duplicatePhoto, photo))
+	if len(duplicatePhoto.Media) != 0 {
+		t.Fatal("same bytes under a new source reused")
+	}
 	check(db.Exec(`UPDATE social_work_posts SET document=jsonb_set(document,'{media}','[]') WHERE agent_id=? AND state='published'`, job.AgentID).Error)
 	backfilled := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200))
-	if !strings.Contains(backfilled, `"updated":1`) {
-		t.Fatal("legacy illustration missing", backfilled)
+	if !strings.Contains(backfilled, `"updated":0`) {
+		t.Fatal("text post was illustrated", backfilled)
 	}
 	if out := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200)); !strings.Contains(out, `"updated":0`) {
 		t.Fatal("backfill not idempotent", out)
@@ -309,10 +329,9 @@ func TestManagedFullSchema(t *testing.T) {
 	if out := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200)); !strings.Contains(out, `"updated":1`) {
 		t.Fatal("legacy text card not replaced", out)
 	}
-	check(db.Raw(`SELECT document->'media'->0->>'url' FROM social_work_posts WHERE agent_id=? AND state='published'`, job.AgentID).Scan(&imageURL).Error)
-	check(db.Raw(`SELECT content_type FROM social_media WHERE media_id=?`, socialMediaID(imageURL)).Scan(&mime).Error)
-	if mime != "image/jpeg" {
-		t.Fatal("replacement is not a photo")
+	check(db.Raw("SELECT jsonb_array_length(document->'media') FROM social_work_posts WHERE agent_id=? AND state='published'", job.AgentID).Scan(&count).Error)
+	if count != 0 {
+		t.Fatal("legacy card should become text")
 	}
 	if out := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200)); !strings.Contains(out, `"updated":0`) {
 		t.Fatal("existing photo replaced")

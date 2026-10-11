@@ -185,7 +185,7 @@ func searchManagedPhotos(ctx context.Context, query string) []managedPhoto {
 	if exists && time.Since(cached.At) < 6*time.Hour {
 		return cached.Photos
 	}
-	q := url.Values{"action": {"query"}, "format": {"json"}, "generator": {"search"}, "gsrnamespace": {"6"}, "gsrlimit": {"8"}, "gsrsearch": {query + " filetype:bitmap -logo -diagram -poster -drawing -illustration -screenshot -president -AI-generated"}, "prop": {"imageinfo"}, "iiprop": {"url|extmetadata|metadata|size|mime"}, "iiurlwidth": {"1200"}}
+	q := url.Values{"action": {"query"}, "format": {"json"}, "generator": {"search"}, "gsrnamespace": {"6"}, "gsrlimit": {"40"}, "gsrsearch": {query + " filetype:bitmap -logo -diagram -poster -drawing -illustration -screenshot -president -AI-generated"}, "prop": {"imageinfo"}, "iiprop": {"url|extmetadata|metadata|size|mime"}, "iiurlwidth": {"1200"}}
 	raw, err := photoGET(ctx, "https://commons.wikimedia.org/w/api.php?"+q.Encode())
 	if err != nil {
 		return nil
@@ -267,17 +267,20 @@ func searchManagedPhotos(ctx context.Context, query string) []managedPhoto {
 	photoCache.Unlock()
 	return photos
 }
-func selectManagedPhoto(ctx context.Context, d socialDocument, scene, query string, seed int64) (managedPhoto, error) {
-	// Bound search/download together; a reviewed real photo survives API outages.
+func selectManagedPhoto(ctx context.Context, d socialDocument, scene, query string, seed int64, excluded ...map[string]bool) (managedPhoto, error) {
+	// Bound collection time; outages leave the post textual.
 	ctx, cancel := context.WithTimeout(ctx, 9*time.Second)
 	defer cancel()
 	if managedPhotoQuery.MatchString(query) {
 		candidates := searchManagedPhotos(ctx, query)
 		if len(candidates) > 0 {
-			n := min(3, len(candidates))
+			n := len(candidates)
 			offset := int(managedVariation(seed, 0, "photo") % int64(n))
 			for j := 0; j < n; j++ {
 				p := candidates[(offset+j)%n]
+				if len(excluded) > 0 && excluded[0][p.Page] {
+					continue
+				}
 				raw, err := photoGET(ctx, p.URL)
 				if err == nil {
 					p.Content, err = cleanManagedPhoto(raw)
@@ -291,9 +294,13 @@ func selectManagedPhoto(ctx context.Context, d socialDocument, scene, query stri
 			}
 		}
 	}
-	return curatedManagedPhoto(d, scene)
+	// No generic stock fallback: a missing relevant photo is a text post.
+	return managedPhoto{}, nil
 }
 func (s *Service) addManagedPhoto(tx *gorm.DB, agent int64, d *socialDocument, p managedPhoto) error {
+	if len(p.Content) == 0 {
+		return nil
+	}
 	if !photoSafe(p) || len(p.Content) == 0 {
 		return errors.New("real photo required")
 	}
@@ -303,9 +310,16 @@ func (s *Service) addManagedPhoto(tx *gorm.DB, agent int64, d *socialDocument, p
 	if err := tx.Exec(`SELECT agent_id FROM agents WHERE agent_id=? FOR UPDATE`, agent).Error; err != nil {
 		return err
 	}
-	// Reuse immutable bytes owned by this role so fallback photos do not consume
-	// the media quota again on every scheduled post.
+	// Fingerprint normalized bytes across all managed roles.
 	encoded := base64.StdEncoding.EncodeToString(p.Content)
+	// Unique source and byte fingerprint claims serialize concurrent publishers.
+	claim := tx.Exec(`INSERT INTO managed_photo_usage(source_page,content_hash) VALUES(?,md5(decode(?,'base64'))) ON CONFLICT DO NOTHING`, p.Page, encoded)
+	if claim.Error != nil {
+		return claim.Error
+	}
+	if claim.RowsAffected == 0 {
+		return nil
+	}
 	var id int64
 	if err := tx.Raw(`SELECT media_id FROM social_media WHERE agent_id=? AND content_type='image/jpeg' AND content=decode(?,'base64') LIMIT 1`, agent, encoded).Scan(&id).Error; err != nil {
 		return err
@@ -339,7 +353,7 @@ func (s *Service) addManagedPhoto(tx *gorm.DB, agent int64, d *socialDocument, p
 	return nil
 }
 
-// Replaces only legacy generated cards or missing media; uploaded photos remain.
+// Retire legacy generated cards; intentional text posts remain textual.
 func (s *Service) backfillManagedVisuals(ctx context.Context, c *app.RequestContext) {
 	owner, ok := s.requireManaged(c)
 	if !ok {
@@ -349,7 +363,7 @@ func (s *Service) backfillManagedVisuals(ctx context.Context, c *app.RequestCont
 		PostID, AgentID, Revision int64
 		Document, Scenario        string
 	}
-	err := s.db.WithContext(ctx).Raw(`SELECT p.post_id,p.agent_id,p.revision,p.document::text AS document,m.scenario FROM social_work_posts p JOIN managed_members m USING(agent_id) WHERE m.sponsor_uid=? AND m.deleted_at=0 AND p.state='published' AND p.visibility='public' AND (COALESCE(jsonb_array_length(p.document->'media'),0)=0 OR (jsonb_array_length(p.document->'media')=1 AND p.document->'media'->0->>'kind'='chart' AND EXISTS(SELECT 1 FROM social_media sm WHERE sm.agent_id=p.agent_id AND sm.content_type='image/svg+xml' AND p.document->'media'->0->>'url'=?||sm.media_id::text))) ORDER BY p.post_id LIMIT 5`, owner, socialMediaPrefix).Scan(&rows).Error
+	err := s.db.WithContext(ctx).Raw(`SELECT p.post_id,p.agent_id,p.revision,p.document::text AS document,m.scenario FROM social_work_posts p JOIN managed_members m USING(agent_id) WHERE m.sponsor_uid=? AND m.deleted_at=0 AND p.state='published' AND p.visibility='public' AND ((jsonb_array_length(p.document->'media')=1 AND p.document->'media'->0->>'kind'='chart' AND EXISTS(SELECT 1 FROM social_media sm WHERE sm.agent_id=p.agent_id AND sm.content_type='image/svg+xml' AND p.document->'media'->0->>'url'=?||sm.media_id::text))) ORDER BY p.post_id LIMIT 5`, owner, socialMediaPrefix).Scan(&rows).Error
 	count := 0
 	if err == nil {
 		for _, row := range rows {
@@ -358,7 +372,7 @@ func (s *Service) backfillManagedVisuals(ctx context.Context, c *app.RequestCont
 				break
 			}
 			var photo managedPhoto
-			photo, err = curatedManagedPhoto(d, row.Scenario)
+			photo = managedPhoto{}
 			if err != nil {
 				break
 			}
@@ -369,6 +383,10 @@ func (s *Service) backfillManagedVisuals(ctx context.Context, c *app.RequestCont
 				}
 				if current != row.Revision {
 					return errConflict
+				}
+				d.Media = []socialMedia{}
+				if at := strings.Index(d.Evidence, "\n\n配图来源："); at >= 0 {
+					d.Evidence = d.Evidence[:at]
 				}
 				if err := s.addManagedPhoto(tx, row.AgentID, &d, photo); err != nil {
 					return err

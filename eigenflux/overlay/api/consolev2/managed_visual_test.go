@@ -61,8 +61,8 @@ func TestManagedPhotoFallbackAndRelevance(t *testing.T) {
 	for _, item := range []struct{ title, scene, theme string }{{"植物盆栽观察", "城市兴趣", "plants"}, {"校园社团交友", "校园交友", "campus"}, {"实验室复现记录", "科研交流", "laboratory"}, {"桌游规则", "城市兴趣", "boardgame"}} {
 		d := socialDocument{Title: item.title}
 		p, err := selectManagedPhoto(context.Background(), d, item.scene, "https://evil.test/image.svg", 1)
-		if err != nil || p.ID != item.theme || len(p.Content) == 0 {
-			t.Fatal("fallback not relevant", item, err)
+		if err != nil || len(p.Content) != 0 {
+			t.Fatal("invalid query must stay textual", item, err)
 		}
 	}
 }
@@ -93,9 +93,29 @@ func TestManagedPhotoSearchDownloadAndOutage(t *testing.T) {
 	if err != nil || p.Author != "Photographer" || len(p.Content) == 0 || requests != 2 {
 		t.Fatal("search did not download a photo", err, requests)
 	}
+	before := requests
+	excluded, e := selectManagedPhoto(context.Background(), socialDocument{Title: "校园"}, "校园交友", "unique test campus", 1, map[string]bool{p.Page: true})
+	if e != nil || len(excluded.Content) != 0 || requests != before {
+		t.Fatal("used source downloaded again")
+	}
 	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) { return nil, errors.New("offline") })
 	p, err = selectManagedPhoto(context.Background(), socialDocument{Title: "校园"}, "校园交友", "unique offline campus", 1)
-	if err != nil || p.ID != "campus" || len(p.Content) == 0 {
-		t.Fatal("outage lost real photo", err)
+	if err != nil || len(p.Content) != 0 {
+		t.Fatal("outage must stay textual", err)
+	}
+}
+
+func TestManagedMediaFormatDiversity(t *testing.T) {
+	photos := 0
+	for run := int64(1); run <= 1000; run++ {
+		if managedWantsPhoto(123, run, "students reading books") {
+			photos++
+		}
+		if managedWantsPhoto(123, run, "") {
+			t.Fatal("empty query requested media")
+		}
+	}
+	if photos < 300 || photos > 500 {
+		t.Fatalf("unexpected format mix: %d", photos)
 	}
 }
