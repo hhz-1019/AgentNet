@@ -1,0 +1,151 @@
+/* Shared content edges; internal gutters must not accumulate across wrappers. */
+:root[data-theme] {
+  --ew-page-gutter: 40px;
+  --ew-sidebar-gutter: 24px;
+  --ew-detail-gutter: 28px;
+}
+html[data-theme] #root .sw-main {
+  padding-inline: var(--ew-page-gutter);
+}
+html[data-theme] #root .sw-sidebar {
+  padding-inline: var(--ew-sidebar-gutter);
+}
+html[data-theme] #root .sw-feed-grid .sw-post:not(.expanded) .sw-post-content {
+  padding-inline: 0;
+}
+html[data-theme] #root .sw-sidebar .sw-create {
+  justify-content: center;
+  padding-inline: 8px;
+}
+html[data-theme] #root .sw-sidebar .sn-account {
+  padding-inline: 0;
+}
+html[data-theme] #root .sw-sidebar > .ew-theme-switch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+html[data-theme] #root .sw-sidebar .ew-theme-switch button {
+  min-width: 0;
+  padding-inline: 4px;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Search and filter containers share the same edges as the conversation rows. */
+html[data-theme] #root .sn-conversations {
+  padding-inline: 0;
+}
+html[data-theme] #root .sn-message-search {
+  margin-inline: 0;
+  padding-inline: 12px;
+}
+html[data-theme] #root .sn-message-filters {
+  margin-inline: 0;
+}
+html[data-theme] #root .sn-conversation {
+  padding-inline: 12px;
+  gap: 12px;
+}
+html[data-theme] #root .sn-conversation :is(strong, p) {
+  text-align: left;
+}
+/* Header avatars, message avatars and composer all start on one column edge. */
+html[data-theme] #root .sn-chat > header,
+html[data-theme] #root .sn-message-history {
+  padding-inline: 0;
+}
+html[data-theme] #root .sn-chat > header {
+  gap: 12px;
+}
+html[data-theme] #root .sn-chat-avatar {
+  width: 42px;
+  height: 42px;
+}
+html[data-theme] #root .sn-chat > .sw-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* The reading column uses one inset for author, title, body, comments and reply. */
+html[data-theme]
+  #root
+  .ew-note-detail
+  :is(
+    .ew-reading-intro,
+    .sw-post.expanded .sw-post-content,
+    .ew-detail-footer
+  ) {
+  padding-inline: var(--ew-detail-gutter);
+}
+html[data-theme] #root .ew-note-detail .ew-detail-author {
+  padding-left: var(--ew-detail-gutter);
+  /* Leave the close button its own hit area in the desktop author row. */
+  padding-right: calc(var(--ew-detail-gutter) + 40px);
+}
+html[data-theme] #root .ew-note-detail .sw-comments {
+  margin-inline: var(--ew-detail-gutter);
+}
+html[data-theme] #root .sw-dialog-heading > button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+html[data-theme] #root .sn-media-actions button {
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 1100px) {
+  :root[data-theme] {
+    --ew-page-gutter: 20px;
+    --ew-sidebar-gutter: 12px;
+  }
+  html[data-theme] #root .sw-sidebar .ew-theme-switch button {
+    font-size: 14px;
+  }
+}
+@media (max-width: 800px), (pointer: coarse) {
+  :root[data-theme] {
+    --ew-detail-gutter: 20px;
+  }
+  html[data-theme] #root .ew-note-detail .ew-detail-author {
+    padding-right: var(--ew-detail-gutter);
+  }
+}
+@media (max-width: 760px) {
+  :root[data-theme] {
+    --ew-page-gutter: 12px;
+    --ew-sidebar-gutter: 6px;
+  }
+  html[data-theme] #root .sw-sidebar > .ew-theme-switch {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-theme] #root .sw-sidebar .ew-theme-switch button {
+    font-size: 12px;
+  }
+}
+@media (pointer: coarse) {
+  :root[data-theme] {
+    --ew-page-gutter: 12px;
+    --ew-detail-gutter: 16px;
+  }
+  html[data-theme] #root .ew-theme-floating {
+    margin-inline-end: var(--ew-page-gutter);
+  }
+  html[data-theme] #root .sw-search {
+    padding-inline: 0;
+  }
+  html[data-theme] #root .ew-feed-toolbar {
+    padding-bottom: 0;
+    margin-bottom: 20px;
+  }
+  html[data-theme] #root .sn-chat-avatar {
+    width: 34px;
+    height: 34px;
+  }
+}

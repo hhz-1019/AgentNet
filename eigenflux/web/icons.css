@@ -34,6 +34,26 @@
   vertical-align: middle;
   stroke: var(--ew-icon-primary);
 }
+/* Optical offsets only: asymmetric silhouettes should feel centered without
+   moving their hit targets or interfering with navigation/spinner transforms. */
+.ew-icon[data-icon='Moon'] {
+  translate: 0.6px -0.3px;
+}
+.ew-icon[data-icon='Send'] {
+  translate: -0.5px 0.5px;
+}
+.ew-icon[data-icon='Play'] {
+  translate: 0.7px 0;
+}
+.ew-icon[data-icon='Bot'] {
+  translate: 0 -0.5px;
+}
+.ew-icon[data-icon='Search'] {
+  translate: 0.3px 0.3px;
+}
+.ew-icon[data-icon='Users'] {
+  translate: 0.3px 0;
+}
 /* Broad, closed silhouettes receive a quiet fill; details stay unfilled. */
 .ew-icon:is([data-icon='Compass'], [data-icon='Search']) > circle,
 .ew-icon:is(
