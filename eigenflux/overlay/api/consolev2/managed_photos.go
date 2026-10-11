@@ -40,7 +40,7 @@ type managedPhoto struct {
 	Content    []byte `json:"-"`
 }
 
-var managedPhotoReject = regexp.MustCompile(`(?i)(diagram|screenshot|illustration|infographic|poster|logo|malicious|AI.generated|AI generated|synthetic|midjourney|stable.diffusion|dall.e|comfyui|trump|zelensky|president|prime minister)`)
+var managedPhotoReject = regexp.MustCompile(`(?i)(painting|engraving|lithograph|watercolou?r|oil.on.canvas|rendering|diagram|screenshot|illustration|infographic|poster|logo|malicious|AI.generated|AI generated|synthetic|midjourney|stable.diffusion|dall.e|comfyui|trump|zelensky|president|prime minister)`)
 var managedPhotoQuery = regexp.MustCompile(`^[a-zA-Z][a-zA-Z ,'-]{2,79}$`)
 
 func photoURL(raw string, hosts ...string) bool {
