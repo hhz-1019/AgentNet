@@ -4,7 +4,7 @@
   --accent: #302c26;
   --muted: #746a5d;
   --line: #cfc5b5;
-  color: #302c26;
+  color: var(--ew-ink);
   font-family: var(--ew-serif);
 }
 .landing.auth-landing {
@@ -33,7 +33,7 @@
 .auth-entry::after {
   right: 22px;
   top: 4px;
-  border-color: #c7bfb2;
+  border-color: var(--ew-line);
 }
 .auth-entry > .brand .brand-logo {
   width: 148px;
@@ -63,20 +63,20 @@
   font-family: inherit;
   font-size: 16px;
   line-height: 1.95;
-  color: #746a5d;
+  color: var(--ew-muted);
   margin-bottom: 22px;
 }
 .landing.auth-landing .join-copy > button {
   min-height: 42px;
   padding: 9px 16px;
-  border-color: #c7bfb2;
+  border-color: var(--ew-line);
   background: transparent;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   font-size: 16px;
 }
 .login-form.auth-form {
-  border: 1px solid #cfc5b5;
-  border-radius: 4px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
   padding: 32px;
   box-shadow: 0 12px 38px -30px #302c2633;
@@ -88,30 +88,30 @@
   margin: 0 0 24px;
   font-size: 34px;
   line-height: 1.45;
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .login-form.auth-form > p {
   font-size: 18px;
-  color: #746a5d;
+  color: var(--ew-muted);
 }
 .login-form.auth-form label {
   font-size: 16px;
   font-weight: 400;
   margin: 20px 0;
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .login-form.auth-form :is(input:not([type='checkbox']), select) {
   min-height: 52px;
   padding: 11px 13px;
-  border: 1px solid #cfc5b5;
-  border-radius: 3px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
   box-shadow: none;
-  color: #302c26;
+  color: var(--ew-ink);
   font-size: 18px;
 }
 .login-form.auth-form :is(input, button):focus-visible {
-  outline: 2px solid #746a5d;
+  outline: 2px solid var(--ew-line);
   outline-offset: 3px;
 }
 .login-form.auth-form > button {
@@ -119,20 +119,20 @@
   margin: 8px 0 0;
   padding: 11px 12px;
   min-height: 44px;
-  border-radius: 3px;
-  border-color: #cfc5b5;
+  border-radius: var(--ew-radius-control);
+  border-color: var(--ew-line);
   background: transparent;
   font-size: 16px;
 }
 .login-form.auth-form > button.primary,
 .onboarding > button.primary {
-  background: #302c26;
-  border-color: #302c26;
-  color: #f5f1e8;
+  background: var(--ew-action);
+  border-color: var(--ew-line);
+  color: var(--ew-on-action);
 }
 .login-form.auth-form > button.primary:hover,
 .onboarding > button.primary:hover {
-  background: #302c26;
+  background: var(--ew-action);
 }
 .login-form.auth-form > button:not(.primary):hover {
   background: var(--ew-tint);
@@ -154,12 +154,12 @@
   grid-template-columns: 1fr;
   margin: 0 0 24px;
   padding: 19px 18px;
-  border: 1px solid #cfc5b5;
-  border-radius: 3px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   background: var(--ew-tint);
 }
 .login-form.auth-form .account-recovery dt {
-  color: #746a5d;
+  color: var(--ew-muted);
   font-size: 16px;
   margin-top: 15px;
 }
@@ -168,7 +168,7 @@
 }
 .login-form.auth-form .account-recovery dd {
   margin: 5px 0 0;
-  color: #302c26;
+  color: var(--ew-ink);
   overflow-wrap: anywhere;
 }
 .login-form.auth-form .account-recovery code {
@@ -178,7 +178,7 @@
 }
 .login-form.auth-form .error {
   font-size: 16px;
-  border-radius: 4px;
+  border-radius: var(--ew-radius-control);
   padding: 12px 14px;
 }
 .onboarding > .brand .brand-logo {
@@ -194,8 +194,8 @@
   padding-top: 64px;
 }
 .auth-state > section {
-  border: 1px solid #cfc5b5;
-  border-radius: 3px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   padding: 18px 22px;
   margin: 22px 0;
   background: var(--ew-surface);
@@ -206,7 +206,7 @@
 }
 .auth-state > p {
   font-size: 16px;
-  color: #746a5d;
+  color: var(--ew-muted);
 }
 @media (max-width: 760px) {
   .landing.auth-landing {
@@ -246,7 +246,7 @@
   display: none;
 }
 .landing.auth-landing .join-copy {
-  border-top: 1px solid #cfc5b5;
+  border-top: 1px solid var(--ew-line);
   padding-top: 24px;
 }
 .landing.auth-landing .join-copy code {
@@ -254,12 +254,12 @@
   white-space: normal;
   overflow-wrap: anywhere;
   font-size: 18px;
-  color: #302c26;
+  color: var(--ew-ink);
   line-height: 1.9;
 }
 .landing.auth-landing .join-copy > p {
   font-size: 16px;
-  color: #746a5d;
+  color: var(--ew-muted);
 }
 .landing.auth-landing .join-copy > button {
   min-height: 46px;
@@ -268,12 +268,12 @@
 .auth-copy-status {
   display: block;
   margin-top: 14px;
-  color: #746a5d;
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.75;
 }
 .login-form.auth-form {
-  border-top: 3px solid #302c26;
+  border-top: 3px solid var(--ew-line);
   padding: 32px;
 }
 .login-form.auth-form label {
@@ -360,11 +360,11 @@
 .onboarding.join-review > .row {
   font-size: 18px;
   padding-block: 16px;
-  border-color: #cfc5b5;
+  border-color: var(--ew-line);
 }
 .onboarding.join-review > .row span {
   font-size: 16px;
-  color: #746a5d;
+  color: var(--ew-muted);
 }
 .onboarding.join-review .login-form {
   padding: 28px;
@@ -374,7 +374,7 @@
 }
 .onboarding.portrait-review > .sn-portrait {
   padding-top: 24px;
-  border-color: #cfc5b5;
+  border-color: var(--ew-line);
 }
 .onboarding.portrait-review .sn-portrait {
   font-size: 18px;
@@ -406,7 +406,7 @@
 .phone-binding input {
   min-height: 52px;
   font-size: 18px;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
 }
 .phone-binding button {
@@ -422,7 +422,7 @@
   :is(input:not([type='checkbox']), textarea, select) {
   font-size: 18px;
   line-height: 1.85;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
 }
 .onboarding.twin-onboarding :is(h2, summary) {

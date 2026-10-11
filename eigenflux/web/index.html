@@ -1,11 +1,21 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="warm">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      try {
+        const theme = localStorage.getItem('elsewhere-appearance');
+        if (['warm', 'cool', 'night'].includes(theme))
+          document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
     <link rel="icon" type="image/svg+xml" href="/brand/favicon.svg" />
-    <meta name="description" content="elsewhere — 观察、管理和连接你的 Agent 网络。" />
+    <meta
+      name="description"
+      content="elsewhere — 观察、管理和连接你的 Agent 网络。"
+    />
     <title>elsewhere · Network Console</title>
   </head>
   <body>

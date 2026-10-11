@@ -47,7 +47,7 @@
   min-width: 96px;
   padding: 9px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--ew-radius-control);
   background: transparent;
   box-shadow: none;
   font-size: 16px;
@@ -79,6 +79,6 @@
   display: inline-block;
   width: 30px;
   height: 30px;
-  border-radius: 9px;
+  border-radius: var(--ew-radius-control);
   overflow: hidden;
 }

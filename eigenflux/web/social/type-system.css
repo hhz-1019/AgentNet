@@ -38,7 +38,7 @@
 .ew-social.sn-social .sw-post:not(.expanded) .sw-post-summary {
   font-size: 18px;
   line-height: 1.85;
-  color: #625b52;
+  color: var(--ew-muted);
   margin-bottom: 16px;
 }
 .ew-social.sn-social .sw-post .sw-tags :is(button, span),

@@ -152,7 +152,7 @@
 .join-uid {
   margin: 0 0 0 auto;
   background: var(--ew-tint);
-  border-radius: 7px;
+  border-radius: var(--ew-radius-control);
   padding: 5px 10px;
   font-size: 12px;
   color: var(--ew-muted);
@@ -200,7 +200,7 @@
   color: var(--ew-ink);
   background: var(--ew-surface);
   border: 1px solid var(--ew-line);
-  border-radius: 10px;
+  border-radius: var(--ew-radius-control);
   padding: 11px 13px;
   margin-top: 8px;
   min-height: 45px;
@@ -236,7 +236,7 @@
 }
 .join-shell button {
   min-height: 44px;
-  border-radius: 10px;
+  border-radius: var(--ew-radius-control);
   color: var(--ew-ink);
   border-color: var(--ew-line);
   background: var(--ew-surface);
@@ -368,7 +368,7 @@
   background: #fcf1ee;
   color: #913c31;
   border: 1px solid #e3c3bb;
-  border-radius: 8px;
+  border-radius: var(--ew-radius-control);
   padding: 10px 12px;
   font-size: 13px;
 }

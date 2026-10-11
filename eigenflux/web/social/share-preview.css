@@ -48,10 +48,10 @@
   min-height: 225px;
   padding: 17px 18px;
   resize: vertical;
-  color: var(--ew-ink, #302c26);
-  background: var(--ew-surface, #fffdf8);
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
+  color: var(--ew-ink);
+  background: var(--ew-surface);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   font-family: var(--ew-serif);
   font-size: 18px;
   line-height: 1.85;
@@ -59,12 +59,12 @@
 }
 
 .sn-communication-dialog .ew-share-editor > textarea::placeholder {
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
 }
 
 .sn-communication-dialog .ew-share-editor .sw-hint {
   margin: 12px 0 0;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.75;
 }
@@ -84,7 +84,7 @@
   min-height: 44px;
   padding: 8px 11px;
   font-size: 17px;
-  background: var(--ew-surface, #fffdf8);
+  background: var(--ew-surface);
 }
 
 .sn-communication-dialog .ew-share-editor .sn-share-count {
@@ -135,8 +135,8 @@
   top: 0;
   min-width: 0;
   padding-left: 28px;
-  border-left: 1px solid var(--ew-line, #cfc5b5);
-  color: var(--ew-ink, #302c26);
+  border-left: 1px solid var(--ew-line);
+  color: var(--ew-ink);
 }
 
 .ew-share-preview-heading {
@@ -154,15 +154,15 @@
 
 .ew-share-preview-heading small {
   flex-shrink: 0;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 
 .ew-share-preview-paper {
   padding: 22px;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  background: var(--ew-surface, #fffdf8);
-  border-radius: 3px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-surface);
+  border-radius: var(--ew-radius-control);
   box-shadow:
     4px 4px 0 var(--ew-paper, #f5f1e8),
     5px 5px 0 var(--ew-line, #cfc5b5);
@@ -181,9 +181,9 @@
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  color: var(--ew-action, #302c26);
-  background: var(--ew-tint, #e9e0d0);
+  border: 1px solid var(--ew-line);
+  color: var(--ew-ink);
+  background: var(--ew-tint);
   font-size: 20px;
 }
 
@@ -200,7 +200,7 @@
   align-items: center;
   gap: 5px;
   margin-top: 3px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.4;
 }
@@ -216,7 +216,7 @@
 
 .sn-communication-dialog .ew-share-preview-text {
   margin: 0;
-  color: var(--ew-ink, #302c26);
+  color: var(--ew-ink);
   font-size: 18px;
   line-height: 1.9;
   white-space: pre-wrap;
@@ -248,8 +248,8 @@
   width: 100%;
   height: 135px;
   object-fit: cover;
-  border-radius: 4px;
-  background: var(--ew-tint, #e9e0d0);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-tint);
 }
 
 .ew-share-preview-gallery.is-single :is(img, video) {
@@ -260,7 +260,7 @@
 
 .ew-share-preview-gallery figcaption {
   margin-top: 7px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -271,8 +271,8 @@
   place-items: center;
   min-height: 135px;
   padding: 12px;
-  border: 1px dashed var(--ew-line, #cfc5b5);
-  color: var(--ew-muted, #746a5d);
+  border: 1px dashed var(--ew-line);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.6;
 }
@@ -291,7 +291,7 @@
 .ew-share-empty-line {
   width: 28px;
   height: 1px;
-  background: var(--ew-muted, #746a5d);
+  background: var(--ew-muted, var(--ew-tint));
 }
 
 .sn-communication-dialog .ew-share-preview-empty p {
@@ -303,7 +303,7 @@
 
 .ew-share-preview-empty > span:not(.ew-share-empty-line) {
   max-width: 230px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.8;
 }
@@ -317,8 +317,8 @@
 .ew-share-preview-note {
   margin-top: 24px;
   padding-top: 14px;
-  border-top: 1px solid var(--ew-line, #cfc5b5);
-  color: var(--ew-muted, #746a5d);
+  border-top: 1px solid var(--ew-line);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.7;
 }
@@ -382,10 +382,10 @@
     min-height: 44px;
     margin: 0 0 20px auto;
     padding: 8px 13px;
-    border: 1px solid var(--ew-line, #cfc5b5);
-    border-radius: 3px;
-    color: var(--ew-action, #302c26);
-    background: var(--ew-surface, #fffdf8);
+    border: 1px solid var(--ew-line);
+    border-radius: var(--ew-radius-control);
+    color: var(--ew-ink);
+    background: var(--ew-surface);
     font-family: var(--ew-serif);
     font-size: 17px;
   }

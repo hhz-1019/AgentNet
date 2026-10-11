@@ -8,16 +8,16 @@
 .join-review > .row {
   margin: 18px 0;
   padding: 12px 0;
-  border-top: 1px solid #ddd7cd;
-  border-bottom: 1px solid #ddd7cd;
-  color: #787168;
+  border-top: 1px solid var(--ew-line);
+  border-bottom: 1px solid var(--ew-line);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .join-review > .row strong {
   font-weight: 500;
 }
 .join-review > .row span {
-  color: #787168;
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .join-review .login-form {
@@ -44,7 +44,7 @@
 }
 .portrait-review > .sn-portrait {
   padding-top: 26px;
-  border-top: 1px solid #ddd7cd;
+  border-top: 1px solid var(--ew-line);
 }
 .portrait-review h2 {
   margin: 0;
@@ -59,10 +59,10 @@
 .portrait-review .sw-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #f6f4ef;
+  color: var(--ew-on-action);
 }
 .portrait-review .sw-primary:hover {
-  background: #302d29;
+  background: var(--ew-action);
 }
 .portrait-confirm-actions {
   display: flex;

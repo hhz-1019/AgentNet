@@ -190,7 +190,7 @@
   align-items: center;
   gap: 10px;
   border: 1px solid var(--sw-line);
-  border-radius: 10px;
+  border-radius: var(--ew-radius-control);
   padding: 0 12px;
   margin-bottom: 12px;
 }
@@ -206,7 +206,7 @@
 }
 .sn-memory {
   border: 1px solid var(--sw-line);
-  border-radius: 12px;
+  border-radius: var(--ew-radius-control);
   padding: 20px;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -252,7 +252,7 @@
   bottom: 12px;
   background: var(--ew-paper);
   border: 1px solid var(--sw-line);
-  border-radius: 10px;
+  border-radius: var(--ew-radius-control);
   padding: 12px;
   margin-top: 16px;
 }
@@ -292,7 +292,7 @@
   gap: 10px;
   align-items: center;
   padding: 12px 10px;
-  border-radius: 12px;
+  border-radius: var(--ew-radius-control);
 }
 .sn-account > span:last-child {
   min-width: 0;
@@ -612,7 +612,7 @@
 }
 .sn-message p {
   padding: 13px 16px;
-  border-radius: 12px;
+  border-radius: var(--ew-radius-control);
   background: var(--ew-paper);
   line-height: 1.8;
   margin-top: 5px;
@@ -665,7 +665,7 @@
   display: flex;
   gap: 12px;
   padding: 13px 0;
-  border-bottom: 1px solid #ede7dc;
+  border-bottom: 1px solid var(--ew-line);
 }
 @media (max-width: 1200px) {
   .sn-social .sw-feed-grid {
@@ -904,8 +904,8 @@
   position: relative;
   margin: 0;
   min-width: 0;
-  border: 1px solid #ede7dc;
-  border-radius: 12px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   overflow: hidden;
 }
 .sn-media-grid :is(img, video) {
@@ -919,7 +919,7 @@
   padding: 10px;
   overflow-wrap: anywhere;
   font-size: 14px;
-  color: #787168;
+  color: var(--ew-muted);
 }
 .sw-dialog .sn-media-remove {
   position: absolute;
@@ -934,7 +934,7 @@
   place-items: center;
   min-height: 155px;
   padding: 20px;
-  color: #787168;
+  color: var(--ew-muted);
   font-size: 14px;
   text-align: center;
 }
@@ -942,7 +942,7 @@
   padding: 12px;
   margin: 12px 0;
   background: var(--ew-paper);
-  border-radius: 9px;
+  border-radius: var(--ew-radius-control);
   line-height: 1.7;
 }
 @media (max-width: 640px) {

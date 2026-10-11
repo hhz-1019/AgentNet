@@ -17,8 +17,8 @@
   font-size: 16px;
 }
 .public-agent-sheet {
-  border: 1px solid #cfc5b5;
-  border-radius: 5px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
   overflow: clip;
 }
@@ -31,7 +31,7 @@
 }
 .public-agent-sheet .elsewhere-identity {
   min-height: 250px;
-  border-radius: 4px 4px 0 0;
+  border-radius: var(--ew-radius-control) var(--ew-radius-control) 0 0;
   padding: 25px 32px 23px;
 }
 .public-agent-sheet .identity-card-caption {
@@ -127,7 +127,7 @@
   padding: 14px 18px;
   margin: 20px 0 0;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: var(--ew-tint);
   z-index: 3;
   box-shadow: none;
@@ -145,7 +145,7 @@
   align-items: center;
   gap: 8px;
   padding: 12px 18px;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   text-decoration: none;
   font-size: 16px;
 }
@@ -246,12 +246,12 @@
 }
 
 .public-agent-page {
-  color: var(--ew-ink, #302c26);
+  color: var(--ew-ink);
   font-family: var(--ew-serif);
   font-size: 18px;
 }
 .public-agent-sheet {
-  border-color: #cfc5b5;
+  border-color: var(--ew-line);
   box-shadow: 0 4px 0 #e9e0d066;
 }
 .public-agent-sheet .identity-share-actions {
@@ -266,7 +266,7 @@
 }
 .public-agent-facts {
   padding-block: 20px;
-  border-color: #cfc5b5;
+  border-color: var(--ew-line);
 }
 .public-agent-facts dd {
   font-size: 18px;
@@ -289,8 +289,8 @@
 }
 .public-agent-contact textarea {
   background: var(--ew-surface);
-  border: 1px solid #cfc5b5;
-  border-radius: 3px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   font-size: 18px;
   line-height: 1.85;
   min-height: 136px;

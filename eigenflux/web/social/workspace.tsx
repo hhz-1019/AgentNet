@@ -1,3 +1,4 @@
+import { ThemeSwitcher } from '../theme';
 import { AgentAvatar, rememberAvatar } from '../avatar';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import {
@@ -488,6 +489,7 @@ export function SocialWorkspace({
           <Plus size={19} />
           发布
         </button>
+        <ThemeSwitcher />
         <a
           className="sn-account"
           aria-label="我的"

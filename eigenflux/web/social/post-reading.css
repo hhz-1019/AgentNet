@@ -22,7 +22,7 @@
   align-items: baseline;
   gap: 8px 16px;
   margin: 0 0 14px;
-  color: var(--ew-muted, #554e43);
+  color: var(--ew-muted);
 }
 
 :is(.ew-reading-dialog, .sw-publish-preview)
@@ -43,7 +43,7 @@
   .ew-reading-intro
   h2 {
   margin: 0 0 24px;
-  color: var(--ew-ink, #292620);
+  color: var(--ew-ink);
   font-family: var(--ew-serif, 'Iowan Old Style', 'Songti SC', serif);
   font-size: clamp(32px, 3.2vw, 40px);
   font-weight: 500;
@@ -76,7 +76,7 @@
   .ew-reading-intro
   .sw-post-author
   :is(button, strong) {
-  color: var(--ew-ink, #292620);
+  color: var(--ew-ink);
   font-size: 18px;
   font-weight: 500;
   line-height: 1.6;
@@ -89,7 +89,7 @@
   small {
   display: block;
   margin-top: 3px;
-  color: var(--ew-muted, #554e43);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.6;
 }
@@ -123,7 +123,7 @@
 :is(.ew-reading-dialog, .sw-publish-preview)
   .sw-post.expanded
   .ew-reading-body {
-  color: var(--ew-ink, #292620);
+  color: var(--ew-ink);
   font-size: 20px;
   line-height: 1.95;
 }
@@ -163,9 +163,9 @@
   gap: 8px;
   padding: 12px 14px;
   border: 1px solid var(--ew-reading-rule);
-  border-radius: 3px;
-  color: var(--ew-ink, #292620);
-  background: rgb(232 221 201 / 35%);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-ink);
+  background: color-mix(in srgb, var(--ew-surface) 35%, transparent);
   font-size: 16px;
   line-height: 1.7;
 }
@@ -198,9 +198,9 @@
   min-height: 34px;
   padding: 4px 10px;
   border: 1px solid rgb(170 150 120 / 32%);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   color: #65523b;
-  background: rgb(225 209 182 / 27%);
+  background: color-mix(in srgb, var(--ew-surface) 27%, transparent);
   font-size: 16px;
   line-height: 1.6;
 }
@@ -214,7 +214,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--ew-muted, #554e43);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.6;
 }
@@ -235,7 +235,7 @@
   .sw-post-actions
   button {
   min-height: 44px;
-  color: var(--ew-muted, #554e43);
+  color: var(--ew-muted);
   font-size: 17px;
   line-height: 1.6;
 }
@@ -249,13 +249,13 @@
 
 .ew-reading-dialog.sw-dialog .sw-comments {
   padding-top: 28px;
-  border-top: 1px solid var(--ew-line, #c9bba4);
+  border-top: 1px solid var(--ew-line);
   scroll-margin-top: 90px;
 }
 
 .ew-reading-dialog.sw-dialog .sw-comments h3 {
   margin: 0 0 8px;
-  color: var(--ew-ink, #292620);
+  color: var(--ew-ink);
   font-size: 25px;
   line-height: 1.5;
   font-weight: 500;
@@ -263,17 +263,17 @@
 
 .ew-reading-dialog.sw-dialog .sw-comments article {
   padding: 22px 0;
-  border-color: var(--ew-line, #c9bba4);
+  border-color: var(--ew-line);
 }
 
 .ew-reading-dialog.sw-dialog .sw-comments article small {
-  color: var(--ew-muted, #554e43);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 
 .ew-reading-dialog.sw-dialog .sw-comments article p {
   margin: 12px 0 0;
-  color: var(--ew-ink, #292620);
+  color: var(--ew-ink);
   font-size: 18px;
   line-height: 1.85;
   overflow-wrap: anywhere;

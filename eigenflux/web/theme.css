@@ -1,0 +1,388 @@
+/* Shared appearance tokens apply to the console, registration and native dialogs. */
+:root[data-theme] {
+  color-scheme: light;
+  --ew-paper: #f4eddf;
+  --ew-surface: #f9f3e7;
+  --ew-tint: #e8ddc9;
+  --ew-ink: #292620;
+  --ew-muted: #716858;
+  --ew-line: #c9bba4;
+  --ew-action: #302c26;
+  --ew-on-action: #fff8e8;
+  --ew-focus: #8d7653;
+  --ew-grain-opacity: 0.16;
+  --ew-radius-control: 18px;
+  --ew-radius-panel: 30px;
+  --ew-control-bg: var(--ew-surface);
+  --ew-control-hover: var(--ew-tint);
+  --ew-paper-image: none;
+  --ew-paper-contact: 0 1px 2px rgb(35 28 18 / 7%);
+  --ew-paper-hover: 0 3px 10px rgb(35 28 18 / 10%);
+  --ew-paper-pressed: inset 0 1px 3px rgb(35 28 18 / 10%);
+  --accent: var(--ew-ink);
+  --muted: var(--ew-muted);
+  --line: var(--ew-line);
+  background: var(--ew-paper);
+  color: var(--ew-ink);
+}
+:root[data-theme='cool'] {
+  --ew-paper: #edf2f5;
+  --ew-surface: #f6f9fb;
+  --ew-tint: #dce7ee;
+  --ew-ink: #263845;
+  --ew-muted: #627583;
+  --ew-line: #b8c9d4;
+  --ew-action: #2c4252;
+  --ew-on-action: #f5faff;
+  --ew-focus: #557f9c;
+  --ew-grain-opacity: 0.07;
+}
+:root[data-theme='night'] {
+  color-scheme: dark;
+  --ew-paper: #191b20;
+  --ew-surface: #24272e;
+  --ew-tint: #303640;
+  --ew-ink: #e9e7e1;
+  --ew-muted: #adafb8;
+  --ew-line: #454b56;
+  --ew-action: #39434f;
+  --ew-on-action: #f4f1e8;
+  --ew-focus: #a7bdce;
+  --ew-grain-opacity: 0.025;
+  --ew-paper-contact: 0 1px 3px rgb(0 0 0 / 15%);
+  --ew-paper-hover: 0 3px 12px rgb(0 0 0 / 20%);
+}
+html[data-theme] body {
+  background: var(--ew-paper);
+  color: var(--ew-ink);
+}
+html[data-theme] :focus-visible {
+  outline-color: var(--ew-focus);
+}
+html[data-theme] :is(.sw-workspace, .sw-dialog, .auth-scene, .onboarding) {
+  --sw-ink: var(--ew-ink);
+  --sw-muted: var(--ew-muted);
+  --sw-green: var(--ew-ink);
+  --sw-line: var(--ew-line);
+  --line: var(--ew-line);
+  --muted: var(--ew-muted);
+}
+/* Navigation is ink on the page, including selected and hover states. */
+html[data-theme] .sw-workspace.ew-social.sn-social .sw-sidebar {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  mix-blend-mode: normal;
+}
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sw-sidebar nav, .sw-mobile-nav)
+  a,
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sw-sidebar nav, .sw-mobile-nav)
+  a:is(:hover, :active, [aria-current]) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--ew-muted);
+  transform: none;
+}
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sw-sidebar nav, .sw-mobile-nav)
+  a:is(:hover, [aria-current]) {
+  color: var(--ew-ink);
+}
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sw-sidebar nav, .sw-mobile-nav)
+  a[aria-current] {
+  font-weight: 700;
+}
+html[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sw-sidebar nav, .sw-mobile-nav)
+  a::after {
+  display: none;
+}
+html[data-theme] :is(.sw-search, .sn-search) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+/* Strong rounding belongs to enclosing surfaces, while separators stay straight. */
+html[data-theme]
+  :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+  border-radius: var(--ew-radius-control);
+}
+html[data-theme]
+  :is(
+    dialog.sw-dialog,
+    .sw-dialog.sn-communication-dialog.ew-reading-dialog.ew-note-detail
+  ) {
+  border-radius: var(--ew-radius-panel);
+}
+html[data-theme]
+  :is(.sw-dialog, .auth-scene, .onboarding)
+  :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+  background: var(--ew-surface);
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+}
+html[data-theme] :is(input, textarea)::placeholder {
+  color: var(--ew-muted);
+  opacity: 1;
+}
+html[data-theme] .brand-logo {
+  mix-blend-mode: normal;
+}
+html[data-theme='night'] .brand-logo:not(.brand-logo-inverse) {
+  filter: invert(1);
+}
+html[data-theme]
+  .auth-scene
+  :is(.auth-journal-card, .auth-choice, .auth-method-card) {
+  background: var(--ew-surface);
+  border-color: var(--ew-line);
+}
+html[data-theme] :is(.primary, .sw-primary, .auth-scene .primary) {
+  background: var(--ew-action);
+  color: var(--ew-on-action);
+  border-color: var(--ew-action);
+}
+html[data-theme] .ew-social.sn-social .sw-sidebar .sw-create {
+  background: var(--ew-action);
+  color: var(--ew-on-action);
+  border-color: var(--ew-action);
+}
+html[data-theme] .ew-theme-switch {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--ew-line);
+  border-radius: 999px;
+  background: var(--ew-paper);
+  color: var(--ew-muted);
+}
+html[data-theme] .ew-theme-switch button {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ew-muted);
+  font-size: 16px;
+  white-space: nowrap;
+  transform: none;
+}
+html[data-theme] .ew-theme-switch button:is(:hover, [aria-pressed='true']) {
+  color: var(--ew-ink);
+  background: var(--ew-tint);
+}
+html[data-theme] .sw-sidebar > .ew-theme-switch {
+  margin-top: auto;
+  align-self: center;
+}
+html[data-theme] .sw-sidebar > .sn-account {
+  margin-top: 18px;
+}
+.ew-theme-floating {
+  position: fixed;
+  right: 24px;
+  top: 20px;
+  z-index: 30;
+}
+body:has(.sw-workspace) .ew-theme-floating {
+  display: none;
+}
+@media (max-width: 1100px) and (min-width: 761px) {
+  html[data-theme] .sw-sidebar .ew-theme-switch button {
+    padding-inline: 7px;
+  }
+  .sw-sidebar .ew-theme-switch svg {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  html[data-theme] .ew-theme-floating,
+  body:has(.sw-workspace) .ew-theme-floating {
+    display: flex;
+    top: auto;
+    bottom: 86px;
+    right: 14px;
+  }
+  html[data-theme] .ew-theme-floating button {
+    min-height: 40px;
+  }
+  body:has(dialog[open]) .ew-theme-floating {
+    display: none;
+  }
+}
+/* White in the supplied wordmark is an image matte, not a UI surface. */
+html[data-theme] .brand-logo {
+  mix-blend-mode: multiply;
+}
+html[data-theme='night'] .brand-logo:not(.brand-logo-inverse) {
+  mix-blend-mode: screen;
+}
+html[data-theme] .ew-theme-switch {
+  margin: 0;
+  min-inline-size: 0;
+}
+html[data-theme] .sw-sidebar .ew-theme-switch {
+  width: 100%;
+  border-radius: 24px;
+}
+html[data-theme] .sw-sidebar .ew-theme-switch button {
+  flex-direction: column;
+  padding: 8px 6px;
+}
+html[data-theme] .sw-workspace.ew-social.sn-social .sw-search {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+html[data-theme] .auth-scene .login-form.auth-form {
+  background: var(--ew-surface);
+  border-color: var(--ew-line);
+  border-radius: var(--ew-radius-panel);
+  box-shadow: var(--ew-paper-contact);
+}
+html[data-theme]
+  :is(
+    .sn-inbox,
+    .messages,
+    .sw-peer-card,
+    .sw-connection-card,
+    .sn-memory,
+    .sw-org-card,
+    .sw-preflight,
+    .sw-pack-details > div,
+    .sn-settings-list
+  ) {
+  border-radius: var(--ew-radius-panel);
+}
+html[data-theme] :is(.sn-inbox, .messages) {
+  overflow: hidden;
+}
+html[data-theme] :is(.sn-message-composer, .ew-live-composer) {
+  border-radius: var(--ew-radius-panel);
+}
+html[data-theme] .ew-paper-underlay,
+html[data-theme] .ew-paper-slip {
+  border-radius: var(--ew-radius-control);
+}
+html[data-theme] .elsewhere-identity {
+  border-radius: var(--ew-radius-panel);
+}
+html[data-theme] .elsewhere-identity::after {
+  border-radius: 24px;
+}
+/* Text previews remain real text and follow the reading palette. Photos retain their colors. */
+html[data-theme='cool'] .ew-paper-composition,
+html[data-theme='night'] .ew-paper-composition {
+  color: var(--ew-ink);
+  background: var(--ew-tint);
+}
+html[data-theme='cool']
+  .ew-paper-composition
+  :is(.ew-paper-stock, .ew-paper-underlay),
+html[data-theme='night']
+  .ew-paper-composition
+  :is(.ew-paper-stock, .ew-paper-underlay) {
+  background: var(--ew-surface);
+  border-color: var(--ew-line);
+}
+html[data-theme='cool'] .ew-paper-caption,
+html[data-theme='night'] .ew-paper-caption {
+  color: var(--ew-muted);
+}
+html[data-theme='cool'] .ew-paper-keepsake .ew-paper-heading,
+html[data-theme='night'] .ew-paper-keepsake .ew-paper-heading {
+  color: var(--ew-ink);
+}
+html[data-theme='cool'] .ew-paper-journal .ew-paper-stock,
+html[data-theme='night'] .ew-paper-journal .ew-paper-stock {
+  background: repeating-linear-gradient(
+    var(--ew-surface) 0 35px,
+    color-mix(in srgb, var(--ew-line) 50%, var(--ew-surface)) 35px 36px
+  );
+}
+html[data-theme='cool'] .ew-paper-invitation .ew-paper-slip,
+html[data-theme='night'] .ew-paper-invitation .ew-paper-slip {
+  background: var(--ew-action);
+  color: var(--ew-on-action);
+}
+@media (max-width: 760px) {
+  html[data-theme] .sw-sidebar > .ew-theme-switch {
+    display: none;
+  }
+  html[data-theme] .sw-sidebar > .sn-account {
+    margin-top: auto;
+  }
+}
+:root[data-theme]
+  :is(.sw-workspace.ew-social.sn-social, .auth-scene)
+  :is(.sw-brand, .brand) {
+  mix-blend-mode: normal;
+}
+:root[data-theme='night']
+  :is(.sw-workspace, .auth-scene, .public-agent-page, .onboarding)
+  .brand-logo:not(.brand-logo-inverse) {
+  mix-blend-mode: screen;
+  filter: invert(1);
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(
+    .sn-inbox,
+    .messages,
+    .sw-peer-card,
+    .sw-connection-card,
+    .sn-memory,
+    .sn-settings-list
+  ) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: var(--ew-radius-panel);
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-message-composer, .ew-live-composer) {
+  border-radius: var(--ew-radius-panel);
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .sn-message-filters
+  button[aria-pressed='true'] {
+  color: var(--ew-ink);
+}
+:root[data-theme] .auth-scene :is(input, textarea) {
+  box-shadow: none;
+}
+:root[data-theme='night'] .sw-dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+/* Give the raster wordmark a backdrop inside the sidebar's stacking context. */
+:root[data-theme] .sw-workspace.ew-social.sn-social .sw-brand {
+  background: var(--ew-paper);
+}
+@media (max-width: 760px) {
+  html[data-theme] .ew-theme-floating,
+  body:has(.sw-workspace) .ew-theme-floating {
+    position: relative;
+    inset: auto;
+    margin: 12px 16px 0 auto;
+    z-index: 1;
+  }
+}

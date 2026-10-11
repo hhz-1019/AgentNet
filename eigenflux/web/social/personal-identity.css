@@ -19,12 +19,12 @@
   min-height: 336px;
   padding: 30px 32px 28px;
   border-radius: 18px;
-  background: #302c26;
+  background: var(--ew-action);
 }
 .identity-stage-engraved .elsewhere-identity::after {
   inset: 9px;
-  border-radius: 10px;
-  border-color: #cbbda433;
+  border-radius: var(--ew-radius-control);
+  border-color: color-mix(in srgb, var(--ew-line) 20%, transparent);
 }
 .identity-stage-engraved .elsewhere-identity-brand {
   margin-bottom: 32px;
@@ -63,7 +63,7 @@
   height: 110%;
   right: -12%;
   top: -3%;
-  stroke: #cbbda4;
+  stroke: var(--ew-muted);
   stroke-width: 0.65;
   opacity: 0.22;
 }
@@ -83,11 +83,11 @@
   font-size: 24px;
   line-height: 1.5;
   font-weight: 400;
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .sn-personal-identity-tools p {
   margin: 12px 0 24px;
-  color: #746a5d;
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.8;
 }
@@ -104,17 +104,17 @@
   gap: 8px;
   min-height: 44px;
   padding: 10px 16px;
-  border: 1px solid #cfc5b5;
-  border-radius: 3px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   background: transparent;
-  color: #302c26;
+  color: var(--ew-ink);
   font: inherit;
 }
 .sn-social .sn-personal-identity-actions button:hover {
-  background: #e9e0d0;
+  background: var(--ew-tint);
 }
 .sn-personal-identity-actions button:focus-visible {
-  outline: 2px solid #746a5d;
+  outline: 2px solid var(--ew-line);
   outline-offset: 4px;
 }
 @media (max-width: 1100px) {

@@ -25,7 +25,7 @@
   min-height: 52px;
   padding: 12px;
   gap: 12px;
-  border-radius: 2px;
+  border-radius: var(--ew-radius-control);
   color: var(--ew-ink);
   font-size: 18px;
   font-weight: 400;
@@ -36,7 +36,7 @@
 .ew-social.sn-social .sw-sidebar .sw-create {
   min-height: 48px;
   margin-top: 24px;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   font-size: 18px;
   font-weight: 400;
 }
@@ -104,7 +104,7 @@
   min-height: 46px;
   padding: 0 12px;
   border: 1px solid var(--ew-line);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: transparent;
   box-shadow: none;
   transition:
@@ -137,7 +137,7 @@
   padding: 17px 0 0;
 }
 .ew-social.sn-social .sw-post-media {
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: var(--ew-tint);
   isolation: isolate;
 }
@@ -146,7 +146,7 @@
   will-change: auto;
 }
 .ew-social.sn-social .sw-post-media .sn-cover-open {
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   padding: 14px;
   display: flex;
   align-items: flex-end;
@@ -197,7 +197,7 @@
   text-wrap: pretty;
 }
 .ew-social.sn-social .sw-post .sw-post-title:hover {
-  color: #826247;
+  color: var(--ew-muted);
 }
 .ew-social.sn-social .sw-post:not(.expanded) .sw-post-summary {
   display: -webkit-box;
@@ -281,7 +281,7 @@
   min-height: 264px;
   padding: 22px 24px;
   border: 1px solid var(--ew-line);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   box-shadow: none;
   text-align: left;
   background: #eee6d7;
@@ -340,7 +340,7 @@
   padding: 56px 24px;
   background: transparent;
   border: 1px solid var(--ew-line);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
 }
 .ew-social.sn-social :is(.sw-empty, .sw-feed-error) h2 {
   font-size: 26px;
@@ -348,7 +348,7 @@
 }
 .ew-social.sn-social .sw-draft-card {
   background: var(--ew-surface);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   border: 1px solid var(--ew-line);
   padding: 24px;
 }
@@ -369,7 +369,7 @@
 .ew-loading-page > div {
   aspect-ratio: 4 / 3;
   background: var(--ew-tint);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
 }
 .ew-loading-page span {
   display: block;

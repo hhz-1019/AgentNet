@@ -9,21 +9,21 @@
 }
 .twin-fields input:disabled {
   background: var(--ew-paper);
-  border-color: #ddd7cd;
-  color: #625b52;
+  border-color: var(--ew-line);
+  color: var(--ew-muted);
   cursor: not-allowed;
 }
 .twin-fields details {
-  border-top: 1px solid #ede7dc;
+  border-top: 1px solid var(--ew-line);
   padding: 20px 0;
 }
 .twin-fields summary {
   cursor: pointer;
   font-weight: 600;
-  color: #302d29;
+  color: var(--ew-ink);
 }
 .twin-fields summary span {
-  color: #625b52;
+  color: var(--ew-muted);
   font-size: 14px;
   font-weight: 400;
   margin-left: 12px;
@@ -33,7 +33,7 @@
 }
 .twin-record {
   padding: 20px 0;
-  border-bottom: 1px solid #ede7dc;
+  border-bottom: 1px solid var(--ew-line);
   margin-bottom: 20px;
 }
 .twin-settings form {
@@ -47,7 +47,7 @@
   gap: 20px;
   padding: 20px 0;
   list-style: none;
-  border-bottom: 1px solid #ede7dc;
+  border-bottom: 1px solid var(--ew-line);
 }
 .twin-onboarding .steps li {
   flex: 1;
@@ -67,7 +67,7 @@
 }
 .twin-fields summary:focus-visible,
 .twin-onboarding a:focus-visible {
-  outline: 2px solid #a4998a;
+  outline: 2px solid var(--ew-line);
   outline-offset: 4px;
 }
 @media (max-width: 640px) {
@@ -86,6 +86,6 @@
 
 .twin-onboarding > label > input:disabled {
   background: var(--ew-tint);
-  color: #746a5d;
+  color: var(--ew-muted);
   cursor: not-allowed;
 }
