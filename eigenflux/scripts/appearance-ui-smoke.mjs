@@ -41,7 +41,9 @@ try {
     backgrounds.add(
       await page
         .locator('body')
-        .evaluate((el) => getComputedStyle(el).getPropertyValue('--ew-input-tint')),
+        .evaluate((el) =>
+          getComputedStyle(el).getPropertyValue('--ew-input-tint'),
+        ),
     );
     assert.equal(
       await page.locator('.ew-tree-shadow, .ew-window-projection').count(),
@@ -61,7 +63,35 @@ try {
         ['rgba(0, 0, 0, 0)', 'none', '0px'],
       );
     }
+    await page
+      .locator('.sw-sidebar')
+      .getByRole('button', { name: '发布', exact: true })
+      .click();
+    const surfaces = await page.locator('dialog[open]').evaluate((dialog) => {
+      const color = (el) => getComputedStyle(el).backgroundColor;
+      const paper = dialog.querySelector('.ew-share-preview-paper');
+      return {
+        dialog: color(dialog),
+        heading: color(dialog.querySelector('.sw-dialog-heading')),
+        fields: color(dialog.querySelector('.sn-share-fields')),
+        paper: color(paper),
+        shadow: getComputedStyle(paper).boxShadow,
+      };
+    });
+    assert.equal(surfaces.heading, surfaces.dialog);
+    assert.equal(surfaces.paper, surfaces.dialog);
+    assert.equal(surfaces.fields, 'rgba(0, 0, 0, 0)');
+    assert.equal(surfaces.shadow, 'none');
+    await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
   }
+  await page.getByRole('link', { name: '消息', exact: true }).click();
+  const empty = await page.locator('.sn-chat > .sw-empty').boundingBox();
+  const chat = await page.locator('.sn-chat').boundingBox();
+  assert.ok(
+    empty && chat && Math.abs(empty.width - chat.width) < 2,
+    'Empty state fills the conversation column',
+  );
+  await page.getByRole('link', { name: '发现', exact: true }).click();
   assert.equal(backgrounds.size, 3);
   await page.reload();
   await themeIs(page, 'night');

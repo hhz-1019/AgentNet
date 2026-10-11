@@ -64,6 +64,13 @@ html[data-theme] #root .sn-chat-avatar {
 }
 html[data-theme] #root .sn-chat > .sw-empty {
   flex: 1;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
   display: flex;
   flex-direction: column;
   align-items: center;

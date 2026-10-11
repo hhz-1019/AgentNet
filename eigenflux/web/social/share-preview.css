@@ -4,6 +4,39 @@
   font-family: var(--ew-serif);
 }
 
+/* Keep the editor, its heading and the preview on a single surface. */
+html[data-theme] .sw-dialog.sn-communication-dialog:has(.ew-share-layout),
+html[data-theme]
+  .sw-dialog.sn-communication-dialog:has(.ew-share-layout)
+  > .sw-dialog-heading {
+  background: var(--ew-surface);
+}
+
+html[data-theme] .sw-dialog.sn-communication-dialog .sn-share-fields,
+html[data-theme] .sw-dialog.sn-communication-dialog .sn-share-visibility {
+  background: transparent;
+}
+
+:root[data-theme]
+  body
+  .sw-dialog.sn-communication-dialog
+  .ew-share-writing:focus-within {
+  border-color: var(--ew-focus);
+}
+
+:root[data-theme='night']
+  .sw-dialog.sn-communication-dialog:has(.ew-share-layout)::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+html[data-theme]
+  body
+  .sw-dialog.sn-communication-dialog
+  .ew-share-writing
+  .ew-share-title-input:is(:focus, :focus-visible) {
+  border-bottom-color: var(--ew-line) !important;
+}
+
 .sn-communication-dialog .sn-share-composer {
   width: 100%;
   max-width: none;
@@ -160,12 +193,10 @@
 
 .ew-share-preview-paper {
   padding: 22px;
-  border: 1px solid var(--ew-line);
+  border: 0;
   background: var(--ew-surface);
   border-radius: var(--ew-radius-control);
-  box-shadow:
-    4px 4px 0 var(--ew-paper, #f5f1e8),
-    5px 5px 0 var(--ew-line, #cfc5b5);
+  box-shadow: none;
 }
 
 .ew-share-preview-author {
