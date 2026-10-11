@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { Sun, CloudSun, Moon } from './icons';
+import { Sun, Snowflake, Moon } from './icons';
 import './theme.css';
 import './interface-refinement.css';
 import './mobile-refinement.css';
@@ -8,7 +8,7 @@ import './device-layout.css';
 const key = 'elsewhere-appearance';
 const themes = [
   { id: 'warm', label: '暖色', icon: Sun },
-  { id: 'cool', label: '冷色', icon: CloudSun },
+  { id: 'cool', label: '冷色', icon: Snowflake },
   { id: 'night', label: '夜间', icon: Moon },
 ] as const;
 type Theme = (typeof themes)[number]['id'];
@@ -46,6 +46,7 @@ export function ThemeSwitcher({ floating = false }: { floating?: boolean }) {
           key={id}
           type="button"
           aria-pressed={theme === id}
+          data-icon-palette={id}
           onClick={() => {
             applyTheme(id);
             try {

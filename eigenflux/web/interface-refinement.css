@@ -164,52 +164,11 @@ html[data-theme] .ew-flip-nav > .ew-unread-dot {
   right: 22%;
   top: 13px;
 }
-.ew-generated-icon {
-  display: inline-block;
-  flex-shrink: 0;
-  vertical-align: middle;
-}
 html[data-theme]
   :is(.sn-conversation-avatar, .sn-chat-avatar).is-group
-  .ew-generated-icon {
+  .ew-icon {
   width: 30px;
   height: 30px;
-}
-.ew-generated-icon image {
-  filter: grayscale(1);
-}
-html[data-theme]
-  :is(.ew-nav-icon, .ew-theme-switch, .sn-media-actions)
-  .ew-generated-icon
-  image,
-html[data-theme] button[aria-pressed='true'] .ew-generated-icon image {
-  filter: none;
-}
-/* The companion is a small brand accent, even outside the active navigation. */
-html[data-theme] .ew-generated-icon[data-icon='Bot'] image {
-  filter: none;
-}
-html[data-theme='night'] .ew-generated-icon image {
-  filter: grayscale(1) invert(0.9);
-}
-html[data-theme='night']
-  .sn-conversation[aria-pressed='true']
-  .ew-generated-icon
-  image {
-  filter: grayscale(1) invert(0.9);
-}
-html[data-theme='night']
-  :is(.ew-nav-icon, .ew-theme-switch, .sn-media-actions)
-  .ew-generated-icon
-  image {
-  /* Preserve saturated accents while making the dark contour legible. */
-  filter: drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #ffffff);
-}
-html[data-theme]
-  :is(.sw-primary, .primary, .ew-identity-details-toggle)
-  .ew-generated-icon
-  image {
-  filter: brightness(0) invert(1);
 }
 @media (pointer: coarse) {
   html[data-theme] .ew-social.sn-social .sw-mobile-nav a.ew-flip-nav {

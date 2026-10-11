@@ -130,7 +130,8 @@
     padding: 6px 4px;
   }
   html[data-theme] #root .sw-sidebar .ew-theme-switch svg {
-    display: none;
+    width: 16px;
+    height: 16px;
   }
   html[data-theme] #root .sw-sidebar .sn-account {
     justify-content: center;

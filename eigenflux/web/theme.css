@@ -211,9 +211,6 @@ body:has(.sw-workspace) .ew-theme-floating {
   html[data-theme] .sw-sidebar .ew-theme-switch button {
     padding-inline: 7px;
   }
-  .sw-sidebar .ew-theme-switch svg {
-    display: none;
-  }
 }
 @media (pointer: coarse) {
   html[data-theme] .ew-theme-floating,
