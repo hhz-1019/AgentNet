@@ -201,7 +201,7 @@ func searchManagedPhotos(ctx context.Context, query string) []managedPhoto {
 					Descriptionurl string
 					Mime           string
 					Width, Height  int
-					Extmetadata    map[string]struct{ Value string }
+					Extmetadata    map[string]struct{ Value any }
 					Metadata       []struct {
 						Name  string
 						Value any
@@ -226,10 +226,11 @@ func searchManagedPhotos(ctx context.Context, query string) []managedPhoto {
 		if i.Mime != "image/jpeg" || i.Width < 600 || i.Height < 350 {
 			continue
 		}
-		meta := func(key string) string { return managedSourceText(i.Extmetadata[key].Value, 400) }
+		rawMeta := func(key string) string { value, _ := i.Extmetadata[key].Value.(string); return value }
+		meta := func(key string) string { return managedSourceText(rawMeta(key), 400) }
 		// EXIF is often stripped from legitimate photographs. Reject disallowed
 		// visual subjects using the full source description instead.
-		if managedPhotoReject.MatchString(i.Extmetadata["Categories"].Value + i.Extmetadata["ImageDescription"].Value) {
+		if managedPhotoReject.MatchString(rawMeta("Categories") + rawMeta("ImageDescription")) {
 			continue
 		}
 

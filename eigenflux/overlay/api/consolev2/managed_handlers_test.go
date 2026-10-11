@@ -346,7 +346,7 @@ func TestManagedFullSchema(t *testing.T) {
 	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) {
 		body := freshBytes
 		if r.URL.Host == "commons.wikimedia.org" {
-			body = []byte(`{"query":{"pages":{"1":{"title":"File:Fresh plants.jpg","index":1,"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/fresh-plants.jpg","descriptionurl":"https://commons.wikimedia.org/wiki/File:Fresh_plants.jpg","mime":"image/jpeg","width":1200,"height":800,"extmetadata":{"Artist":{"value":"Photographer"},"LicenseShortName":{"value":"CC BY 4.0"},"LicenseUrl":{"value":"https://creativecommons.org/licenses/by/4.0/"}}}]}}}}`)
+			body = []byte(`{"query":{"pages":{"1":{"title":"File:Fresh plants.jpg","index":1,"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/fresh-plants.jpg","descriptionurl":"https://commons.wikimedia.org/wiki/File:Fresh_plants.jpg","mime":"image/jpeg","width":1200,"height":800,"extmetadata":{"CommonsMetadataExtension":{"value":1.2},"Artist":{"value":"Photographer"},"LicenseShortName":{"value":"CC BY 4.0"},"LicenseUrl":{"value":"https://creativecommons.org/licenses/by/4.0/"}}}]}}}}`)
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	})
