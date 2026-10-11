@@ -34,9 +34,7 @@
     :where(*) {
     font-size: inherit;
   }
-  html[data-theme]
-    #root
-    :is(h1, h2, .ew-friend-name, .elsewhere-identity-name) {
+  html[data-theme] #root :is(h1, h2, .elsewhere-identity-name) {
     font-size: 20px;
     line-height: 1.45;
   }
@@ -45,6 +43,7 @@
     :is(
       h3,
       h4,
+      .ew-friend-name,
       .sn-conversation strong,
       .sn-person-name,
       .messages aside button strong

@@ -18,12 +18,12 @@
 }
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
-  :is(
-    .sw-peer-card h3,
-    .sw-peer-card h3 a,
-    .sw-peer-card h3 button,
-    .sw-post .sw-post-title
-  ) {
+  :is(.sw-peer-card h3, .sw-peer-card h3 a, .sw-peer-card h3 button) {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+:root[data-theme] .sw-workspace.ew-social.sn-social .sw-post .sw-post-title {
   font-size: var(--ew-text-title);
   font-weight: 500;
   line-height: 1.45;
@@ -74,22 +74,35 @@
   color: var(--ew-text-secondary);
 }
 /* Collapsed friends contain only a name and a disclosure affordance. */
+:root[data-theme] .sw-workspace.ew-social.sn-social .sw-connections-section {
+  gap: 6px;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .sw-connections-section
+  > .sw-section-heading {
+  margin-bottom: 14px;
+}
 :root[data-theme] .sw-workspace.ew-social.sn-social .ew-friend-entry {
   min-width: 0;
   border: 0;
-  border-bottom: 1px solid var(--ew-line);
   margin: 0;
   background: transparent;
+  border-radius: var(--ew-radius-control);
+}
+:root[data-theme] .sw-workspace.ew-social.sn-social .ew-friend-entry[open] {
+  background: var(--ew-tint);
 }
 :root[data-theme] .sw-workspace.ew-social.sn-social .ew-friend-name {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 22px 4px;
+  gap: 16px;
+  min-height: 60px;
+  padding: 14px 16px;
   cursor: pointer;
   list-style: none;
-  font-size: 32px;
+  font-size: 20px;
   line-height: 1.5;
   font-weight: 500;
   color: var(--ew-ink);
@@ -104,6 +117,8 @@
 }
 .ew-friend-name > svg {
   flex-shrink: 0;
+  width: 18px;
+  height: 18px;
   color: var(--ew-muted);
   transition: transform 160ms;
 }
@@ -113,14 +128,30 @@
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
   .ew-friend-name:is(:hover, :focus-visible) {
-  color: var(--ew-muted);
+  background: var(--ew-tint);
+  color: var(--ew-ink);
 }
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
   .ew-friend-entry
   .sw-connection-card {
-  padding: 4px 4px 28px;
-  gap: 22px;
+  padding: 4px 16px 20px;
+  gap: 14px;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .ew-friend-entry
+  .sw-peer-avatar {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .ew-friend-entry
+  .sw-connection-actions {
+  margin-top: 16px;
+  gap: 8px;
 }
 :root[data-theme]
   .sw-workspace.ew-social.sn-social

@@ -83,7 +83,7 @@ html[data-theme] #root .sw-nav-divider {
   display: none;
 }
 html[data-theme] #root .ew-friend-entry + .ew-friend-entry {
-  margin-top: 8px;
+  margin-top: 0;
 }
 html[data-theme] #root .managed-tabs button[aria-current] {
   border-bottom-color: transparent;
