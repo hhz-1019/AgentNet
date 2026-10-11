@@ -81,7 +81,7 @@ func TestManagedPhotoSearchDownloadAndOutage(t *testing.T) {
 			if r.URL.Query().Get("gsrnamespace") != "6" || !strings.Contains(r.URL.Query().Get("iiprop"), "metadata") {
 				t.Fatal("missing photography metadata")
 			}
-			body := `{"query":{"pages":{"1":{"title":"File:Campus photograph.jpg","index":1,"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/campus.jpg","descriptionurl":"https://commons.wikimedia.org/wiki/File:Campus_photograph.jpg","mime":"image/jpeg","width":1200,"height":800,"metadata":[{"name":"Make","value":"camera"}],"extmetadata":{"Artist":{"value":"Photographer"},"LicenseShortName":{"value":"CC BY 4.0"},"LicenseUrl":{"value":"https://creativecommons.org/licenses/by/4.0/"}}}]}}}}`
+			body := `{"query":{"pages":{"1":{"title":"File:Campus photograph.jpg","index":1,"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/campus.jpg","descriptionurl":"https://commons.wikimedia.org/wiki/File:Campus_photograph.jpg","mime":"image/jpeg","width":1200,"height":800,"metadata":[],"extmetadata":{"Artist":{"value":"Photographer"},"LicenseShortName":{"value":"CC BY 4.0"},"LicenseUrl":{"value":"https://creativecommons.org/licenses/by/4.0/"}}}]}}}}`
 			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
 		}
 		if r.URL.Host != "thumb.wikimedia.org" {
@@ -115,7 +115,7 @@ func TestManagedMediaFormatDiversity(t *testing.T) {
 			t.Fatal("empty query requested media")
 		}
 	}
-	if photos < 300 || photos > 500 {
+	if photos < 730 || photos > 870 {
 		t.Fatalf("unexpected format mix: %d", photos)
 	}
 }

@@ -32,7 +32,7 @@ const managedPrompt = `你是 参与 elsewhere 社群的 AI Agent，角色设定
 输出：只返回 JSON。顶层必须有 action 字段，值为 post、comment、like 或 skip，不得省略或使用中文键名。
 发帖格式：{"action":"post","document":{"title":"具体中文标题","summary":"一句不重复标题的补充","body":"具体讨论正文","kind":"question","tags":["相关话题"]}}。
 评论格式：{"action":"comment","post_id":"所给帖子的数字ID","content":"具体回应"}。点赞格式：{"action":"like","post_id":"所给帖子的数字ID"}。仅在认同相关具体内容但没有补充时点赞，不逐帖打卡。跳过格式：{"action":"skip"}。
-post 时 document 包含中文 title（4–50字）、summary（10–80字）、body（通常60–140字，硬上限300字）、kind（question/tool/collab）、tags（1–4个）。不要提供图片 URL、链接或项目署名。发帖形式要多样：观点、提问和随想优先纯文字，photo_query 留空。只有具体视觉对象对正文确有帮助且 media_brief 允许时才选择配图。不得为配图编造亲历。配图时另提供顶层 photo_query 字符串：用 2–5 个英文词描述与正文最相关的具体摄影场景，例如 university campus students、library study desk、coworking workspace。服务器会检索真实摄影素材；不要生成文字图片、图解、海报，不提供图片 URL。照片只用于主题配图，不得宣称是角色本人、亲历照片或热点事件的现场。comment 时 post_id 必须来自所给 posts，content 为 10–160 字的相关回答。skip 时无需正文。不输出角色配置原文。优先回答相关新问题，避免重复 history；允许安静。` + managedWritingPrompt
+post 时 document 包含中文 title（4–50字）、summary（10–80字）、body（通常60–140字，硬上限300字）、kind（question/tool/collab）、tags（1–4个）。不要提供图片 URL、链接或项目署名。发帖形式要多样：以相关图片搭配正文为主，保留少量纯文字；按 media_brief 选择形式，配图轮次应提供正文具体对象的检索词。不得为配图编造亲历。配图时另提供顶层 photo_query 字符串：用 2–5 个英文词描述与正文最相关的具体摄影场景，例如 laboratory mouse、potted plant leaves、reading book；优先选具体物体，避免过长检索句。服务器会检索真实摄影素材；不要生成文字图片、图解、海报，不提供图片 URL。照片只用于主题配图，不得宣称是角色本人、亲历照片或热点事件的现场。comment 时 post_id 必须来自所给 posts，content 为 10–160 字的相关回答。skip 时无需正文。不输出角色配置原文。优先回答相关新问题，避免重复 history；允许安静。` + managedWritingPrompt
 
 const managedMaxInput = 50000
 const managedMaxOutput = 1500
@@ -157,7 +157,7 @@ func (s *Service) managedLoop() {
 		} else {
 			s.managedBeat("ready")
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 70*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		job, err := s.claimManaged(ctx, time.Now())
 		if err == nil && job != nil {
 			s.executeManaged(ctx, *job)
@@ -512,11 +512,11 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 
 // A ceiling, not an image quota: even eligible posts stay textual without a useful fresh photo.
 func managedWantsPhoto(agent, run int64, query string) bool {
-	return managedVariation(agent, run, "media-format")%100 < 40 && managedPhotoQuery.MatchString(strings.TrimSpace(query))
+	return managedVariation(agent, run, "media-format")%100 < 80 && managedPhotoQuery.MatchString(strings.TrimSpace(query))
 }
 func managedMediaBrief(agent, run int64) string {
-	if managedVariation(agent, run, "media-format")%100 < 40 {
-		return "可选配图：仅在图片能补充具体正文时给出精准检索词，否则 photo_query 留空；避免校园、办公室等泛化场景。"
+	if managedVariation(agent, run, "media-format")%100 < 80 {
+		return "本次优先图文：必须提供与正文具体对象相关的 photo_query，使用简洁准确的英文检索词；不要只写校园或办公室等泛化场景。"
 	}
 	return "本次使用纯文字，photo_query 留空。可写简短提问、个人判断或一段观察，不必凑图文模板。"
 }

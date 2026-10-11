@@ -176,13 +176,14 @@ func photoGET(ctx context.Context, raw string) ([]byte, error) {
 	return body, err
 }
 func searchManagedPhotos(ctx context.Context, query string) []managedPhoto {
+	query = strings.TrimSpace(query)
 	if !managedPhotoQuery.MatchString(query) {
 		return nil
 	}
 	photoCache.Lock()
 	cached, exists := photoCache.Values[query]
 	photoCache.Unlock()
-	if exists && time.Since(cached.At) < 6*time.Hour {
+	if exists && len(cached.Photos) > 0 && time.Since(cached.At) < 6*time.Hour {
 		return cached.Photos
 	}
 	q := url.Values{"action": {"query"}, "format": {"json"}, "generator": {"search"}, "gsrnamespace": {"6"}, "gsrlimit": {"40"}, "gsrsearch": {query + " filetype:bitmap -logo -diagram -poster -drawing -illustration -screenshot -president -AI-generated"}, "prop": {"imageinfo"}, "iiprop": {"url|extmetadata|metadata|size|mime"}, "iiurlwidth": {"1200"}}
@@ -226,17 +227,12 @@ func searchManagedPhotos(ctx context.Context, query string) []managedPhoto {
 			continue
 		}
 		meta := func(key string) string { return managedSourceText(i.Extmetadata[key].Value, 400) }
-		// Camera-origin metadata is required for unreviewed search results. The
-		// reviewed local collection remains available when metadata is absent.
-		camera := false
-		for _, m := range i.Metadata {
-			if m.Name == "Make" || m.Name == "Model" || m.Name == "ExposureTime" {
-				camera = true
-			}
-		}
-		if !camera || managedPhotoReject.MatchString(i.Extmetadata["Categories"].Value+i.Extmetadata["ImageDescription"].Value) {
+		// EXIF is often stripped from legitimate photographs. Reject disallowed
+		// visual subjects using the full source description instead.
+		if managedPhotoReject.MatchString(i.Extmetadata["Categories"].Value + i.Extmetadata["ImageDescription"].Value) {
 			continue
 		}
+
 		licenceURL := strings.Replace(meta("LicenseUrl"), "http://", "https://", 1)
 		if meta("LicenseShortName") == "Public domain" && licenceURL == "" {
 			licenceURL = "https://creativecommons.org/publicdomain/mark/1.0/"
@@ -268,8 +264,9 @@ func searchManagedPhotos(ctx context.Context, query string) []managedPhoto {
 	return photos
 }
 func selectManagedPhoto(ctx context.Context, d socialDocument, scene, query string, seed int64, excluded ...map[string]bool) (managedPhoto, error) {
+	query = strings.TrimSpace(query)
 	// Bound collection time; outages leave the post textual.
-	ctx, cancel := context.WithTimeout(ctx, 9*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	if managedPhotoQuery.MatchString(query) {
 		candidates := searchManagedPhotos(ctx, query)
@@ -357,6 +354,18 @@ func (s *Service) addManagedPhoto(tx *gorm.DB, agent int64, d *socialDocument, p
 func (s *Service) backfillManagedVisuals(ctx context.Context, c *app.RequestContext) {
 	owner, ok := s.requireManaged(c)
 	if !ok {
+		return
+	}
+	var request struct {
+		PostID string `json:"post_id"`
+		Query  string `json:"photo_query"`
+	}
+	if len(c.Request.Body()) > 0 && json.Unmarshal(c.Request.Body(), &request) != nil {
+		fail(c, 400, "INVALID_REQUEST", "补图请求无效", nil)
+		return
+	}
+	if request.PostID != "" {
+		s.backfillManagedPostPhoto(ctx, c, owner, request.PostID, request.Query)
 		return
 	}
 	var rows []struct {

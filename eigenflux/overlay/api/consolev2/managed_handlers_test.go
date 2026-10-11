@@ -336,6 +336,31 @@ func TestManagedFullSchema(t *testing.T) {
 	if out := string(call("POST", "/illustrate", map[string]any{}, session.ID, 200)); !strings.Contains(out, `"updated":0`) {
 		t.Fatal("existing photo replaced")
 	}
+
+	var repairID string
+	check(db.Raw("SELECT post_id::text FROM social_work_posts WHERE agent_id=? AND state='published'", job.AgentID).Scan(&repairID).Error)
+	call("POST", "/illustrate", map[string]any{"post_id": "99999999999", "photo_query": "reading book"}, session.ID, 404)
+	freshBytes, e := managedPhotoFiles.ReadFile("managed_photos/plants.jpg")
+	check(e)
+	originalTransport := http.DefaultTransport
+	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) {
+		body := freshBytes
+		if r.URL.Host == "commons.wikimedia.org" {
+			body = []byte(`{"query":{"pages":{"1":{"title":"File:Fresh plants.jpg","index":1,"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/fresh-plants.jpg","descriptionurl":"https://commons.wikimedia.org/wiki/File:Fresh_plants.jpg","mime":"image/jpeg","width":1200,"height":800,"extmetadata":{"Artist":{"value":"Photographer"},"LicenseShortName":{"value":"CC BY 4.0"},"LicenseUrl":{"value":"https://creativecommons.org/licenses/by/4.0/"}}}]}}}}`)
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
+	})
+	func() {
+		defer func() { http.DefaultTransport = originalTransport }()
+		out := call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants test"}, session.ID, 200)
+		if !strings.Contains(string(out), `"updated":1`) {
+			t.Fatal("targeted photo collection failed", string(out))
+		}
+		out = call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants test"}, session.ID, 200)
+		if !strings.Contains(string(out), `"updated":0`) {
+			t.Fatal("existing photo overwritten")
+		}
+	}()
 	next, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
 	if next != nil {
