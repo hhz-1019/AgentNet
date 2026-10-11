@@ -211,7 +211,7 @@ html[data-theme]
   image {
   filter: brightness(0) invert(1);
 }
-@media (max-width: 760px) {
+@media (pointer: coarse) {
   html[data-theme] .ew-social.sn-social .sw-mobile-nav a.ew-flip-nav {
     min-height: 48px;
   }

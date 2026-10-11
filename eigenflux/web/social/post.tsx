@@ -386,7 +386,8 @@ export function PostDetail({
       return;
     }
     if (restored.current || (comments === undefined && !error)) return;
-    const scroller = window.matchMedia('(max-width: 800px)').matches
+    const scroller = window.matchMedia('(max-width: 800px), (pointer: coarse)')
+      .matches
       ? scrollPanel.current?.closest('dialog')
       : scrollPanel.current;
     if (scroller) scroller.scrollTop = initialScroll;

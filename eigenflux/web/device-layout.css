@@ -1,0 +1,175 @@
+/* The interaction shell follows the primary input device. Width only adjusts
+   content density inside that shell; it must never reveal both navigations. */
+@media (pointer: fine), (pointer: none) {
+  html[data-theme] #root .sw-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(192px, 16vw, 260px);
+    padding-bottom: 0;
+  }
+  html[data-theme] #root .sw-sidebar {
+    display: flex;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  html[data-theme] #root .sw-sidebar > * {
+    flex-shrink: 0;
+  }
+  html[data-theme] #root .sw-sidebar .sw-brand {
+    display: block;
+  }
+  html[data-theme] #root .sw-mobile-nav {
+    display: none;
+  }
+  html[data-theme] body:has(.sw-workspace) #root .ew-theme-floating {
+    display: none;
+  }
+  html[data-theme] #root .sw-sidebar > .ew-theme-switch {
+    display: flex;
+  }
+  html[data-theme] #root .sw-main {
+    min-width: 0;
+  }
+  html[data-theme] #root .sw-skip:not(:focus) {
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+@media (max-width: 1100px) and (pointer: fine),
+  (max-width: 1100px) and (pointer: none) {
+  html[data-theme] #root .sw-workspace {
+    grid-template-columns: minmax(0, 1fr) 156px;
+  }
+  html[data-theme] #root .sw-main {
+    padding: 24px 20px 40px;
+  }
+  html[data-theme] #root .sw-sidebar {
+    padding: 28px 12px 16px;
+  }
+  html[data-theme] #root .sw-sidebar .sw-brand {
+    width: 100%;
+  }
+  html[data-theme] #root .sw-sidebar .ew-theme-switch {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  html[data-theme] #root .sw-sidebar .ew-theme-switch button {
+    padding: 6px 8px;
+    min-height: 36px;
+  }
+  html[data-theme] #root .sw-feed-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+    row-gap: 0;
+  }
+}
+@media (max-width: 760px) and (pointer: fine),
+  (max-width: 760px) and (pointer: none) {
+  /* A compact right rail remains a desktop rail, with readable text labels. */
+  html[data-theme] #root .sw-workspace {
+    grid-template-columns: minmax(0, 1fr) 84px;
+  }
+  html[data-theme] #root .sw-sidebar {
+    padding: 20px 6px 12px;
+    gap: 12px;
+  }
+  html[data-theme]
+    #root
+    .sw-sidebar
+    :is(.sn-brand-note, .sn-account > span:last-child) {
+    display: none;
+  }
+  html[data-theme] #root .sw-sidebar .sw-brand {
+    margin: 0 0 12px;
+  }
+  html[data-theme] #root .sw-sidebar nav {
+    width: 100%;
+    gap: 8px;
+  }
+  html[data-theme] #root .sw-sidebar nav a.ew-flip-nav {
+    padding: 0;
+    min-height: 48px;
+    font-size: 14px;
+  }
+  html[data-theme] #root .sw-sidebar .ew-nav-stage {
+    min-width: 0;
+    width: 100%;
+  }
+  html[data-theme] #root .sw-sidebar .ew-nav-icon svg {
+    width: 30px;
+    height: 30px;
+  }
+  html[data-theme] #root .sw-sidebar .ew-unread-dot {
+    right: 5px;
+    top: 6px;
+  }
+  html[data-theme] #root .sw-sidebar .sw-create {
+    min-height: 44px;
+    padding: 8px 4px;
+    gap: 3px;
+    font-size: 14px;
+    margin: 0;
+  }
+  html[data-theme] #root .sw-sidebar .sw-create svg {
+    width: 16px;
+    height: 16px;
+  }
+  html[data-theme] #root .sw-sidebar .ew-theme-switch {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 4px;
+    margin-top: auto;
+    width: 100%;
+  }
+  html[data-theme] #root .sw-sidebar .ew-theme-switch button {
+    font-size: 12px;
+    justify-content: center;
+    padding: 6px 4px;
+  }
+  html[data-theme] #root .sw-sidebar .ew-theme-switch svg {
+    display: none;
+  }
+  html[data-theme] #root .sw-sidebar .sn-account {
+    justify-content: center;
+    margin: 0;
+    padding: 10px 0 0;
+  }
+  html[data-theme] #root .sw-main {
+    padding: 20px 12px 32px;
+  }
+  html[data-theme] #root .sw-feed-grid {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0;
+  }
+  html[data-theme] #root .sw-feed-grid .sw-post-title {
+    font-size: 26px;
+  }
+  html[data-theme] #root .sw-feed-grid .ew-paper-composition {
+    padding: 24px 20px;
+  }
+  html[data-theme] #root .sw-feed-grid .ew-paper-leaf {
+    min-height: 180px;
+    padding: 24px 20px;
+  }
+  html[data-theme] #root .sw-feed-grid .ew-paper-heading {
+    font-size: 24px;
+  }
+  html[data-theme] #root .sw-feed-grid .ew-paper-caption {
+    font-size: 16px;
+  }
+  html[data-theme] #root .sw-search {
+    min-width: 0;
+    width: 100%;
+  }
+  html[data-theme] #root .sn-discover-heading .sn-tabs {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  html[data-theme] #root .sn-discover-heading .sn-tabs button {
+    font-size: 18px;
+    padding: 8px 10px;
+  }
+}

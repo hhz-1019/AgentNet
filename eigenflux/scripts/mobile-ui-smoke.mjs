@@ -10,8 +10,9 @@ const server = await createServer({
 });
 await server.listen();
 const browser = await chromium.launch();
-const page = await browser.newPage({
+let page = await browser.newPage({
   viewport: { width: 390, height: 844 },
+  hasTouch: true,
   reducedMotion: 'reduce',
 });
 const origin = server.resolvedUrls.local[0];
@@ -53,8 +54,10 @@ try {
   await page.goto(origin + 'preview#explore');
   await page.locator('.sw-post').first().waitFor();
   await page.locator('.ew-brand-entry').waitFor({ state: 'detached' });
-  for (const width of [320, 390, 430, 760]) {
-    await page.setViewportSize({ width, height: 844 });
+  for (const width of [320, 390, 430, 760, 844, 1024]) {
+    await page.setViewportSize({ width, height: width === 844 ? 390 : 844 });
+    assert.equal(await page.locator('.sw-sidebar').isVisible(), false);
+    assert.equal(await page.locator('.sw-mobile-nav').isVisible(), true);
     await page.waitForFunction(
       () =>
         getComputedStyle(
@@ -145,6 +148,16 @@ try {
   await page.getByRole('dialog').waitFor();
   await noOverflow();
   assert.equal(await font(page.locator('.ew-reading-intro h2')), '20px');
+  await page.setViewportSize({ width: 844, height: 390 });
+  assert.equal(
+    await page
+      .locator('.ew-detail-layout')
+      .evaluate((e) => getComputedStyle(e).display),
+    'block',
+    'touch landscape retains stacked post detail',
+  );
+  await noOverflow();
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: '关闭窗口' }).click();
   const nav = page.locator('.sw-mobile-nav');
   await nav.getByRole('link', { name: '消息', exact: true }).click();
@@ -156,6 +169,13 @@ try {
     await checkPill(filter);
   }
   await page.getByRole('button', { name: /周末去哪儿/ }).click();
+  for (const width of [844, 1024, 390]) {
+    await page.setViewportSize({ width, height: width === 844 ? 390 : 844 });
+    assert.equal(await page.locator('.sn-conversations').isVisible(), false);
+    assert.equal(await page.locator('.sn-chat').isVisible(), true);
+    assert.equal(await page.locator('.sn-conversation-back').isVisible(), true);
+    await noOverflow();
+  }
   assert.equal(await font(page.locator('.sn-message p').first()), '15px');
   assert.equal(
     await font(page.locator('.sn-message-composer textarea')),
@@ -181,7 +201,12 @@ try {
   assert.equal(await font(page.locator('textarea').first()), '16px');
   await noOverflow();
   // The desktop editorial scale remains unchanged; only tab selection changes.
-  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.close();
+  page = await browser.newPage({
+    viewport: { width: 1440, height: 1000 },
+    reducedMotion: 'reduce',
+  });
+  page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(origin + 'preview#explore');
   await page.locator('.sw-post').first().waitFor();
   assert.equal(
@@ -204,9 +229,36 @@ try {
     .click();
   await page.locator('.sw-post').first().waitFor();
   await capture('desktop-filters');
+  for (const width of [
+    1440, 1180, 1100, 1000, 901, 900, 801, 800, 761, 760, 700, 680, 640, 620,
+    430, 390, 320,
+  ]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.equal(
+      await page.locator('.sw-sidebar').isVisible(),
+      true,
+      `desktop sidebar at ${width}`,
+    );
+    assert.equal(
+      await page.locator('.sw-mobile-nav').isVisible(),
+      false,
+      `desktop bottom navigation at ${width}`,
+    );
+    assert.equal(await page.locator('.ew-theme-floating').isVisible(), false);
+    assert.equal(await page.locator('.sw-sidebar .sw-brand').isVisible(), true);
+    assert.equal(
+      await page
+        .locator('.sw-sidebar')
+        .evaluate((e) => getComputedStyle(e).overflowX),
+      'hidden',
+      `no horizontal sidebar scrollbar at ${width}`,
+    );
+    await noOverflow();
+    if (width === 390 || width === 800) await capture(`desktop-${width}`);
+  }
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: phone type scale, two-column masonry, centered publishing, vertical navigation, pill filters, dialogs and desktop scale.',
+    'PASS: touch layouts through landscape/tablet widths, desktop shell across 17 widths, phone typography, masonry, navigation and dialogs.',
   );
 } finally {
   await browser.close();

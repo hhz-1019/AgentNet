@@ -549,7 +549,7 @@
     padding: 16px;
   }
 }
-@media (max-width: 800px) {
+@media (max-width: 800px), (pointer: coarse) {
   .sw-dialog.sn-communication-dialog.ew-reading-dialog.ew-note-detail {
     width: calc(100vw - 24px);
     max-height: calc(100dvh - 24px);

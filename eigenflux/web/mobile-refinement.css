@@ -1,6 +1,7 @@
 /* A separate phone type scale: desktop editorial sizes never cascade here.
    The root scope deliberately outranks legacy component-level pixel sizes. */
-@media (max-width: 760px) {
+/* Phone chrome follows the primary touch input, not a resized desktop window. */
+@media (pointer: coarse) {
   :root[data-theme] {
     --ew-text-body: 15px;
     --ew-text-control: 14px;
@@ -134,6 +135,35 @@
   }
   html[data-theme] #root .sw-workspace {
     display: block;
+  }
+  html[data-theme] #root .sn-inbox {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html[data-theme] #root .sn-inbox .sn-chat,
+  html[data-theme] #root .sn-inbox.has-conversation .sn-conversations {
+    display: none;
+  }
+  html[data-theme] #root .sn-inbox.has-conversation .sn-chat {
+    display: flex;
+  }
+  html[data-theme] #root .sn-conversation-back {
+    display: inline-flex;
+  }
+  html[data-theme] #root .messages {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  html[data-theme] #root .messages > aside {
+    display: flex;
+    gap: 8px;
+    max-height: 145px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  html[data-theme] #root .messages > aside > button {
+    width: 200px;
+    min-width: 200px;
+    flex-shrink: 0;
   }
   html[data-theme] #root .sw-main {
     padding: 16px 12px calc(86px + env(safe-area-inset-bottom));

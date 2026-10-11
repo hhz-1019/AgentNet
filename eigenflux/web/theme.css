@@ -215,7 +215,7 @@ body:has(.sw-workspace) .ew-theme-floating {
     display: none;
   }
 }
-@media (max-width: 760px) {
+@media (pointer: coarse) {
   html[data-theme] .ew-theme-floating,
   body:has(.sw-workspace) .ew-theme-floating {
     display: flex;
@@ -328,7 +328,7 @@ html[data-theme='night'] .ew-paper-invitation .ew-paper-slip {
   background: var(--ew-action);
   color: var(--ew-on-action);
 }
-@media (max-width: 760px) {
+@media (pointer: coarse) {
   html[data-theme] .sw-sidebar > .ew-theme-switch {
     display: none;
   }
@@ -383,7 +383,7 @@ html[data-theme='night'] .ew-paper-invitation .ew-paper-slip {
 :root[data-theme] .sw-workspace.ew-social.sn-social .sw-brand {
   background: var(--ew-paper);
 }
-@media (max-width: 760px) {
+@media (pointer: coarse) {
   html[data-theme] .ew-theme-floating,
   body:has(.sw-workspace) .ew-theme-floating {
     position: relative;

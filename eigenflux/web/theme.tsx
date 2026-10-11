@@ -3,6 +3,7 @@ import { Sun, CloudSun, Moon } from './icons';
 import './theme.css';
 import './interface-refinement.css';
 import './mobile-refinement.css';
+import './device-layout.css';
 
 const key = 'elsewhere-appearance';
 const themes = [

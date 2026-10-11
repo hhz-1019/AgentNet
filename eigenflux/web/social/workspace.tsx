@@ -245,7 +245,7 @@ export function SocialWorkspace({
           scroll: window.scrollY,
           detailScroll:
             document.querySelector<HTMLElement>(
-              window.matchMedia('(max-width: 800px)').matches
+              window.matchMedia('(max-width: 800px), (pointer: coarse)').matches
                 ? 'dialog.ew-reading-dialog'
                 : 'dialog.ew-reading-dialog .ew-detail-scroll',
             )?.scrollTop || 0,
