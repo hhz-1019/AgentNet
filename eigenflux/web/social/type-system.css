@@ -161,7 +161,7 @@
     label,
     .sn-media-actions button,
     .sn-share-count,
-    .sn-share-visibility label,
+    .sn-share-visibility legend,
     .sn-member-picker legend,
     .sn-group-footer > span
   ) {
@@ -172,7 +172,7 @@
   font-size: 24px;
   font-weight: 500;
 }
-.sn-communication-dialog :is(.sw-primary, .sn-share-visibility select) {
+.sn-communication-dialog .sw-primary {
   font-size: 17px;
 }
 .ew-social.sn-social .sw-mobile-nav span {

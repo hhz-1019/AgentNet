@@ -540,8 +540,8 @@
   padding-top: 16px;
   border-top: 1px solid var(--ew-line);
 }
-.sn-share-visibility label {
-  margin: 0 0 5px;
+.sn-share-visibility legend {
+  padding: 0 0 8px;
   color: var(--ew-muted);
   font-size: 16px;
 }
@@ -550,15 +550,6 @@
   align-items: center;
   gap: 6px;
   color: var(--ew-ink);
-}
-.sn-communication-dialog .sn-share-visibility select {
-  width: 104px;
-  min-height: 44px;
-  padding: 4px 6px;
-  border-color: transparent;
-  background: transparent;
-  color: var(--ew-ink);
-  font-size: 18px;
 }
 .sn-communication-dialog .sn-member-picker {
   margin: 20px 0;

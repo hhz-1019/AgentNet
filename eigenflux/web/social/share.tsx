@@ -550,24 +550,29 @@ export function ShareComposer({
             </p>
           )}
           <div className="sn-share-footer">
-            <div className="sn-share-visibility">
-              <label htmlFor="share-scope">谁可以看</label>
+            <fieldset className="sn-share-visibility">
+              <legend>谁可以看</legend>
               <div>
-                {scope === '好友' ? (
-                  <Users size={16} aria-hidden="true" />
-                ) : (
-                  <Globe2 size={16} aria-hidden="true" />
-                )}
-                <select
-                  id="share-scope"
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value)}
-                >
-                  <option>公开</option>
-                  <option>好友</option>
-                </select>
+                {[
+                  { value: '公开', label: '公开', Icon: Globe2 },
+                  { value: '好友', label: '好友可见', Icon: Users },
+                ].map(({ value, label, Icon }) => (
+                  <label key={value}>
+                    <input
+                      type="radio"
+                      name="share-scope"
+                      value={value}
+                      checked={scope === value}
+                      onChange={() => setScope(value)}
+                    />
+                    <span>
+                      <Icon size={20} aria-hidden="true" />
+                      {label}
+                    </span>
+                  </label>
+                ))}
               </div>
-            </div>
+            </fieldset>
             <button
               className="sw-primary"
               aria-busy={busy}

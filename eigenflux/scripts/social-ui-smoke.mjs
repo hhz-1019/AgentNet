@@ -235,7 +235,26 @@ try {
     true,
   );
   await page.getByLabel(/^Tag/).fill('日常，散步');
-  await page.getByLabel('谁可以看', { exact: true }).selectOption('好友');
+  const audience = page.getByRole('group', { name: '谁可以看', exact: true });
+  await audience.getByRole('radio', { name: '好友可见', exact: true }).check();
+  await audience
+    .getByRole('radio', { name: '好友可见', exact: true })
+    .press('ArrowLeft');
+  assert.equal(
+    await audience
+      .getByRole('radio', { name: '公开', exact: true })
+      .isChecked(),
+    true,
+  );
+  await audience
+    .getByRole('radio', { name: '公开', exact: true })
+    .press('ArrowRight');
+  assert.equal(
+    await audience
+      .getByRole('radio', { name: '好友可见', exact: true })
+      .isChecked(),
+    true,
+  );
   await page
     .getByRole('dialog')
     .getByRole('button', { name: '发布', exact: true })
