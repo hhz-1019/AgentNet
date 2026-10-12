@@ -54,7 +54,12 @@ try {
     ['night', '夜间'],
   ]) {
     await page
-      .locator('.sw-sidebar')
+      .getByRole('link', { name: '我的', exact: true })
+      .filter({ visible: true })
+      .click();
+    await page.getByRole('button', { name: '打开设置', exact: true }).click();
+    await page
+      .locator('.ew-appearance-settings')
       .getByRole('button', { name: label, exact: true })
       .click();
     const background = await style('body', 'backgroundColor');
@@ -62,7 +67,7 @@ try {
     paletteStrokes.add(stroke);
     assert.ok(contrast(stroke, background) >= 3, `${id} navigation contrast`);
     for (const name of ['Sun', 'Snowflake', 'Moon']) {
-      const selector = `.sw-sidebar .ew-theme-switch [data-icon="${name}"]`;
+      const selector = `.ew-appearance-settings .ew-theme-switch [data-icon="${name}"]`;
       assert.equal(await page.locator(selector).isVisible(), true);
       // The crescent's dark fill supplies contrast in light themes.
       const color =
@@ -71,6 +76,10 @@ try {
           : await style(selector, 'stroke');
       assert.ok(contrast(color, background) >= 3, `${id} ${name} contrast`);
     }
+    await page
+      .getByRole('link', { name: '发现', exact: true })
+      .filter({ visible: true })
+      .click();
     const like = page
       .getByRole('button', { name: '点赞', exact: true })
       .first();
@@ -105,10 +114,17 @@ try {
   }
   assert.equal(paletteStrokes.size, 3);
   await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole('link', { name: '我的', exact: true })
+    .filter({ visible: true })
+    .click();
+  await page.getByRole('button', { name: '打开设置', exact: true }).click();
   for (const name of ['Sun', 'Snowflake', 'Moon']) {
     assert.equal(
       await page
-        .locator(`.sw-sidebar .ew-theme-switch [data-icon="${name}"]`)
+        .locator(
+          `.ew-appearance-settings .ew-theme-switch [data-icon="${name}"]`,
+        )
         .isVisible(),
       true,
     );

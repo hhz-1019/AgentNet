@@ -11,7 +11,7 @@ import { PublicCard } from './public-agent';
 import { Console } from './console';
 import { BrandEntry } from './brand-entry';
 import './style.css';
-import { ThemeSwitcher } from './theme';
+import { ThemeSync } from './theme';
 
 const VisualPreview = import.meta.env.DEV
   ? React.lazy(() => import('./visual-preview'))
@@ -183,7 +183,7 @@ function App() {
   const [failed, setFailed] = useState(false);
   return (
     <BrandEntry ready={ready} failed={failed}>
-      <ThemeSwitcher floating />
+      <ThemeSync />
       <AppContent onReady={setReady} onFailure={setFailed} />
     </BrandEntry>
   );

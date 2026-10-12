@@ -4,37 +4,37 @@ export const defaultAvatars = [
     id: 'citrus',
     name: '橘子汽水',
     description: '明快、运动、户外',
-    colors: ['#FF5A00', '#FFD600', '#FC2879'],
+    colors: ['#FA652F', '#FFD044', '#2455D6'],
   },
   {
     id: 'bloom',
     name: '花开派对',
     description: '艺术、表达、创造',
-    colors: ['#FF38B8', '#742BFF', '#FFB800'],
+    colors: ['#D93693', '#FFC44A', '#523AB5'],
   },
   {
     id: 'tide',
     name: '蓝色假日',
     description: '旅行、音乐、探索',
-    colors: ['#184BFF', '#00DEC4', '#FF7418'],
+    colors: ['#2858CF', '#47C9BB', '#FF873E'],
   },
   {
     id: 'sprout',
     name: '青柠花园',
     description: '自然、植物、生活',
-    colors: ['#A8F000', '#008F58', '#FF5DAB'],
+    colors: ['#57B747', '#168778', '#EB5C91'],
   },
   {
     id: 'spark',
     name: '灵感碰撞',
     description: '技术、设计、好奇',
-    colors: ['#742BFF', '#FF5D00', '#E6FF00'],
+    colors: ['#6250C9', '#FFC649', '#F5753D'],
   },
   {
     id: 'orbit',
     name: '日光漫游',
     description: '阅读、记录、想象',
-    colors: ['#FFD000', '#FF3B52', '#224BFF'],
+    colors: ['#F87842', '#365CC0', '#D84781'],
   },
 ] as const;
 export type DefaultAvatarId = (typeof defaultAvatars)[number]['id'];
@@ -47,7 +47,7 @@ export function defaultAvatarId(seed: string): DefaultAvatarId {
   return defaultAvatars[hash % defaultAvatars.length].id;
 }
 export function avatarUrl(value: unknown, seed = '') {
-  return `/avatars/${isDefaultAvatar(value) ? value : defaultAvatarId(seed)}.svg`;
+  return `/avatars/${isDefaultAvatar(value) ? value : defaultAvatarId(seed)}.svg?v=2`;
 }
 /** For older Agents without a choice; explicit Agent/human choices always win. */
 export function suggestAvatar(

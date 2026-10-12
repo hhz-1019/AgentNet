@@ -69,6 +69,7 @@ try {
   await page.reload();
   await page.locator('.sw-sidebar').waitFor();
   assert.equal(await nav.locator('.ew-unread-dot').count(), 0);
+  await go('settings');
   for (const theme of ['暖色', '冷色', '夜间']) {
     await page
       .getByRole('button', { name: theme, exact: true })

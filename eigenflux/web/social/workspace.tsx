@@ -513,7 +513,6 @@ export function SocialWorkspace({
           <Plus size={19} />
           发布
         </button>
-        <ThemeSwitcher />
         <a
           className="sn-account"
           aria-label="我的"
@@ -859,6 +858,16 @@ export function SocialWorkspace({
         ) : route === 'settings' ? (
           <section className="sn-settings">
             <h1>设置</h1>
+            <section
+              className="ew-appearance-settings"
+              aria-labelledby="appearance-heading"
+            >
+              <div>
+                <h2 id="appearance-heading">界面配色</h2>
+                <p>选择适合此刻的阅读色调。</p>
+              </div>
+              <ThemeSwitcher />
+            </section>
             {managedAccess.data?.delegated && (
               <div>
                 <p>当前使用托管角色 {session.agent_name}</p>

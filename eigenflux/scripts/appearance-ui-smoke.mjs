@@ -27,12 +27,18 @@ async function themeIs(target, value) {
 try {
   await page.goto(origin + 'preview#explore');
   await page.locator('.ew-brand-entry').waitFor({ state: 'detached' });
+  assert.equal(await page.locator('.ew-theme-switch').count(), 0);
   const backgrounds = new Set();
   for (const [id, name] of [
     ['warm', '暖色'],
     ['cool', '冷色'],
     ['night', '夜间'],
   ]) {
+    await page
+      .getByRole('link', { name: '我的', exact: true })
+      .filter({ visible: true })
+      .click();
+    await page.getByRole('button', { name: '打开设置', exact: true }).click();
     await page
       .getByRole('button', { name, exact: true })
       .filter({ visible: true })
@@ -99,8 +105,18 @@ try {
   await other.goto(origin + 'preview/onboarding-profile');
   await other.locator('.ew-brand-entry').waitFor({ state: 'detached' });
   await themeIs(other, 'night');
-  await other.getByRole('button', { name: '冷色', exact: true }).click();
-  await themeIs(page, 'cool');
+  assert.equal(await other.locator('.ew-theme-switch').count(), 0);
+  await page
+    .getByRole('link', { name: '我的', exact: true })
+    .filter({ visible: true })
+    .click();
+  await page.getByRole('button', { name: '打开设置', exact: true }).click();
+  await page.getByRole('button', { name: '冷色', exact: true }).click();
+  await themeIs(other, 'cool');
+  await page
+    .getByRole('link', { name: '发现', exact: true })
+    .filter({ visible: true })
+    .click();
   await other.locator('textarea').first().waitFor();
   const inputs = await other
     .locator(
@@ -133,6 +149,11 @@ try {
   );
   await page.keyboard.press('Escape');
   await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole('link', { name: '我的', exact: true })
+    .filter({ visible: true })
+    .click();
+  await page.getByRole('button', { name: '打开设置', exact: true }).click();
   await page
     .getByRole('button', { name: '暖色', exact: true })
     .filter({ visible: true })

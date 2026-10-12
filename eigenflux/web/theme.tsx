@@ -36,13 +36,15 @@ function subscribe(notify: () => void) {
     window.removeEventListener('storage', storage);
   };
 }
-export function ThemeSwitcher({ floating = false }: { floating?: boolean }) {
+/** Keep other tabs in sync even when the settings controls are not mounted. */
+export function ThemeSync() {
+  useSyncExternalStore(subscribe, readTheme);
+  return null;
+}
+export function ThemeSwitcher() {
   const theme = useSyncExternalStore(subscribe, readTheme);
   return (
-    <fieldset
-      className={'ew-theme-switch' + (floating ? ' ew-theme-floating' : '')}
-      aria-label="界面配色"
-    >
+    <fieldset className="ew-theme-switch" aria-label="界面配色">
       {themes.map(({ id, label, icon: Icon }) => (
         <button
           key={id}
