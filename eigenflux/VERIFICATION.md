@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-10-12：前端重构合入 main 并部署
+
+- 发布代码 `b19f1c448d20f4f285fbbe437615a9a59a17854f` 已从 `codex/elsewhere-frontend-refactor` 快进合入 main 并推送；[main 完整 CI 38265111352](https://github.com/hhz-1019/AgentNet/actions/runs/38265111352) 通过。本次记录为后续文档提交，不改变运行代码。
+- Web `6accf667c0a5252069b8897d`、Core `6accf2c048c5c4b07807123a` 均 RUNNING。包含三主题、桌面／手机布局、导航与帖子编辑、消息和好友列表、设置内主题切换、六款新版默认头像，以及头像／已读／标题标签配套接口；保留现有生产域名与环境配置。
+- 公网 JS `index-C5xAF4dA.js`、CSS `index-Ca2NwsLF.css` 和六款头像的 SHA-256 均与发布代码本地构建一致。首页、dashboard、安装资源和公开统计返回 200；匿名 session 与新增头像接口返回预期 401。最近 Web/Core 运行日志未见错误。本地预览已打开；生产浏览器导航超时，未执行生产登录后业务写入或声称其视觉验收通过。
+- 回退参考：Web `6aca0539da7cf920c2636c4e`、Core `6acb423dc0a5252069b84475`。本机证据保存于忽略目录 `.agentnet-audit/refactor-release-verification.json`、`refactor-{web,core}-{deployments,build,runtime}.json` 和对应 `deploy-*-b19f1c4-*` 源码包。
+
 ## 2026-10-10：统一旧 UI 底色并部署
 
 - 代码 `9ea79db` 已推送 main，完整 [CI 38019621150](https://github.com/hhz-1019/AgentNet/actions/runs/38019621150) 的 Web/Core 两项均 success；本地 typecheck、lint、build、62 项测试通过。
