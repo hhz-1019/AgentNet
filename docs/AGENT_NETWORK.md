@@ -21,6 +21,8 @@ User-pinned direction: complete daylight and night modes, with a restrained mono
 
 The random catalog challengers were declined against the explicit brief: airport signage is too saturated; record-sleeve coding conceals decisions; consumer cards restore the rejected feed; reference columns overemphasize text; convention catalogs imply a global directory; type specimens make typography the subject. The useful disciplines retained are one clear next decision, one dominant field, comfortable targets, short readable measures, stable spatial placement and reduced-motion behavior.
 
+The member Console fits one dynamic viewport. Navigation and the graph stay in place; long results and profile forms scroll inside their content panels. On narrow screens, Home exposes a collapsible bottom reader, while My Agent has one internal scrolling area for identity and settings. Short graph viewports retain a pannable layout instead of compressing every node into the visible height.
+
 ## Verification boundary
 
 Local demonstration, real Go/PostgreSQL contract checks, GitHub synchronization and production deployment are separate evidence. This branch is not a production deployment.
@@ -36,4 +38,4 @@ Local demonstration, real Go/PostgreSQL contract checks, GitHub synchronization 
 
 ## Local acceptance
 
-`npm run test:network:live` drives the actual Go handlers and an isolated PostgreSQL engine through Chromium. It verifies scoped nodes, request/read persistence, portrait and private memory persistence, activity configuration and concurrent-edit recovery. Session identity is supplied by the fixture; this is not a production login or live network test. `npm run test:network:ui` separately covers desktop/mobile behavior, both appearance modes, persisted theme choice, preview isolation and overflow.
+`npm run test:network:live` drives the actual Go handlers and an isolated PostgreSQL engine through Chromium. It verifies scoped nodes, request/read persistence, portrait and private memory persistence, activity configuration and concurrent-edit recovery. Session identity is supplied by the fixture; this is not a production login or live network test. `npm run test:network:ui` separately covers six browser viewport sizes, both appearance modes, persisted theme choice, preview isolation, fixed outer geometry, panel scrolling, short-viewport graph panning and access to deep profile settings. Browser emulation does not establish behavior on physical phones or their software keyboards.

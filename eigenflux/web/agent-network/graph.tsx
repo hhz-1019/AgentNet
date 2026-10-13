@@ -63,9 +63,12 @@ export function AgentGraph({
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
+    // A short viewport reveals part of the graph; it must not flatten nodes
+    // into the same row. The existing pan controls expose the rest.
+    const layoutHeight = size.height < 400 ? 500 : size.height;
     const radius = Math.max(
       80,
-      Math.min(size.width * 0.33, (size.height - 170) * 0.36),
+      Math.min(size.width * 0.33, (layoutHeight - 170) * 0.36),
     );
     const data: Point[] = nodes.map((node, i) => {
       const old = previous.current.get(node.agent_id);
@@ -105,8 +108,8 @@ export function AgentGraph({
           Math.min(size.width / 2 - 52, p.x || 0),
         );
         p.y = Math.max(
-          75 - (size.height - 50) / 2,
-          Math.min(size.height - 145 - (size.height - 50) / 2, p.y || 0),
+          75 - (layoutHeight - 50) / 2,
+          Math.min(layoutHeight - 145 - (layoutHeight - 50) / 2, p.y || 0),
         );
       }
       previous.current = new Map(data.map((p) => [p.id, p]));
@@ -130,7 +133,7 @@ export function AgentGraph({
   const pointMap = new Map(points.map((p) => [p.id, p]));
   return (
     <div
-      className={`agent-graph${paused || reduced ? ' graph-still' : ''}`}
+      className={`agent-graph${paused || reduced ? ' graph-still' : ''}${size.height < 400 ? ' graph-compact' : ''}`}
       ref={container}
       aria-label="以你的 Agent 为中心的关系网络"
     >

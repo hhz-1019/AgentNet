@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUpRight, Check, RefreshCw } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+} from 'lucide-react';
 import { api } from '../api';
 import { BrandLogo } from '../brand';
 import type { Session } from '../types';
@@ -47,13 +54,15 @@ export function AgentWorkspace({
   const [page, setPage] = useState(() => readPage(demo));
   const [snapshot, setSnapshot] = useState<NetworkSnapshot>();
   const [selected, setSelected] = useState('');
+  const [readerExpanded, setReaderExpanded] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [version, setVersion] = useState(0);
   const [pages, setPages] = useState(1);
   const refreshing = useRef(false);
   const active = useRef(true);
-  const reader = useRef<HTMLElement>(null);
+  const reader = useRef<HTMLDivElement>(null);
+  const readerToggle = useRef<HTMLButtonElement>(null);
   const load = useCallback(async () => {
     if (refreshing.current) return;
     refreshing.current = true;
@@ -114,6 +123,20 @@ export function AgentWorkspace({
   useEffect(() => {
     document.title = `${page === 'me' ? '我的 Agent' : '我的网络'} · elsewhere`;
   }, [page]);
+  useEffect(() => {
+    reader.current?.scrollTo(0, 0);
+  }, [selected]);
+  useEffect(() => {
+    if (page !== 'home' || !readerExpanded) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && matchMedia('(max-width:720px)').matches) {
+        setReaderExpanded(false);
+        readerToggle.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', dismiss);
+    return () => window.removeEventListener('keydown', dismiss);
+  }, [page, readerExpanded]);
   function navigate(next: string) {
     history.pushState(
       null,
@@ -125,17 +148,10 @@ export function AgentWorkspace({
           : '/dashboard/me',
     );
     setPage(next);
-    window.scrollTo(0, 0);
   }
   function selectNode(id: string) {
     setSelected(id);
-    if (matchMedia('(max-width:720px)').matches)
-      reader.current?.scrollIntoView({
-        behavior: matchMedia('(prefers-reduced-motion:reduce)').matches
-          ? 'instant'
-          : 'smooth',
-        block: 'start',
-      });
+    setReaderExpanded(true);
   }
   const node = snapshot?.nodes.find((n) => n.agent_id === selected);
   const attention =
@@ -206,105 +222,133 @@ export function AgentWorkspace({
           <p className="map-footnote">从我的 Agent 出发</p>
         </section>
         <section
-          className="network-reader"
-          ref={reader}
+          className={`network-reader${readerExpanded ? ' is-expanded' : ''}`}
           aria-label="节点内容与决定"
         >
-          <div className="reader-toolbar">
-            {node ? (
-              <button className="quiet-button" onClick={() => setSelected('')}>
-                <ArrowLeft size={17} />
-                全部提醒
-              </button>
-            ) : (
-              <span>{snapshot && dateLabel(snapshot.observed_at)}</span>
-            )}
-            <button
-              className={`refresh-network${loading ? ' is-loading' : ''}`}
-              aria-label="刷新网络"
-              title="刷新网络"
-              disabled={loading}
-              onClick={() => void load()}
-            >
-              <RefreshCw size={17} />
-            </button>
-          </div>
-          {error && (
-            <div className="network-error" role="alert">
-              {error}
-              <button onClick={() => void load()}>重试</button>
-              {snapshot && <span>当前显示上次成功读取的内容。</span>}
-            </div>
-          )}
-          {node ? (
-            <NodeReader
-              key={node.agent_id}
-              node={node}
-              own={node.agent_id === snapshot?.self_id}
-              service={service}
-              version={version}
-              refresh={() => void load()}
-            />
-          ) : (
-            <div className="network-overview">
-              <h2>
-                {snapshot?.pending
-                  ? '有些事，等你决定。'
+          <button
+            className="reader-toggle"
+            ref={readerToggle}
+            aria-expanded={readerExpanded}
+            aria-controls="network-reader-content"
+            aria-label={readerExpanded ? '收起内容' : '展开内容'}
+            onClick={() => setReaderExpanded((expanded) => !expanded)}
+          >
+            <span>
+              {node
+                ? node.agent_name
+                : snapshot?.pending
+                  ? `${snapshot.pending} 件待决定`
                   : snapshot?.unread
-                    ? '你的 Agent 带回了一些东西。'
-                    : '这一刻，无需介入。'}
-              </h2>
-              <p>
-                {snapshot?.pending
-                  ? `${snapshot.pending} 件待决定${snapshot.unread ? `，${snapshot.unread} 条新结果` : ''}。`
-                  : '值得留意的结果，会在对应节点出现。'}
-              </p>
-              {attention.length > 0 ? (
-                <div className="attention-index">
-                  {attention.map((n) => (
-                    <button
-                      key={n.agent_id}
-                      onClick={() => setSelected(n.agent_id)}
-                    >
-                      <span
-                        className={`index-orb${n.pending ? ' needs-decision' : ''}`}
-                      />
-                      <span>
-                        <strong>
-                          {n.agent_id === snapshot?.self_id
-                            ? '我的 Agent'
-                            : n.agent_name}
-                        </strong>
-                        <small>
-                          {n.pending
-                            ? `${n.pending} 件事需要你`
-                            : `${n.unread} 条新内容`}
-                        </small>
-                      </span>
-                      <ArrowUpRight size={19} />
-                    </button>
-                  ))}
-                </div>
+                    ? `${snapshot.unread} 条新结果`
+                    : '全部提醒'}
+            </span>
+            {readerExpanded ? (
+              <ChevronDown size={18} />
+            ) : (
+              <ChevronUp size={18} />
+            )}
+          </button>
+          <div
+            className="reader-scroll"
+            id="network-reader-content"
+            ref={reader}
+          >
+            <div className="reader-toolbar">
+              {node ? (
+                <button className="quiet-button" onClick={() => selectNode('')}>
+                  <ArrowLeft size={17} />
+                  全部提醒
+                </button>
               ) : (
-                snapshot && (
-                  <div className="quiet-state">
-                    <span className="quiet-state-circle" />
-                    <p>
-                      {snapshot.total > 1
-                        ? '点选节点，回看已有的连接。'
-                        : '第一次相遇，会从这里出现。'}
-                    </p>
-                  </div>
-                )
+                <span>{snapshot && dateLabel(snapshot.observed_at)}</span>
               )}
-              <p className="reader-boundary">
-                这里呈现你的 Agent 已经遇见的世界。
-              </p>
+              <button
+                className={`refresh-network${loading ? ' is-loading' : ''}`}
+                aria-label="刷新网络"
+                title="刷新网络"
+                disabled={loading}
+                onClick={() => void load()}
+              >
+                <RefreshCw size={17} />
+              </button>
             </div>
-          )}
+            {error && (
+              <div className="network-error" role="alert">
+                {error}
+                <button onClick={() => void load()}>重试</button>
+                {snapshot && <span>当前显示上次成功读取的内容。</span>}
+              </div>
+            )}
+            {node ? (
+              <NodeReader
+                key={node.agent_id}
+                node={node}
+                own={node.agent_id === snapshot?.self_id}
+                service={service}
+                version={version}
+                refresh={() => void load()}
+              />
+            ) : (
+              <div className="network-overview">
+                <h2>
+                  {snapshot?.pending
+                    ? '有些事，等你决定。'
+                    : snapshot?.unread
+                      ? '你的 Agent 带回了一些东西。'
+                      : '这一刻，无需介入。'}
+                </h2>
+                <p>
+                  {snapshot?.pending
+                    ? `${snapshot.pending} 件待决定${snapshot.unread ? `，${snapshot.unread} 条新结果` : ''}。`
+                    : '值得留意的结果，会在对应节点出现。'}
+                </p>
+                {attention.length > 0 ? (
+                  <div className="attention-index">
+                    {attention.map((n) => (
+                      <button
+                        key={n.agent_id}
+                        onClick={() => selectNode(n.agent_id)}
+                      >
+                        <span
+                          className={`index-orb${n.pending ? ' needs-decision' : ''}`}
+                        />
+                        <span>
+                          <strong>
+                            {n.agent_id === snapshot?.self_id
+                              ? '我的 Agent'
+                              : n.agent_name}
+                          </strong>
+                          <small>
+                            {n.pending
+                              ? `${n.pending} 件事需要你`
+                              : `${n.unread} 条新内容`}
+                          </small>
+                        </span>
+                        <ArrowUpRight size={19} />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  snapshot && (
+                    <div className="quiet-state">
+                      <span className="quiet-state-circle" />
+                      <p>
+                        {snapshot.total > 1
+                          ? '点选节点，回看已有的连接。'
+                          : '第一次相遇，会从这里出现。'}
+                      </p>
+                    </div>
+                  )
+                )}
+                <p className="reader-boundary">
+                  这里呈现你的 Agent 已经遇见的世界。
+                </p>
+              </div>
+            )}
+          </div>
         </section>
       </div>
-      <div hidden={page !== 'me'}>
+      <div hidden={page !== 'me'} className="network-profile">
         <AgentProfile
           session={session}
           service={service}
