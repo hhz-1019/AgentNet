@@ -114,6 +114,18 @@ const definitions = [
       body: z.string().min(1).max(2000),
       recommendation: z.string().min(1).max(500),
       choices: z.array(z.string().min(1).max(20)).min(1).max(4),
+      executor_id: z
+        .string()
+        .regex(/^[A-Za-z0-9_-]{1,128}$/)
+        .optional(),
+      related_agent_id: z
+        .string()
+        .regex(/^[1-9][0-9]*$/)
+        .optional(),
+      priority: z.number().int().min(0).max(100).optional(),
+      scopes: z.array(z.string().min(1).max(2000)).min(1).max(4).optional(),
+      expires_at: z.number().int().positive().optional(),
+      idempotency_key: z.string().min(1).max(128).optional(),
     },
   ],
   [

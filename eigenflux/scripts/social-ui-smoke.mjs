@@ -24,7 +24,7 @@ try {
   page.on('request', (r) => {
     if (r.url().includes('/api/')) requests.push(r.url());
   });
-  await page.goto(origin + '/preview');
+  await page.goto(origin + '/preview#explore');
   await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
   await page.locator('.sw-post').first().waitFor();
   assert.equal(
@@ -32,7 +32,7 @@ try {
       .getByRole('navigation', { name: '主导航', exact: true })
       .getByRole('link')
       .count(),
-    3,
+    4,
   );
   assert.equal(await page.locator('.sw-agent-rail').count(), 0);
   assert.equal(await page.locator('.sn-account').count(), 1);

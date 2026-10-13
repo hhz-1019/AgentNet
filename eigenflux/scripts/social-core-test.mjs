@@ -82,14 +82,20 @@ try {
         '-run',
         process.argv.includes('--regression')
           ? '.'
-          : 'TestSocial|TestTwin|TestElsewhere',
+          : process.argv.includes('--moment')
+            ? 'TestMoment'
+            : 'TestSocial|TestTwin|TestElsewhere',
         '-count=1',
+        ...(process.argv.includes('--serve') ? ['-timeout=0'] : []),
         '-v',
       ],
       {
         cwd: dir,
         env: {
           ...process.env,
+          AGENTNET_MOMENT_PREVIEW_PORT: process.argv.includes('--serve')
+            ? '4320'
+            : '',
           AGENTNET_SOCIAL_BROWSER_SCRIPT: process.argv.includes('--browser')
             ? resolve('eigenflux/scripts/social-live-ui.mjs')
             : '',

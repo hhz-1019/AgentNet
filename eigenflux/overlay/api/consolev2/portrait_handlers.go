@@ -64,6 +64,7 @@ type portraitRow struct {
 }
 
 func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
+	s.registerMomentRoutes(h)
 	h.GET("/api/v2/guest/feed", s.getGuestFeed)
 	h.GET("/api/v2/guest/posts/:post_id/cover", s.getGuestCover)
 	h.GET("/api/v2/guest/posts/:post_id", s.getGuestPost)

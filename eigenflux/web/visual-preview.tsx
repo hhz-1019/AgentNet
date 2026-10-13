@@ -12,6 +12,7 @@ import { ManagedConsole } from './managed';
 import { ApiError } from './api';
 import { previewAgents, previewReceipt } from './preview-data';
 import { SocialWorkspace } from './social/workspace';
+import { Moment } from './social/moment';
 import { createDemoStore } from './social/demo';
 import { PortraitEditor } from './social/portrait';
 import { readPortrait, savePortrait } from './social/portrait-data';
@@ -210,6 +211,27 @@ export default function VisualPreview() {
     if (title || page === 'pages')
       document.title = `${title || '页面目录'} · elsewhere`;
   }, [page, title]);
+  if (location.pathname === '/preview-moment-live')
+    return (
+      <div
+        className="sw-workspace sn-social ew-social cx-enabled"
+        data-page="crossing"
+      >
+        <aside className="sw-sidebar">
+          <a className="sw-brand" href="/preview#crossing">
+            <BrandLogo />
+          </a>
+          <p>此刻</p>
+        </aside>
+        <main className="sw-main">
+          <p className="sw-hint">本地联调 · 隔离数据库，执行仅写入临时目录</p>
+          <Moment
+            agentId="1"
+            onExplore={() => location.assign('/preview#explore')}
+          />
+        </main>
+      </div>
+    );
   switch (page) {
     case 'analytics':
       return <AnalyticsDashboard preview />;

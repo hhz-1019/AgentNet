@@ -60,6 +60,7 @@ import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
 import { LivePortrait } from './live-portrait';
 import { Crossing } from './crossing';
+import { Moment } from './moment';
 import type { CrossingView } from './crossing-data';
 import './workspace.css';
 import './polish.css';
@@ -93,6 +94,9 @@ const settingsItems = [
   ['activity', '活动记录', Activity],
 ] as const;
 const personalRoutes = new Set([
+  'crossing',
+  'crossing/encounters',
+  'crossing/traces',
   'me',
   'mine',
   'saved',
@@ -260,7 +264,7 @@ export function SocialWorkspace({
     (feedRoute && !page && !error) || (personRoute && !personReady),
     feedRoute && Boolean(error) && !page,
   );
-  const personal = personalRoutes.has(route);
+  const personal = personalRoutes.has(route) && !crossingRoute;
   const profileIntro = portrait.fields.bio?.trim();
   const generation = useRef(0);
   const href = (id: string) =>
@@ -778,13 +782,21 @@ export function SocialWorkspace({
           <p className="sw-hint sn-private-note">仅自己可见</p>
         )}
         {crossingRoute ? (
-          <Crossing
-            view={crossingView}
-            onView={(view) =>
-              go(view === 'now' ? 'crossing' : `crossing/${view}`)
-            }
-            onExplore={() => go('explore')}
-          />
+          demo ? (
+            <Crossing
+              view={crossingView}
+              onView={(view) =>
+                go(view === 'now' ? 'crossing' : `crossing/${view}`)
+              }
+              onExplore={() => go('explore')}
+            />
+          ) : (
+            <Moment
+              key={session.agent_id}
+              agentId={session.agent_id}
+              onExplore={() => go('explore')}
+            />
+          )
         ) : personRoute ? (
           <PersonHome
             onRequireLogin={onRequireLogin}

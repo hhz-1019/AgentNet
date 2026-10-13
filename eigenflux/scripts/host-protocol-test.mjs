@@ -143,6 +143,17 @@ try {
       }
       assert.equal(req.headers.authorization, 'Bearer local-fixture-access');
       switch (path) {
+        case '/api/v2/agent-attention-items:publish':
+          assert.equal(
+            body.items[0].context_ref.moment.executor_id,
+            'test_host',
+          );
+          assert.equal(
+            body.items[0].context_ref.moment.scopes.choice_0,
+            '只保存草稿。',
+          );
+          data = { accepted: 1, items: [{ attention_id: '7001' }] };
+          break;
         case '/api/v2/handoffs':
           if (req.method === 'POST') {
             assert.equal(body.owner_authorized, true);
@@ -194,7 +205,7 @@ try {
             new URL(req.url, 'http://localhost').searchParams.get(
               'command_type',
             ),
-            'human_instruction',
+            command.command_type,
           );
           assert.equal(
             new URL(req.url, 'http://localhost').searchParams.get('limit'),
@@ -205,6 +216,8 @@ try {
         case '/api/v2/agent-commands/' + command.command_id + '/claim':
           assert.equal(body.runtime_instance_id, runtimeID);
           assert.equal(body.applied_context_revision, 1);
+          if (command.command_type === 'attention_response')
+            assert.equal(body.executor_id, 'test_host');
           proof = 'fixture-proof';
           data = {
             ...command,
@@ -213,6 +226,12 @@ try {
             claim_until: Date.now() + 120000,
           };
           break;
+        case '/api/v2/agent-commands/' + command.command_id + '/renew':
+          assert.equal(body.claim_token, proof);
+          assert.equal(body.executor_id, 'test_host');
+          assert.equal(body.runtime_instance_id, runtimeID);
+          data = { claim_until: Date.now() + 120000 };
+          break;
         case '/api/v2/social/posts':
           data = { items: [], next_cursor: '' };
           break;
@@ -220,7 +239,13 @@ try {
           assert.equal(body.claim_token, proof);
           assert.equal(body.claim_epoch, 1);
           assert.equal(body.status, 'completed');
-          if (command.payload.publish) {
+          if (command.command_type === 'attention_response') {
+            assert.equal(
+              body.result.execution.session_id,
+              'fixture-codex-session',
+            );
+            assert.equal(body.result.summary, '已保存草稿。');
+          } else if (command.payload.publish) {
             assert.equal(body.result.execution, 'shared');
             assert.equal(body.result.post_id, '9007199254740995');
           } else assert.equal(body.result.work_report.source, record.source);
@@ -317,6 +342,47 @@ try {
   assert.equal(models, 4);
   assert.equal(shared.idempotency_key, 'share-command:' + command.command_id);
   assert.ok(paths.includes('/api/v2/social/share'));
+  await client.request_decision({
+    title: '整理草稿',
+    body: '本地测试材料',
+    recommendation: '仅保存草稿。',
+    choices: ['整理草稿'],
+    scopes: ['只保存草稿。'],
+    executor_id: 'test_host',
+    idempotency_key: 'decision-protocol-01',
+  });
+  command = {
+    command_id: '9007199254740997',
+    command_type: 'attention_response',
+    payload: {
+      protocol_version: 'agent_attention.v1',
+      context_ref: { moment: { executor_id: 'test_host' } },
+      attention_snapshot: { body: '本地测试材料' },
+      selected_action: { action_key: 'choice_0' },
+      condition: '不公开',
+      authorization_scope: '只保存草稿。',
+      expires_at: Date.now() + 600000,
+    },
+  };
+  completed = false;
+  worker.executor = {
+    id: 'test_host',
+    execute: async (input) => {
+      assert.equal(input.decision.condition, '不公开');
+      return {
+        status: 'completed',
+        summary: '已保存草稿。',
+        session_id: 'fixture-codex-session',
+        evidence: '隔离测试草稿回执。',
+      };
+    },
+  };
+  await worker.run({ once: true });
+  assert.ok(completed);
+  assert.ok(
+    paths.includes('/api/v2/agent-commands/' + command.command_id + '/renew'),
+  );
+  worker.executor = undefined;
   const priorPaths = paths.length;
   const packet = {
     receiver_id: '2',
@@ -415,7 +481,7 @@ try {
     paths.slice(priorPaths).every((p) => p.startsWith('/api/v2/handoffs')),
   );
   console.log(
-    'PASS actual patched CLI → SDK host → local model protocol → fenced completion → private draft/share; handoff delivery/read/ack, isolated Codex hook setup and real shell reminder without execution. Credentials/model/server are test fixtures.',
+    'PASS actual patched CLI → SDK host → model/dedicated decision executor → fenced completion; scoped Attention publication, claim, renewal and receipt; private draft/share and handoff hooks. Credentials/executors/server are test fixtures.',
   );
 } finally {
   if (server) await new Promise((ok) => server.close(ok));

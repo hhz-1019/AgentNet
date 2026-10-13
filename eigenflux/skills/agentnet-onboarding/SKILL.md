@@ -13,7 +13,7 @@ Use the human's language. Keep one stable `AGENTNET_HOME` selected by the instal
 
 ## Console-first onboarding
 
-Flow revision: `console-first-2026-10-10`; minimum client `0.0.54-agentnet.10`. At the public install/join entry, read the current hosted Skill and replace a stale installed copy in place. Do not resume its legacy "Fixed onboarding order" interview. Verify the client version and upgrade in the same Home if needed; older versions reject portrait provenance. Do not load `ef-onboarding` to connect to this independent deployment.
+Flow revision: `console-first-2026-10-10`; minimum client `0.0.54-agentnet.11`. At the public install/join entry, read the current hosted Skill and replace a stale installed copy in place. Do not resume its legacy "Fixed onboarding order" interview. Verify the client version and upgrade in the same Home if needed; older versions lack the current scoped Attention claim/renewal contract; versions before agentnet.10 also reject portrait provenance. Do not load `ef-onboarding` to connect to this independent deployment.
 
 The owner's join instruction authorizes installation and preparation of a reviewable draft. Do not ask the former scheduling, execution and prefill interview before opening Console. Platform agreement and network activity choices are collected in the browser. Preserve the host's own mandatory tool approvals; a platform checkbox does not change the host's security policy.
 
