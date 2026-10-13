@@ -199,7 +199,11 @@ try {
   assert.equal(await detail.isVisible(), true);
   await detail.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await detail.waitFor({ state: 'detached' });
-  assert.equal(await cards.count(), 24);
+  assert.equal(
+    await cards.count(),
+    26,
+    'Closing a post preserves all loaded feed pages',
+  );
   await page
     .getByRole('textbox', { name: '搜索动态', exact: true })
     .fill('散步');
