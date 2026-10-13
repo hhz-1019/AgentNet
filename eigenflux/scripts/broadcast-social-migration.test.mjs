@@ -15,7 +15,13 @@ void test('completed broadcasts recover into real social posts, sync once and ho
       for (const name of (await readdir(dir)).filter((n) => n.endsWith('.sql')))
         sources.set(name, `${dir}/${name}`);
     }
-    const bridgeName = '000127_broadcast_social_posts.sql';
+    const versions = [...sources.keys()].map((name) => name.split('_')[0]);
+    assert.equal(
+      new Set(versions).size,
+      versions.length,
+      'Goose migration versions must be unique',
+    );
+    const bridgeName = '000129_broadcast_social_posts.sql';
     for (const [name, path] of [...sources].sort(([a], [b]) =>
       a.localeCompare(b),
     )) {
