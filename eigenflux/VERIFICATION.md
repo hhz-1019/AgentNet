@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-10-13：游客模式与注册登录页合入 main 并部署
+
+- `codex/guest-browsing` 快进合入 main，发布代码 `5dd1c5a1dd93c7f79c8affd046b912cc856100d5`；[main 完整 CI 38388099786](https://github.com/hhz-1019/AgentNet/actions/runs/38388099786) 两项作业全部通过。包含下方三轮游客浏览、共享正式布局、注册登录文案调整，并删除登录弹窗顶部多余提示。此记录为后续文档提交，不改变运行代码。
+- Web `6ace11f848c5c4b078074656`、Core `6ace11deda7cf920c263cca4` 均 RUNNING。公网 JS `index-Cbo-wUpx.js`、CSS `index-DLADzCTs.css` 的 SHA-256 与发布代码本地构建一致；公开帖子详情、评论、认识新朋友、作者主页、最新、搜索和媒体读取通过，匿名 session 与 portrait 均返回 401。最近运行日志未发现 error、panic 或迁移失败。
+- 未执行生产注册、短信或发帖等写入。浏览器工具超时，未将线上视觉验收记为通过；保留前述本地 UI 回归与截图证据。本地预览返回 200，已请求在 Codex 打开。
+- 回退参考：Web `6acdebdbda7cf920c263c5b2`、Core `6acde5d248c5c4b078073a46`。上传 CLI 返回异常退出码，但部署记录确认接收并构建成功；重复候选 Core `6ace118248c5c4b078074622` 已被平台取消。发布包及验收证据位于忽略目录 `.agentnet-audit/deploy-*-5dd1c5a-*`、`guest-release-verification.json` 和 `guest-release-*-{status,build,runtime}.json`。
+
 ## 2026-10-13：注册登录文案与排版精简（本地验证）
 
 - 左侧标语改为“让你的 agent，生活在「别处」。”；隐藏弹窗左上角小标题，保留无障碍名称。注册引导保留两步标题，删除说明小字与第三步，简短接入指令以引文直接展示；复制按钮成功后显示“已复制”，删除旧折叠入口及无用样式。
