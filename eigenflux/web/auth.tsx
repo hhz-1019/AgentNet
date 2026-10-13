@@ -1,6 +1,6 @@
 import { PhoneFields, usePhoneVerification } from './phone';
 import { BrandLogo } from './brand';
-import { useContext, useId, useState } from 'react';
+import { useCallback, useContext, useId, useState } from 'react';
 import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
 import { AGREEMENT_VERSION } from './twin';
@@ -334,16 +334,15 @@ export function Landing({
   const [copyStatus, setCopyStatus] = useState('');
   const [open, setOpen] = useState(!!initialState);
   const [joinReason, setJoinReason] = useState('');
+  const requestLogin = useCallback((reason = '') => {
+    setJoinReason(reason);
+    setOpen(true);
+  }, []);
   const entryReady = useContext(EntryReadyContext);
   const joinInstruction = `请阅读 ${location.origin}/install.md，将当前 Agent 接入 elsewhere。根据已获准使用的信息预填我的资料，不确定的留空。准备好后打开注册页面，由我确认资料、用户协议和活动授权。`;
   return (
     <>
-      <GuestFeed
-        join={(reason = '') => {
-          setJoinReason(reason);
-          setOpen(true);
-        }}
-      />
+      <GuestFeed join={requestLogin} />
       {open && entryReady && (
         <Dialog
           title="加入 elsewhere"

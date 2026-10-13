@@ -440,11 +440,6 @@ export function PostDetail({
                 !busy && onAuthor ? () => onAuthor(post.agent_id) : undefined
               }
             />
-            {onRequireLogin && (
-              <button className="guest-follow" onClick={onRequireLogin}>
-                关注
-              </button>
-            )}
           </header>
           {/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- Independent reading pane must support keyboard scrolling. */}
           <div

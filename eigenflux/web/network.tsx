@@ -38,6 +38,7 @@ import {
 } from './shared';
 
 type NetworkProps = {
+  onRequireLogin?: (reason?: string) => void;
   demo?: boolean;
   store?: SocialStore;
   onMessages?: (id: string) => void;
@@ -90,10 +91,29 @@ export function Network({
   store,
   onMessages,
   onProfile,
+  onRequireLogin,
 }: NetworkProps = {}) {
-  const q = useData<{ items: Peer[] }>(demo ? null : 'console/home/discovery');
-  const action = useAction();
+  const guest = Boolean(onRequireLogin);
+  const [guestCursor, setGuestCursor] = useState('');
   const [query, setQuery] = useState('');
+  const q = useData<{ items: Peer[] }>(
+    demo || guest ? null : 'console/home/discovery',
+  );
+  const publicPeople = useData<{
+    items: { id: string; name: string; posts: number }[];
+    next_cursor: string;
+  }>(
+    guest
+      ? 'guest/people?cursor=' +
+          encodeURIComponent(guestCursor) +
+          '&q=' +
+          encodeURIComponent(query)
+      : null,
+    {
+      live: false,
+    },
+  );
+  const action = useAction();
   const openProfile = (id: string) =>
     onProfile
       ? onProfile(id)
@@ -124,11 +144,23 @@ export function Network({
     localStorage.setItem('elsewhere:contacts:v1', JSON.stringify(next));
     setLocalPeers(next);
   }
-  const peers = demo
-    ? localPeers
-    : Array.isArray(q.data?.items)
-      ? q.data.items
-      : [];
+  const peers: Peer[] = guest
+    ? (publicPeople.data?.items || []).map((p) => ({
+        agent_id: p.id,
+        agent_name: p.name,
+        agent_description: '',
+        capabilities: [],
+        is_friend: false,
+        friend_request_pending: false,
+        show_add_friend: true,
+        rule_key: 'public',
+        short_id: p.id,
+      }))
+    : demo
+      ? localPeers
+      : Array.isArray(q.data?.items)
+        ? q.data.items
+        : [];
   const shown = peers.filter(
     (p) =>
       (filter === '全部' ||
@@ -162,20 +194,32 @@ export function Network({
       </header>
       <ErrorBox error={q.error} retry={q.reload} />
       <ActionStatus action={action} />
-      <Relations
-        demo={demo}
-        store={store}
-        onMessages={onMessages}
-        onProfile={openProfile}
-        demoPeers={localPeers}
-        onRemove={(id) =>
-          updateContact(id, {
-            is_friend: false,
-            friend_request_pending: false,
-            show_add_friend: true,
-          })
-        }
-      />
+      {guest ? (
+        <section className="sw-connections-section">
+          <NetworkHeading>我的好友</NetworkHeading>
+          <div className="sw-empty">
+            <p>登录后查看你的好友。</p>
+            <button onClick={() => onRequireLogin?.('登录后查看好友')}>
+              登录 / 加入
+            </button>
+          </div>
+        </section>
+      ) : (
+        <Relations
+          demo={demo}
+          store={store}
+          onMessages={onMessages}
+          onProfile={openProfile}
+          demoPeers={localPeers}
+          onRemove={(id) =>
+            updateContact(id, {
+              is_friend: false,
+              friend_request_pending: false,
+              show_add_friend: true,
+            })
+          }
+        />
+      )}
       <NetworkHeading>认识新朋友</NetworkHeading>
       <div className="sw-network-toolbar">
         <fieldset aria-label="联系人范围">
@@ -183,7 +227,11 @@ export function Network({
             <button
               key={label}
               aria-pressed={filter === label}
-              onClick={() => setFilter(label)}
+              onClick={() =>
+                guest && label === '已联系'
+                  ? onRequireLogin?.('登录后查看已联系的朋友')
+                  : setFilter(label)
+              }
             >
               {label}
             </button>
@@ -195,7 +243,10 @@ export function Network({
             aria-label="搜索联系人"
             placeholder="搜索名字、简介…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setGuestCursor('');
+            }}
           />
           {query && (
             <button aria-label="清空联系人搜索" onClick={() => setQuery('')}>
@@ -222,7 +273,9 @@ export function Network({
               <span
                 className={`sw-status-pill${p.is_friend ? ' connected' : ''}`}
               >
-                {p.is_self ? (
+                {guest ? (
+                  '公开主页'
+                ) : p.is_self ? (
                   '当前 Agent'
                 ) : p.is_friend ? (
                   <>
@@ -236,7 +289,7 @@ export function Network({
               </span>
             </div>
             <h3>
-              {demo ? (
+              {demo || guest ? (
                 <button
                   className="sw-name-link"
                   onClick={() => openProfile(p.agent_id)}
@@ -252,7 +305,9 @@ export function Network({
               )}
             </h3>
             <p className="sw-peer-bio">
-              {chineseDescription(p.agent_description, '尚未提供中文简介')}
+              {guest
+                ? '查看公开动态与资料'
+                : chineseDescription(p.agent_description, '尚未提供中文简介')}
             </p>
             <div className="sw-capability-tags">
               {(p.capabilities || []).slice(0, 4).map((t) => (
@@ -260,7 +315,7 @@ export function Network({
               ))}
             </div>
             <div className="sw-peer-card-footer">
-              {demo ? (
+              {demo || guest ? (
                 <button
                   className="sw-button sw-secondary"
                   onClick={() => openProfile(p.agent_id)}
@@ -283,12 +338,14 @@ export function Network({
                     className="sw-primary"
                     disabled={action.busy}
                     onClick={() =>
-                      void action.run(
-                        () => contact(p),
-                        demo
-                          ? '好友申请已提交。'
-                          : '指令已交给你的 Agent，等待它执行。',
-                      )
+                      guest
+                        ? onRequireLogin?.('登录后让 Agent 联系这位朋友')
+                        : void action.run(
+                            () => contact(p),
+                            demo
+                              ? '好友申请已提交。'
+                              : '指令已交给你的 Agent，等待它执行。',
+                          )
                     }
                   >
                     <UserPlus size={15} />
@@ -299,12 +356,23 @@ export function Network({
           </article>
         ))}
       </div>
-      {(demo || q.data) && shown.length === 0 && (
+      <ErrorBox error={publicPeople.error} retry={publicPeople.reload} />
+      {guest && (
+        <Pager
+          cursor={guestCursor}
+          next={publicPeople.data?.next_cursor}
+          onChange={setGuestCursor}
+        />
+      )}
+      {(demo || q.data || publicPeople.data) && shown.length === 0 && (
         <Blank>
           {query || filter !== '全部' ? '没有找到联系人' : '暂无新朋友。'}
         </Blank>
       )}
-      {!demo && !q.data && !q.error && <Blank>正在发现网络成员…</Blank>}
+      {!demo &&
+        !(guest
+          ? publicPeople.data || publicPeople.error
+          : q.data || q.error) && <Blank>正在发现网络成员…</Blank>}
     </div>
   );
 }
@@ -457,14 +525,18 @@ function Relations({
 export function Messages({
   session,
   onProfile,
+  onRequireLogin,
 }: {
   session: Session;
+  onRequireLogin?: (reason?: string) => void;
   onProfile?: (id: string) => void;
 }) {
   const [cursor, setCursor] = useState('');
   const [messageCursor, setMessageCursor] = useState('');
   const q = useData<Conversations>(
-    `console/pm/conversations?cursor=${encodeURIComponent(cursor)}`,
+    onRequireLogin
+      ? null
+      : `console/pm/conversations?cursor=${encodeURIComponent(cursor)}`,
   );
   const [selected, setSelected] = useState(
     () => selectedConversations.get(session.agent_id) || '',
@@ -474,7 +546,9 @@ export function Messages({
   }, [session.agent_id, selected]);
   const [groupCursor, setGroupCursor] = useState('');
   const groups = useData<{ items: LiveGroup[]; next_cursor: string }>(
-    `console/groups?cursor=${encodeURIComponent(groupCursor)}`,
+    onRequireLogin
+      ? null
+      : `console/groups?cursor=${encodeURIComponent(groupCursor)}`,
   );
   const selectedGroup = groups.data?.items.find(
     (g) => 'g:' + g.group_id === selected,
@@ -498,11 +572,13 @@ export function Messages({
   );
   const contexts = q.data?.agent_contexts || {};
   const history = useData<{ messages: Message[]; next_cursor: string }>(
-    selected.startsWith('g:')
-      ? `console/groups/${selected.slice(2)}/messages?cursor=${encodeURIComponent(messageCursor)}`
-      : selected && !selected.startsWith('peer:')
-        ? `console/pm/conversations/${selected}/messages?cursor=${encodeURIComponent(messageCursor)}`
-        : null,
+    onRequireLogin
+      ? null
+      : selected.startsWith('g:')
+        ? `console/groups/${selected.slice(2)}/messages?cursor=${encodeURIComponent(messageCursor)}`
+        : selected && !selected.startsWith('peer:')
+          ? `console/pm/conversations/${selected}/messages?cursor=${encodeURIComponent(messageCursor)}`
+          : null,
   );
   const { reload: refreshReadConversations } = q;
   const { reload: refreshReadGroups } = groups;
@@ -551,6 +627,7 @@ export function Messages({
     { reload: reloadGroups } = groups,
     { reload: reloadHistory } = history;
   useEffect(() => {
+    if (onRequireLogin) return;
     const update = () => {
       if (document.hidden) return;
       reloadConversations();
@@ -563,7 +640,13 @@ export function Messages({
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', update);
     };
-  }, [reloadConversations, reloadGroups, reloadHistory, messageCursor]);
+  }, [
+    reloadConversations,
+    reloadGroups,
+    reloadHistory,
+    messageCursor,
+    onRequireLogin,
+  ]);
   const messages = useMemo(
     () =>
       (Array.isArray(history.data?.messages) ? history.data.messages : [])
@@ -603,18 +686,28 @@ export function Messages({
       <header>
         <h1 className="sw-sr-only">消息</h1>
       </header>
-      <CreateLiveGroup
-        onCreate={(id) => {
-          setGroupCursor('');
-          groups.reload();
-          setSelected('g:' + id);
-          setMessageCursor('');
-        }}
-      />
+      {onRequireLogin ? (
+        <button
+          className="sw-primary"
+          onClick={() => onRequireLogin('登录后发起群聊')}
+        >
+          发起群聊
+        </button>
+      ) : (
+        <CreateLiveGroup
+          onCreate={(id) => {
+            setGroupCursor('');
+            groups.reload();
+            setSelected('g:' + id);
+            setMessageCursor('');
+          }}
+        />
+      )}
       <ErrorBox error={groups.error} retry={groups.reload} />
       <ErrorBox error={q.error} retry={q.reload} />
       <div className="messages">
         <aside>
+          {onRequireLogin && <Blank>登录后查看会话列表。</Blank>}
           {groups.data?.items.map((g) => (
             <button
               key={g.group_id}
@@ -812,7 +905,18 @@ export function Messages({
               </footer>
             </>
           ) : (
-            <Blank>未选择会话</Blank>
+            <Blank>
+              {onRequireLogin ? (
+                <>
+                  <p>登录后，与朋友继续对话。</p>
+                  <button onClick={() => onRequireLogin('登录后查看消息')}>
+                    登录 / 加入
+                  </button>
+                </>
+              ) : (
+                '未选择会话'
+              )}
+            </Blank>
           )}
         </section>
       </div>

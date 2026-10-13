@@ -158,13 +158,21 @@ const login = page.getByRole('dialog', { name: '加入 elsewhere' });
 const detail = page.getByRole('dialog', { name: '动态详情' });
 try {
   await page.goto(origin);
-  await page
-    .getByRole('button', { name: '查看动态：把周末留给散步', exact: true })
-    .waitFor();
+  const cards = page.locator('.sw-feed-grid .sw-post');
+  await cards.nth(23).waitFor();
+  assert.equal(await page.locator('.sw-workspace[data-guest]').count(), 1);
+  assert.equal(
+    await page.locator('.guest-home').count(),
+    0,
+    'No separate guest shell',
+  );
   assert.equal(await login.count(), 0, 'No unsolicited login wall');
-  await page.getByRole('button', { name: '继续看看', exact: true }).click();
-  await page.locator('.guest-post').nth(25).waitFor();
-  assert.equal(await page.locator('.guest-post').count(), 26);
+  await page.getByRole('button', { name: '下一页', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.sw-feed-grid .sw-post').length === 2,
+  );
+  await page.getByRole('button', { name: '回到最新', exact: true }).click();
+  await cards.nth(23).waitFor();
   await page
     .getByRole('button', { name: '查看动态：把周末留给散步', exact: true })
     .click();
@@ -182,64 +190,65 @@ try {
   await login.getByText('开启 Work / Code 模式', { exact: true }).waitFor();
   await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await login.waitFor({ state: 'detached' });
-  assert.equal(
-    await detail.isVisible(),
-    true,
-    'Closing login preserves reading',
-  );
+  assert.equal(await detail.isVisible(), true);
   await detail.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await detail.waitFor({ state: 'detached' });
-  assert.equal(
-    await page.locator('.guest-post').count(),
-    26,
-    'Closing reader preserves loaded pages',
-  );
-  await page.goBack();
-  await detail.waitFor();
-  await page.goForward();
-  await detail.waitFor({ state: 'detached' });
-  await page.getByRole('textbox', { name: '搜索公开动态' }).fill('散步');
-  await page.getByRole('button', { name: '搜索', exact: true }).click();
+  assert.equal(await cards.count(), 24);
+  await page
+    .getByRole('textbox', { name: '搜索动态', exact: true })
+    .fill('散步');
   await page.waitForFunction(
-    () => document.querySelectorAll('.guest-post').length === 1,
+    () => document.querySelectorAll('.sw-feed-grid .sw-post').length === 1,
   );
-  assert.equal(await login.count(), 0);
-  await page.getByRole('button', { name: '清除筛选' }).click();
-  await page.locator('.guest-post').nth(23).waitFor();
-  await page.getByRole('button', { name: '#阅读', exact: true }).click();
-  await page.getByText('还没有找到这样的故事', { exact: true }).waitFor();
-  await page.getByRole('button', { name: '清除筛选' }).click();
+  await page.getByRole('button', { name: '清空搜索', exact: true }).click();
+  await cards.nth(23).waitFor();
   await page.getByRole('button', { name: '最新', exact: true }).click();
   await page.waitForFunction(
     () =>
       document
-        .querySelector('.guest-cover-open')
-        ?.getAttribute('aria-label') === '查看动态：记住这些瞬间 26',
+        .querySelector('.sw-feed-grid .sw-post')
+        ?.getAttribute('data-post-id') === '26',
   );
-  await page.getByRole('button', { name: '认识新朋友', exact: true }).click();
-  await page.locator('.guest-person-card').click();
-  const profile = page.getByRole('dialog', { name: '公开主页' });
-  await profile.waitFor();
-  assert.equal(
-    await profile
-      .locator('.guest-grid')
-      .evaluate((el) => getComputedStyle(el).columnCount),
-    '2',
+  await page.getByRole('button', { name: '关注', exact: true }).click();
+  await login.waitFor();
+  await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await login.waitFor({ state: 'detached' });
+  const nav = page.getByRole('navigation', { name: '主导航', exact: true });
+  assert.deepEqual(
+    await nav
+      .locator('a')
+      .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label'))),
+    ['发现', '消息', '通讯录'],
   );
+  await nav.getByRole('link', { name: '通讯录', exact: true }).click();
+  await page.locator('.sw-peer-card').waitFor();
+  assert.equal(await login.count(), 0);
+  await page
+    .getByRole('button', { name: '查看公开主页', exact: false })
+    .click();
+  const profile = page.locator('.sn-person-home');
   await profile.getByText('喜欢散步与摄影。', { exact: true }).waitFor();
-  await profile.getByRole('button', { name: '关于 TA', exact: true }).click();
-  await profile.getByText('阅读与设计', { exact: true }).waitFor();
+  await profile.getByRole('button', { name: '资料', exact: true }).click();
+  await profile
+    .locator('.sn-public-fields')
+    .getByText('阅读与设计', { exact: true })
+    .waitFor();
   await profile.getByRole('button', { name: '关注', exact: true }).click();
   await login.waitFor();
   await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await login.waitFor({ state: 'detached' });
   assert.equal(await profile.isVisible(), true);
-  await profile.getByRole('button', { name: '关闭窗口', exact: true }).click();
-  await profile.waitFor({ state: 'detached' });
-  await page.getByRole('button', { name: '消息', exact: true }).click();
-  await page.getByText('让话题继续，聊得更近。', { exact: true }).waitFor();
+  await page.goBack();
+  await page.locator('.sw-peer-card').waitFor();
+  await page.goForward();
+  await profile.waitFor();
+  await nav.getByRole('link', { name: '消息', exact: true }).click();
+  await page.locator('.messages .ew-live-chat').waitFor();
   assert.equal(await login.count(), 0);
-  await page.getByRole('button', { name: '登录查看消息' }).click();
+  await page
+    .locator('.ew-live-chat')
+    .getByRole('button', { name: '登录 / 加入', exact: true })
+    .click();
   await login.waitFor();
   // Both credential methods use the same owner login contract.
   await login
@@ -292,59 +301,106 @@ try {
   });
   await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await login.waitFor({ state: 'detached' });
+  // The guest and signed-in preview render the exact same shell and card components.
+  const metrics = () =>
+    page.evaluate(() => {
+      const selectors = [
+        '.sw-sidebar',
+        '.sw-main',
+        '.ew-feed-toolbar',
+        '.sw-feed-grid',
+        '.sw-mobile-nav',
+      ];
+      return selectors.map((selector) => {
+        const el = document.querySelector(selector);
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return [
+          selector,
+          Math.round(rect.x),
+          Math.round(rect.width),
+          style.display,
+          style.columnCount,
+          style.gridTemplateColumns,
+        ];
+      });
+    });
   for (const theme of ['warm', 'cool', 'night']) {
     await page.addInitScript(
       (value) => localStorage.setItem('elsewhere-appearance', value),
       theme,
     );
-    await page.goto(origin + '#guest?section=explore&post=1');
-    await detail.waitFor();
-    assert.equal(await login.count(), 0);
-    assert.notEqual(
-      await detail.evaluate((el) => getComputedStyle(el).backgroundColor),
-      'rgba(0, 0, 0, 0)',
+    await page.goto(origin + '#explore');
+    await cards.nth(23).waitFor();
+    const guestMetrics = await metrics();
+    await page.goto(origin + 'preview#explore');
+    await page.locator('.sw-post').first().waitFor();
+    assert.deepEqual(
+      await metrics(),
+      guestMetrics,
+      'Desktop layout parity in ' + theme,
     );
   }
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(origin + '#guest?section=explore');
-  await page.locator('.guest-post').first().waitFor();
+  const mobile = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    reducedMotion: 'reduce',
+  });
+  const mobilePage = await mobile.newPage();
+  mobilePage.on('pageerror', (error) => errors.push(error.message));
+  await mobilePage.goto(origin + 'preview/login#explore');
+  await mobilePage.locator('.sw-post').first().waitFor();
+  assert.equal(await mobilePage.locator('.sw-mobile-nav').isVisible(), true);
   assert.equal(
-    await page
-      .locator('.guest-grid')
-      .evaluate((el) => getComputedStyle(el).columnCount),
-    '2',
+    await mobilePage
+      .locator('.sw-feed-grid')
+      .evaluate(
+        (el) => getComputedStyle(el).gridTemplateColumns.split(' ').length,
+      ),
+    2,
   );
   assert.ok(
-    await page.evaluate(
+    await mobilePage.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   );
-  await page
-    .getByRole('navigation', { name: '游客底部导航' })
-    .getByRole('button', { name: '新朋友', exact: true })
-    .click();
-  await page.locator('.guest-person-card').waitFor();
-  await page.goto(origin + '#guest?section=explore&post=missing');
-  await detail.getByText('这篇动态暂时无法查看', { exact: true }).waitFor();
-  await detail.getByRole('button', { name: '关闭窗口', exact: true }).click();
-  await detail.waitFor({ state: 'detached' });
+  const mobileNav = mobilePage.getByRole('navigation', {
+    name: '移动导航',
+    exact: true,
+  });
+  assert.deepEqual(
+    await mobileNav
+      .locator('a,button')
+      .evaluateAll((nodes) =>
+        nodes.map((n) => n.getAttribute('aria-label') || n.textContent.trim()),
+      ),
+    ['发现', '消息', '发布', '通讯录', '我的'],
+  );
+  await mobileNav.getByRole('link', { name: '通讯录', exact: true }).click();
+  await mobilePage.locator('.sw-peer-card').first().waitFor();
+  await mobileNav.getByRole('button', { name: '发布', exact: true }).click();
+  await mobilePage.getByRole('dialog', { name: '加入 elsewhere' }).waitFor();
+  await mobile.close();
+  await page.goto(origin + '#explore');
+  await cards.nth(23).waitFor();
   feedMode = 'error';
   await page.reload();
   await page
     .getByRole('alert')
-    .filter({ hasText: '动态暂时没有加载出来' })
+    .filter({ hasText: '暂时无法读取动态' })
     .waitFor();
   feedMode = 'empty';
   await page.getByRole('button', { name: '重试', exact: true }).click();
-  await page.getByText('还没有找到这样的故事', { exact: true }).waitFor();
+  await page.getByText('还没有新动态', { exact: true }).waitFor();
   assert.equal(
     requests.filter((r) => r.method !== 'GET').length,
     4,
-    'Guest interactions never send writes',
+    'Only explicit login attempts may write',
   );
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: guest browsing, paging, search, topics, public reader/comments/profiles, selective login, back navigation, themes, mobile and privacy gates.',
+    'PASS: shared desktop/mobile layout, public reading/search/paging/profiles, selective login, private API isolation and phone login.',
   );
 } finally {
   await browser.close();
