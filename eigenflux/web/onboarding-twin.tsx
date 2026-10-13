@@ -103,12 +103,7 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
       'console/companion',
       {
         ...companion,
-        connection_goal:
-          next.fields.recent.trim() ||
-          [next.fields.values, next.fields.interests]
-            .filter(Boolean)
-            .join('；') ||
-          companion.connection_goal,
+        connection_goal: next.fields.recent.trim(),
       },
       'PUT',
     );

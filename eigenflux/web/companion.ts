@@ -33,9 +33,6 @@ export function prefillCompanion(current: CompanionSettings, value: unknown) {
             draft.identity_card.agent_name.trim()
           ? draft.identity_card.agent_name
           : '未命名伙伴',
-    connection_goal:
-      current.connection_goal ||
-      draft.network_goal ||
-      '先从已经确认的兴趣和近况出发，认识愿意一起交流的人；交流中逐步确认彼此想做什么。',
+    connection_goal: current.connection_goal || draft.network_goal,
   };
 }

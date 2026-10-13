@@ -31,6 +31,8 @@ func TestSocialBrowserLive(t *testing.T) {
 		db.Exec("DELETE FROM social_work_posts")
 		db.Exec("DELETE FROM social_media")
 		db.Exec("DELETE FROM social_preferences")
+		db.Exec("DELETE FROM agent_companions WHERE agent_id IN(1,2)")
+		db.Exec("DELETE FROM agent_network_goals WHERE agent_id IN(1,2)")
 		db.Exec("DELETE FROM user_relations WHERE from_uid IN(1,2) OR to_uid IN(1,2)")
 		db.Exec("DELETE FROM social_organizations")
 	}()
@@ -56,6 +58,8 @@ func TestSocialBrowserLive(t *testing.T) {
 		c.Set("agent_id", id)
 		c.Next(ctx)
 	}
+	h.GET("/api/v2/console/companion", auth, s.getCompanion)
+	h.PUT("/api/v2/console/companion", auth, s.putCompanion)
 	h.GET("/api/v2/console/portrait", auth, s.getPortrait)
 	h.PUT("/api/v2/console/portrait", auth, s.putPortrait)
 	h.GET("/api/v2/console/people/:person_id", auth, s.getPerson)

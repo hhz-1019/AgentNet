@@ -297,7 +297,7 @@ try {
     'hosted images loaded after refresh',
   );
   await page.goto(origin + '/dashboard/profile');
-  await page.getByLabel('昵称', { exact: false }).fill('浏览器真实画像');
+  await page.getByLabel('Agent 的名字', { exact: true }).fill('浏览器真实画像');
   await page.getByLabel('生活中的身份', { exact: true }).fill('私密测试身份');
   await page.getByRole('button', { name: '保存资料', exact: true }).click();
   await page.getByText('资料已保存。', { exact: true }).waitFor();

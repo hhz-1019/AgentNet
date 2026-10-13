@@ -30,6 +30,11 @@ func TestElsewhereCompanionValidation(t *testing.T) {
 	if !validCompanionSettings(p) {
 		t.Fatal("valid goal rejected")
 	}
+	emptyGoal := p
+	emptyGoal.ConnectionGoal = ""
+	if !validCompanionSettings(emptyGoal) {
+		t.Fatal("unknown owner needs must not block registration")
+	}
 	for _, hours := range [][2]int{{-1, 24}, {8, 8}, {9, 8}, {0, 25}} {
 		p.StartHour, p.EndHour = hours[0], hours[1]
 		if validCompanionSettings(p) {
@@ -149,4 +154,15 @@ func TestElsewhereCompanionLegacyRenamePreservesIdentity(t *testing.T) {
 	if settings["agent_name"] != "松松" || settings["connection_goal"] != p.ConnectionGoal || settings["history_images"] != false || settings["name_locked"] != true {
 		t.Fatal("owner preferences not preserved", settings)
 	}
+	p.Revision = 2
+	p.ConnectionGoal = ""
+	status, out = request("PUT", "/companion", p)
+	if status != 200 {
+		t.Fatal("owner could not clear connection goal", out)
+	}
+	status, out = request("GET", "/companion", nil)
+	if status != 200 || out["data"].(map[string]any)["settings"].(map[string]any)["connection_goal"] != "" {
+		t.Fatal("cleared goal was restored from stale context", out)
+	}
+
 }

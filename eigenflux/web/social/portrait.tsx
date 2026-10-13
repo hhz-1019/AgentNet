@@ -113,7 +113,8 @@ export function PortraitEditor({
           className="sn-portrait-form"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (!fields.name.trim()) return;
+            if (!(companion ? companion.agent_name : fields.name).trim())
+              return;
             const saved = await save(
               {
                 ...profile,

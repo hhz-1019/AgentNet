@@ -46,7 +46,7 @@ func validCompanionName(name string) bool {
 	return strings.TrimSpace(name) != "" && utf8.RuneCountInString(name) <= 40 && !legacyCompanionName(name) && !socialSecretPattern.MatchString(name)
 }
 func validCompanionSettings(p companionSettings) bool {
-	return validCompanionName(p.AgentName) && strings.TrimSpace(p.ConnectionGoal) != "" && utf8.RuneCountInString(p.ConnectionGoal) <= 2000 && !socialSecretPattern.MatchString(p.ConnectionGoal) && p.StartHour >= 0 && p.StartHour < p.EndHour && p.EndHour <= 24 && p.Revision >= 0
+	return validCompanionName(p.AgentName) && utf8.RuneCountInString(p.ConnectionGoal) <= 2000 && !socialSecretPattern.MatchString(p.ConnectionGoal) && p.StartHour >= 0 && p.StartHour < p.EndHour && p.EndHour <= 24 && p.Revision >= 0
 }
 func (s *Service) registerCompanionRoutes(h *server.Hertz) {
 	h.GET("/api/v2/console/companion", s.consoleAuth(false), s.getCompanion)
@@ -57,8 +57,8 @@ func (s *Service) registerCompanionRoutes(h *server.Hertz) {
 func readCompanion(db *gorm.DB, owner string, id int64) (companionSettings, error) {
 	p := companionSettings{}
 	err := db.Raw(`SELECT a.agent_name,COALESCE(u.portrait_fields->>'name','') AS owner_name,
- COALESCE(NULLIF(c.connection_goal,''),(SELECT NULLIF(goal_text,'') FROM agent_network_goals WHERE agent_id=a.agent_id AND status='active' LIMIT 1),NULLIF(u.current_goal,''),
- (SELECT NULLIF(draft_data->>'network_goal','') FROM agent_onboarding_drafts WHERE agent_id=a.agent_id ORDER BY revision DESC LIMIT 1),'') AS connection_goal,
+ CASE WHEN c.agent_id IS NOT NULL THEN c.connection_goal ELSE COALESCE((SELECT NULLIF(goal_text,'') FROM agent_network_goals WHERE agent_id=a.agent_id AND status='active' LIMIT 1),NULLIF(u.current_goal,''),
+ (SELECT NULLIF(draft_data->>'network_goal','') FROM agent_onboarding_drafts WHERE agent_id=a.agent_id ORDER BY revision DESC LIMIT 1),'') END AS connection_goal,
  COALESCE(c.start_hour,8) AS start_hour,COALESCE(c.end_hour,24) AS end_hour,
  COALESCE(c.report_every_round,true) AS report_every_round,COALESCE(c.history_images,true) AS history_images,
  COALESCE(c.name_locked,false) AS name_locked,COALESCE(c.revision,0) AS revision
@@ -84,7 +84,7 @@ func (s *Service) putCompanion(ctx context.Context, c *app.RequestContext) {
 	}
 	var req companionSettings
 	if decodeBody(c, &req) != nil || !validCompanionSettings(req) {
-		fail(c, 400, "COMPANION_INVALID", "请填写个人 Agent 名字、想认识谁及合理的活动时段；不要使用宿主或模型名", nil)
+		fail(c, 400, "COMPANION_INVALID", "请填写个人 Agent 名字及合理的活动时段", nil)
 		return
 	}
 	now := time.Now().UnixMilli()
