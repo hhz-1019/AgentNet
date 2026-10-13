@@ -228,8 +228,14 @@ try {
     await nav
       .locator('a')
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label'))),
-    ['发现', '消息', '通讯录'],
+    ['此刻', '发现', '消息', '通讯录'],
   );
+  await nav.getByRole('link', { name: '此刻', exact: true }).click();
+  await login.waitFor();
+  assert.equal(await page.locator('.mb-live').count(), 0);
+  assert(!requests.some((r) => r.path.endsWith('/console/moment')));
+  await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await login.waitFor({ state: 'detached' });
   await nav.getByRole('link', { name: '通讯录', exact: true }).click();
   await page.locator('.sw-peer-card').waitFor();
   assert.equal(await login.count(), 0);
