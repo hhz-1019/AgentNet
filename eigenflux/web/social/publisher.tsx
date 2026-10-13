@@ -16,6 +16,7 @@ import {
   parseTags,
   preflight,
   qualityCheck,
+  sameSavedContent,
   type Review,
   type Organization,
   validate,
@@ -82,11 +83,6 @@ export function Publisher({
     step === 'preview' && review ? review.preflight : preflight(current);
   const quality =
     step === 'preview' && review ? review.quality : qualityCheck(current);
-  const sameContent = (p: WorkPost, document: WorkDocument, scope: Visibility) =>
-    p.visibility === scope &&
-    (['title', 'summary', 'body', 'kind', 'tags', 'source', 'evidence',
-      'media', 'identity', 'project_name', 'organization_id'] as const)
-      .every((field) => JSON.stringify(p.document[field]) === JSON.stringify(document[field]));
   async function finishSave(next: WorkPost, preview: boolean) {
     setPost(next);
     setSaved(true);
@@ -130,7 +126,7 @@ export function Publisher({
           proposalKey.current,
         );
         pendingCreate.current = undefined;
-        if (!sameContent(basePost, attempted.document, attempted.visibility)) {
+        if (!sameSavedContent(basePost, attempted.document, attempted.visibility)) {
           setConflict(basePost);
           setError('首次保存已完成，但草稿随后在其他窗口变化。请核对后再决定是否覆盖。');
           return;
@@ -143,7 +139,7 @@ export function Publisher({
         pendingCreate.current = undefined;
         setPost(basePost);
       }
-      const next = sameContent(basePost, current, visibility)
+      const next = sameSavedContent(basePost, current, visibility)
         ? basePost
         : await store.update(basePost, current, visibility);
       await finishSave(next, preview);
@@ -151,7 +147,7 @@ export function Publisher({
       if (basePost && e instanceof ApiError && (e.status === 0 || e.status === 409)) {
         try {
           const latest = await store.get(basePost.id);
-          if (sameContent(latest, current, visibility)) {
+          if (sameSavedContent(latest, current, visibility)) {
             await finishSave(latest, preview);
             return;
           }
