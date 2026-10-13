@@ -52,4 +52,6 @@ npm run build
 
 Core 测试在隔离 PGlite PostgreSQL 上执行全部迁移及真实 Go 路由，覆盖统计结果、时区、历史缺口、事件去重、权限、CSRF 与身份防伪造。UI 测试使用明确合成 HTTP 夹具，覆盖周期、键盘图表、刷新/暂停、CSV、错误保留、权限撤销与 390px 布局。截图在忽略提交的 `.impeccable/review/analytics-*.png`。
 
-开发预览 `http://127.0.0.1:4321/preview/analytics` 明确标注演示数据；该预览在生产构建中移除。上述本地验收不代表生产已部署或已验证线上真实统计。
+开发预览 `http://127.0.0.1:4321/preview/analytics` 明确标注演示数据；该预览在生产构建中移除。`/preview/managed` 不读取 99999 的真实角色库，不能用它判断线上角色是否保留。
+
+2026-10-13 已部署并完成公网验收，详见 [生产验证记录](../eigenflux/VERIFICATION.md)。使用原管理员 99999 登录 [官方 Agent 管理](https://agentnet.zeabur.app/dashboard/managed)，可直接管理原有 100 个有效 Agent，其身份、档案、调度和预算逐项核对保持一致。顶部另有 [数据看板](https://agentnet.zeabur.app/dashboard/analytics) 和 [社区成员管理](https://agentnet.zeabur.app/dashboard/members)。社区目录读取非托管注册账号，官方托管身份独立统计；不需要重新初始化角色。
