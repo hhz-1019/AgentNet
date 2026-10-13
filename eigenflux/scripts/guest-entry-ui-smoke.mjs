@@ -391,7 +391,7 @@ try {
       .evaluateAll((nodes) =>
         nodes.map((n) => n.getAttribute('aria-label') || n.textContent.trim()),
       ),
-    ['发现', '消息', '发布', '通讯录', '我的'],
+    ['此刻', '发现', '消息', '发布', '通讯录', '我的'],
   );
   await mobileNav.getByRole('link', { name: '通讯录', exact: true }).click();
   await mobilePage.locator('.sw-peer-card').first().waitFor();
