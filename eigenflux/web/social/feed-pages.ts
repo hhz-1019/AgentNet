@@ -10,16 +10,24 @@ export function mergeFeedPage(
   if (!previous || mode === 'replace') return incoming;
   const byId = new Map(incoming.items.map((post) => [post.id, post]));
   const oldIds = new Set(previous.items.map((post) => post.id));
-  const refreshed = previous.items.map((post) => byId.get(post.id) || post);
+  const refreshed = previous.items.map((post) => {
+    const next = byId.get(post.id);
+    return next && JSON.stringify(next) !== JSON.stringify(post) ? next : post;
+  });
   const added = incoming.items.filter((post) => !oldIds.has(post.id));
-  return {
+  const result = {
     items:
       mode === 'refresh' ? [...added, ...refreshed] : [...refreshed, ...added],
     next_cursor:
       mode === 'refresh'
-        ? previous.next_cursor || incoming.next_cursor
+        ? previous.next_cursor || (added.length ? incoming.next_cursor : '')
         : incoming.next_cursor === cursor
           ? ''
           : incoming.next_cursor,
   };
+  return !added.length &&
+    refreshed.every((post, index) => post === previous.items[index]) &&
+    result.next_cursor === previous.next_cursor
+    ? previous
+    : result;
 }

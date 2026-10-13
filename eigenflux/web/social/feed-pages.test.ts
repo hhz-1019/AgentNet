@@ -56,3 +56,31 @@ void test('refreshing a previously exhausted feed can still load newly inserted 
   );
   assert.equal(result.next_cursor, '2');
 });
+
+void test('unchanged background responses preserve the page and mounted card data', () => {
+  const previous = page(['3', '2', '1'], 'bottom');
+  const result = mergeFeedPage(previous, page(['3', '2'], 'first'), 'refresh');
+  assert.equal(result, previous);
+  assert.equal(result.items, previous.items);
+});
+
+void test('a background reaction update retains other cards and the loaded bottom page', () => {
+  const previous = page(['3', '2', '1'], 'bottom');
+  const result = mergeFeedPage(
+    previous,
+    { items: [post('3', 2), post('2')], next_cursor: 'first' },
+    'refresh',
+  );
+  assert.equal(result.items[0].likes, 2);
+  assert.equal(result.items[1], previous.items[1]);
+  assert.equal(result.items[2], previous.items[2]);
+  assert.equal(result.next_cursor, 'bottom');
+});
+
+void test('unchanged first-page polling does not reopen an exhausted longer feed', () => {
+  const previous = page(['6', '5', '4', '3', '2', '1']);
+  assert.equal(
+    mergeFeedPage(previous, page(['6', '5', '4'], 'first'), 'refresh'),
+    previous,
+  );
+});
