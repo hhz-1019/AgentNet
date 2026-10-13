@@ -337,7 +337,7 @@ export function SocialWorkspace({
     return () => cancelAnimationFrame(frame);
   }, [route, feedRoute, loading, page, personRoute, personReady]);
   useEffect(() => {
-    document.title = `${crossingRoute ? '交汇处' : personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
+    document.title = `${crossingRoute ? '此刻' : personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
   }, [route, personal, personRoute, crossingRoute]);
   useEffect(() => {
     if (query === search) return;
