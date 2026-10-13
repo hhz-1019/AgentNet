@@ -31,7 +31,7 @@ export function prefillPortrait(
   const initial: SavedPortrait = {
     ...saved,
     fields: {
-      name: firstText(fields?.name, saved.fields.name, twin.name, '未命名'),
+      name: firstText(fields?.name, saved.fields.name, twin.name),
       bio: firstText(
         fields?.bio,
         saved.fields.bio,

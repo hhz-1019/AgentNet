@@ -19,6 +19,7 @@ const browser = await chromium.launch({
 });
 try {
   for (const width of [1440, 390]) {
+    const ownerName = width === 390 ? '' : '预填昵称';
     const page = await browser.newPage({ viewport: { width, height: 1000 } });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
@@ -50,7 +51,7 @@ try {
           },
           memories: [],
         },
-        name: '预填昵称',
+        name: ownerName,
         basic_info: { role: '学生' },
         persona: { traits: {}, speaking_style: '简洁' },
         episodes: [],
@@ -73,7 +74,7 @@ try {
     };
     let companion = {
       agent_name: '林间',
-      owner_name: '预填昵称',
+      owner_name: ownerName,
       connection_goal: '找到研究伙伴',
       start_hour: 8,
       end_hour: 24,
@@ -298,7 +299,7 @@ try {
     await page.locator('.sw-workspace').waitFor();
     assert.equal(state.state, 'completed');
     assert.equal(companion.agent_name, '修改后的昵称');
-    assert.equal(profile.fields.name, '预填昵称');
+    assert.equal(profile.fields.name, ownerName);
     assert.equal(
       profile.fields.avatar,
       '/api/v2/public/avatars/' + 'a'.repeat(32),

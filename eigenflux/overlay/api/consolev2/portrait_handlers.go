@@ -195,8 +195,8 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 	}
 	for k, v := range req.Fields {
 		limit, ok := portraitKeys[k]
-		if !ok || utf8.RuneCountInString(v) > limit || (k == "name" && strings.TrimSpace(v) == "") || (k == "avatar" && !validDefaultAvatar(v)) {
-			fail(c, 400, "INVALID_PORTRAIT", "昵称必填，资料请遵守长度限制", nil)
+		if !ok || utf8.RuneCountInString(v) > limit || (k == "avatar" && !validDefaultAvatar(v)) {
+			fail(c, 400, "INVALID_PORTRAIT", "资料格式或长度无效", nil)
 			return
 		}
 	}
@@ -491,11 +491,6 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 			return e
 		}
 		if r.Revision != req.Revision {
-			return errConflict
-		}
-		var fields map[string]string
-		_ = json.Unmarshal([]byte(r.Fields), &fields)
-		if strings.TrimSpace(fields["name"]) == "" {
 			return errConflict
 		}
 		var state struct {

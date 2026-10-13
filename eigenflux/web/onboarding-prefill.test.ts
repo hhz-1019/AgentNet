@@ -40,7 +40,7 @@ await test('legacy memory prefill survives empty modern placeholders', () => {
   };
   const result = prefillPortrait(blank(), draft, 'Codex');
   assert.deepEqual(result.fields, {
-    name: '未命名',
+    name: '',
     bio: '研究社会网络，偏好简洁表达',
     interests: '认知科学',
     role: '学生',
@@ -90,7 +90,7 @@ await test('saved human edits and deliberately cleared fields cannot be refilled
 await test('absent memory never invents a personal biography', () => {
   const result = prefillPortrait(blank(), {}, 'Codex');
   assert.deepEqual(result.fields, {
-    name: '未命名',
+    name: '',
     bio: '',
     interests: '',
     role: '',

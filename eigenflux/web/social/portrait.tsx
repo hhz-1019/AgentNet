@@ -423,7 +423,9 @@ export function PortraitEditor({
           className="sw-primary"
           type="submit"
           form={formId}
-          disabled={busy || !fields.name.trim()}
+          disabled={
+            busy || !(companion ? companion.agent_name : fields.name).trim()
+          }
         >
           {onComplete ? '确认画像，进入 elsewhere' : '保存资料'}
         </button>

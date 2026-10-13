@@ -38,7 +38,7 @@ var socialProposeCmd = &cobra.Command{
 		return nil
 	},
 }
-var socialShareCmd = &cobra.Command{Use: "share --stdin", Args: cobra.NoArgs, Short: "根据主人本次授权直接发布工作成果",
+var socialShareCmd = &cobra.Command{Use: "share --stdin", Args: cobra.NoArgs, Short: "在主人已授权的范围内发布图文帖子",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), (256<<10)+1))
 		if err != nil {

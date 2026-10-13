@@ -151,6 +151,12 @@ try {
     post.id,
   );
   assert.equal((await call('get_post', { post_id: post.id })).post.id, post.id);
+  assert(
+    JSON.stringify(
+      await call('get_work_posts', { query: document.title }),
+    ).includes(post.id),
+    'published interest posts must be discoverable from the Agent social feed',
+  );
   const commentKey = crypto.randomUUID();
   await call('comment', {
     post_id: post.id,

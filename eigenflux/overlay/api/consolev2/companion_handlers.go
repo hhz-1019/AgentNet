@@ -187,7 +187,7 @@ func saveCompanionGoal(tx *gorm.DB, id int64, goal string, now int64) error {
 	if err := tx.Exec("UPDATE agent_network_goals SET status='deleted',updated_at=? WHERE agent_id=? AND status='active'", now, id).Error; err != nil {
 		return err
 	}
-	if err := tx.Exec("INSERT INTO agent_network_goals(agent_id,goal_text,source,status,version,created_at,updated_at) VALUES(?,?,'human_input','active',1,?,?)", id, goal, now, now).Error; err != nil {
+	if err := tx.Exec("INSERT INTO agent_network_goals(agent_id,goal_text,source,status,version,created_at,updated_at) VALUES(?,?,'human_edit','active',1,?,?)", id, goal, now, now).Error; err != nil {
 		return err
 	}
 	var active bool
