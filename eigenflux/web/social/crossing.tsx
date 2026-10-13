@@ -1,5 +1,5 @@
-import { useState, type CSSProperties } from 'react';
-import { ArrowUpRight, Check, Bot, RefreshCw } from '../icons';
+import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { ArrowUpRight, Check, RefreshCw } from '../icons';
 import { Dialog } from './dialog';
 import {
   crossingStories,
@@ -59,10 +59,56 @@ const statusText: Record<CrossingStage, string> = {
   replied: '有新回应',
   observing: '暂时搁置',
 };
+function OwnGlyph() {
+  return (
+    <svg
+      viewBox="0 0 180 180"
+      preserveAspectRatio="none"
+      fill="none"
+      aria-hidden="true"
+    >
+      <ellipse
+        cx="90"
+        cy="90"
+        rx="51"
+        ry="26"
+        stroke="currentColor"
+        strokeWidth="5"
+        transform="rotate(-35 90 90)"
+      />
+      <ellipse
+        cx="90"
+        cy="90"
+        rx="51"
+        ry="26"
+        stroke="currentColor"
+        strokeWidth="5"
+        transform="rotate(35 90 90)"
+      />
+      <circle cx="90" cy="90" r="9" fill="currentColor" />
+    </svg>
+  );
+}
+function followPointer(event: PointerEvent<HTMLButtonElement>) {
+  if (event.pointerType !== 'mouse') return;
+  const rect = event.currentTarget.getBoundingClientRect();
+  event.currentTarget.style.setProperty(
+    '--lean-x',
+    ((event.clientX - rect.x) / rect.width - 0.5) * 10 + 'px',
+  );
+  event.currentTarget.style.setProperty(
+    '--lean-y',
+    ((event.clientY - rect.y) / rect.height - 0.5) * 8 + 'px',
+  );
+}
+function resetPointer(event: PointerEvent<HTMLButtonElement>) {
+  event.currentTarget.style.setProperty('--lean-x', '0px');
+  event.currentTarget.style.setProperty('--lean-y', '0px');
+}
 const positions = [
-  { x: 47, y: 38, size: 226, tone: 'sage', hint: '建议真人交流' },
-  { x: 21, y: 68, size: 144, tone: 'lavender', hint: '确认探索方向' },
-  { x: 77, y: 25, size: 124, tone: 'blue', hint: '收到研究说明' },
+  { x: 45, y: 37, size: 242, tone: 'sage', hint: '建议真人交流' },
+  { x: 20, y: 68, size: 152, tone: 'lavender', hint: '确认探索方向' },
+  { x: 78, y: 24, size: 128, tone: 'blue', hint: '收到研究说明' },
 ];
 
 /** Local design prototype: choices and receipts never contact a service. */
@@ -77,6 +123,7 @@ export function Crossing(_props: {
   const [selected, setSelected] = useState<string>();
   const [ownSelected, setOwnSelected] = useState(ownItems[0].id);
   const [origin, setOrigin] = useState<DOMRect>();
+  const originElement = useRef<HTMLElement | null>(null);
   const [conditionOpen, setConditionOpen] = useState(false);
   const [feedback, setFeedback] = useState('');
   const story = crossingStories.find((item) => item.id === selected);
@@ -89,9 +136,10 @@ export function Crossing(_props: {
   const waiting = Object.values(decisions).filter(
     (item) => item.stage === 'open',
   ).length;
-  const open = (agent: string, rect: DOMRect) => {
+  const open = (agent: string, element: HTMLButtonElement) => {
+    originElement.current = element.querySelector<HTMLElement>('.mb-bubble');
     setSelected(agent);
-    setOrigin(rect);
+    setOrigin(originElement.current?.getBoundingClientRect());
     setConditionOpen(false);
     setFeedback('');
   };
@@ -108,7 +156,7 @@ export function Crossing(_props: {
   return (
     <section className="mb" aria-label="此刻的 Agent 与事项">
       <div className="mb-space" aria-label="按关注优先级排列的 Agent">
-        <div className="mb-orbit" aria-hidden="true" />
+        <div className="mb-atmosphere" aria-hidden="true" />
         {crossingStories.map((item, index) => {
           const position = positions[index],
             state = decisions[item.id].stage;
@@ -134,22 +182,19 @@ export function Crossing(_props: {
                 (state === 'open' ? position.hint : statusText[state]) +
                 '，查看事项'
               }
-              onClick={(event) =>
-                open(item.id, event.currentTarget.getBoundingClientRect())
-              }
+              onPointerMove={followPointer}
+              onPointerLeave={resetPointer}
+              onClick={(event) => open(item.id, event.currentTarget)}
             >
               <span className="mb-bubble">
                 <span className="mb-avatar">
                   <img src={'/avatars/' + item.avatar + '.svg'} alt="" />
                 </span>
-                <span className="mb-name">{item.person}</span>
-                {state === 'open' && index === 0 && (
-                  <span className="mb-bubble-note">有值得聊的交集</span>
-                )}
                 {state === 'replied' && (
                   <span className="mb-new-dot" aria-hidden="true" />
                 )}
               </span>
+              <span className="mb-name">{item.person}</span>
               <span className="mb-caption">
                 <i className={'mb-mark mb-mark-' + state} aria-hidden="true" />
                 {state === 'open' ? position.hint : statusText[state]}
@@ -163,16 +208,16 @@ export function Crossing(_props: {
             { '--x': '67%', '--y': '72%', '--size': '172px' } as CSSProperties
           }
           aria-label={'你的 Agent，' + ownWaiting + '项待确认，查看事项'}
-          onClick={(event) =>
-            open('self', event.currentTarget.getBoundingClientRect())
-          }
+          onPointerMove={followPointer}
+          onPointerLeave={resetPointer}
+          onClick={(event) => open('self', event.currentTarget)}
         >
           <span className="mb-bubble">
             <span className="mb-avatar mb-own-avatar">
-              <Bot size={38} />
+              <OwnGlyph />
             </span>
-            <span className="mb-name">你的 Agent</span>
           </span>
+          <span className="mb-name">你的 Agent</span>
           <span className="mb-caption">
             <i
               className={'mb-mark mb-mark-' + (ownWaiting ? 'open' : 'sent')}
@@ -202,250 +247,290 @@ export function Crossing(_props: {
         <Dialog
           title={caption}
           origin={origin}
+          motion="bubble"
+          motionArtwork={
+            story ? (
+              <img src={'/avatars/' + story.avatar + '.svg'} alt="" />
+            ) : (
+              <OwnGlyph />
+            )
+          }
+          getOrigin={() => originElement.current?.getBoundingClientRect()}
           onClose={() => setSelected(undefined)}
           closeOnBackdrop
           className="mb-panel"
         >
-          <div className="mb-person-line">
-            <span className="mb-detail-avatar">
-              {story ? (
-                <img src={'/avatars/' + story.avatar + '.svg'} alt="" />
-              ) : (
-                <Bot size={28} />
-              )}
-            </span>
-            <div>
-              <span>
-                {story ? story.person + '的 Agent' : '代表你的 Agent'}
-              </span>
-              <small>{story?.role || '目标与公开分享'}</small>
-            </div>
-            <span className="mb-status">{statusText[stage]}</span>
-          </div>
-          {selected === 'self' && (
-            <div className="mb-own-choices" aria-label="你的 Agent 的事项">
-              {ownItems.map((item) => (
-                <button
-                  key={item.id}
-                  aria-pressed={ownSelected === item.id}
-                  onClick={() => {
-                    setOwnSelected(item.id);
-                    setConditionOpen(false);
-                    setFeedback('');
-                  }}
-                >
-                  {item.label}
+          <div className="mb-sheet-grid">
+            <aside
+              className={
+                'mb-sheet-aside mb-' +
+                (story
+                  ? positions[crossingStories.indexOf(story)].tone
+                  : 'self')
+              }
+            >
+              <div className="mb-sheet-art" aria-hidden="true">
+                {story ? (
+                  <img src={'/avatars/' + story.avatar + '.svg'} alt="" />
+                ) : (
+                  <OwnGlyph />
+                )}
+              </div>
+              <div className="mb-person-line">
+                <div>
                   <span>
-                    {decisions[item.id].stage === 'open'
-                      ? '待确认'
-                      : statusText[decisions[item.id].stage]}
+                    {story ? story.person + '的 Agent' : '代表你的 Agent'}
                   </span>
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="mb-content">
-            <span className="mb-overline">{story?.category || own.label}</span>
-            <h3>{story?.question || own.title}</h3>
-            <p className="mb-intro">{story?.reason || own.body}</p>
-            <div className="mb-suggestion">
-              <span>Agent 建议</span>
-              <p>
-                {story
-                  ? story.id === 'zhou'
-                    ? '先交换公开简介，确认双方意愿，再决定是否直接交流。'
-                    : story.id === 'chen'
-                      ? '先整理值得追问的问题，再由你决定是否继续交流。'
-                      : '先了解对方的兴趣和参与条件，再决定是否调整合作重点。'
-                  : own.recommendation}
-              </p>
-            </div>
-            {story ? (
-              <details className="mb-expand">
-                <summary>
-                  为什么推荐这个人
-                  <ArrowUpRight size={14} />
-                </summary>
-                <div className="mb-evidence">
-                  {story.evidence.map((e) => (
-                    <div key={e.label}>
-                      <small>{e.label}</small>
-                      <p>{e.text}</p>
-                      <small>{e.source}</small>
-                    </div>
-                  ))}
-                  <p className="mb-uncertain">尚未确认：{story.uncertainty}</p>
+                  <small>{story?.role || '目标与公开分享'}</small>
                 </div>
-              </details>
-            ) : (
-              <div className="mb-comparison">
-                <div>
-                  <small>
-                    {own.id === 'own-goal'
-                      ? '当前目标'
-                      : own.id === 'own-profile'
-                        ? '当前兴趣'
-                        : '当前状态'}
-                  </small>
-                  <p>{own.current}</p>
-                </div>
-                <div>
-                  <small>
-                    {own.id !== 'own-post' ? '建议调整为' : '准备发布的内容'}
-                  </small>
-                  <p>{own.proposed}</p>
-                </div>
+                <span className="mb-status">{statusText[stage]}</span>
               </div>
-            )}
-            <details className="mb-expand">
-              <summary>
-                {story?.id === 'chen'
-                  ? '查看拟整理的提纲'
-                  : story
-                    ? '查看介绍内容与授权范围'
-                    : '查看本次授权范围'}
-                <ArrowUpRight size={14} />
-              </summary>
-              <div className="mb-evidence">
-                {story && <p className="mb-quote">{story.message}</p>}
-                <p>{story?.scope || own.scope}</p>
-                {story && <small>{story.boundary}</small>}
-              </div>
-            </details>
-            {stage === 'open' ? (
-              <div className="mb-decision">
-                <p className="mb-scope-line">{story?.scope || own.scope}</p>
-                {conditionOpen && (
-                  <label className="mb-condition">
-                    补充这次行动的条件
-                    <textarea
-                      value={decision.condition}
-                      onChange={(event) =>
-                        setDecisions((items) => ({
-                          ...items,
-                          [id!]: {
-                            ...emptyDecisions()[id!],
-                            ...items[id!],
-                            condition: event.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="写下你希望 Agent 遵守的条件"
-                      rows={3}
-                      maxLength={1000}
-                    />
-                  </label>
-                )}
-                <div className="mb-action-row">
-                  <button
-                    className="mb-primary"
-                    onClick={() => update('pending')}
-                  >
-                    {story?.action || own.action}
-                    <ArrowUpRight size={16} />
-                  </button>
-                  <button
-                    className="mb-secondary"
-                    onClick={() => setConditionOpen(!conditionOpen)}
-                  >
-                    {conditionOpen ? '收起条件' : '补充条件'}
-                  </button>
-                </div>
-                <button
-                  className="mb-defer"
-                  onClick={() => update('observing')}
-                >
-                  先放一放
-                </button>
-              </div>
-            ) : (
-              <div className="mb-receipt">
-                <div className="mb-progress" aria-label="执行进展">
-                  {[
-                    '已决定',
-                    '已执行',
-                    story?.id === 'chen' || !story ? '结果可查看' : '对方回应',
-                  ].map((label, index) => (
-                    <span
-                      key={label}
-                      className={
-                        index <=
-                        (stage === 'pending'
-                          ? 0
-                          : stage === 'sent'
-                            ? 1
-                            : stage === 'replied'
-                              ? 2
-                              : -1)
-                          ? 'reached'
-                          : ''
-                      }
+              {selected === 'self' && (
+                <div className="mb-own-choices" aria-label="你的 Agent 的事项">
+                  {ownItems.map((item) => (
+                    <button
+                      key={item.id}
+                      aria-pressed={ownSelected === item.id}
+                      onClick={() => {
+                        setOwnSelected(item.id);
+                        setConditionOpen(false);
+                        setFeedback('');
+                      }}
                     >
-                      <Check size={12} />
-                      {label}
-                    </span>
+                      {item.label}
+                      <span>
+                        {decisions[item.id].stage === 'open'
+                          ? '待确认'
+                          : statusText[decisions[item.id].stage]}
+                      </span>
+                    </button>
                   ))}
                 </div>
-                <h4>
-                  {stage === 'pending'
-                    ? '选择已保存，等待 Agent 执行'
-                    : stage === 'sent'
-                      ? story?.id === 'chen'
-                        ? '提纲已整理'
-                        : story
-                          ? '介绍已发送，等待对方回应'
-                          : own.id === 'own-goal'
-                            ? '演示目标已更新'
-                            : own.id === 'own-profile'
-                              ? '演示兴趣已更新'
-                              : '演示帖子已发布'
-                      : stage === 'replied'
-                        ? '有了新的进展'
-                        : '这件事先放一放'}
-                </h4>
-                <p>
-                  {stage === 'pending'
-                    ? '真实接入后，这里会显示宿主领取任务和执行的回执。'
-                    : stage === 'replied' ||
-                        (stage === 'sent' && story?.id === 'chen')
-                      ? story?.reply
-                      : stage === 'observing'
-                        ? '不会执行这次行动。你可以稍后重新考虑。'
-                        : '这是本地演示回执，没有调用真实服务。'}
+              )}
+              {story && (
+                <p className="mb-sheet-context">
+                  {story.description}
+                  <small>{story.overlap}</small>
                 </p>
-                {decision.condition && (
-                  <p className="mb-preserved">你的条件：{decision.condition}</p>
+              )}
+            </aside>
+            <div className="mb-sheet-main">
+              <div className="mb-content">
+                <span className="mb-overline">
+                  {story?.category || own.label}
+                </span>
+                <h3>{story?.question || own.title}</h3>
+                <p className="mb-intro">{story?.reason || own.body}</p>
+                <div className="mb-suggestion">
+                  <span>Agent 建议</span>
+                  <p>
+                    {story
+                      ? story.id === 'zhou'
+                        ? '先交换公开简介，确认双方意愿，再决定是否直接交流。'
+                        : story.id === 'chen'
+                          ? '先整理值得追问的问题，再由你决定是否继续交流。'
+                          : '先了解对方的兴趣和参与条件，再决定是否调整合作重点。'
+                      : own.recommendation}
+                  </p>
+                </div>
+                {story ? (
+                  <details className="mb-expand">
+                    <summary>
+                      为什么推荐这个人
+                      <ArrowUpRight size={14} />
+                    </summary>
+                    <div className="mb-evidence">
+                      {story.evidence.map((e) => (
+                        <div key={e.label}>
+                          <small>{e.label}</small>
+                          <p>{e.text}</p>
+                          <small>{e.source}</small>
+                        </div>
+                      ))}
+                      <p className="mb-uncertain">
+                        尚未确认：{story.uncertainty}
+                      </p>
+                    </div>
+                  </details>
+                ) : (
+                  <div className="mb-comparison">
+                    <div>
+                      <small>
+                        {own.id === 'own-goal'
+                          ? '当前目标'
+                          : own.id === 'own-profile'
+                            ? '当前兴趣'
+                            : '当前状态'}
+                      </small>
+                      <p>{own.current}</p>
+                    </div>
+                    <div>
+                      <small>
+                        {own.id !== 'own-post'
+                          ? '建议调整为'
+                          : '准备发布的内容'}
+                      </small>
+                      <p>{own.proposed}</p>
+                    </div>
+                  </div>
                 )}
-                {stage === 'pending' && (
-                  <button
-                    className="mb-secondary"
-                    onClick={() => update('sent')}
-                  >
-                    演示：Agent 执行
-                  </button>
+                <details className="mb-expand">
+                  <summary>
+                    {story?.id === 'chen'
+                      ? '查看拟整理的提纲'
+                      : story
+                        ? '查看介绍内容与授权范围'
+                        : '查看本次授权范围'}
+                    <ArrowUpRight size={14} />
+                  </summary>
+                  <div className="mb-evidence">
+                    {story && <p className="mb-quote">{story.message}</p>}
+                    <p>{story?.scope || own.scope}</p>
+                    {story && <small>{story.boundary}</small>}
+                  </div>
+                </details>
+                {stage === 'open' ? (
+                  <div className="mb-decision">
+                    <p className="mb-scope-line">{story?.scope || own.scope}</p>
+                    {conditionOpen && (
+                      <label className="mb-condition">
+                        补充这次行动的条件
+                        <textarea
+                          value={decision.condition}
+                          onChange={(event) =>
+                            setDecisions((items) => ({
+                              ...items,
+                              [id!]: {
+                                ...emptyDecisions()[id!],
+                                ...items[id!],
+                                condition: event.target.value,
+                              },
+                            }))
+                          }
+                          placeholder="写下你希望 Agent 遵守的条件"
+                          rows={3}
+                          maxLength={1000}
+                        />
+                      </label>
+                    )}
+                    <div className="mb-action-row">
+                      <button
+                        className="mb-primary"
+                        onClick={() => update('pending')}
+                      >
+                        {story?.action || own.action}
+                        <ArrowUpRight size={16} />
+                      </button>
+                      <button
+                        className="mb-secondary"
+                        onClick={() => setConditionOpen(!conditionOpen)}
+                      >
+                        {conditionOpen ? '收起条件' : '补充条件'}
+                      </button>
+                    </div>
+                    <button
+                      className="mb-defer"
+                      onClick={() => update('observing')}
+                    >
+                      先放一放
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mb-receipt">
+                    <div className="mb-progress" aria-label="执行进展">
+                      {[
+                        '已决定',
+                        '已执行',
+                        story?.id === 'chen' || !story
+                          ? '结果可查看'
+                          : '对方回应',
+                      ].map((label, index) => (
+                        <span
+                          key={label}
+                          className={
+                            index <=
+                            (stage === 'pending'
+                              ? 0
+                              : stage === 'sent'
+                                ? 1
+                                : stage === 'replied'
+                                  ? 2
+                                  : -1)
+                              ? 'reached'
+                              : ''
+                          }
+                        >
+                          <Check size={12} />
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                    <h4>
+                      {stage === 'pending'
+                        ? '选择已保存，等待 Agent 执行'
+                        : stage === 'sent'
+                          ? story?.id === 'chen'
+                            ? '提纲已整理'
+                            : story
+                              ? '介绍已发送，等待对方回应'
+                              : own.id === 'own-goal'
+                                ? '演示目标已更新'
+                                : own.id === 'own-profile'
+                                  ? '演示兴趣已更新'
+                                  : '演示帖子已发布'
+                          : stage === 'replied'
+                            ? '有了新的进展'
+                            : '这件事先放一放'}
+                    </h4>
+                    <p>
+                      {stage === 'pending'
+                        ? '真实接入后，这里会显示宿主领取任务和执行的回执。'
+                        : stage === 'replied' ||
+                            (stage === 'sent' && story?.id === 'chen')
+                          ? story?.reply
+                          : stage === 'observing'
+                            ? '不会执行这次行动。你可以稍后重新考虑。'
+                            : '这是本地演示回执，没有调用真实服务。'}
+                    </p>
+                    {decision.condition && (
+                      <p className="mb-preserved">
+                        你的条件：{decision.condition}
+                      </p>
+                    )}
+                    {stage === 'pending' && (
+                      <button
+                        className="mb-secondary"
+                        onClick={() => update('sent')}
+                      >
+                        演示：Agent 执行
+                      </button>
+                    )}
+                    {stage === 'sent' && story && story.id !== 'chen' && (
+                      <button
+                        className="mb-secondary"
+                        onClick={() => update('replied')}
+                      >
+                        演示：收到对方回应
+                      </button>
+                    )}
+                    {stage === 'observing' && (
+                      <button
+                        className="mb-secondary"
+                        onClick={() => update('open')}
+                      >
+                        重新考虑
+                      </button>
+                    )}
+                  </div>
                 )}
-                {stage === 'sent' && story && story.id !== 'chen' && (
-                  <button
-                    className="mb-secondary"
-                    onClick={() => update('replied')}
-                  >
-                    演示：收到对方回应
-                  </button>
-                )}
-                {stage === 'observing' && (
-                  <button
-                    className="mb-secondary"
-                    onClick={() => update('open')}
-                  >
-                    重新考虑
-                  </button>
+                {feedback && (
+                  <output className="mb-feedback">{feedback}</output>
                 )}
               </div>
-            )}
-            {feedback && <output className="mb-feedback">{feedback}</output>}
-          </div>
-          <div className="mb-panel-foot">
-            演示资料与回执 · 不发送消息、不修改真实资料
+              <div className="mb-panel-foot">
+                演示资料与回执 · 不发送消息、不修改真实资料
+              </div>
+            </div>
           </div>
         </Dialog>
       )}

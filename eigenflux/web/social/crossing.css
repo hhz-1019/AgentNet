@@ -11,26 +11,21 @@
   max-height: 950px;
   isolation: isolate;
 }
-#root .mb-orbit {
+#root .mb-atmosphere {
   position: absolute;
-  width: 410px;
-  height: 410px;
-  left: 47%;
-  top: 40%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--ew-line) 35%, transparent);
+  inset: 12% 5% 10%;
+  background:
+    radial-gradient(
+      ellipse at 45% 34%,
+      rgb(228 237 218 / 18%),
+      transparent 52%
+    ),
+    radial-gradient(ellipse at 75% 72%, rgb(239 222 202 / 15%), transparent 40%);
   pointer-events: none;
 }
-#root .mb-orbit::after {
-  content: '';
-  position: absolute;
-  inset: 40px;
-  border-radius: inherit;
-  border: 1px solid color-mix(in srgb, var(--ew-line) 17%, transparent);
-}
 #root .mb-node {
-  --node-tint: var(--ew-tint);
+  --lean-x: 0px;
+  --lean-y: 0px;
   position: absolute;
   left: var(--x);
   top: var(--y);
@@ -39,7 +34,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 7px;
   padding: 0;
   border: 0;
   background: none;
@@ -49,52 +44,41 @@
   -webkit-tap-highlight-color: transparent;
   box-shadow: none;
 }
-#root .mb-sage {
-  --node-tint: color-mix(in srgb, #bfcdb4 22%, var(--ew-paper));
-}
-#root .mb-lavender {
-  --node-tint: color-mix(in srgb, #c3bfd3 18%, var(--ew-paper));
-}
-#root .mb-blue {
-  --node-tint: color-mix(in srgb, #a6c4d1 18%, var(--ew-paper));
-}
 #root .mb-bubble {
   width: var(--size);
   height: var(--size);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 13px;
+  display: grid;
+  place-items: center;
   position: relative;
+  overflow: hidden;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--ew-line) 65%, var(--node-tint));
-  background: radial-gradient(
-    circle at 32% 22%,
-    var(--ew-paper) 0%,
-    var(--node-tint) 78%
-  );
+  background: var(--ew-tint);
+  margin-bottom: 12px;
   box-shadow:
-    inset 0 2px 6px color-mix(in srgb, var(--ew-paper) 85%, transparent),
-    0 12px 32px rgb(46 42 32 / 4%),
-    0 2px 3px rgb(46 42 32 / 3%);
+    inset 0 0 0 1px rgb(38 47 32 / 5%),
+    0 12px 26px -18px rgb(45 53 28 / 22%);
+  transform: translate(var(--lean-x), var(--lean-y));
   transition:
-    transform 220ms ease,
-    box-shadow 220ms ease;
+    transform 500ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 400ms;
 }
-#root .mb-self .mb-bubble::after {
+#root .mb-bubble::after {
   content: '';
   position: absolute;
-  inset: 8px;
-  border: 1px solid color-mix(in srgb, var(--ew-line) 55%, transparent);
-  border-radius: 50%;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 2px 4px rgb(255 255 255 / 38%),
+    inset 0 -4px 12px rgb(32 45 34 / 3%);
+  background: linear-gradient(125deg, rgb(255 255 255 / 22%), transparent 55%);
   pointer-events: none;
 }
 #root .mb-node:hover .mb-bubble {
-  transform: translateY(-4px);
-  box-shadow:
-    inset 0 2px 6px color-mix(in srgb, var(--ew-paper) 85%, transparent),
-    0 17px 40px rgb(46 42 32 / 8%);
+  transform: translate(var(--lean-x), calc(var(--lean-y) - 5px)) scale(1.035);
+  box-shadow: 0 22px 34px -22px rgb(45 53 28 / 28%);
+}
+#root .mb-node:active .mb-bubble {
+  transform: scale(0.97);
 }
 #root .mb-node:focus-visible {
   outline: none;
@@ -104,32 +88,31 @@
   outline-offset: 5px;
 }
 #root .mb-avatar {
+  width: 100%;
+  height: 100%;
   display: grid;
   place-items: center;
-  width: calc(var(--size) * 0.36);
-  height: calc(var(--size) * 0.36);
 }
 #root .mb-avatar img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  border-radius: 50%;
+  object-fit: cover;
 }
 #root .mb-own-avatar {
-  color: var(--ew-muted);
+  color: #947555;
+  background: #f3e9d8;
+}
+#root .mb-own-avatar svg {
+  width: 100%;
+  height: 100%;
 }
 #root .mb-name {
   font-size: 19px;
-  line-height: 1.3;
+  line-height: 1.4;
   font-weight: 500;
 }
 #root .mb-sage .mb-name {
-  font-size: 26px;
-}
-#root .mb-bubble-note {
-  font-size: 13px;
-  color: var(--ew-muted);
-  letter-spacing: 0.03em;
+  font-size: 23px;
 }
 #root .mb-caption {
   display: flex;
@@ -206,75 +189,118 @@
 /* Native dialog handles keyboard focus, Escape, and focus restoration. */
 #root dialog.mb-panel {
   position: fixed;
-  inset: 18px 18px 18px auto;
-  margin: 0;
-  width: min(470px, calc(100vw - 36px));
+  inset: 0;
+  margin: auto;
+  width: min(1060px, calc(100vw - 96px));
   max-width: none;
-  height: calc(100svh - 36px);
+  height: min(740px, calc(100svh - 88px));
   max-height: none;
   padding: 0;
-  border-radius: 22px;
+  border-radius: 24px;
   color: var(--ew-ink);
   background: var(--ew-paper);
   border: 1px solid var(--ew-line);
   font-family: var(--ew-serif);
-  box-shadow: 0 20px 65px rgb(35 28 18 / 12%);
-  overflow-y: auto;
+  box-shadow: 0 30px 100px rgb(35 28 18 / 18%);
+  overflow: hidden;
+  transform-origin: center;
 }
 #root dialog.mb-panel::backdrop {
-  background: rgb(45 39 30 / 8%);
-  backdrop-filter: blur(2px);
+  background: rgb(35 31 23 / 18%);
+  backdrop-filter: blur(5px);
+}
+#root dialog.mb-panel .ew-dialog-body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 #root dialog.mb-panel .sw-dialog-heading {
-  padding: 22px 26px 14px;
-  border-bottom: 0;
+  flex-shrink: 0;
+  padding: 13px 28px;
+  margin: 0;
+  border-bottom: 1px solid var(--ew-line);
   background: var(--ew-paper);
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 2;
 }
 #root dialog.mb-panel .sw-dialog-heading h2 {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 500;
 }
-#root .mb-person-line {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 26px 22px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--ew-line);
+#root dialog.mb-panel .sw-dialog-heading button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: none;
+  background: transparent;
 }
-#root .mb-detail-avatar {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
+#root dialog.mb-panel .sw-dialog-heading button:hover {
   background: var(--ew-tint);
-  border-radius: 50%;
-  flex-shrink: 0;
 }
-#root .mb-detail-avatar img {
-  width: 40px;
-  height: 40px;
+#root .mb-sheet-grid {
+  display: grid;
+  grid-template-columns: 34% minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+}
+#root .mb-sheet-aside {
+  padding: 32px 28px;
+  border-right: 1px solid var(--ew-line);
+  background: color-mix(in srgb, var(--ew-tint) 28%, var(--ew-paper));
+  overflow-y: auto;
+}
+#root .mb-sheet-art {
+  width: min(190px, 90%);
+  aspect-ratio: 1;
+  margin: 6px auto 28px;
   border-radius: 50%;
+  overflow: hidden;
+  background: #f3e9d8;
+  color: #947555;
+}
+#root .mb-sheet-art :is(img, svg) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#root .mb-sheet-main {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+#root .mb-person-line {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 24px;
 }
 #root .mb-person-line > div {
-  flex: 1;
   display: grid;
-  gap: 5px;
-  font-size: 14px;
+  gap: 7px;
+  font-size: 20px;
 }
 #root .mb-person-line small {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ew-muted);
 }
 #root .mb-status {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ew-muted);
 }
+#root .mb-sheet-context {
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--ew-muted);
+}
+#root .mb-sheet-context small {
+  display: block;
+  margin-top: 18px;
+  font-size: 12px;
+}
 #root .mb-content {
-  padding: 0 26px 24px;
+  padding: 24px 38px 20px;
 }
 #root .mb-overline {
   color: var(--ew-muted);
@@ -282,7 +308,7 @@
 }
 #root .mb-content h3 {
   margin: 12px 0;
-  font-size: 27px;
+  font-size: 28px;
   line-height: 1.5;
   font-weight: 500;
   text-wrap: pretty;
@@ -296,13 +322,13 @@
 }
 #root .mb-content .mb-intro {
   color: var(--ew-muted);
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 #root .mb-suggestion {
-  padding: 18px 20px;
+  padding: 16px 20px;
   border-radius: 14px;
   background: var(--ew-tint);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 #root .mb-suggestion > span {
   display: block;
@@ -319,7 +345,7 @@
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
-  padding: 17px 0;
+  padding: 14px 0;
   font-size: 14px;
 }
 #root .mb-expand summary::-webkit-details-marker {
@@ -356,7 +382,7 @@
 }
 #root .mb-decision {
   border-top: 1px solid var(--ew-line);
-  padding-top: 26px;
+  padding-top: 20px;
 }
 #root .mb-content .mb-scope-line {
   font-size: 13px;
@@ -397,7 +423,7 @@
   outline-offset: 3px;
 }
 #root .mb-defer {
-  margin-top: 16px;
+  margin-top: 8px;
   padding: 8px 0;
   border: 0;
   box-shadow: none;
@@ -466,7 +492,7 @@
   margin-top: 14px;
 }
 #root .mb-panel-foot {
-  padding: 16px 26px 22px;
+  padding: 16px 38px 22px;
   border-top: 1px solid var(--ew-line);
   color: var(--ew-muted);
   font-size: 11px;
@@ -474,7 +500,7 @@
 #root .mb-own-choices {
   display: grid;
   gap: 8px;
-  margin: 0 26px 24px;
+  margin: 0 0 24px;
 }
 #root .mb-own-choices button {
   display: flex;
@@ -514,12 +540,12 @@
   }
   #root .mb-node {
     --size: 110px !important;
-    gap: 13px;
+    gap: 7px;
   }
   #root .mb-sage {
     --x: 43% !important;
     --y: 30% !important;
-    --size: 180px !important;
+    --size: 170px !important;
   }
   #root .mb-lavender {
     --x: 23% !important;
@@ -535,12 +561,7 @@
     --y: 58% !important;
     --size: 136px !important;
   }
-  #root .mb-orbit {
-    width: 300px;
-    height: 300px;
-    left: 44%;
-    top: 32%;
-  }
+
   #root .mb-name {
     font-size: 16px;
   }
@@ -550,20 +571,17 @@
   #root .mb-caption {
     font-size: 12px;
   }
-  #root .mb-bubble-note {
-    font-size: 11px;
-  }
 }
 @media (max-width: 420px) {
   #root .mb-sage {
-    --size: 154px !important;
+    --size: 150px !important;
     --x: 36% !important;
-    --y: 32% !important;
+    --y: 34% !important;
   }
   #root .mb-self {
     --size: 118px !important;
     --x: 73% !important;
-    --y: 62% !important;
+    --y: 70% !important;
   }
   #root .mb-lavender {
     --size: 92px !important;
@@ -576,24 +594,20 @@
     --y: 10% !important;
   }
   #root .mb-node {
-    gap: 10px;
+    gap: 5px;
   }
   #root .mb-bubble {
-    gap: 8px;
+    margin-bottom: 8px;
   }
-  #root .mb-orbit {
-    width: 250px;
-    height: 250px;
-    left: 42%;
-  }
+
   #root .mb-own-avatar svg {
-    width: 30px;
-    height: 30px;
+    width: 100%;
+    height: 100%;
   }
   #root dialog.mb-panel {
-    inset: 10px;
-    width: calc(100vw - 20px);
-    height: calc(100svh - 20px);
+    inset: 0;
+    width: calc(100vw - 24px);
+    height: calc(100svh - 48px);
     border-radius: 18px;
   }
   #root dialog.mb-panel .sw-dialog-heading {
@@ -602,10 +616,7 @@
   #root .mb-content {
     padding-inline: 20px;
   }
-  #root .mb-person-line,
-  #root .mb-own-choices {
-    margin-inline: 20px;
-  }
+
   #root .mb-content h3 {
     font-size: 24px;
   }
@@ -711,4 +722,87 @@
     background: var(--ew-tint);
     color: var(--ew-ink);
   }
+}
+
+@media (max-width: 760px) {
+  #root dialog.mb-panel {
+    width: calc(100vw - 32px);
+    height: calc(100svh - 56px);
+  }
+  #root .mb-sheet-grid {
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  #root .mb-sheet-aside {
+    padding: 22px 24px;
+    border-right: 0;
+    border-bottom: 1px solid var(--ew-line);
+    overflow: visible;
+  }
+  #root .mb-sheet-art {
+    width: 64px;
+    margin: 0 16px 0 0;
+    float: left;
+  }
+  #root .mb-person-line {
+    min-height: 64px;
+    margin-bottom: 0;
+    gap: 7px;
+  }
+  #root .mb-person-line > div {
+    font-size: 17px;
+    gap: 4px;
+  }
+  #root .mb-sheet-context {
+    display: none;
+  }
+  #root .mb-sheet-main {
+    overflow: visible;
+  }
+  #root .mb-content {
+    padding: 24px;
+  }
+  #root .mb-content h3 {
+    font-size: 25px;
+  }
+  #root .mb-panel-foot {
+    padding-inline: 24px;
+  }
+  #root .mb-own-choices {
+    clear: both;
+    display: flex;
+    gap: 6px;
+    padding-top: 18px;
+    margin-bottom: 0;
+    overflow-x: auto;
+  }
+  #root .mb-own-choices button {
+    flex: 0 0 auto;
+    padding: 9px 11px;
+    font-size: 12px;
+  }
+  #root .mb-own-choices span {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .mb-node:hover .mb-bubble {
+    transform: none;
+  }
+}
+
+#root .mb-panel .ew-dialog-artwork {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  color: #947555;
+  background: #f3e9d8;
+}
+#root .mb-panel .ew-dialog-artwork :is(img, svg) {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
 }
