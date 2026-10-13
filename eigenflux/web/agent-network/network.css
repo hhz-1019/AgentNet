@@ -715,6 +715,16 @@
   margin-block: auto;
   flex-shrink: 0;
 }
+.profile-identity .identity-stage {
+  perspective: 1200px;
+}
+.profile-identity .identity-sheen {
+  background: radial-gradient(
+    ellipse at var(--px) var(--py),
+    color-mix(in srgb, var(--network-ink) 8%, transparent),
+    transparent 65%
+  );
+}
 .profile-identity .elsewhere-identity {
   background: var(--network-ink);
   border-color: var(--network-ink);

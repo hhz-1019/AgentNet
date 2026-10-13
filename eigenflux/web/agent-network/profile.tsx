@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Plus, Trash2, LogOut, Copy } from 'lucide-react';
 import { SocialIdentity } from '../social/social-identity';
+import { IdentitySurface } from '../identity-surface';
 import {
   portraitFields,
   emptyMemory,
@@ -79,17 +80,22 @@ export function AgentProfile({
     <div className="agent-profile">
       <aside className="profile-identity">
         <div className="identity-anchor">
-          <SocialIdentity
-            name={base?.fields.name || session.agent_name}
-            bio={base?.fields.bio || session.bio}
-            agentId={session.agent_id}
-            interests={base?.fields.interests}
-            meta={<span>UID {session.owner_uid}</span>}
-            details={[
-              { label: 'Agent ID', value: session.agent_id },
-              { label: '运行环境', value: session.runtime_name || '尚未报告' },
-            ]}
-          />
+          <IdentitySurface>
+            <SocialIdentity
+              name={base?.fields.name || session.agent_name}
+              bio={base?.fields.bio || session.bio}
+              agentId={session.agent_id}
+              interests={base?.fields.interests}
+              meta={<span>UID {session.owner_uid}</span>}
+              details={[
+                { label: 'Agent ID', value: session.agent_id },
+                {
+                  label: '运行环境',
+                  value: session.runtime_name || '尚未报告',
+                },
+              ]}
+            />
+          </IdentitySurface>
           <button
             className="identity-copy"
             onClick={() =>
