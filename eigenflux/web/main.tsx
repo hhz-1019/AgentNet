@@ -122,7 +122,8 @@ function AppContent({
   }, []);
   useEffect(() => {
     if (isVisualPreview) return;
-    // Includes an anonymous session: the destination is the existing login page.
+    // This settles routing/auth only. BrandEntry also waits for the mounted
+    // destination's first-page data and visible image preparation tasks.
     if (session !== undefined || error || handoffError) onReady(true);
     if (error || handoffError) onFailure(true);
   }, [session, error, handoffError, onReady, onFailure]);
@@ -169,7 +170,8 @@ function AppContent({
   if (location.pathname === '/dashboard/analytics')
     return <AnalyticsDashboard />;
   if (location.pathname === '/dashboard/members') return <AdminMembers />;
-  if (location.pathname === '/dashboard/registration') return <AdminRegistration />;
+  if (location.pathname === '/dashboard/registration')
+    return <AdminRegistration />;
   if (session.onboarding.state !== 'completed')
     return (
       <Onboard

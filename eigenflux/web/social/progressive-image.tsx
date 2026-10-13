@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Media } from './model';
+import { useEntryPreparation } from '../entry-preparation';
 import './progressive-image.css';
 
 export function imageFrameRatio(media: Media) {
@@ -29,6 +30,8 @@ export function ProgressiveImage({
   const [started, setStarted] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
+  const [firstScreen, setFirstScreen] = useState(false);
+  useEntryPreparation(firstScreen && started && !loaded);
   // Inline tiny rasters need no request and cannot start the original early.
   const preview =
     typeof media.preview === 'string' &&
@@ -47,6 +50,8 @@ export function ProgressiveImage({
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
+        const bounds = node.getBoundingClientRect();
+        setFirstScreen(bounds.top < window.innerHeight && bounds.bottom > 0);
         setStarted(true);
         observer.disconnect();
       },

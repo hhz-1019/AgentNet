@@ -1,4 +1,5 @@
 import { ThemeSwitcher } from '../theme';
+import { useEntryPreparation } from '../entry-preparation';
 import { UnreadDot, useUnreadMessages } from '../unread';
 import { AgentAvatar, rememberAvatar } from '../avatar';
 import {
@@ -243,6 +244,10 @@ export function SocialWorkspace({
     route,
   );
   const personRoute = route.startsWith('person/');
+  useEntryPreparation(
+    (feedRoute && !page && !error) || (personRoute && !personReady),
+    feedRoute && Boolean(error) && !page,
+  );
   const personal = personalRoutes.has(route);
   const profileIntro = portrait.fields.bio?.trim();
   const generation = useRef(0);
