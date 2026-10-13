@@ -8,6 +8,8 @@
   align-items: start;
   column-gap: 24px;
   row-gap: 0;
+  /* Appended/animated cards must not become browser scroll anchors. */
+  overflow-anchor: none;
 }
 .ew-social.sn-social .sw-feed-grid > div {
   align-self: start;
@@ -232,6 +234,45 @@
   text-align: center;
   color: var(--ew-muted);
   font-size: 14px;
+  overflow-anchor: none;
+}
+.ew-social .sw-feed-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 24px;
+}
+.ew-social .sw-feed-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: sw-feed-dot-bounce 750ms ease-in-out infinite;
+}
+.ew-social .sw-feed-dots i:nth-of-type(2) {
+  animation-delay: 150ms;
+}
+.ew-social .sw-feed-dots i:nth-of-type(3) {
+  animation-delay: 300ms;
+}
+@keyframes sw-feed-dot-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ew-social .sw-feed-dots i {
+    animation: none;
+    opacity: 0.65;
+  }
 }
 .ew-social .sw-feed-end button {
   padding: 10px 20px;

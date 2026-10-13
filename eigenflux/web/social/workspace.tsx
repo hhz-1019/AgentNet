@@ -496,19 +496,28 @@ export function SocialWorkspace({
   useEffect(() => {
     const node = feedEnd.current;
     if (!node || !feedRoute || loading || error || !page?.next_cursor) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          // A refresh can cancel an in-flight append. Retry that same cursor
-          // rather than leaving the sentinel unable to trigger a state change.
-          if (page.next_cursor === cursor) setFeedRetry((v) => v + 1);
-          setCursor(page.next_cursor);
-        }
-      },
-      { rootMargin: '600px 0px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
+    let observer: IntersectionObserver;
+    const observe = () => {
+      observer?.disconnect();
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            // A refresh can cancel an in-flight append. Retry that same cursor
+            // rather than leaving the sentinel unable to trigger a state change.
+            if (page.next_cursor === cursor) setFeedRetry((v) => v + 1);
+            setCursor(page.next_cursor);
+          }
+        },
+        { rootMargin: `0px 0px ${window.innerHeight}px 0px` },
+      );
+      observer.observe(node);
+    };
+    observe();
+    window.addEventListener('resize', observe);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', observe);
+    };
   }, [feedRoute, page, loading, error, cursor]);
   useEffect(() => {
     if (demo || guest) return;
@@ -965,7 +974,12 @@ export function SocialWorkspace({
                       </button>
                     </div>
                   ) : loading ? (
-                    '正在加载更多…'
+                    <output className="sw-feed-dots">
+                      <span className="sw-sr-only">正在加载更多动态…</span>
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                    </output>
                   ) : page && page.items.length > 0 && !page.next_cursor ? (
                     '已经看完全部动态'
                   ) : null}
