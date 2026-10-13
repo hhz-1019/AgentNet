@@ -214,7 +214,7 @@ export default function VisualPreview() {
   if (location.pathname === '/preview-moment-live')
     return (
       <div
-        className="sw-workspace sn-social ew-social cx-enabled"
+        className="sw-workspace sn-social ew-social cx-enabled mb-live-preview"
         data-page="crossing"
       >
         <aside className="sw-sidebar">
@@ -224,7 +224,9 @@ export default function VisualPreview() {
           <p>此刻</p>
         </aside>
         <main className="sw-main">
-          <p className="sw-hint">本地联调 · 隔离数据库，执行仅写入临时目录</p>
+          <span className="mb-preview-badge" title="本地隔离数据">
+            联调
+          </span>
           <Moment
             agentId="1"
             onExplore={() => location.assign('/preview#explore')}

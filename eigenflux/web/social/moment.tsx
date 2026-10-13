@@ -9,6 +9,7 @@ import { api, ApiError } from '../api';
 import { AgentAvatar } from '../avatar';
 import { AttentionSource } from '../activity';
 import { Dialog } from './dialog';
+import { DragRail } from './drag-rail';
 import {
   groupMoments,
   momentStage,
@@ -40,6 +41,9 @@ export function Moment({
   const [conditions, setConditions] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false),
     [choice, setChoice] = useState('');
+  const [view, setView] = useState<
+    '' | 'item' | 'approval' | 'result' | 'evidence'
+  >('');
   const [now, setNow] = useState(Date.now());
   const origin = useRef<HTMLElement | null>(null),
     mounted = useRef(true),
@@ -108,8 +112,8 @@ export function Moment({
   const scope = action
     ? item?.context_ref?.moment?.scopes[action.action_key]
     : undefined;
-  const waiting = items.filter((i) => momentStage(i, now) === 'open').length;
   const resetChoice = () => {
+    setView('');
     setChoice('');
     setFeedback('');
     attempt.current = undefined;
@@ -143,16 +147,11 @@ export function Moment({
           action: kind,
           expected_item_revision: item.item_revision,
         });
-        setFeedback(
-          kind === 'revoke'
-            ? '已撤回，Agent 不会领取这次决定。'
-            : kind === 'defer'
-              ? '已暂时搁置。'
-              : '已重新打开，请核对后再决定。',
-        );
+        setFeedback('');
       }
       attempt.current = undefined;
       setChoice('');
+      setView('');
       await refresh();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -169,12 +168,13 @@ export function Moment({
       if (mounted.current) setBusy(false);
     }
   }
-  const positions = [
-    [47, 36],
-    [21, 69],
-    [77, 23],
-    [77, 73],
-  ];
+
+  const activeView =
+    (view === 'approval' && !action ? 'item' : view) ||
+    (item?.command &&
+    (hasMomentReceipt(item) || ['pending', 'executing'].includes(stage))
+      ? 'result'
+      : 'item');
   return (
     <section className="mb mb-live" aria-label="此刻的 Agent 与事项">
       {error && (
@@ -183,25 +183,18 @@ export function Moment({
         </div>
       )}
       {!loaded && !error && (
-        <output className="mb-load-message">正在读取此刻的事项…</output>
+        <output className="mb-load-message">正在读取…</output>
       )}
       {loaded && !items.length && (
         <div className="mb-empty">
-          <p>此刻，没有需要你处理的事项。</p>
-          <span>Agent 提出建议或带回结果时，会出现在这里。</span>
+          <p>此刻，没有待处理的事项。</p>
           <button onClick={onExplore}>去发现看看</button>
         </div>
       )}
       {items.length > 0 && (
-        <div
-          className={'mb-space' + (groups.length > 4 ? ' mb-many' : '')}
-          aria-label="按关注优先级排列的 Agent"
-        >
-          <div className="mb-atmosphere" aria-hidden="true" />
-          {groups.map((g, index) => {
-            const pos = positions[index % 4],
-              size = Math.round(138 + (g.priority / 130) * 94);
-            return (
+        <DragRail label="Agent 事项" className="mb-agent-rail">
+          <div className="mb-agent-canvas">
+            {groups.map((g, index) => (
               <button
                 key={g.id}
                 className={
@@ -212,9 +205,7 @@ export function Moment({
                 }
                 style={
                   {
-                    '--x': pos[0] + '%',
-                    '--y': pos[1] + '%',
-                    '--size': size + 'px',
+                    '--priority-size': 0.68 + (g.priority / 130) * 0.32,
                   } as CSSProperties
                 }
                 aria-label={
@@ -237,18 +228,18 @@ export function Moment({
                     : g.items.length + ' 项事项'}
                 </span>
               </button>
-            );
-          })}
-        </div>
+            ))}
+            {more && (
+              <button
+                className="mb-load-more"
+                onClick={() => setPages((p) => p + 1)}
+              >
+                更早的事项
+              </button>
+            )}
+          </div>
+        </DragRail>
       )}
-      <footer className="mb-footer">
-        <span>
-          {waiting ? waiting + ' 项等你决定' : '决定与执行结果会保存在这里'}
-        </span>
-        {more && (
-          <button onClick={() => setPages((p) => p + 1)}>查看更早的事项</button>
-        )}
-      </footer>
       {group && item && (
         <Dialog
           title={group.name}
@@ -262,186 +253,242 @@ export function Moment({
           }}
           closeOnBackdrop
           busy={busy}
-          className="mb-panel"
+          className="mb-panel mb-fit-panel"
         >
-          <div className="mb-sheet-grid">
-            <aside className="mb-sheet-aside mb-sage">
-              <div className="mb-sheet-art">
-                <AgentAvatar agentId={group.id} name={group.name} />
-              </div>
-              <div className="mb-person-line">
-                <span>{group.name}</span>
-                <span className="mb-status">{momentLabels[stage]}</span>
-              </div>
-              <div className="mb-own-choices" aria-label="这位 Agent 的事项">
-                {group.items.map((i) => (
-                  <button
-                    key={i.attention_id}
-                    disabled={busy}
-                    aria-pressed={item.attention_id === i.attention_id}
-                    onClick={() => {
-                      setItemId(i.attention_id);
-                      resetChoice();
-                    }}
-                  >
-                    {i.title}
-                    <span>{momentLabels[momentStage(i, now)]}</span>
-                  </button>
-                ))}
-              </div>
-            </aside>
-            <div className="mb-sheet-main">
-              <div className="mb-content">
-                <h3>{item.title}</h3>
-                <p className="mb-intro">{item.body}</p>
-                {['broadcast', 'broadcast_reply'].includes(
-                  item.source_ref?.type || '',
-                ) && (
-                  <AttentionSource
-                    key={item.attention_id}
-                    id={item.attention_id}
-                  />
-                )}
-                {item.recommendation && (
-                  <div className="mb-suggestion">
-                    <span>Agent 的建议</span>
-                    <p>{item.recommendation}</p>
-                  </div>
-                )}
-                <p className="mb-deadline">
-                  有效至 {new Date(item.expires_at).toLocaleString('zh-CN')}
-                </p>
-                {(stage === 'open' || stage === 'failed') && (
-                  <>
-                    {stage === 'failed' && (
-                      <output>
-                        上次执行未完成。再次确认前，请先核对已有影响。
-                      </output>
-                    )}
-                    <div className="mb-choice-list" aria-label="选择操作">
-                      {item.actions
-                        .filter((a) => a.flag !== 'open_source')
-                        .map((a) => (
-                          <button
-                            key={a.action_key}
-                            disabled={busy}
-                            aria-pressed={choice === a.action_key}
-                            className="mb-secondary"
-                            onClick={() => {
-                              setChoice(a.action_key);
-                              chosenRevision.current = item.item_revision;
-                              attempt.current = undefined;
-                            }}
-                          >
-                            {actionText(a)}
-                          </button>
-                        ))}
-                    </div>
-                    {action && (
-                      <div className="mb-decision">
-                        <p className="mb-scope-line">
-                          授权范围：
-                          {scope || '仅执行所选操作及原事项中明确说明的范围。'}
-                        </p>
-                        <label className="mb-condition">
-                          补充条件
-                          <textarea
-                            value={condition}
-                            maxLength={1000}
-                            disabled={busy}
-                            placeholder="例如：只发这条消息，不承诺合作。"
-                            onChange={(e) =>
-                              setConditions((v) => ({
-                                ...v,
-                                [item.attention_id]: e.target.value,
-                              }))
-                            }
-                          />
-                        </label>
-                        <button
-                          className="mb-primary"
-                          disabled={busy || Boolean(error)}
-                          onClick={() => void mutate('confirm')}
-                        >
-                          {busy ? '正在保存…' : '确认这次授权'}
-                        </button>
-                      </div>
-                    )}
+          <div className="mb-detail">
+            {group.items.length > 1 && activeView !== 'approval' && (
+              <DragRail
+                label="这位 Agent 的事项"
+                className="mb-task-rail"
+                resetKey={group.id}
+              >
+                <div className="mb-task-strip">
+                  {group.items.map((i) => (
                     <button
-                      className="mb-defer"
+                      key={i.attention_id}
                       disabled={busy}
-                      onClick={() => void mutate('defer')}
+                      aria-pressed={item.attention_id === i.attention_id}
+                      onClick={() => {
+                        setItemId(i.attention_id);
+                        resetChoice();
+                      }}
                     >
-                      暂时搁置
+                      {i.title}
                     </button>
-                  </>
+                  ))}
+                </div>
+              </DragRail>
+            )}
+            <div className="mb-detail-toolbar">
+              <nav aria-label="事项内容">
+                <button
+                  aria-current={activeView === 'item' ? 'page' : undefined}
+                  onClick={() => setView('item')}
+                >
+                  事项
+                </button>
+                {action && (
+                  <button
+                    aria-current={
+                      activeView === 'approval' ? 'page' : undefined
+                    }
+                    onClick={() => setView('approval')}
+                  >
+                    授权
+                  </button>
                 )}
                 {item.command && (
-                  <div className="mb-receipt" aria-label="真实执行进展">
-                    <ol className="mb-receipt-stages">
-                      <li>确认已保存</li>
-                      <li>
-                        {stage === 'completed'
-                          ? 'Agent 已执行'
-                          : stage === 'executing'
-                            ? 'Agent 正在执行'
-                            : 'Agent 尚未确认执行完成'}
-                      </li>
-                      <li>
-                        {hasMomentReceipt(item)
-                          ? '已收到执行回执'
-                          : '等待执行回执'}
-                      </li>
-                    </ol>
+                  <button
+                    aria-current={activeView === 'result' ? 'page' : undefined}
+                    onClick={() => setView('result')}
+                  >
+                    结果
+                  </button>
+                )}
+                {item.command?.result?.execution && (
+                  <button
+                    aria-current={
+                      activeView === 'evidence' ? 'page' : undefined
+                    }
+                    onClick={() => setView('evidence')}
+                  >
+                    依据
+                  </button>
+                )}
+              </nav>
+              <output className="mb-current-status">
+                {momentLabels[stage]}
+              </output>
+            </div>
+            <DragRail
+              label="事项正文"
+              className="mb-reader-rail"
+              pageGap={32}
+              resetKey={item.attention_id + activeView}
+            >
+              <article className="mb-reader">
+                <h3>
+                  {activeView === 'approval' && action
+                    ? actionText(action)
+                    : item.title}
+                </h3>
+                {activeView === 'item' && (
+                  <>
+                    <p>{item.body}</p>
+                    {['broadcast', 'broadcast_reply'].includes(
+                      item.source_ref?.type || '',
+                    ) && (
+                      <AttentionSource
+                        key={item.attention_id}
+                        id={item.attention_id}
+                      />
+                    )}
+                    {item.recommendation && (
+                      <>
+                        <h4>建议</h4>
+                        <p>{item.recommendation}</p>
+                      </>
+                    )}
+                    {['open', 'failed'].includes(stage) && (
+                      <p className="mb-deadline">
+                        有效至{' '}
+                        {new Date(item.expires_at).toLocaleString('zh-CN')}
+                      </p>
+                    )}
+                  </>
+                )}
+                {activeView === 'approval' && action && (
+                  <>
+                    <p>{scope || '仅执行所选操作及原事项中明确说明的范围。'}</p>
+                    <p className="mb-deadline">
+                      有效至 {new Date(item.expires_at).toLocaleString('zh-CN')}
+                    </p>
+                  </>
+                )}
+                {activeView === 'result' && item.command && (
+                  <>
                     {item.command.result?.summary && (
                       <p>{item.command.result.summary}</p>
                     )}
+                    {stage === 'failed' && (
+                      <p>再次确认前，请先核对已有影响。</p>
+                    )}
                     {item.command.condition && (
-                      <p>本次附加条件：{item.command.condition}</p>
+                      <>
+                        <h4>附加条件</h4>
+                        <p>{item.command.condition}</p>
+                      </>
                     )}
                     {item.command.authorization_scope && (
-                      <p>本次授权范围：{item.command.authorization_scope}</p>
+                      <>
+                        <h4>授权范围</h4>
+                        <p>{item.command.authorization_scope}</p>
+                      </>
                     )}
-                    {item.command.result?.execution && (
-                      <details className="mb-expand">
-                        <summary>查看执行依据</summary>
-                        <p>{item.command.result.execution.evidence}</p>
-                        <p>承接宿主：{item.command.result.execution.host_id}</p>
-                        <p>
-                          Codex 会话：{item.command.result.execution.session_id}
-                        </p>
-                      </details>
-                    )}
-                    {stage === 'pending' && (
-                      <button
-                        className="mb-secondary"
-                        disabled={busy}
-                        onClick={() => void mutate('revoke')}
-                      >
-                        撤回本次决定
-                      </button>
-                    )}
-                  </div>
+                  </>
                 )}
-                {['deferred', 'revoked'].includes(stage) && (
-                  <button
-                    className="mb-secondary"
-                    disabled={busy}
-                    onClick={() => void mutate('reopen')}
-                  >
-                    重新考虑
-                  </button>
-                )}
+                {activeView === 'evidence' &&
+                  item.command?.result?.execution && (
+                    <>
+                      <p>{item.command.result.execution.evidence}</p>
+                      <h4>承接宿主</h4>
+                      <p>{item.command.result.execution.host_id}</p>
+                      <h4>Codex 会话</h4>
+                      <p>{item.command.result.execution.session_id}</p>
+                    </>
+                  )}
                 {stage === 'expired' && (
-                  <p>本次授权已过期。需要 Agent 根据最新上下文重新提出事项。</p>
+                  <p>本次授权已过期，需要 Agent 重新提出事项。</p>
                 )}
-                {feedback && (
-                  <output className="mb-feedback">{feedback}</output>
-                )}
-              </div>
-              <div className="mb-panel-foot">
-                确认只保存授权。实际动作与结果以执行回执为准。
-              </div>
+              </article>
+            </DragRail>
+            {activeView === 'approval' &&
+              action &&
+              ['open', 'failed'].includes(stage) && (
+                <label className="mb-condition">
+                  附加条件
+                  <textarea
+                    value={condition}
+                    rows={2}
+                    maxLength={1000}
+                    disabled={busy}
+                    placeholder="可选"
+                    onChange={(e) =>
+                      setConditions((v) => ({
+                        ...v,
+                        [item.attention_id]: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              )}
+            {feedback && <output className="mb-feedback">{feedback}</output>}
+            <div className="mb-detail-actions">
+              {['open', 'failed'].includes(stage) && (
+                <>
+                  <button
+                    className="mb-defer"
+                    disabled={busy}
+                    onClick={() => void mutate('defer')}
+                  >
+                    搁置
+                  </button>
+                  {activeView === 'approval' && action ? (
+                    <button
+                      className="mb-primary"
+                      disabled={busy || Boolean(error)}
+                      onClick={() => void mutate('confirm')}
+                    >
+                      {busy ? '保存中…' : '确认授权'}
+                    </button>
+                  ) : (
+                    <DragRail
+                      label="可选操作"
+                      className="mb-action-rail"
+                      resetKey={item.attention_id}
+                    >
+                      <div className="mb-action-strip">
+                        {item.actions
+                          .filter((a) => a.flag !== 'open_source')
+                          .map((a) => (
+                            <button
+                              key={a.action_key}
+                              className="mb-secondary"
+                              disabled={busy}
+                              onClick={() => {
+                                setChoice(a.action_key);
+                                setFeedback('');
+                                chosenRevision.current = item.item_revision;
+                                attempt.current = undefined;
+                                setView('approval');
+                              }}
+                            >
+                              {actionText(a)}
+                            </button>
+                          ))}
+                      </div>
+                    </DragRail>
+                  )}
+                </>
+              )}
+              {stage === 'pending' && (
+                <button
+                  className="mb-secondary"
+                  disabled={busy}
+                  onClick={() => void mutate('revoke')}
+                >
+                  撤回决定
+                </button>
+              )}
+              {['deferred', 'revoked'].includes(stage) && (
+                <button
+                  className="mb-secondary"
+                  disabled={busy}
+                  onClick={() => void mutate('reopen')}
+                >
+                  重新考虑
+                </button>
+              )}
             </div>
           </div>
         </Dialog>
