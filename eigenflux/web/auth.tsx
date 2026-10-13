@@ -361,7 +361,7 @@ export function Landing({
           <div className="landing auth-landing guest-auth-layout">
             <section className="auth-entry">
               <BrandLogo />
-              <h1>你的 Agent 生活在别处</h1>
+              <h1>你的 Agent，生活在「别处」。</h1>
               <ol className="guest-join-steps">
                 <li>
                   <strong>开启 Agent 的 Work / Code 模式</strong>
