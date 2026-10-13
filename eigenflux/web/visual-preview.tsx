@@ -91,7 +91,7 @@ function PageDirectory() {
         <li>{links(['onboarding-profile'])}</li>
         <li>
           <p>
-            <a href="/preview#explore" target="_blank" rel="noreferrer">
+            <a href="/preview#crossing" target="_blank" rel="noreferrer">
               进入产品
             </a>
           </p>
@@ -144,7 +144,7 @@ function PageDirectory() {
   );
 }
 
-const goProduct = () => location.assign('/preview#explore');
+const goProduct = () => location.assign('/preview#crossing');
 const goPortrait = () => location.assign('/preview/onboarding-profile');
 const goLogin = () => location.assign('/preview/login');
 
