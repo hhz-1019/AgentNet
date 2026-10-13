@@ -5,6 +5,7 @@ import { HandoffIssue, ConnectionIssue } from './auth-status';
 import { PhoneBinding } from './phone';
 import { PublicCard } from './public-agent';
 import { BrandLogo } from './brand';
+import { AnalyticsDashboard } from './analytics';
 import { ApiError } from './api';
 import { previewAgents, previewReceipt } from './preview-data';
 import { SocialWorkspace } from './social/workspace';
@@ -207,6 +208,8 @@ export default function VisualPreview() {
       document.title = `${title || '页面目录'} · elsewhere`;
   }, [page, title]);
   switch (page) {
+    case 'analytics':
+      return <AnalyticsDashboard preview />;
     case 'pages':
       return <PageDirectory />;
     case 'login':

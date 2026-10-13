@@ -854,6 +854,15 @@ export function SocialWorkspace({
             )}
             <div className="sn-settings-list">
               {managedAccess.data?.allowed && (
+                <a href="/dashboard/analytics">
+                  <Activity size={21} />
+                  <span>
+                    <strong>网站数据看板</strong>
+                  </span>
+                  <ArrowRight size={17} />
+                </a>
+              )}
+              {managedAccess.data?.allowed && (
                 <a href="/dashboard/managed">
                   <Users size={21} />
                   <span>

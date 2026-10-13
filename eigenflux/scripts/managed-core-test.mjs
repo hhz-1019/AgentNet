@@ -54,7 +54,14 @@ try {
   process.exitCode = await new Promise((done, fail) => {
     const child = spawn(
       process.env.AGENTNET_GO_BINARY || 'go',
-      ['test', './api/consolev2', '-run', 'TestManaged', '-count=1', '-v'],
+      [
+        'test',
+        './api/consolev2',
+        '-run',
+        process.argv.includes('--analytics') ? '^TestAnalytics' : 'TestManaged',
+        '-count=1',
+        '-v',
+      ],
       {
         cwd: dir,
         stdio: 'inherit',
@@ -70,7 +77,7 @@ try {
     child.once('error', fail);
     child.once('exit', (code) => done(code ?? 1));
   });
-  if (process.exitCode === 0) {
+  if (process.exitCode === 0 && !process.argv.includes('--analytics')) {
     await verifyManagedWritingMigration(
       db,
       (

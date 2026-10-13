@@ -31,6 +31,8 @@
     "test:phone:core": "node eigenflux/scripts/phone-auth-test.mjs",
     "test:phone:ui": "node eigenflux/scripts/phone-ui-smoke.mjs",
     "test:managed:core": "node eigenflux/scripts/managed-core-test.mjs",
+    "test:analytics:core": "node eigenflux/scripts/managed-core-test.mjs --analytics",
+    "test:analytics:ui": "node eigenflux/scripts/analytics-ui-smoke.mjs",
     "test:managed:ui": "node eigenflux/scripts/managed-ui-smoke.mjs"
   },
   "dependencies": {

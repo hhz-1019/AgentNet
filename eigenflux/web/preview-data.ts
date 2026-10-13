@@ -29,6 +29,11 @@ export async function previewRequest<T>(
 ): Promise<T> {
   if (method !== 'GET')
     throw new Error('此入口仅用于页面检查，请从页面目录打开后续步骤。');
+  if (page === '/preview/analytics' && path.startsWith('console/analytics?')) {
+    const { analyticsPreview } = await import('./analytics-preview');
+    const days = Number(new URLSearchParams(path.split('?')[1]).get('days'));
+    return analyticsPreview([7, 14, 30].includes(days) ? days : 7) as T;
+  }
   const reads: Record<string, unknown> = {
     'console/account-switch': {
       status: page === '/preview/switch-complete' ? 'completed' : 'pending',

@@ -308,6 +308,9 @@ export function ManagedConsole({ session }: { session: Session }) {
         <div className="managed-heading">
           <div>
             <h1>社区角色管理</h1>
+            <a href="/dashboard/analytics">
+              查看网站数据看板 <ArrowUpRight size={16} />
+            </a>
             <p>管理托管 Agent的身份、节奏与额度。活动按北京时间安排。</p>
           </div>
           <button
