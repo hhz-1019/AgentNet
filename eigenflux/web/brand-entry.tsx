@@ -1,4 +1,6 @@
 import {
+  createContext,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -13,6 +15,13 @@ import {
   type EntryPhase,
 } from './brand-entry-geometry';
 import './brand-entry.css';
+import {
+  EntryPreparationContext,
+  entryContentState,
+  type EntryTask,
+} from './entry-preparation';
+
+export const EntryReadyContext = createContext(true);
 
 const storageKey = 'elsewhere:entry-seen:v1';
 let enteredThisDocument = false;
@@ -45,14 +54,46 @@ export function BrandEntry({
   failed: boolean;
 }) {
   const [active, setActive] = useState(shouldEnter);
+  const [tasks, setTasks] = useState(new Map<symbol, EntryTask>());
+  const report = useCallback((id: symbol, task: EntryTask | null) => {
+    setTasks((previous) => {
+      const existing = previous.get(id);
+      if (
+        (!task && !existing) ||
+        (task &&
+          existing &&
+          task.pending === existing.pending &&
+          task.failed === existing.failed)
+      )
+        return previous;
+      const next = new Map(previous);
+      if (task) next.set(id, task);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+  const contentState = entryContentState(ready, tasks.values());
+  const pageReady = contentState.ready;
   const [resources, setResources] = useState({ fonts: false, logo: false });
   const [resourceFailed, setResourceFailed] = useState(false);
   const [phase, setPhase] = useState<EntryPhase>('loading');
   const content = useRef<HTMLDivElement>(null);
   const curtain = useRef<HTMLDialogElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const prepared = useRef({ ready, failed, resources, resourceFailed, phase });
-  prepared.current = { ready, failed, resources, resourceFailed, phase };
+  const prepared = useRef({
+    ready: pageReady,
+    failed: failed || contentState.failed,
+    resources,
+    resourceFailed,
+    phase,
+  });
+  prepared.current = {
+    ready: pageReady,
+    failed: failed || contentState.failed,
+    resources,
+    resourceFailed,
+    phase,
+  };
 
   useEffect(() => {
     if (!active) return;
@@ -253,11 +294,13 @@ export function BrandEntry({
   }, [active]);
 
   const completed =
-    Number(resources.fonts) + Number(resources.logo) + Number(ready);
+    Number(resources.fonts) + Number(resources.logo) + Number(pageReady);
   return (
     <>
       <div className="ew-entry-content" ref={content}>
-        {children}
+        <EntryPreparationContext value={active ? report : null}>
+          <EntryReadyContext value={!active}>{children}</EntryReadyContext>
+        </EntryPreparationContext>
       </div>
       {active && (
         <dialog

@@ -1,7 +1,14 @@
 import { ThemeSwitcher } from '../theme';
+import { useEntryPreparation } from '../entry-preparation';
 import { UnreadDot, useUnreadMessages } from '../unread';
 import { AgentAvatar, rememberAvatar } from '../avatar';
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -47,6 +54,7 @@ import { ContentTabs, useFeedMotion } from './content-motion';
 import { JournalAtmosphere, useJournalAtmosphere } from './journal-atmosphere';
 import { DemoSettings } from './social-settings';
 import type { WorkPost, SocialStore, Page } from './model';
+import { mergeFeedPage } from './feed-pages';
 import { liveSocialStore, uploadAttachment } from './store';
 import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
@@ -118,12 +126,16 @@ export function SocialWorkspace({
   refresh,
   store = liveSocialStore,
   demo = false,
+  onRequireLogin,
 }: {
   session: Session;
   refresh: () => void;
   store?: SocialStore;
   demo?: boolean;
+  onRequireLogin?: (reason?: string) => void;
 }) {
+  const guest = Boolean(onRequireLogin);
+  const hashRouting = demo || guest;
   const [portrait, setPortrait] = useState(() =>
     demo
       ? readPortrait(session.agent_name, session.bio || '')
@@ -134,7 +146,7 @@ export function SocialWorkspace({
       rememberAvatar(session.agent_id, portrait.fields.avatar);
   }, [session.agent_id, portrait.fields.avatar]);
   useEffect(() => {
-    if (demo) return;
+    if (demo || guest) return;
     let active = true;
     void loadPortrait()
       .then((p) => {
@@ -144,18 +156,26 @@ export function SocialWorkspace({
     return () => {
       active = false;
     };
-  }, [demo, session.agent_id]);
+  }, [demo, guest, session.agent_id]);
   function persistPortrait(next: Portrait) {
     setPortrait(savePortrait(next));
   }
-  const [route, setRoute] = useState(() => readRoute(demo));
-  const hasUnreadMessages = useUnreadMessages(demo, session.agent_id);
+  const [route, setRoute] = useState(() => {
+    const r = readRoute(hashRouting);
+    return guest && personalRoutes.has(r) && r !== 'settings' ? 'explore' : r;
+  });
+  const hasUnreadMessages = useUnreadMessages(demo, session.agent_id, !guest);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [topic, setTopic] = useState('');
-  const [feed, setFeed] = useState(demo ? 'recommended' : 'latest');
+  const [feed, setFeed] = useState(demo || guest ? 'recommended' : 'latest');
   const [page, setPage] = useState<Page>();
   const [cursor, setCursor] = useState('');
+  const feedEnd = useRef<HTMLDivElement>(null);
+  const feedQuery = useRef('');
+  const feedVersion = useRef(0);
+  const feedHistory = useRef(new Map<string, Page>());
+  const [feedRetry, setFeedRetry] = useState(0);
   const [loading, setLoading] = useState(true);
   const [version, setVersion] = useState(0);
   const [error, setError] = useState('');
@@ -197,16 +217,34 @@ export function SocialWorkspace({
         )
         ?.focus({ preventScroll: true });
     detailOrigin.current = card?.getBoundingClientRect();
-    setDetail(post);
+    if (guest) {
+      const request = detailRefresh.current;
+      void store
+        .get(post.id)
+        .then((full) => {
+          if (request === detailRefresh.current) setDetail(full);
+        })
+        .catch(() => {
+          if (request === detailRefresh.current)
+            setNotice('这条动态暂时无法访问，可能已撤回公开。');
+        });
+    } else setDetail(post);
   }
+  const readGuestComments = useCallback(
+    (cursor = '') =>
+      api<{ items: import('./model').Comment[]; next_cursor: string }>(
+        `guest/posts/${encodeURIComponent(detail?.id || '')}/comments?cursor=${encodeURIComponent(cursor)}`,
+      ),
+    [detail?.id],
+  );
   const accounts = useData<{ accounts: Account[] }>(
-    demo ? null : 'console/accounts',
+    demo || guest ? null : 'console/accounts',
   );
   const managedAccess = useData<{
     allowed: boolean;
     delegated?: boolean;
     sponsor_number?: string;
-  }>(demo ? null : 'console/managed/access');
+  }>(demo || guest ? null : 'console/managed/access');
   const feedRoute = ['explore', 'me', 'liked', 'saved', 'drafts'].includes(
     route,
   );
@@ -218,14 +256,23 @@ export function SocialWorkspace({
       : route === 'crossing/traces'
         ? 'traces'
         : 'now';
+  useEntryPreparation(
+    (feedRoute && !page && !error) || (personRoute && !personReady),
+    feedRoute && Boolean(error) && !page,
+  );
   const personal = personalRoutes.has(route);
   const profileIntro = portrait.fields.bio?.trim();
   const generation = useRef(0);
-  const href = (id: string) => (demo ? `/preview#${id}` : `/dashboard/${id}`);
+  const href = (id: string) =>
+    guest
+      ? `${location.pathname}#${id}`
+      : demo
+        ? `/preview#${id}`
+        : `/dashboard/${id}`;
   useEffect(() => {
-    if (demo && !location.hash)
+    if (demo && !guest && !location.hash)
       history.replaceState(history.state, '', '/preview#crossing');
-  }, [demo]);
+  }, [demo, guest]);
   function reload() {
     setVersion((v) => v + 1);
     refreshData();
@@ -241,8 +288,20 @@ export function SocialWorkspace({
     )
       return;
     event?.preventDefault();
+    if (guest && personalRoutes.has(id) && id !== 'settings') {
+      onRequireLogin?.('登录后查看我的主页与私人内容');
+      return;
+    }
     if (id === route) return;
     detailRefresh.current++;
+    // Infinite feeds can exceed the browser's serialized history size limit.
+    // Retain a few recent feed snapshots in memory, store only their keys.
+    const feedSnapshot = page ? crypto.randomUUID() : '';
+    if (page) {
+      feedHistory.current.set(feedSnapshot, page);
+      if (feedHistory.current.size > 4)
+        feedHistory.current.delete(feedHistory.current.keys().next().value!);
+    }
     history.replaceState(
       {
         ...history.state,
@@ -253,6 +312,7 @@ export function SocialWorkspace({
           topic,
           feed,
           cursor,
+          feedSnapshot,
           detail,
           scroll: window.scrollY,
           detailScroll:
@@ -286,43 +346,58 @@ export function SocialWorkspace({
   }
   useEffect(() => {
     const sync = () => {
-      if (demo && location.hash === '#social-main') return;
-      const nextRoute = readRoute(demo);
+      if (hashRouting && location.hash === '#social-main') return;
+      const requested = readRoute(hashRouting);
+      const nextRoute =
+        guest && personalRoutes.has(requested) && requested !== 'settings'
+          ? 'explore'
+          : requested;
       const saved = history.state?.elsewhereView;
       const view = saved?.route === nextRoute ? saved : undefined;
+      const restoredPage = view?.feedSnapshot
+        ? feedHistory.current.get(view.feedSnapshot)
+        : undefined;
       setRoute(nextRoute);
       setPersonReady(false);
       detailPosition.current = view?.detailScroll || 0;
-      setDetail(view?.detail);
+      setDetail(guest ? undefined : view?.detail);
       const request = ++detailRefresh.current;
       if (view?.detail) {
         void store
           .get(view.detail.id)
           .then((current) => {
             if (request === detailRefresh.current)
-              setDetail((open) => (open?.id === current.id ? current : open));
+              setDetail((open) =>
+                guest || open?.id === current.id ? current : open,
+              );
           })
           .catch(() => {
             if (request === detailRefresh.current)
               setReactionError('暂时无法更新这条动态，请关闭后重试。');
           });
       }
-      setCursor(view?.cursor || '');
+      setCursor(restoredPage ? view?.cursor || '' : '');
       setQuery(view?.query || '');
       setSearch(view?.search || '');
       setTopic(view?.topic || '');
       if (view?.feed) setFeed(view.feed);
       returnPosition.current = view?.scroll ?? 0;
-      setPage(undefined);
+      feedQuery.current = JSON.stringify([
+        nextRoute,
+        view?.search || '',
+        view?.topic || '',
+        view?.feed || feed,
+      ]);
+      setPage(restoredPage);
     };
     // Hash history traversal fires both events. Handle it once so a second
     // event cannot clear the feed after its load has already completed.
-    const event = demo ? 'hashchange' : 'popstate';
+    const event = hashRouting ? 'hashchange' : 'popstate';
     window.addEventListener(event, sync);
     return () => {
       window.removeEventListener(event, sync);
     };
-  }, [demo, store]);
+  }, [demo, guest, hashRouting, store, feed]);
   useEffect(() => {
     if (
       returnPosition.current === undefined ||
@@ -349,6 +424,19 @@ export function SocialWorkspace({
   }, [query, search]);
   useEffect(() => {
     if (!feedRoute) return;
+    const key = JSON.stringify([route, search, topic, feed]);
+    const changed = feedQuery.current !== key;
+    if (changed && cursor) {
+      setPage(undefined);
+      setCursor('');
+      return;
+    }
+    const refresh = !changed && feedVersion.current !== version;
+    feedQuery.current = key;
+    feedVersion.current = version;
+    if (changed) setPage(undefined);
+    const requestCursor = refresh ? '' : cursor;
+    const mode = refresh ? 'refresh' : requestCursor ? 'append' : 'replace';
     let active = true;
     const id = ++generation.current;
     setLoading(true);
@@ -372,7 +460,7 @@ export function SocialWorkspace({
         q: search,
         kind: 'all',
         tags: topic ? [topic] : [],
-        cursor,
+        cursor: requestCursor,
       })
       .then((p) => {
         if (active && generation.current === id) {
@@ -384,7 +472,7 @@ export function SocialWorkspace({
                     ['林间的 Agent', '小周的 Agent'].includes(item.author_name),
                   )
                 : p.items;
-            setPage({
+            p = {
               ...p,
               items:
                 feed === 'recommended'
@@ -394,8 +482,11 @@ export function SocialWorkspace({
                         (b.published_at || b.created_at) -
                         (a.published_at || a.created_at),
                     ),
-            });
-          } else setPage(p);
+            };
+          }
+          setPage((previous) =>
+            mergeFeedPage(previous, p, mode, requestCursor),
+          );
         }
       })
       .catch((e) => {
@@ -407,9 +498,46 @@ export function SocialWorkspace({
     return () => {
       active = false;
     };
-  }, [store, route, search, topic, cursor, version, feedRoute, feed, demo]);
+  }, [
+    store,
+    route,
+    search,
+    topic,
+    cursor,
+    version,
+    feedRetry,
+    feedRoute,
+    feed,
+    demo,
+  ]);
   useEffect(() => {
-    if (demo) return;
+    const node = feedEnd.current;
+    if (!node || !feedRoute || loading || error || !page?.next_cursor) return;
+    let observer: IntersectionObserver;
+    const observe = () => {
+      observer?.disconnect();
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            // A refresh can cancel an in-flight append. Retry that same cursor
+            // rather than leaving the sentinel unable to trigger a state change.
+            if (page.next_cursor === cursor) setFeedRetry((v) => v + 1);
+            setCursor(page.next_cursor);
+          }
+        },
+        { rootMargin: `0px 0px ${window.innerHeight}px 0px` },
+      );
+      observer.observe(node);
+    };
+    observe();
+    window.addEventListener('resize', observe);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', observe);
+    };
+  }, [feedRoute, page, loading, error, cursor]);
+  useEffect(() => {
+    if (demo || guest) return;
     const onRefresh = () => setVersion((v) => v + 1);
     const source = new EventSource('/api/v2/console/activity/stream');
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -432,8 +560,12 @@ export function SocialWorkspace({
       clearInterval(poll);
       window.removeEventListener('agentnet:refresh', onRefresh);
     };
-  }, [demo, session.agent_id]);
+  }, [demo, guest, session.agent_id]);
   async function react(post: WorkPost, type: 'like' | 'save') {
+    if (guest) {
+      onRequireLogin?.(type === 'like' ? '登录后即可点赞' : '登录后即可收藏');
+      return;
+    }
     if (pending.includes(post.id)) return;
     setReactionError('');
     setPending((ids) => [...ids, post.id]);
@@ -494,6 +626,7 @@ export function SocialWorkspace({
     <div
       className="sw-workspace sn-social ew-social cx-enabled"
       data-page={route}
+      data-guest={guest || undefined}
       ref={workspace}
     >
       <JournalAtmosphere background={atmosphere.background} />
@@ -520,7 +653,9 @@ export function SocialWorkspace({
         <nav aria-label="主导航">{renderNav()}</nav>
         <button
           className="sw-primary sw-create"
-          onClick={() => setPublisher(true)}
+          onClick={() =>
+            guest ? onRequireLogin?.('登录后即可发布动态') : setPublisher(true)
+          }
         >
           <Plus size={19} />
           发布
@@ -533,15 +668,29 @@ export function SocialWorkspace({
           onClick={(e) => go('me', e)}
         >
           <span className="sw-avatar">
-            <AgentAvatar
-              agentId={session.agent_id}
-              avatar={portrait.fields.avatar}
-            />
+            {guest ? (
+              <UserRound size={26} />
+            ) : (
+              <AgentAvatar
+                agentId={session.agent_id}
+                avatar={portrait.fields.avatar}
+              />
+            )}
           </span>
           <span>
-            <strong>{portrait.fields.name || session.agent_name}</strong>
+            <strong>
+              {guest
+                ? '登录 / 加入'
+                : portrait.fields.name || session.agent_name}
+            </strong>
           </span>
         </a>
+        {guest && (
+          <button className="ew-guest-settings" onClick={() => go('settings')}>
+            <Settings2 size={18} />
+            设置
+          </button>
+        )}
       </aside>
       <main id="social-main" className="sw-main">
         {personal && !['me', 'liked', 'saved', 'drafts'].includes(route) && (
@@ -591,7 +740,7 @@ export function SocialWorkspace({
                   meta={
                     session.owner_uid ? (
                       <span>
-                        账号 UID <code>{session.owner_uid}</code>
+                        账号 <code>{session.owner_uid}</code>
                       </span>
                     ) : undefined
                   }
@@ -638,6 +787,7 @@ export function SocialWorkspace({
           />
         ) : personRoute ? (
           <PersonHome
+            onRequireLogin={onRequireLogin}
             viewerId={session.agent_id}
             key={route}
             id={route.slice(7)}
@@ -671,6 +821,10 @@ export function SocialWorkspace({
                         key={id}
                         aria-pressed={feed === id}
                         onClick={() => {
+                          if (guest && id === 'following') {
+                            onRequireLogin?.('登录后查看关注的动态');
+                            return;
+                          }
                           setFeed(id);
                           setCursor('');
                         }}
@@ -733,7 +887,7 @@ export function SocialWorkspace({
                 </button>
               </div>
             )}
-            {error ? (
+            {error && !page ? (
               <div className="sw-feed-error" role="alert">
                 <strong>暂时无法读取动态</strong>
                 <p>{error}</p>
@@ -822,6 +976,7 @@ export function SocialWorkspace({
                           setFeed('latest');
                         else if (['saved', 'liked'].includes(route))
                           go('explore');
+                        else if (guest) onRequireLogin?.('登录后即可发布动态');
                         else setPublisher(true);
                       }}
                     >
@@ -835,19 +990,25 @@ export function SocialWorkspace({
                     </button>
                   </div>
                 )}
-                {(cursor || page?.next_cursor) && (
-                  <div className="sw-pagination">
-                    <button disabled={!cursor} onClick={() => setCursor('')}>
-                      回到最新
-                    </button>
-                    <button
-                      disabled={!page?.next_cursor}
-                      onClick={() => setCursor(page?.next_cursor || '')}
-                    >
-                      下一页
-                    </button>
-                  </div>
-                )}
+                <div ref={feedEnd} className="sw-feed-end" aria-live="polite">
+                  {error ? (
+                    <div role="alert">
+                      <p>{error}</p>
+                      <button onClick={() => setFeedRetry((v) => v + 1)}>
+                        重试加载
+                      </button>
+                    </div>
+                  ) : loading ? (
+                    <output className="sw-feed-dots">
+                      <span className="sw-sr-only">正在加载更多动态…</span>
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                    </output>
+                  ) : page && page.items.length > 0 && !page.next_cursor ? (
+                    '已经看完全部动态'
+                  ) : null}
+                </div>
               </>
             )}
           </>
@@ -856,12 +1017,17 @@ export function SocialWorkspace({
             <MessagePreview onProfile={openProfile} />
           ) : (
             <section className="sw-legacy">
-              <Messages session={session} onProfile={openProfile} />
+              <Messages
+                session={session}
+                onProfile={openProfile}
+                onRequireLogin={onRequireLogin}
+              />
             </section>
           )
         ) : route === 'network' ? (
           <section className="sw-legacy">
             <Network
+              onRequireLogin={onRequireLogin}
               demo={demo}
               store={store}
               onMessages={(id) => {
@@ -914,10 +1080,19 @@ export function SocialWorkspace({
             )}
             <div className="sn-settings-list">
               {managedAccess.data?.allowed && (
+                <a href="/dashboard/analytics">
+                  <Activity size={21} />
+                  <span>
+                    <strong>管理员控制台</strong>
+                  </span>
+                  <ArrowRight size={17} />
+                </a>
+              )}
+              {managedAccess.data?.allowed && (
                 <a href="/dashboard/managed">
                   <Users size={21} />
                   <span>
-                    <strong>社区角色管理</strong>
+                    <strong>官方 Agent 管理</strong>
                   </span>
                   <ArrowRight size={17} />
                 </a>
@@ -969,20 +1144,26 @@ export function SocialWorkspace({
                   </select>
                 </label>
               )}
-              {!demo && (
-                <button
-                  onClick={async () => {
-                    try {
-                      await api('console/session', undefined, 'DELETE');
-                      refresh();
-                    } catch (e) {
-                      setNotice(e instanceof Error ? e.message : '退出失败');
-                    }
-                  }}
-                >
-                  <LogOut size={16} />
-                  退出登录
+              {guest ? (
+                <button onClick={() => onRequireLogin?.('登录后管理账号')}>
+                  登录 / 加入
                 </button>
+              ) : (
+                !demo && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api('console/session', undefined, 'DELETE');
+                        refresh();
+                      } catch (e) {
+                        setNotice(e instanceof Error ? e.message : '退出失败');
+                      }
+                    }}
+                  >
+                    <LogOut size={16} />
+                    退出登录
+                  </button>
+                )
               )}
             </section>
           </section>
@@ -1024,7 +1205,9 @@ export function SocialWorkspace({
         {renderNav(['crossing', 'explore', 'messages'])}
         <button
           className="ew-mobile-publish"
-          onClick={() => setPublisher(true)}
+          onClick={() =>
+            guest ? onRequireLogin?.('登录后即可发布动态') : setPublisher(true)
+          }
         >
           <Plus size={21} />
           <span>发布</span>
@@ -1041,21 +1224,33 @@ export function SocialWorkspace({
           avatar={portrait.fields.avatar}
           onClose={() => setPublisher(undefined)}
           onPublish={async (input) => {
-            if (demo)
-              await (store as PreviewStore).share({
-                ...input,
-                name: portrait.fields.name,
-              });
-            else
-              await api('console/social/share', {
-                title: input.title,
-                tags: input.tags,
-                content: input.content,
-                visibility: input.visibility,
-                media: input.media,
-                idempotency_key: input.key,
-              });
+            const published = demo
+              ? await (store as PreviewStore).share({
+                  ...input,
+                  name: portrait.fields.name,
+                })
+              : await api<WorkPost>('console/social/share', {
+                  title: input.title,
+                  tags: input.tags,
+                  content: input.content,
+                  visibility: input.visibility,
+                  media: input.media,
+                  idempotency_key: input.key,
+                });
+            if (
+              !published?.id ||
+              published.state !== 'published' ||
+              published.agent_id !== session.agent_id
+            )
+              throw new Error(
+                '服务器尚未确认这条动态发布成功，请保留内容后重试。',
+              );
             go('me');
+            setCursor('');
+            setQuery('');
+            setSearch('');
+            setTopic('');
+            setPage(undefined);
             reload();
             setNotice('动态已发布。');
           }}
@@ -1072,6 +1267,11 @@ export function SocialWorkspace({
           }}
           onPublished={() => {
             go('me');
+            setCursor('');
+            setQuery('');
+            setSearch('');
+            setTopic('');
+            setPage(undefined);
             reload();
             setNotice('动态已发布。');
           }}
@@ -1080,6 +1280,12 @@ export function SocialWorkspace({
       {detail && (
         <PostDetail
           post={detail}
+          onRequireLogin={
+            onRequireLogin
+              ? () => onRequireLogin('登录后即可参与互动')
+              : undefined
+          }
+          readComments={guest ? readGuestComments : undefined}
           viewer={{
             avatar: portrait.fields.avatar,
             id: session.agent_id,

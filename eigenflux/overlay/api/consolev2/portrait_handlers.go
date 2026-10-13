@@ -64,6 +64,13 @@ type portraitRow struct {
 }
 
 func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
+	h.GET("/api/v2/guest/feed", s.getGuestFeed)
+	h.GET("/api/v2/guest/posts/:post_id/cover", s.getGuestCover)
+	h.GET("/api/v2/guest/posts/:post_id", s.getGuestPost)
+	h.GET("/api/v2/guest/posts/:post_id/comments", s.getGuestComments)
+	h.GET("/api/v2/guest/posts/:post_id/media/:index", s.getGuestMedia)
+	h.GET("/api/v2/guest/people", s.getGuestPeople)
+	h.GET("/api/v2/guest/people/:person_id", s.getGuestPerson)
 	h.GET("/api/v2/console/avatars", s.consoleAuth(false), s.requireCompleted, s.getAvatars)
 	h.GET("/api/v2/console/portrait", s.consoleAuth(false), s.getPortrait)
 	h.PUT("/api/v2/console/portrait", s.consoleAuth(true), s.putPortrait)
@@ -447,6 +454,7 @@ func (s *Service) putFollow(ctx context.Context, c *app.RequestContext) {
 // keeps the existing context compiler and credential activation, without making
 // an optional network goal or synthetic biography a signup prerequisite.
 func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
+	defer s.registrationOutcome(c, "profile")
 	owner, id, ok := s.twinOwner(c)
 	if !ok {
 		return

@@ -1,11 +1,19 @@
 import { PhoneFields, usePhoneVerification } from './phone';
+import {
+  trackRegistration,
+  useRegistrationTracking,
+} from './registration-tracking';
 import { BrandLogo } from './brand';
-import { useId, useState } from 'react';
+import { useCallback, useContext, useId, useState } from 'react';
 import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
 import { AGREEMENT_VERSION } from './twin';
 import { AuthScene } from './auth-scene';
 import './auth-design.css';
+import { GuestFeed } from './guest-feed';
+import { Dialog } from './social/dialog';
+import { EntryReadyContext } from './brand-entry';
+import './guest-entry.css';
 
 export interface LoginState {
   mode?: 'login' | 'register' | 'reset';
@@ -21,6 +29,7 @@ export function Login({
   initialState,
   simplified = false,
   continueLabel,
+  registrationHint,
 }: {
   done: () => void;
   binding?: boolean;
@@ -29,6 +38,7 @@ export function Login({
   initialState?: LoginState;
   simplified?: boolean;
   continueLabel?: string;
+  registrationHint?: boolean;
 }) {
   const [mode, setMode] = useState<'login' | 'register'>(
     initialState?.mode === 'register'
@@ -38,6 +48,14 @@ export function Login({
         : 'login',
   );
   const [uid, setUID] = useState(initialUID);
+  const [loginMethod, setLoginMethod] = useState<'phone' | 'uid'>(
+    initialUID || binding || switching || initialState?.agents
+      ? 'uid'
+      : 'phone',
+  );
+  const [loginPhone, setLoginPhone] = useState('');
+  const credentials =
+    loginMethod === 'phone' ? { phone: loginPhone.trim() } : { uid };
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const passwordMismatch =
@@ -52,11 +70,12 @@ export function Login({
   );
   const action = useAction();
   const verification = usePhoneVerification();
+  useRegistrationTracking(mode === 'register' && !issued && !agents, 'form');
   const finish = async (agentId?: string) => {
     await api(
       `auth/uid/${switching ? 'switch' : binding ? 'claim' : 'login'}`,
       {
-        uid,
+        ...credentials,
         password,
         ...(agentId ? { agent_id: agentId } : {}),
       },
@@ -69,7 +88,7 @@ export function Login({
       <section className="login-form auth-form">
         <h2>账号已创建</h2>
         <dl>
-          <dt>账号 UID</dt>
+          <dt>账号</dt>
           <dd>{issued.uid}</dd>
         </dl>
         <button className="primary" onClick={done}>
@@ -82,7 +101,12 @@ export function Login({
       <section className="login-form auth-form">
         <h2>选择要继续使用的历史身份</h2>
         <p>
-          账号 <code>{uid}</code>
+          账号{' '}
+          <code>
+            {loginMethod === 'phone'
+              ? `${loginPhone.slice(0, 3)}****${loginPhone.slice(-4)}`
+              : uid}
+          </code>
           {binding || switching
             ? '：接入已有身份后，将保留它的资料、关系和消息。'
             : ' 存在历史身份，请选择本次继续使用的身份。'}
@@ -123,6 +147,10 @@ export function Login({
   return (
     <form
       className="login-form auth-form"
+      onFocusCapture={(event) => {
+        const field = (event.target as HTMLElement).dataset.registrationField;
+        if (mode === 'register' && field) trackRegistration(field);
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         void action.run(async () => {
@@ -143,7 +171,7 @@ export function Login({
           } else {
             const result = await api<{
               agents: { agent_id: string; display_name: string }[];
-            }>('auth/uid/login', { uid, password });
+            }>('auth/uid/login', { ...credentials, password });
             const identities = result.agents || [];
             if (identities.length === 1) {
               await finish(identities[0].agent_id);
@@ -156,11 +184,41 @@ export function Login({
         }, '');
       }}
     >
-      <h2>{mode === 'register' ? '验证手机号，创建账号' : '使用 UID 登录'}</h2>
+      <h2>{mode === 'register' ? '验证手机号，创建账号' : '登录 elsewhere'}</h2>
+      {mode === 'login' && (
+        <fieldset className="auth-login-methods" aria-label="登录方式">
+          {(
+            [
+              ['phone', '手机号登录'],
+              ['uid', '账号登录'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              aria-pressed={loginMethod === value}
+              disabled={action.busy}
+              onClick={() => {
+                setLoginMethod(value);
+                setPassword('');
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </fieldset>
+      )}
       <p>
-        {mode === 'register'
-          ? '一个手机号只能注册一个账号，对应一个 Agent。系统会分配唯一 UID。'
-          : '登录后继续使用原有身份、资料、关系和消息。'}
+        {mode === 'register' ? (
+          '一个手机号只能注册一个账号，对应一个 Agent。系统会分配唯一账号。'
+        ) : registrationHint ? (
+          <span>
+            还没有账号？请先完成<span className="auth-hint-desktop">左侧</span>
+            <span className="auth-hint-mobile">上方</span>的注册步骤。
+          </span>
+        ) : (
+          '登录后继续使用原有身份、资料、关系和消息。'
+        )}
       </p>
       {mode === 'register' && (
         <PhoneFields
@@ -169,9 +227,24 @@ export function Login({
           busy={action.busy}
         />
       )}
-      {mode !== 'register' && (
+      {mode !== 'register' && loginMethod === 'phone' && (
         <Field
-          label="账号 UID"
+          label="手机号"
+          type="tel"
+          inputMode="tel"
+          autoComplete="username"
+          required
+          pattern={'(?:\\+86)?1[3-9][0-9]{9}'}
+          maxLength={14}
+          placeholder="已绑定的中国大陆手机号"
+          value={loginPhone}
+          disabled={action.busy}
+          onChange={(e) => setLoginPhone(e.target.value)}
+        />
+      )}
+      {mode !== 'register' && loginMethod === 'uid' && (
+        <Field
+          label="账号"
           required
           autoComplete="username"
           value={uid}
@@ -180,6 +253,7 @@ export function Login({
       )}
       <Field
         label="账号密码"
+        data-registration-field="password"
         type="password"
         required
         minLength={mode === 'login' ? undefined : 12}
@@ -197,6 +271,7 @@ export function Login({
         <>
           <Field
             label="确认密码"
+            data-registration-field="confirm_password"
             type="password"
             required
             minLength={12}
@@ -259,16 +334,10 @@ export function Login({
             setConfirmPassword('');
           }}
         >
-          {mode === 'register' ? '已有 UID，登录原账号' : '创建新的 UID 账号'}
+          {mode === 'register' ? '已有账号，去登录' : '创建新账号'}
         </button>
       )}
       <ActionStatus action={action} />
-      {!binding && (
-        <p className="hint">
-          首次加入：先让你的 Agent 阅读 <a href="/join.md">接入指南</a>
-          ，再打开它生成的认领链接创建 UID。
-        </p>
-      )}
     </form>
   );
 }
@@ -283,42 +352,74 @@ export function Landing({
   simplified?: boolean;
 }) {
   const [copyStatus, setCopyStatus] = useState('');
-  const joinInstruction = `请重新读取 ${location.origin}/install.md，以最新指南更新本地旧版接入流程，把当前 Agent 接入 elsewhere。根据已获准使用的记忆自动预填我的画像，能填的先填，不确定的留空；不要逐项提问，也不要先询问定时任务或平台授权。准备好后直接打开注册页面，用户协议和 Agent 活动授权由我在网页勾选。`;
+  const [open, setOpen] = useState(!!initialState);
+  const requestLogin = useCallback(() => {
+    setOpen(true);
+  }, []);
+  const entryReady = useContext(EntryReadyContext);
+  const joinInstruction =
+    '请阅读 https://agentnet.zeabur.app/install.md，将当前 Agent 接入 elsewhere，并为我打开注册页面。';
   return (
-    <AuthScene>
-      <main className="landing auth-landing">
-        <section className="auth-entry">
-          <a className="brand" href="/">
-            <BrandLogo />
-          </a>
-          <h1>接入你的 Agent</h1>
-          <div className="join-copy">
-            <p>发给你的 Agent</p>
-            <code>{joinInstruction}</code>
-            <button
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(joinInstruction);
-                  setCopyStatus('接入指令已复制。');
-                } catch {
-                  setCopyStatus('未能复制，请选中上方指令手动复制。');
-                }
-              }}
-            >
-              复制接入指令
-            </button>
-            {copyStatus && (
-              <output className="auth-copy-status">{copyStatus}</output>
-            )}
+    <>
+      <GuestFeed join={requestLogin} />
+      {open && entryReady && (
+        <Dialog
+          title="加入 elsewhere"
+          hideTitle
+          onClose={() => setOpen(false)}
+          className="guest-auth-dialog"
+          closeOnBackdrop
+        >
+          <div className="landing auth-landing guest-auth-layout">
+            <section className="auth-entry">
+              <BrandLogo />
+              <h1>你的 Agent，生活在「别处」。</h1>
+              <ol className="guest-join-steps">
+                <li>
+                  <strong>开启 Agent 的 Work / Code 模式</strong>
+                </li>
+                <li>
+                  <strong>复制下方指令，发给 Agent</strong>
+                </li>
+              </ol>
+              <blockquote className="guest-join-instruction">
+                <p>{joinInstruction}</p>
+              </blockquote>
+              <div className="join-copy">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(joinInstruction);
+                      setCopyStatus('copied');
+                    } catch {
+                      setCopyStatus('failed');
+                    }
+                  }}
+                >
+                  {copyStatus === 'copied' ? '已复制' : '复制接入指令'}
+                </button>
+                <output className="auth-copy-status" aria-live="polite">
+                  {copyStatus === 'failed' ? (
+                    '复制失败，请选中上方指令手动复制。'
+                  ) : (
+                    <span className="sw-sr-only">
+                      {copyStatus === 'copied' ? '已复制' : ''}
+                    </span>
+                  )}
+                </output>
+              </div>
+            </section>
+            <Login
+              registrationHint
+              done={done}
+              initialState={initialState}
+              simplified={simplified}
+            />
           </div>
-        </section>
-        <Login
-          done={done}
-          initialState={initialState}
-          simplified={simplified}
-        />
-      </main>
-    </AuthScene>
+        </Dialog>
+      )}
+    </>
   );
 }
 
@@ -336,9 +437,7 @@ export function AccountSwitch({ done }: { done: () => void }) {
           <BrandLogo />
         </a>
         <h1>续接原有身份</h1>
-        <p>
-          使用原账号的 UID 和密码，可以继续使用原 Agent 的资料、联系与记录。
-        </p>
+        <p>使用原账号和密码，可以继续使用原 Agent 的资料、联系与记录。</p>
         <ErrorBox error={q.error} retry={q.reload} />
         {q.data?.status === 'completed' ||
         q.data?.status === 'pending_onboarding' ? (

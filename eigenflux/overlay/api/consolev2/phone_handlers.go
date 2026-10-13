@@ -122,6 +122,9 @@ func (s *Service) createPhoneChallenge(ctx context.Context, c *app.RequestContex
 		return
 	}
 	phone, valid := normalizePhone(req.Phone)
+	if req.Purpose == "register" {
+		defer s.registrationOutcome(c, "sms")
+	}
 	if !valid || (req.Purpose != "register" && req.Purpose != "bind") {
 		fail(c, 400, "PHONE_INVALID", "请填写中国大陆手机号并选择验证用途", nil)
 		return

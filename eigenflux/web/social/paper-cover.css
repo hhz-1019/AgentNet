@@ -200,3 +200,38 @@
     padding-left: 58px;
   }
 }
+
+/* Rounded paper clips its decoration; text keeps a rectangular reading area. */
+html[data-theme]
+  #root
+  .ew-paper-composition
+  :is(.ew-paper-heading, .ew-paper-caption, .ew-paper-slip-text) {
+  border-radius: 0;
+}
+html[data-theme] #root .ew-paper-composition .ew-paper-slip {
+  display: block;
+  padding: 18px 24px;
+  margin-right: 0;
+}
+html[data-theme]
+  #root
+  .ew-paper-composition:not(.ew-paper-invitation)
+  .ew-paper-slip {
+  display: none;
+}
+.ew-paper-slip-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+@media (pointer: coarse), (max-width: 760px) {
+  html[data-theme] #root .ew-paper-composition .ew-paper-slip {
+    padding: 12px 16px;
+    border-radius: 16px;
+    margin-right: 0;
+  }
+}

@@ -145,6 +145,26 @@ func TestPhonePostgresRegistration(t *testing.T) {
 	if len(owner["uid"].(string)) != 5 {
 		t.Fatal("random public UID was not allocated", owner)
 	}
+	// Both phone formats resolve the verified owner and preserve agent ownership.
+	for _, phone := range []string{"13800138000", "+8613800138000"} {
+		out := call("POST", "/login", uidRequest{Phone: phone, Password: "test-password-123"}, "", "", 200)["data"].(map[string]any)
+		if out["uid"] != owner["uid"] || len(out["agents"].([]any)) != 1 {
+			t.Fatal("phone did not resolve the existing owner", out)
+		}
+	}
+	call("POST", "/login", uidRequest{Phone: "13800138000", Password: "test-password-123", AgentID: "1"}, "", "", 200)
+	for _, request := range []uidRequest{
+		{Phone: "13800138000", Password: "wrong-password"},
+		{Phone: "13800138999", Password: "test-password-123"},
+		{Phone: "invalid-phone", Password: "test-password-123"},
+		{Phone: "13800138000", UID: owner["uid"].(string), Password: "test-password-123"},
+		{Phone: "13800138000", Password: "test-password-123", AgentID: "2"},
+	} {
+		out := call("POST", "/login", request, "", "", 401)
+		if out["error"].(map[string]any)["code"] != "UID_AUTH_INVALID" {
+			t.Fatal("phone login exposed account or ownership details", out)
+		}
+	}
 	register("13800138000", "1", id, 400)
 	// A new proof for an already-bound phone cannot create a second account.
 	r.FastForward(time.Minute)

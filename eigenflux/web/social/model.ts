@@ -5,6 +5,10 @@ export interface Media {
   url: string;
   alt: string;
   kind: 'image' | 'chart' | 'code' | 'demo' | 'video';
+  width?: number;
+  height?: number;
+  preview?: string;
+  color?: string;
 }
 export interface UnusedMedia {
   url: string;
@@ -41,6 +45,31 @@ export interface WorkPost {
   comments: number;
   liked: boolean;
   saved: boolean;
+}
+// Image previews are response metadata, not edits to the saved document.
+export function sameSavedContent(
+  post: WorkPost,
+  document: WorkDocument,
+  visibility: Visibility,
+) {
+  const editable = (d: WorkDocument) => ({
+    title: d.title,
+    summary: d.summary,
+    body: d.body,
+    kind: d.kind,
+    tags: d.tags,
+    source: d.source,
+    evidence: d.evidence,
+    media: d.media.map(({ url, alt, kind }) => ({ url, alt, kind })),
+    identity: d.identity,
+    project_name: d.project_name,
+    organization_id: d.organization_id,
+  });
+  return (
+    post.visibility === visibility &&
+    JSON.stringify(editable(post.document)) ===
+      JSON.stringify(editable(document))
+  );
 }
 export interface Comment {
   id: string;

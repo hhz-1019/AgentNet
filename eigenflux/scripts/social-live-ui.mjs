@@ -28,6 +28,25 @@ await peer.addCookies([{ name: 'social_viewer', value: '2', url: origin }]);
 const page = await a.newPage(),
   second = await b.newPage();
 const errors = [];
+const saveRequests = [];
+page.on('requestfailed', (request) => {
+  if (/\/social\/(drafts|posts)\//.test(request.url()))
+    saveRequests.push({
+      method: request.method(),
+      path: new URL(request.url()).pathname,
+      failure: request.failure()?.errorText,
+    });
+});
+page.on('response', async (response) => {
+  if (!/\/social\/posts\/\d+$/.test(response.url())) return;
+  const result = await response.json().catch(() => undefined);
+  saveRequests.push({
+    status: response.status(),
+    revision: result?.data?.post?.revision,
+    media: result?.data?.post?.document?.media?.length,
+    error: result?.error?.code,
+  });
+});
 page.on('pageerror', (e) => errors.push(e.message));
 second.on('pageerror', (e) => errors.push(e.message));
 try {
@@ -353,6 +372,8 @@ try {
     'PASS live PostgreSQL browser flow: personal settings navigation, upload, saved-revision review, private publication, organization consent/attribution and attachment ACL',
   );
 } catch (error) {
+  console.log('Save request diagnostics:', saveRequests);
+  console.log('Browser errors:', errors);
   console.log('DOM:', await page.locator('body').innerText());
   console.log(
     'Visible errors:',

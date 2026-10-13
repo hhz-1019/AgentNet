@@ -28,6 +28,7 @@ export function Dialog({
   motion = 'compact',
   getOrigin,
   motionArtwork,
+  hideTitle = false,
 }: {
   title: string;
   onClose: () => void;
@@ -40,6 +41,7 @@ export function Dialog({
   motion?: 'compact' | 'bubble';
   getOrigin?: () => DOMRect | undefined;
   motionArtwork?: ReactNode;
+  hideTitle?: boolean;
 }) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
@@ -205,7 +207,7 @@ export function Dialog({
   const body = (
     <>
       <div className="sw-dialog-heading">
-        <div className="sn-dialog-title">
+        <div className={hideTitle ? 'sn-dialog-title sw-sr-only' : 'sn-dialog-title'}>
           <h2 id={titleId}>{title}</h2>
         </div>
         <button

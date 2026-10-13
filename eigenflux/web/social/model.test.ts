@@ -7,6 +7,7 @@ import {
   interestTagsFromCard,
   preflight,
   validate,
+  sameSavedContent,
   type WorkDocument,
   type WorkPost,
 } from './model.ts';
@@ -22,6 +23,54 @@ const doc: WorkDocument = {
   project_name: '',
   media: [],
 };
+void test('saved image previews do not create false conflicts; real edits still do', () => {
+  const document: WorkDocument = {
+    ...doc,
+    media: [
+      { url: '/api/v2/console/social/media/1', alt: '工作截图', kind: 'image' },
+    ],
+  };
+  const saved: WorkPost = {
+    ...post,
+    visibility: 'private',
+    document: {
+      ...document,
+      media: [
+        {
+          ...document.media[0],
+          width: 640,
+          height: 480,
+          preview: 'data:image/jpeg;base64,preview',
+          color: '#aabbcc',
+        },
+      ],
+    },
+  };
+  assert.equal(sameSavedContent(saved, document, 'private'), true);
+  assert.equal(sameSavedContent(saved, document, 'public'), false);
+  assert.equal(
+    sameSavedContent(
+      saved,
+      { ...document, body: document.body + '补充' },
+      'private',
+    ),
+    false,
+  );
+  for (const change of [
+    { alt: '新的说明' },
+    { url: '/api/v2/console/social/media/2' },
+    { kind: 'chart' as const },
+  ]) {
+    assert.equal(
+      sameSavedContent(
+        saved,
+        { ...document, media: [{ ...document.media[0], ...change }] },
+        'private',
+      ),
+      false,
+    );
+  }
+});
 const post: WorkPost = {
   id: '9223372036854775000',
   agent_id: '9223372036854775001',

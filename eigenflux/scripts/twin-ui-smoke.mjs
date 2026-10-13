@@ -40,7 +40,14 @@ try {
       security_boundary: {},
       twin_profile: {
         portrait: {
-          fields: { name: '', bio: '', interests: '记忆中的研究兴趣', role: '', values: '重视可验证的结果', recent: '' },
+          fields: {
+            name: '',
+            bio: '',
+            interests: '记忆中的研究兴趣',
+            role: '',
+            values: '重视可验证的结果',
+            recent: '',
+          },
           memories: [],
         },
         name: '预填昵称',
@@ -52,7 +59,18 @@ try {
         current_goal: '找到研究伙伴',
       },
     };
-    let profile = {fields:{name:'',bio:'',interests:'',role:'',values:'',recent:''},visible:['name','bio','interests'],memories:[]};
+    let profile = {
+      fields: {
+        name: '',
+        bio: '',
+        interests: '',
+        role: '',
+        values: '',
+        recent: '',
+      },
+      visible: ['name', 'bio', 'interests'],
+      memories: [],
+    };
     let policy = {
       daily_posts: 3,
       daily_searches: 20,
@@ -109,10 +127,36 @@ try {
           state: body.step === 5 ? 'completed' : 'in_progress',
         };
         data = state;
+      } else if (path === 'console/registration/progress') {
+        assert.deepEqual(Object.keys(body), ['event']);
+        data = { recorded: true };
       } else if (path === 'console/portrait') {
-        if(method==='PUT') {assert.equal(body.expected_revision,personalRevision);profile.fields={...profile.fields,...body.fields};profile.visible=body.visible;profile.memories=(profile.memories||[]).filter((m)=>!body.deletes.includes(m.id));for(const m of body.upserts){profile.memories=profile.memories.filter((old)=>old.id!==m.id);profile.memories.push(m);}data={revision:++personalRevision};}
-        else data={...profile,revision:personalRevision,next_cursor:'',total:profile.memories.length};
-      } else if(path==='console/portrait/confirm') {assert.equal(body.revision,personalRevision);assert.equal(body.agreed,true);state={...state,state:'completed'};data={completed:true};
+        if (method === 'PUT') {
+          assert.equal(body.expected_revision, personalRevision);
+          profile.fields = { ...profile.fields, ...body.fields };
+          profile.visible = body.visible;
+          profile.memories = (profile.memories || []).filter(
+            (m) => !body.deletes.includes(m.id),
+          );
+          for (const m of body.upserts) {
+            profile.memories = profile.memories.filter(
+              (old) => old.id !== m.id,
+            );
+            profile.memories.push(m);
+          }
+          data = { revision: ++personalRevision };
+        } else
+          data = {
+            ...profile,
+            revision: personalRevision,
+            next_cursor: '',
+            total: profile.memories.length,
+          };
+      } else if (path === 'console/portrait/confirm') {
+        assert.equal(body.revision, personalRevision);
+        assert.equal(body.agreed, true);
+        state = { ...state, state: 'completed' };
+        data = { completed: true };
       } else if (path === 'console/twin') {
         if (method === 'PUT') {
           assert.equal(body.expected_revision, personalRevision);
@@ -158,7 +202,7 @@ try {
       });
     });
     await page.goto('http://127.0.0.1:4324/dashboard');
-    await page.locator('.ew-brand-entry').waitFor({state:'hidden'});
+    await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
     // Start from an unowned handoff session; the first page is registration.
     // App's session fixture has an unclaimed owner but an incomplete identity.
     await page.getByLabel('手机号', { exact: false }).fill('13800138000');
@@ -181,35 +225,60 @@ try {
       fullPage: true,
     });
     await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
-    await page.getByRole('heading',{name:'确认画像',exact:true}).waitFor();
-    assert.equal(await page.getByLabel('昵称',{exact:false}).inputValue(),'预填昵称');
+    await page
+      .getByRole('heading', { name: '确认画像', exact: true })
+      .waitFor();
+    assert.equal(
+      await page.getByLabel('昵称', { exact: false }).inputValue(),
+      '预填昵称',
+    );
     for (const [label, value] of Object.entries({
-      '自我介绍': '关注开放合作',
-      '兴趣与长期关注': '记忆中的研究兴趣',
-      '生活中的身份': '学生',
-      '在意的事与观点': '重视可验证的结果',
-      '最近在经历或期待什么': '找到研究伙伴',
-    })) assert.equal(await page.getByLabel(label, {exact:true}).inputValue(), value);
-    assert.equal(await page.getByLabel('接入应用').isDisabled(),true);
-    assert.equal(await page.getByText('恢复密钥',{exact:false}).count(),0);
-    await page.getByLabel('昵称',{exact:false}).fill('修改后的昵称');
-    await page.getByRole('checkbox',{name:/我同意/}).check();
-    await page.screenshot({path:`${dir}/profile-${width}.png`,fullPage:true});
-    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-    await page.getByRole('button',{name:'确认画像，进入 elsewhere'}).click();
+      自我介绍: '关注开放合作',
+      兴趣与长期关注: '记忆中的研究兴趣',
+      生活中的身份: '学生',
+      在意的事与观点: '重视可验证的结果',
+      最近在经历或期待什么: '找到研究伙伴',
+    }))
+      assert.equal(
+        await page.getByLabel(label, { exact: true }).inputValue(),
+        value,
+      );
+    assert.equal(await page.getByLabel('接入应用').isDisabled(), true);
+    assert.equal(await page.getByText('恢复密钥', { exact: false }).count(), 0);
+    await page.getByLabel('昵称', { exact: false }).fill('修改后的昵称');
+    await page.getByRole('checkbox', { name: /我同意/ }).check();
+    await page.screenshot({
+      path: `${dir}/profile-${width}.png`,
+      fullPage: true,
+    });
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    await page
+      .getByRole('button', { name: '确认画像，进入 elsewhere' })
+      .click();
     await page.locator('.sw-workspace').waitFor();
-    assert.equal(state.state,'completed');assert.equal(profile.fields.name,'修改后的昵称');
+    assert.equal(state.state, 'completed');
+    assert.equal(profile.fields.name, '修改后的昵称');
     await page.goto('http://127.0.0.1:4324/dashboard/profile');
-    await page.getByLabel('昵称',{exact:false}).fill('设置中修改的昵称');
-    await page.getByRole('button',{name:'保存资料',exact:true}).click();
-    await page.getByText('资料已保存。',{exact:true}).waitFor();
-    await page.reload();await page.getByLabel('昵称',{exact:false}).waitFor();
-    assert.equal(await page.getByLabel('昵称',{exact:false}).inputValue(),'设置中修改的昵称');
+    await page.getByLabel('昵称', { exact: false }).fill('设置中修改的昵称');
+    await page.getByRole('button', { name: '保存资料', exact: true }).click();
+    await page.getByText('资料已保存。', { exact: true }).waitFor();
+    await page.reload();
+    await page.getByLabel('昵称', { exact: false }).waitFor();
+    assert.equal(
+      await page.getByLabel('昵称', { exact: false }).inputValue(),
+      '设置中修改的昵称',
+    );
     await page.goto('http://127.0.0.1:4324/dashboard/security');
-    await page.getByLabel('每日发帖上限',{exact:false}).fill('1');
-    await page.getByRole('button',{name:'保存活动额度',exact:true}).click();
-    await page.getByText('已保存',{exact:false}).first().waitFor();
-    assert.equal(policy.daily_posts,1);
+    await page.getByLabel('每日发帖上限', { exact: false }).fill('1');
+    await page
+      .getByRole('button', { name: '保存活动额度', exact: true })
+      .click();
+    await page.getByText('已保存', { exact: false }).first().waitFor();
+    assert.equal(policy.daily_posts, 1);
     assert.deepEqual(errors, []);
     await page.close();
   }

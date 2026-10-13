@@ -73,11 +73,20 @@ func (s *Service) uidRate(ctx context.Context, c *app.RequestContext, uid string
 func (s *Service) readUIDRequest(ctx context.Context, c *app.RequestContext) (uidRequest, bool) {
 	var req uidRequest
 	if err := decodeBody(c, &req); err != nil || len(req.UID) > 64 || len(req.Password) > 72 || len(req.RecoveryKey) > 128 || len(req.Phone) > 32 || len(req.ChallengeID) > 64 || len(req.Code) > 6 {
-		fail(c, 400, "INVALID_REQUEST", "请检查 UID 和密码格式", nil)
+		fail(c, 400, "INVALID_REQUEST", "请检查账号和密码格式", nil)
 		return req, false
 	}
 	req.UID = strings.TrimSpace(req.UID)
-	return req, s.uidRate(ctx, c, req.UID)
+	rateKey := req.UID
+	if req.Phone != "" {
+		phone, valid := normalizePhone(req.Phone)
+		if valid {
+			rateKey = "phone:" + phone
+		} else {
+			rateKey = "phone:invalid"
+		}
+	}
+	return req, s.uidRate(ctx, c, rateKey)
 }
 
 // Use a valid dummy bcrypt hash so unknown UIDs do not skip password work.
@@ -95,8 +104,18 @@ func lookupOwnerNumber(value string) int64 {
 
 func (s *Service) authenticateUID(req uidRequest) (uidAccount, error) {
 	var account uidAccount
-	if err := s.db.Raw(`SELECT uid, account_number::text AS number, password_hash, recovery_hash FROM human_accounts WHERE account_number = ? OR uid = ?`, lookupOwnerNumber(req.UID), req.UID).Scan(&account).Error; err != nil {
-		return account, err
+	var lookupError error
+	if req.Phone != "" {
+		// A verified phone is an alternate identifier, never authentication by itself.
+		phone, valid := normalizePhone(req.Phone)
+		if valid && req.UID == "" {
+			lookupError = s.db.Raw(`SELECT uid, account_number::text AS number, password_hash, recovery_hash FROM human_accounts WHERE phone_hash=? AND phone_verified_at IS NOT NULL AND phone_verified_at>0`, s.phoneHash(phone)).Scan(&account).Error
+		}
+	} else {
+		lookupError = s.db.Raw(`SELECT uid, account_number::text AS number, password_hash, recovery_hash FROM human_accounts WHERE account_number = ? OR uid = ?`, lookupOwnerNumber(req.UID), req.UID).Scan(&account).Error
+	}
+	if lookupError != nil {
+		return account, lookupError
 	}
 	hash := []byte(account.PasswordHash)
 	if account.UID == "" {
@@ -126,7 +145,7 @@ func uidFailure(c *app.RequestContext, err error) {
 	case errors.Is(err, errOwnerHasAgent):
 		fail(c, 409, "OWNER_HAS_AGENT", "这个账号已有身份，请登录并接入原有身份，不需要创建新的 Agent", nil)
 	case errors.Is(err, errUnauthorized):
-		fail(c, 401, "UID_AUTH_INVALID", "UID、密码或恢复密钥不正确", nil)
+		fail(c, 401, "UID_AUTH_INVALID", "账号、密码或恢复密钥不正确", nil)
 	case errors.Is(err, errConflict), isUniqueViolation(err):
 		fail(c, 409, "OWNER_CONFLICT", "这个 Agent 已有所有者，或连接已经失效。请使用原账号登录", nil)
 	case errors.Is(err, errConsoleAccountLimit):
@@ -244,6 +263,8 @@ func (s *Service) issueUIDSession(c *app.RequestContext, session uidSession) {
 }
 
 func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
+	s.recordRegistration(c, "submit", "", "")
+	defer s.registrationOutcome(c, "register")
 	req, ok := s.readUIDRequest(ctx, c)
 	if !ok {
 		return

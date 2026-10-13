@@ -18,9 +18,13 @@ import (
 )
 
 type socialMedia struct {
-	URL  string `json:"url"`
-	Alt  string `json:"alt"`
-	Kind string `json:"kind"`
+	URL     string `json:"url"`
+	Alt     string `json:"alt"`
+	Kind    string `json:"kind"`
+	Width   int    `json:"width,omitempty"`
+	Height  int    `json:"height,omitempty"`
+	Preview string `json:"preview,omitempty"`
+	Color   string `json:"color,omitempty"`
 }
 type socialDocument struct {
 	Title          string        `json:"title"`
@@ -174,6 +178,11 @@ func (s *Service) socialRead(ctx context.Context, viewer, id int64) (socialPostR
 	if err == nil && row.PostID == 0 {
 		err = gorm.ErrRecordNotFound
 	}
+	if err == nil {
+		rows := []socialPostRow{row}
+		s.addSocialImagePreviews(ctx, rows)
+		row = rows[0]
+	}
 	return row, err
 }
 func socialPathID(c *app.RequestContext) int64 {
@@ -268,6 +277,7 @@ func (s *Service) listSocialPosts(ctx context.Context, c *app.RequestContext) {
 		rows = rows[:20]
 		next = strconv.FormatInt(rows[len(rows)-1].PostID, 10)
 	}
+	s.addSocialImagePreviews(ctx, rows)
 	items := []map[string]any{}
 	for _, r := range rows {
 		items = append(items, socialView(r))

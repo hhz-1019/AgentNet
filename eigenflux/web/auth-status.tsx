@@ -52,7 +52,7 @@ export function HandoffIssue({
           disabled={connecting}
           onClick={() => leaveHandoff(true)}
         >
-          使用 UID 登录已有账号
+          使用 账号 登录已有账号
         </button>
         {error.status !== 400 &&
           error.code !== 'HANDOFF_INVALID' &&

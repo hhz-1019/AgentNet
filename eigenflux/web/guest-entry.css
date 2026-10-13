@@ -1,0 +1,340 @@
+/* Authentication dialog only. Guest browsing uses SocialWorkspace styles. */
+html[data-theme] #root dialog.sw-dialog.guest-auth-dialog {
+  width: min(1080px, calc(100vw - 64px));
+  max-width: 1080px;
+  min-height: min(720px, calc(100dvh - 64px));
+  max-height: calc(100dvh - 64px);
+  padding: 20px 48px 48px;
+  border: 0;
+  border-radius: 32px;
+  background: var(--ew-paper);
+  color: var(--ew-ink);
+  box-shadow: 0 28px 100px rgb(0 0 0 / 18%);
+  font-family: var(--ew-serif);
+}
+html[data-theme] #root .guest-auth-dialog::backdrop {
+  background: rgb(18 22 28 / 32%);
+}
+html[data-theme] #root .guest-auth-dialog .sw-dialog-heading {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+}
+html[data-theme] #root .guest-auth-dialog .sw-dialog-heading > button {
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+html[data-theme] #root .guest-auth-dialog .landing.guest-auth-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-height: 600px;
+  margin: 0;
+  padding: 16px 0 0;
+  gap: 64px;
+}
+html[data-theme] #root .guest-auth-layout .auth-entry {
+  padding: 0;
+}
+html[data-theme] #root .guest-auth-layout .auth-entry > .brand-logo {
+  width: 160px;
+}
+html[data-theme] #root .guest-auth-dialog .auth-landing h1 {
+  font-size: clamp(27px, 2.5vw, 32px);
+  line-height: 1.45;
+  white-space: nowrap;
+  letter-spacing: 0;
+  margin: 32px 0 36px;
+}
+html[data-theme] #root .guest-join-steps {
+  list-style: none;
+  counter-reset: join;
+  padding: 0;
+  margin: 0;
+}
+html[data-theme] #root .guest-join-steps li {
+  position: relative;
+  counter-increment: join;
+  padding-left: 36px;
+  margin: 18px 0;
+}
+html[data-theme] #root .guest-join-steps li::before {
+  content: '0' counter(join);
+  position: absolute;
+  top: 3px;
+  left: 0;
+  color: var(--ew-muted);
+  font-size: 14px;
+}
+html[data-theme] #root .guest-join-steps strong {
+  font-size: 17px;
+  font-weight: 500;
+}
+html[data-theme] #root .guest-auth-dialog .landing .join-copy {
+  border: 0;
+  padding: 0;
+  margin: 26px 0 0;
+}
+html[data-theme] #root .guest-auth-dialog .join-copy > button {
+  background: var(--ew-action);
+  color: var(--ew-on-action);
+  border: 0;
+  border-radius: 22px;
+  padding: 12px 24px;
+  font-size: 17px;
+  box-shadow: none;
+}
+html[data-theme] #root .guest-auth-dialog .auth-copy-status {
+  font-size: 14px;
+  margin-top: 8px;
+}
+html[data-theme] #root .guest-auth-dialog .login-form.auth-form {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  width: 100%;
+  min-width: 0;
+}
+html[data-theme] #root .guest-auth-dialog .login-form.auth-form h2 {
+  font-size: 30px;
+  margin: 0 0 24px;
+}
+html[data-theme] #root .guest-auth-dialog .auth-login-methods {
+  margin: 0 0 24px;
+  gap: 12px;
+}
+html[data-theme] #root .guest-auth-dialog .login-form.auth-form > p {
+  font-size: 16px;
+  line-height: 1.75;
+  margin: 0 0 30px;
+}
+html[data-theme] #root .guest-auth-dialog .login-form.auth-form > label {
+  margin: 24px 0;
+}
+html[data-theme] #root .guest-auth-dialog .login-form.auth-form input {
+  background: var(--ew-input-tint);
+  border-radius: 20px;
+  border: 1px solid var(--ew-line);
+  box-shadow: none;
+  outline: 0;
+  min-height: 56px;
+}
+html[data-theme]
+  #root
+  .guest-auth-dialog
+  .login-form.auth-form
+  input:focus-visible {
+  border-color: var(--ew-ink);
+  outline: 0;
+  box-shadow: none;
+}
+html[data-theme]
+  #root
+  .guest-auth-dialog
+  .login-form.auth-form
+  > button.primary {
+  min-height: 56px;
+  margin-top: 18px;
+}
+html[data-theme] #root .guest-auth-dialog .login-form.auth-form button {
+  border-radius: 22px;
+  background-image: none;
+  box-shadow: none;
+}
+
+html[data-theme] #root .guest-auth-dialog button:focus-visible {
+  outline: 2px solid var(--ew-ink);
+  outline-offset: 4px;
+}
+@media (max-width: 1100px) {
+  html[data-theme] #root dialog.sw-dialog.guest-auth-dialog {
+    padding-inline: 32px;
+  }
+  html[data-theme] #root .guest-auth-dialog .landing.guest-auth-layout {
+    gap: 32px;
+  }
+}
+@media (max-width: 760px) {
+  html[data-theme] #root dialog.sw-dialog.guest-auth-dialog {
+    width: calc(100vw - 24px);
+    min-height: 0;
+    max-height: calc(100dvh - 32px);
+    padding: 12px 22px 24px;
+    border-radius: 24px;
+  }
+  html[data-theme] #root .guest-auth-dialog .landing.guest-auth-layout {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    gap: 36px;
+    padding: 12px 0 0;
+    max-width: none;
+  }
+  html[data-theme] #root .guest-auth-dialog .auth-landing h1 {
+    font-size: clamp(18px, 5.7vw, 26px);
+    margin: 22px 0 24px;
+  }
+  html[data-theme] #root .guest-auth-layout .auth-entry > .brand-logo {
+    width: 130px;
+  }
+  html[data-theme] #root .guest-join-steps li {
+    margin: 14px 0;
+    padding-left: 30px;
+  }
+  html[data-theme] #root .guest-join-steps strong {
+    font-size: 16px;
+  }
+  html[data-theme] #root .guest-auth-dialog .landing .join-copy {
+    margin: 16px 0 0;
+  }
+  html[data-theme] #root .guest-auth-dialog .login-form.auth-form h2 {
+    font-size: 24px;
+    margin-bottom: 18px;
+  }
+  html[data-theme] #root .guest-auth-dialog .auth-login-methods {
+    margin-bottom: 18px;
+  }
+  html[data-theme] #root .guest-auth-dialog .login-form.auth-form > p {
+    font-size: 13px;
+    margin-bottom: 22px;
+  }
+  html[data-theme] #root .guest-auth-dialog .login-form.auth-form label {
+    margin-block: 14px;
+    font-size: 14px;
+  }
+  html[data-theme] #root .guest-auth-dialog .login-form.auth-form input {
+    min-height: 46px;
+    font-size: 16px;
+  }
+  html[data-theme] #root .guest-auth-dialog .login-form.auth-form button {
+    min-height: 44px;
+    font-size: 15px;
+  }
+  html[data-theme]
+    #root
+    .guest-auth-dialog
+    .login-form.auth-form
+    > button.primary {
+    min-height: 48px;
+    margin-top: 12px;
+  }
+}
+
+/* Scope account fields explicitly: communication-dialog defaults are for chat forms. */
+html[data-theme] #root dialog.sw-dialog.guest-auth-dialog:focus-visible {
+  outline: none;
+}
+html[data-theme]
+  #root
+  .sw-dialog.guest-auth-dialog
+  .login-form.auth-form
+  label {
+  display: block;
+}
+html[data-theme]
+  #root
+  .sw-dialog.guest-auth-dialog
+  .login-form.auth-form
+  label
+  .required-mark {
+  display: inline;
+  margin-left: 5px;
+}
+html[data-theme]
+  #root
+  .sw-dialog.guest-auth-dialog
+  .login-form.auth-form
+  input {
+  margin-top: 8px;
+  background: var(--ew-input-tint);
+}
+html[data-theme]
+  #root
+  .sw-dialog.guest-auth-dialog
+  .landing.auth-landing
+  .join-copy
+  > button {
+  background: var(--ew-action);
+  color: var(--ew-on-action);
+  padding: 12px 24px;
+}
+html[data-theme]
+  #root
+  .sw-dialog.guest-auth-dialog
+  .landing.auth-landing
+  .join-copy
+  > button:hover {
+  background: var(--ew-action);
+  filter: brightness(1.08);
+}
+
+/* The short instruction is reading copy, not a code block or a disclosure. */
+html[data-theme] #root .guest-auth-dialog .guest-join-instruction {
+  position: relative;
+  margin: 30px 0 0;
+  padding: 30px 26px 28px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--ew-input-tint);
+  color: var(--ew-ink);
+  font-family: var(--ew-serif);
+}
+html[data-theme] #root .guest-join-instruction::before,
+html[data-theme] #root .guest-join-instruction::after {
+  position: absolute;
+  font-family: Georgia, serif;
+  font-size: 46px;
+  line-height: 1;
+  color: var(--ew-muted);
+  opacity: 0.5;
+  pointer-events: none;
+}
+html[data-theme] #root .guest-join-instruction::before {
+  content: '“';
+  top: 6px;
+  left: 12px;
+}
+html[data-theme] #root .guest-join-instruction::after {
+  content: '”';
+  bottom: -12px;
+  right: 14px;
+}
+html[data-theme] #root .guest-join-instruction p {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+html[data-theme] #root .guest-auth-dialog .join-copy > button {
+  min-width: 156px;
+}
+html[data-theme] #root .guest-auth-dialog .auth-copy-status:has(.sw-sr-only) {
+  margin: 0;
+}
+.auth-hint-mobile {
+  display: none;
+}
+@media (max-width: 760px) {
+  html[data-theme] #root .guest-auth-dialog .guest-join-instruction {
+    margin-top: 18px;
+    padding: 24px 20px;
+  }
+  html[data-theme] #root .guest-join-instruction p {
+    font-size: 15px;
+    line-height: 1.8;
+  }
+  .auth-hint-desktop {
+    display: none;
+  }
+  .auth-hint-mobile {
+    display: inline;
+  }
+}

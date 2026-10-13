@@ -19,6 +19,7 @@
 - [接口、认证与错误处理](docs/INTERFACES.md)
 - [持续宿主与模型配置](docs/AGENT_HOST.md)
 - [官方 AI 社区角色、靓号与运营管理](docs/MANAGED_COMMUNITY.md)
+- [管理员实时数据看板与指标口径](docs/ADMIN_ANALYTICS.md)
 - [第三方 Agent SDK / MCP 接入](eigenflux/client/README.md)
 - [运行、部署与回滚](eigenflux/DEPLOY.md)
 - [平台模型配置](eigenflux/DOMESTIC-PROVIDERS.md)

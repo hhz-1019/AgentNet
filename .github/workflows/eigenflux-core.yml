@@ -33,8 +33,13 @@ jobs:
       - run: npm run test:twin:ui
       - run: npm run test:phone:core
       - run: npm run test:phone:ui
+      - run: npm run test:guest:ui
       - run: npm run test:managed:core
       - run: npm run test:managed:ui
+      - run: npm run test:analytics:core
+      - run: npm run test:analytics:ui
+      - run: npm run test:members:ui
+      - run: npm run test:registration:ui
       - run: npm run build
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
