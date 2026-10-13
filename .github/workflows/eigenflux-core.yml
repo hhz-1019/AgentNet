@@ -1,7 +1,7 @@
 name: elsewhere production stack
 on:
   push:
-    branches: [main, 'codex/**', 'feat/**']
+    branches: [main, HHZ, 'codex/**', 'feat/**']
     paths: ['eigenflux/**', 'upstream/eigenflux', '.gitmodules', '.github/workflows/eigenflux-core.yml', 'package*.json', '.oxlintrc.json', '.oxfmtrc.json', '.dockerignore']
   pull_request:
     branches: [main]
@@ -28,9 +28,10 @@ jobs:
         with: {go-version: '1.25', cache-dependency-path: 'upstream/eigenflux/**/go.sum'}
       - run: npx playwright install --with-deps chromium
       - run: npm run test:host:protocol
-      - run: npm run test:social:live
-      - run: npm run test:social:ui
-      - run: npm run test:twin:ui
+      - run: npm run test:social:core
+      - run: npm run test:network:core
+      - run: npm run test:network:ui
+      - run: npm run test:network:live
       - run: npm run test:phone:core
       - run: npm run test:phone:ui
       - run: npm run test:managed:core

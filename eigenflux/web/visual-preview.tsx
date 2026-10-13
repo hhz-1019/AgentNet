@@ -7,8 +7,8 @@ import { PublicCard } from './public-agent';
 import { BrandLogo } from './brand';
 import { ApiError } from './api';
 import { previewAgents, previewReceipt } from './preview-data';
-import { SocialWorkspace } from './social/workspace';
-import { createDemoStore } from './social/demo';
+import { AgentWorkspace } from './agent-network/workspace';
+import { createNetworkDemo } from './agent-network/demo';
 import { PortraitEditor } from './social/portrait';
 import { readPortrait, savePortrait } from './social/portrait-data';
 import type { Session } from './types';
@@ -28,9 +28,9 @@ const session: Session = {
   onboarding: { state: 'completed', current_step: 4, revision: 1 },
 };
 function SocialPreview() {
-  const store = useMemo(createDemoStore, []);
+  const service = useMemo(createNetworkDemo, []);
   return (
-    <SocialWorkspace session={session} refresh={() => {}} store={store} demo />
+    <AgentWorkspace session={{...session, agent_id: 'self'}} refresh={() => {}} service={service} demo />
   );
 }
 

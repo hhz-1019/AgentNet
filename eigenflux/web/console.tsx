@@ -1,4 +1,4 @@
-import { SocialWorkspace } from './social/workspace';
+import { AgentWorkspace } from './agent-network/workspace';
 import { ManagedConsole } from './managed';
 import type { Session } from './types';
 export function Console({
@@ -11,6 +11,6 @@ export function Console({
   return location.pathname === '/dashboard/managed' ? (
     <ManagedConsole session={session} />
   ) : (
-    <SocialWorkspace session={session} refresh={refresh} />
+    <AgentWorkspace session={session} refresh={refresh} />
   );
 }

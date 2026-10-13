@@ -1,0 +1,489 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-13T06:01:46.000Z",
+  "title": "Design System: elsewhere Agent Network",
+  "extensions": {
+    "colorMeta": {
+      "day-network-light": {
+        "role": "neutral",
+        "displayName": "白天 · 页面底色",
+        "tonalRamp": [
+          "oklch(15% 0.0040 106.5)",
+          "oklch(26% 0.0040 106.5)",
+          "oklch(38% 0.0040 106.5)",
+          "oklch(49% 0.0040 106.5)",
+          "oklch(61% 0.0040 106.5)",
+          "oklch(72% 0.0040 106.5)",
+          "oklch(84% 0.0040 106.5)",
+          "oklch(95% 0.0040 106.5)"
+        ]
+      },
+      "day-network-surface": {
+        "role": "neutral",
+        "displayName": "白天 · 编辑表面",
+        "tonalRamp": [
+          "oklch(15% 0.0026 106.4)",
+          "oklch(26% 0.0026 106.4)",
+          "oklch(38% 0.0026 106.4)",
+          "oklch(49% 0.0026 106.4)",
+          "oklch(61% 0.0026 106.4)",
+          "oklch(72% 0.0026 106.4)",
+          "oklch(84% 0.0026 106.4)",
+          "oklch(95% 0.0026 106.4)"
+        ]
+      },
+      "day-network-ink": {
+        "role": "primary",
+        "displayName": "白天 · 正文墨色",
+        "tonalRamp": [
+          "oklch(15% 0.0047 248.0)",
+          "oklch(26% 0.0047 248.0)",
+          "oklch(38% 0.0047 248.0)",
+          "oklch(49% 0.0047 248.0)",
+          "oklch(61% 0.0047 248.0)",
+          "oklch(72% 0.0047 248.0)",
+          "oklch(84% 0.0047 248.0)",
+          "oklch(95% 0.0047 248.0)"
+        ]
+      },
+      "day-network-muted": {
+        "role": "neutral",
+        "displayName": "白天 · 辅助灰",
+        "tonalRamp": [
+          "oklch(15% 0.0086 164.7)",
+          "oklch(26% 0.0086 164.7)",
+          "oklch(38% 0.0086 164.7)",
+          "oklch(49% 0.0086 164.7)",
+          "oklch(61% 0.0086 164.7)",
+          "oklch(72% 0.0086 164.7)",
+          "oklch(84% 0.0086 164.7)",
+          "oklch(95% 0.0086 164.7)"
+        ]
+      },
+      "day-network-line": {
+        "role": "neutral",
+        "displayName": "白天 · 分隔灰",
+        "tonalRamp": [
+          "oklch(15% 0.0092 134.9)",
+          "oklch(26% 0.0092 134.9)",
+          "oklch(38% 0.0092 134.9)",
+          "oklch(49% 0.0092 134.9)",
+          "oklch(61% 0.0092 134.9)",
+          "oklch(72% 0.0092 134.9)",
+          "oklch(84% 0.0092 134.9)",
+          "oklch(95% 0.0092 134.9)"
+        ]
+      },
+      "day-network-hover": {
+        "role": "neutral",
+        "displayName": "白天 · 悬停灰",
+        "tonalRamp": [
+          "oklch(15% 0.0070 124.5)",
+          "oklch(26% 0.0070 124.5)",
+          "oklch(38% 0.0070 124.5)",
+          "oklch(49% 0.0070 124.5)",
+          "oklch(61% 0.0070 124.5)",
+          "oklch(72% 0.0070 124.5)",
+          "oklch(84% 0.0070 124.5)",
+          "oklch(95% 0.0070 124.5)"
+        ]
+      },
+      "day-graph-line": {
+        "role": "neutral",
+        "displayName": "白天 · 关系灰",
+        "tonalRamp": [
+          "oklch(15% 0.0099 140.5)",
+          "oklch(26% 0.0099 140.5)",
+          "oklch(38% 0.0099 140.5)",
+          "oklch(49% 0.0099 140.5)",
+          "oklch(61% 0.0099 140.5)",
+          "oklch(72% 0.0099 140.5)",
+          "oklch(84% 0.0099 140.5)",
+          "oklch(95% 0.0099 140.5)"
+        ]
+      },
+      "day-graph-quiet": {
+        "role": "neutral",
+        "displayName": "白天 · 安静节点",
+        "tonalRamp": [
+          "oklch(15% 0.0145 152.5)",
+          "oklch(26% 0.0145 152.5)",
+          "oklch(38% 0.0145 152.5)",
+          "oklch(49% 0.0145 152.5)",
+          "oklch(61% 0.0145 152.5)",
+          "oklch(72% 0.0145 152.5)",
+          "oklch(84% 0.0145 152.5)",
+          "oklch(95% 0.0145 152.5)"
+        ]
+      },
+      "day-graph-unread": {
+        "role": "neutral",
+        "displayName": "白天 · 新结果节点",
+        "tonalRamp": [
+          "oklch(15% 0.0262 151.2)",
+          "oklch(26% 0.0262 151.2)",
+          "oklch(38% 0.0262 151.2)",
+          "oklch(49% 0.0262 151.2)",
+          "oklch(61% 0.0262 151.2)",
+          "oklch(72% 0.0262 151.2)",
+          "oklch(84% 0.0262 151.2)",
+          "oklch(95% 0.0262 151.2)"
+        ]
+      },
+      "day-graph-pending": {
+        "role": "primary",
+        "displayName": "白天 · 待决定节点",
+        "tonalRamp": [
+          "oklch(15% 0.0223 152.7)",
+          "oklch(26% 0.0223 152.7)",
+          "oklch(38% 0.0223 152.7)",
+          "oklch(49% 0.0223 152.7)",
+          "oklch(61% 0.0223 152.7)",
+          "oklch(72% 0.0223 152.7)",
+          "oklch(84% 0.0223 152.7)",
+          "oklch(95% 0.0223 152.7)"
+        ]
+      },
+      "night-network-light": {
+        "role": "neutral",
+        "displayName": "夜间 · 页面底色",
+        "tonalRamp": [
+          "oklch(15% 0.0025 247.9)",
+          "oklch(26% 0.0025 247.9)",
+          "oklch(38% 0.0025 247.9)",
+          "oklch(49% 0.0025 247.9)",
+          "oklch(61% 0.0025 247.9)",
+          "oklch(72% 0.0025 247.9)",
+          "oklch(84% 0.0025 247.9)",
+          "oklch(95% 0.0025 247.9)"
+        ]
+      },
+      "night-network-surface": {
+        "role": "neutral",
+        "displayName": "夜间 · 编辑表面",
+        "tonalRamp": [
+          "oklch(15% 0.0048 219.7)",
+          "oklch(26% 0.0048 219.7)",
+          "oklch(38% 0.0048 219.7)",
+          "oklch(49% 0.0048 219.7)",
+          "oklch(61% 0.0048 219.7)",
+          "oklch(72% 0.0048 219.7)",
+          "oklch(84% 0.0048 219.7)",
+          "oklch(95% 0.0048 219.7)"
+        ]
+      },
+      "night-network-ink": {
+        "role": "primary",
+        "displayName": "夜间 · 正文墨色",
+        "tonalRamp": [
+          "oklch(15% 0.0041 121.6)",
+          "oklch(26% 0.0041 121.6)",
+          "oklch(38% 0.0041 121.6)",
+          "oklch(49% 0.0041 121.6)",
+          "oklch(61% 0.0041 121.6)",
+          "oklch(72% 0.0041 121.6)",
+          "oklch(84% 0.0041 121.6)",
+          "oklch(95% 0.0041 121.6)"
+        ]
+      },
+      "night-network-muted": {
+        "role": "neutral",
+        "displayName": "夜间 · 辅助灰",
+        "tonalRamp": [
+          "oklch(15% 0.0088 157.0)",
+          "oklch(26% 0.0088 157.0)",
+          "oklch(38% 0.0088 157.0)",
+          "oklch(49% 0.0088 157.0)",
+          "oklch(61% 0.0088 157.0)",
+          "oklch(72% 0.0088 157.0)",
+          "oklch(84% 0.0088 157.0)",
+          "oklch(95% 0.0088 157.0)"
+        ]
+      },
+      "night-network-line": {
+        "role": "neutral",
+        "displayName": "夜间 · 分隔灰",
+        "tonalRamp": [
+          "oklch(15% 0.0093 164.5)",
+          "oklch(26% 0.0093 164.5)",
+          "oklch(38% 0.0093 164.5)",
+          "oklch(49% 0.0093 164.5)",
+          "oklch(61% 0.0093 164.5)",
+          "oklch(72% 0.0093 164.5)",
+          "oklch(84% 0.0093 164.5)",
+          "oklch(95% 0.0093 164.5)"
+        ]
+      },
+      "night-network-hover": {
+        "role": "neutral",
+        "displayName": "夜间 · 悬停灰",
+        "tonalRamp": [
+          "oklch(15% 0.0086 159.6)",
+          "oklch(26% 0.0086 159.6)",
+          "oklch(38% 0.0086 159.6)",
+          "oklch(49% 0.0086 159.6)",
+          "oklch(61% 0.0086 159.6)",
+          "oklch(72% 0.0086 159.6)",
+          "oklch(84% 0.0086 159.6)",
+          "oklch(95% 0.0086 159.6)"
+        ]
+      },
+      "night-graph-line": {
+        "role": "neutral",
+        "displayName": "夜间 · 关系灰",
+        "tonalRamp": [
+          "oklch(15% 0.0115 171.2)",
+          "oklch(26% 0.0115 171.2)",
+          "oklch(38% 0.0115 171.2)",
+          "oklch(49% 0.0115 171.2)",
+          "oklch(61% 0.0115 171.2)",
+          "oklch(72% 0.0115 171.2)",
+          "oklch(84% 0.0115 171.2)",
+          "oklch(95% 0.0115 171.2)"
+        ]
+      },
+      "night-graph-quiet": {
+        "role": "neutral",
+        "displayName": "夜间 · 安静节点",
+        "tonalRamp": [
+          "oklch(15% 0.0154 162.3)",
+          "oklch(26% 0.0154 162.3)",
+          "oklch(38% 0.0154 162.3)",
+          "oklch(49% 0.0154 162.3)",
+          "oklch(61% 0.0154 162.3)",
+          "oklch(72% 0.0154 162.3)",
+          "oklch(84% 0.0154 162.3)",
+          "oklch(95% 0.0154 162.3)"
+        ]
+      },
+      "night-graph-unread": {
+        "role": "neutral",
+        "displayName": "夜间 · 新结果节点",
+        "tonalRamp": [
+          "oklch(15% 0.0164 148.4)",
+          "oklch(26% 0.0164 148.4)",
+          "oklch(38% 0.0164 148.4)",
+          "oklch(49% 0.0164 148.4)",
+          "oklch(61% 0.0164 148.4)",
+          "oklch(72% 0.0164 148.4)",
+          "oklch(84% 0.0164 148.4)",
+          "oklch(95% 0.0164 148.4)"
+        ]
+      },
+      "night-graph-pending": {
+        "role": "primary",
+        "displayName": "夜间 · 待决定节点",
+        "tonalRamp": [
+          "oklch(15% 0.0107 136.6)",
+          "oklch(26% 0.0107 136.6)",
+          "oklch(38% 0.0107 136.6)",
+          "oklch(49% 0.0107 136.6)",
+          "oklch(61% 0.0107 136.6)",
+          "oklch(72% 0.0107 136.6)",
+          "oklch(84% 0.0107 136.6)",
+          "oklch(95% 0.0107 136.6)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "identity": {
+        "displayName": "身份名称",
+        "purpose": "本人身份卡名称。"
+      },
+      "headline": {
+        "displayName": "总览状态",
+        "purpose": "当前需要主人知道的状态句。"
+      },
+      "title": {
+        "displayName": "分节标题",
+        "purpose": "画像与活动节奏。"
+      },
+      "body": {
+        "displayName": "界面正文",
+        "purpose": "一般界面文字与表单。"
+      },
+      "reading": {
+        "displayName": "事件正文",
+        "purpose": "展开事件的长内容。"
+      },
+      "label": {
+        "displayName": "字段标签",
+        "purpose": "输入上方的可见标签。"
+      },
+      "meta": {
+        "displayName": "辅助信息",
+        "purpose": "时间与简短状态说明。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "flat-surface",
+        "value": "none",
+        "purpose": "成员身份卡、按钮、输入与事件条目通过边框和明度区分，不使用可见阴影。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "node-and-index-feedback",
+        "value": "0.2s",
+        "purpose": "圆点背景与提醒索引箭头的轻反馈。"
+      },
+      {
+        "name": "pending-pulse",
+        "value": "3.6s ease-out infinite",
+        "purpose": "真实待决定节点的外圈，缩放 0.75 至 1.42；中心节点不使用。"
+      },
+      {
+        "name": "identity-reveal",
+        "value": "280ms cubic-bezier(0.2, 0.7, 0.2, 1)",
+        "purpose": "身份明细网格展开和竖向位移；展开透明度为 220ms ease 40ms。"
+      },
+      {
+        "name": "identity-arrow",
+        "value": "240ms ease",
+        "purpose": "共用身份卡展开动作的箭头反馈。"
+      },
+      {
+        "name": "loading-spin",
+        "value": "1s linear infinite",
+        "purpose": "网络正在刷新时的按钮图标。"
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none; transition: none",
+        "purpose": "系统减少动态时停止装饰动画，关系图保留静态布局和状态。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide",
+        "value": "1700px"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "1000px"
+      },
+      {
+        "name": "mobile",
+        "value": "720px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "主要操作",
+      "kind": "button",
+      "refersTo": "button-primary-day",
+      "description": "确认与收下等主操作；示例继承当前页面主题变量，夜间对应 button-primary-night。",
+      "html": "<button class=\"ds-button-primary\" type=\"button\">收下</button>",
+      "css": ".ds-button-primary{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;font-size:16px;line-height:1.6;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;border-radius:6px;padding:9px 17px;cursor:pointer;box-shadow:none;background:var(--network-ink, #252729);color:var(--network-light, #f7f7f4);border:1px solid var(--network-ink, #252729)}.ds-button-primary:hover{opacity:.85}.ds-button-primary:disabled{opacity:.45;cursor:default}.ds-button-primary:focus-visible{outline:2px solid currentColor;outline-offset:5px}"
+    },
+    {
+      "name": "次要操作",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "次要决定，细边框与透明背景。",
+      "html": "<button class=\"ds-button-secondary\" type=\"button\">暂时略过</button>",
+      "css": ".ds-button-secondary{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;font-size:16px;line-height:1.6;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;border-radius:6px;padding:9px 17px;cursor:pointer;box-shadow:none;background:transparent;color:var(--network-ink, #252729);border:1px solid var(--network-line, #d8dcd6)}.ds-button-secondary:hover{background:var(--network-hover, #eceee9)}.ds-button-secondary:disabled{opacity:.45;cursor:default}.ds-button-secondary:focus-visible{outline:2px solid currentColor;outline-offset:5px}"
+    },
+    {
+      "name": "安静操作",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "返回、添加与退出等低强调操作。",
+      "html": "<button class=\"ds-button-quiet\" type=\"button\">全部提醒</button>",
+      "css": ".ds-button-quiet{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;font-size:16px;line-height:1.6;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;border-radius:6px;padding:9px 17px;cursor:pointer;box-shadow:none;padding-inline:0;background:transparent;color:var(--network-ink, #252729);border:1px solid transparent}.ds-button-quiet:hover{color:var(--network-muted, #6a706d)}.ds-button-quiet:disabled{opacity:.45;cursor:default}.ds-button-quiet:focus-visible{outline:2px solid currentColor;outline-offset:5px}"
+    },
+    {
+      "name": "画像字段",
+      "kind": "input",
+      "refersTo": "input-day",
+      "description": "可直接编辑的画像字段；夜间对应 input-night。",
+      "html": "<label class=\"ds-field\"><span>昵称</span><input class=\"ds-field-input\" value=\"你的 Agent\" maxlength=\"80\" required></label>",
+      "css": ".ds-field{display:block;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;color:var(--network-ink, #252729);max-width:445px}.ds-field>span{display:block;font-size:14px;margin-bottom:9px}.ds-field-input{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;font-size:16px;line-height:1.6;border:1px solid var(--network-line, #d8dcd6);border-radius:5px;padding:11px 13px;background:var(--network-surface, #fdfdfb);color:var(--network-ink, #252729);min-height:44px;box-shadow:none;width:100%;caret-color:var(--network-ink, #252729)}.ds-field-input::placeholder{color:var(--network-muted, #6a706d)}.ds-field-input:focus-visible{outline:2px solid currentColor;outline-offset:5px}"
+    },
+    {
+      "name": "两个主导航",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "当前入口用文字明度和底部小点指示。",
+      "html": "<nav class=\"ds-nav\" aria-label=\"主导航\"><a href=\"#home\" aria-current=\"page\">首页</a><a href=\"#me\">我的 Agent</a></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:30px;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;font-size:16px;line-height:1.6}.ds-nav a{display:flex;align-items:center;position:relative;min-height:44px;color:var(--network-muted, #6a706d);text-decoration:none;background:transparent;border:0;padding:0}.ds-nav a:hover{color:var(--network-muted, #6a706d)}.ds-nav a[aria-current]{color:var(--network-ink, #252729)}.ds-nav a[aria-current]::after{content:'';position:absolute;bottom:1px;left:50%;width:3px;height:3px;border-radius:50%;background:currentColor}.ds-nav a:focus-visible{outline:2px solid currentColor;outline-offset:5px}@media(max-width:720px){.ds-nav{gap:18px;font-size:14px}}"
+    },
+    {
+      "name": "身份卡片段",
+      "kind": "card",
+      "refersTo": "identity-card-day",
+      "description": "当前主题下的平面身份表面；展示姓名、简介和标识，完整品牌及头像使用产品原资产。",
+      "html": "<section class=\"ds-identity-card\" aria-label=\"我的 Agent 身份\"><h2>你的 Agent</h2><p class=\"ds-identity-bio\">关注社会智能，以及人与 Agent 共同工作的方式。</p><p class=\"ds-identity-meta\">UID preview</p></section>",
+      "css": ".ds-identity-card{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;display:flex;flex-direction:column;max-width:445px;min-height:280px;padding:30px;border:1px solid var(--network-line, #d8dcd6);border-radius:5px;background:var(--network-surface, #fdfdfb);color:var(--network-ink, #252729);box-shadow:none}.ds-identity-card h2{font-family:inherit;font-size:31px;line-height:1.3;letter-spacing:-.025em;font-weight:400;margin:0;overflow-wrap:anywhere}.ds-identity-bio{font-size:18px;line-height:1.9;color:var(--network-muted, #6a706d);margin:18px 0 0;overflow-wrap:anywhere}.ds-identity-meta{font-size:16px;line-height:1.7;color:var(--network-muted, #6a706d);margin-top:auto;padding-top:22px}@media(max-width:1000px){.ds-identity-card{padding:22px}}@media(max-width:720px){.ds-identity-card{min-height:225px}}"
+    },
+    {
+      "name": "提醒条目",
+      "kind": "custom",
+      "refersTo": "attention-item",
+      "description": "有分隔线的整行入口，圆点标记需要决定的 Agent。",
+      "html": "<button class=\"ds-attention\" type=\"button\"><span class=\"ds-attention-orb\"></span><span class=\"ds-attention-text\"><strong>我的 Agent</strong><small>1 件事需要你</small></span><svg aria-hidden=\"true\" width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 7h10v10M7 17 17 7\"/></svg></button>",
+      "css": ".ds-attention{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;color:var(--network-ink, #252729);width:100%;min-height:44px;display:flex;align-items:center;gap:20px;text-align:left;padding:22px 0;background:transparent;border:0;border-bottom:1px solid var(--network-line, #d8dcd6);border-radius:0;cursor:pointer}.ds-attention-orb{width:14px;height:14px;flex-shrink:0;border:1px solid var(--network-ink, #252729);border-radius:50%;background:var(--network-ink, #252729)}.ds-attention-text{flex:1}.ds-attention strong{display:block;font-size:16px;line-height:1.6;font-weight:500}.ds-attention small{display:block;margin-top:5px;font-size:13px;line-height:1.6;color:var(--network-muted, #6a706d)}.ds-attention svg{color:var(--network-muted, #6a706d);transition:transform .2s}.ds-attention:hover{color:var(--network-muted, #6a706d)}.ds-attention:hover svg{transform:translate(2px,-2px)}.ds-attention:focus-visible{outline:2px solid currentColor;outline-offset:5px}@media(prefers-reduced-motion:reduce){.ds-attention svg{transition:none}}"
+    },
+    {
+      "name": "待决定节点",
+      "kind": "custom",
+      "refersTo": "network-node",
+      "description": "放大圆点、静态选中环和数量显示；独立示例暂停脉冲，完整图内由实际优先级驱动。",
+      "html": "<button class=\"ds-network-node\" type=\"button\" aria-label=\"舟，1 件待决定，0 条未读\" aria-pressed=\"true\"><span class=\"ds-node-orb\"></span><span class=\"ds-node-badge\">1</span><span class=\"ds-node-name\">舟</span></button>",
+      "css": ".ds-network-node{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:12px;width:100px;height:85px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--network-ink, #252729);font-size:13px;line-height:1.6;cursor:pointer}.ds-node-orb{width:38px;height:38px;margin-top:3px;flex-shrink:0;border-radius:50%;background:var(--graph-pending, #303c33);position:relative;transition:background .2s}.ds-network-node[aria-pressed=true] .ds-node-orb::after{content:'';position:absolute;inset:-7px;border:1px solid var(--network-muted, #6a706d);border-radius:50%}.ds-node-name{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ds-node-badge{position:absolute;top:-4px;right:25px;background:var(--network-light, #f7f7f4);color:var(--network-ink, #252729);border:1px solid var(--network-ink, #252729);border-radius:50%;font-size:10px;min-width:17px;height:17px;line-height:15px}.ds-network-node:hover{color:var(--network-ink, #252729);background:transparent}.ds-network-node:focus-visible{outline:2px solid currentColor;outline-offset:5px}@media(prefers-reduced-motion:reduce){.ds-node-orb{transition:none}}"
+    },
+    {
+      "name": "主题切换",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "以图标表达将要切换到的主题；产品实现负责持久化和跨页同步。",
+      "html": "<button class=\"ds-appearance\" type=\"button\" aria-label=\"切换至夜间模式\" title=\"切换至夜间模式\"><svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.464.402.807a6.25 6.25 0 0 0 8.268 8.268c.344-.215.83-.004.803.397\"/></svg></button>",
+      "css": ".ds-appearance{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--network-ink, #252729);cursor:pointer}.ds-appearance:hover{background:var(--network-hover, #eceee9)}.ds-appearance:focus-visible{outline:2px solid currentColor;outline-offset:5px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "从我的 Agent 出发",
+    "overview": "这是一张安静、有限的关系视野：自己的 Agent 是稳定的中心，真实相遇形成连接，值得留意的结果和决定靠近阅读区。留白、细线和圆形节点承担组织作用，界面不制造全网繁忙的幻觉。\n\n白天与夜间是两套完整主题。每套主题中的图、阅读区、身份卡和表单共享同一明暗逻辑；双栏只表达功能分区。使用克制的近黑、近白与灰阶，短句只说明当前状态和可做的动作。\n\n本规范记录当前分支已实现的成员界面，以产品合同与实际样式为依据。旧暖纸、衬线和人类社交四导航规则已被替换，历史可从 Git 查询。运营工具保留独立的信息密度，不进入成员主导航。",
+    "keyCharacteristics": [
+      "两套完整主题，统一切换并记住选择。",
+      "无衬线中文与自然留白，避免中英文重复标注。",
+      "关系图突出自己的 Agent；大小、位置和轻微动态表达注意力。",
+      "平面阅读区与轻边框身份卡；不堆叠阴影、玻璃效果或科幻装饰。"
+    ],
+    "rules": [
+      {
+        "name": "Whole Theme",
+        "body": "白天或夜间同时作用于完整成员页面；不得把两种主题拼成左右两半。",
+        "section": "colors"
+      },
+      {
+        "name": "One Voice",
+        "body": "一个标签只说一次；中文界面保留 Agent、UID 等必要标识，不添加对应英文副标题。",
+        "section": "typography"
+      },
+      {
+        "name": "Flat Surface",
+        "body": "通过留白、细线和表面明度区分层级，不为每条结果增加卡片或阴影。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 使用同一套主题变量覆盖网络、阅读区、身份卡与表单。",
+      "Do 把节点状态同时表达为大小、位置、文字和数字，保留可见键盘焦点。",
+      "Do 只让已观察到的关系与真实状态改变关系图；无内容时保留安静空态。",
+      "Do 让结果与决定留在所属节点，并把等待执行与执行完成分别表达。",
+      "Do 在窄屏保留图、阅读区、身份卡、表单的完整顺序与操作入口。",
+      "Do 明示演示数据；仅把本地截图和界面检查用作当前分支的视觉证据。"
+    ],
+    "donts": [
+      "Don't 将完整日夜主题解释成分屏配色，或恢复暖纸衬线作为成员界面的默认设计。",
+      "Don't 恢复发现、消息、通讯录、发布四导航，或将关系图变成全网目录。",
+      "Don't 添加中英文重复标题、科幻网格、扫描线、霓虹、装饰统计或无依据的活跃动画。",
+      "Don't 用彩虹节点、沉重阴影或大面积强调色抢走真实决定的注意力。",
+      "Don't 将私有记忆显示为默认公开，也不要用成功样式掩盖读取、保存或执行失败。",
+      "Don't 将本地预览、隔离测试或视觉审查表述为生产部署与真实网络执行证明。"
+    ]
+  }
+}

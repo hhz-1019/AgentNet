@@ -59,10 +59,12 @@ type twinProfile struct {
 	CurrentGoal   string             `json:"current_goal"`
 }
 type twinPolicy struct {
-	DailyPosts    int   `json:"daily_posts"`
-	DailySearches int   `json:"daily_searches"`
-	DailyFeedback int   `json:"daily_feedback"`
-	Revision      int64 `json:"revision"`
+	DailyPosts             int   `json:"daily_posts"`
+	DailySearches          int   `json:"daily_searches"`
+	DailyFeedback          int   `json:"daily_feedback"`
+	Revision               int64 `json:"revision"`
+	ExploreIntervalMinutes *int  `json:"explore_interval_minutes,omitempty"`
+	ReportIntervalHours    *int  `json:"report_interval_hours,omitempty"`
 }
 
 func twinRange(v, lo, hi float64) bool {
@@ -129,7 +131,7 @@ func validateTwinProfile(p twinProfile, required bool) error {
 	return nil
 }
 func validTwinPolicy(p twinPolicy) bool {
-	return p.DailyPosts >= 0 && p.DailyPosts <= 1000 && p.DailySearches >= 0 && p.DailySearches <= 1000 && p.DailyFeedback >= 0 && p.DailyFeedback <= 1000
+	return p.DailyPosts >= 0 && p.DailyPosts <= 1000 && p.DailySearches >= 0 && p.DailySearches <= 1000 && p.DailyFeedback >= 0 && p.DailyFeedback <= 1000 && (p.ExploreIntervalMinutes == nil || (*p.ExploreIntervalMinutes >= 0 && *p.ExploreIntervalMinutes <= 10080)) && (p.ReportIntervalHours == nil || (*p.ReportIntervalHours >= 0 && *p.ReportIntervalHours <= 168))
 }
 
 func (s *Service) registerTwinRoutes(h *server.Hertz) {
@@ -323,8 +325,9 @@ func (s *Service) getTwinPolicy(_ context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	p := twinPolicy{DailyPosts: 3, DailySearches: 20, DailyFeedback: 10}
-	if err := s.db.Raw(`SELECT daily_posts,daily_searches,daily_feedback,revision FROM twin_agent_policy WHERE agent_id=?`, id).Scan(&p).Error; err != nil {
+	explore, report := 120, 24
+	p := twinPolicy{DailyPosts: 3, DailySearches: 20, DailyFeedback: 10, ExploreIntervalMinutes: &explore, ReportIntervalHours: &report}
+	if err := s.db.Raw(`SELECT daily_posts,daily_searches,daily_feedback,explore_interval_minutes,report_interval_hours,revision FROM twin_agent_policy WHERE agent_id=?`, id).Scan(&p).Error; err != nil {
 		fail(c, 500, "POLICY_READ_FAILED", "额度暂时无法读取", nil)
 		return
 	}
@@ -341,11 +344,12 @@ func (s *Service) putTwinPolicy(_ context.Context, c *app.RequestContext) {
 		return
 	}
 	var revision int64
-	err := s.db.Raw(`INSERT INTO twin_agent_policy(agent_id,daily_posts,daily_searches,daily_feedback,updated_at) SELECT ?,?,?,?,? WHERE ?=0 ON CONFLICT(agent_id) DO UPDATE SET daily_posts=EXCLUDED.daily_posts,daily_searches=EXCLUDED.daily_searches,daily_feedback=EXCLUDED.daily_feedback,revision=twin_agent_policy.revision+1,updated_at=EXCLUDED.updated_at WHERE twin_agent_policy.revision=? RETURNING revision`, id, req.DailyPosts, req.DailySearches, req.DailyFeedback, time.Now().UnixMilli(), req.Revision, req.Revision).Scan(&revision).Error
-	// UPDATE existing rows when the caller has a nonzero revision.
-	if err == nil && revision == 0 && req.Revision > 0 {
-		err = s.db.Raw(`UPDATE twin_agent_policy SET daily_posts=?,daily_searches=?,daily_feedback=?,revision=revision+1,updated_at=? WHERE agent_id=? AND revision=? RETURNING revision`, req.DailyPosts, req.DailySearches, req.DailyFeedback, time.Now().UnixMilli(), id, req.Revision).Scan(&revision).Error
-	}
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if req.Revision == 0 {
+			return tx.Raw(`INSERT INTO twin_agent_policy(agent_id,daily_posts,daily_searches,daily_feedback,explore_interval_minutes,report_interval_hours,updated_at) VALUES(?,?,?,?,COALESCE(?,120),COALESCE(?,24),?) ON CONFLICT DO NOTHING RETURNING revision`, id, req.DailyPosts, req.DailySearches, req.DailyFeedback, req.ExploreIntervalMinutes, req.ReportIntervalHours, time.Now().UnixMilli()).Scan(&revision).Error
+		}
+		return tx.Raw(`UPDATE twin_agent_policy SET daily_posts=?,daily_searches=?,daily_feedback=?,explore_interval_minutes=COALESCE(?,explore_interval_minutes),report_interval_hours=COALESCE(?,report_interval_hours),revision=revision+1,updated_at=? WHERE agent_id=? AND revision=? RETURNING revision`, req.DailyPosts, req.DailySearches, req.DailyFeedback, req.ExploreIntervalMinutes, req.ReportIntervalHours, time.Now().UnixMilli(), id, req.Revision).Scan(&revision).Error
+	})
 	if err != nil {
 		fail(c, 500, "POLICY_SAVE_FAILED", "额度未保存，请重试", nil)
 		return
@@ -366,8 +370,12 @@ func (s *Service) twinQuota(activity string) app.HandlerFunc {
 			c.Abort()
 			return
 		}
+		if strings.HasSuffix(string(c.Path()), "/agent-attention-items:publish") {
+			s.networkReportAdmission(ctx, c, id)
+			return
+		}
 		var p twinPolicy
-		if err := s.db.Raw(`SELECT daily_posts,daily_searches,daily_feedback,revision FROM twin_agent_policy WHERE agent_id=?`, id).Scan(&p).Error; err != nil {
+		if err := s.db.Raw(`SELECT daily_posts,daily_searches,daily_feedback,explore_interval_minutes,report_interval_hours,revision FROM twin_agent_policy WHERE agent_id=?`, id).Scan(&p).Error; err != nil {
 			fail(c, 503, "ACTIVITY_UNAVAILABLE", "活动额度暂时无法核对", nil)
 			c.Abort()
 			return
@@ -379,7 +387,28 @@ func (s *Service) twinQuota(activity string) app.HandlerFunc {
 		limit := map[string]int{"posts": p.DailyPosts, "searches": p.DailySearches, "feedback": p.DailyFeedback}[activity]
 		day := time.Now().UTC().Add(8 * time.Hour).Format("2006-01-02")
 		var used int
-		err := s.db.Raw(`INSERT INTO twin_daily_usage(agent_id,day,activity,used) SELECT ?,?::date,?,1 WHERE ?>0 ON CONFLICT(agent_id,day,activity) DO UPDATE SET used=twin_daily_usage.used+1 WHERE twin_daily_usage.used<? RETURNING used`, id, day, activity, limit, limit).Scan(&used).Error
+		err := s.db.Transaction(func(tx *gorm.DB) error {
+			if activity == "searches" && p.ExploreIntervalMinutes != nil {
+				if err := admitNetworkCadence(tx, id, "explore", int64(*p.ExploreIntervalMinutes)*60000, ""); err != nil {
+					return err
+				}
+			}
+			if err := tx.Raw(`INSERT INTO twin_daily_usage(agent_id,day,activity,used) SELECT ?,?::date,?,1 WHERE ?>0 ON CONFLICT(agent_id,day,activity) DO UPDATE SET used=twin_daily_usage.used+1 WHERE twin_daily_usage.used<? RETURNING used`, id, day, activity, limit, limit).Scan(&used).Error; err != nil {
+				return err
+			}
+			if used == 0 {
+				return errNetworkQuota
+			}
+			return nil
+		})
+		if errors.Is(err, errNetworkCadence) {
+			fail(c, 429, "ACTIVITY_NOT_DUE", "尚未到主人设置的探索时间", nil)
+			c.Abort()
+			return
+		}
+		if errors.Is(err, errNetworkQuota) {
+			err = nil
+		}
 		if err != nil {
 			fail(c, 503, "ACTIVITY_UNAVAILABLE", "活动额度暂时无法核对", nil)
 			c.Abort()

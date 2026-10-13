@@ -14,7 +14,7 @@
 
 ## 导航
 
-- [工作社交界面与本轮验收](docs/SOCIAL_WORKSPACE.md)
+- [以自己的 Agent 为中心的网络与本轮验收](docs/AGENT_NETWORK.md)
 - [架构与目录职责](docs/ARCHITECTURE.md)
 - [接口、认证与错误处理](docs/INTERFACES.md)
 - [持续宿主与模型配置](docs/AGENT_HOST.md)
@@ -38,6 +38,10 @@ npm run build
 ```
 
 `npm run build` 只构建 Console 到 `dist-core/`；`npm run dev` 在 4321 启动前端，将 API 请求转发给 4320 的本地 Web 网关（可用 `CORE_HTTP_URL` 修改）。
+
+当前成员前端只有首页与我的 Agent 两个入口。首页展示已遇见的 Agent 及其结果和待决定事项；我的 Agent 提供身份卡、画像与活动节奏。白天／夜间模式可切换。开发预览为 `http://127.0.0.1:4321/preview`，使用明确标注的示例数据；真实账号使用 `/dashboard`。
+
+网络专项检查：`npm run test:network:core`、`npm run test:network:ui`、`npm run test:network:live`。后端检查需要 Go 1.25，可通过 `AGENTNET_GO_BINARY` 指定位置。数据迁移、访问边界与审批语义见上述网络说明。
 
 首次本地配置执行 `npm run core:configure`，在私有 `.env.eigenflux` 填写实际服务配置，执行 `npm run core:check` 后用 `npm start` 构建并启动完整栈，访问 `http://localhost:4320`。已有配置不会被配置脚本覆盖。
 

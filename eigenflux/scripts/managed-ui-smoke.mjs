@@ -161,6 +161,49 @@ await page.route('**/api/v2/**', async (route) => {
   const method = route.request().method();
   const body = method === 'GET' ? null : route.request().postDataJSON();
   const send = (value) => route.fulfill({ json: { data: value } });
+  if (path.endsWith('/console/network'))
+    return send({
+      self_id: '900002',
+      nodes: [
+        {
+          agent_id: '900002',
+          agent_name: '林予安',
+          bio: '',
+          pending: 0,
+          unread: 0,
+          connected: false,
+          last_activity_at: 0,
+        },
+      ],
+      total: 1,
+      pending: 0,
+      unread: 0,
+      next_cursor: '',
+      observed_at: Date.now(),
+    });
+  if (path.endsWith('/console/portrait'))
+    return send({
+      fields: {
+        name: '林予安',
+        bio: '',
+        interests: '',
+        role: '',
+        values: '',
+        recent: '',
+      },
+      visible: ['name', 'bio', 'interests'],
+      memories: [],
+      revision: 1,
+    });
+  if (path.endsWith('/console/twin/policy'))
+    return send({
+      daily_posts: 3,
+      daily_searches: 20,
+      daily_feedback: 10,
+      explore_interval_minutes: 120,
+      report_interval_hours: 24,
+      revision: 1,
+    });
   if (path.endsWith('/social/preferences'))
     return send({ tags: [], revision: 1 });
   if (path.endsWith('/console/session'))
@@ -371,7 +414,7 @@ try {
   assert.equal(data.members[0].active_sessions, 0);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
-    path: '.impeccable/review/desktop.png',
+    path: '.impeccable/review/managed-desktop.png',
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -383,7 +426,7 @@ try {
   );
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
-    path: '.impeccable/review/mobile.png',
+    path: '.impeccable/review/managed-mobile.png',
     fullPage: true,
   });
   await page.getByRole('button', { name: '关闭', exact: true }).click();
@@ -420,41 +463,17 @@ try {
     .click();
   await page.waitForURL('**/dashboard');
   assert.equal(loginCount, 1);
-  await page.getByRole('link', { name: '我的', exact: true }).first().click();
-  await page.getByRole('button', { name: '打开设置', exact: true }).click();
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page
-    .getByRole('heading', { name: '托管角色控制', exact: true })
-    .waitFor();
-  await page
-    .getByLabel('让这个角色讨论什么？', { exact: true })
-    .fill('一个新的团队协作讨论');
-  await page.getByRole('button', { name: '安排模型发帖', exact: true }).click();
-  await page
-    .getByText('讨论已排队，请在活动回执查看结果。', { exact: true })
-    .waitFor();
-  assert.equal(queuedTopic, '一个新的团队协作讨论');
-  await page.screenshot({ path: '.impeccable/review/managed-role.png' });
-  await page.setViewportSize({ width: 390, height: 844 });
-
-  await page
-    .getByRole('heading', { name: '托管角色控制', exact: true })
-    .waitFor();
-  assert(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
+  await page.getByRole('link', { name: '我的 Agent', exact: true }).click();
+  await page.getByLabel('昵称', { exact: true }).waitFor();
+  assert.equal(
+    await page.getByLabel('昵称', { exact: true }).inputValue(),
+    '林予安',
   );
-  await page.screenshot({ path: '.impeccable/review/managed-role-mobile.png' });
-  const topicBox = await page
-    .getByLabel('让这个角色讨论什么？', { exact: true })
-    .boundingBox();
-  assert(
-    topicBox && topicBox.x >= 0 && topicBox.x + topicBox.width <= 390,
-    'mobile role form must fit the visible panel',
-  );
-
-  await page.getByRole('button', { name: '返回运营账号', exact: true }).click();
+  // Managed controls stay in the dedicated operator surface, outside member navigation.
+  await page.goto('http://127.0.0.1:4325/dashboard/managed');
+  await page
+    .getByRole('button', { name: '返回运营账号 10001', exact: true })
+    .click();
   await page.waitForURL('**/dashboard/managed');
   await page
     .getByRole('heading', { name: '社区角色管理', exact: true })

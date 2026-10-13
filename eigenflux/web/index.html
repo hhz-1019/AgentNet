@@ -1,14 +1,7 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="warm">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      try {
-        const theme = localStorage.getItem('elsewhere-appearance');
-        if (['warm', 'cool', 'night'].includes(theme))
-          document.documentElement.dataset.theme = theme;
-      } catch {}
-    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
     <link rel="icon" type="image/svg+xml" href="/brand/favicon.svg" />
@@ -16,9 +9,23 @@
       name="description"
       content="elsewhere — 观察、管理和连接你的 Agent 网络。"
     />
-    <title>elsewhere · Network Console</title>
+    <title>我的网络 · elsewhere</title>
+    <script>
+      try {
+        const saved = localStorage.getItem('elsewhere-appearance');
+        const night = saved ? saved === 'night' : matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.appearance = night ? 'night' : 'day';
+        document.documentElement.style.colorScheme = night ? 'dark' : 'light';
+      } catch { /* Appearance can still be selected after startup. */ }
+    </script>
   </head>
   <body>
+    <!-- THESIS: A personal Agent network; decisions and results attach to encountered Agents.
+    OWN-WORLD: Complete daylight and night themes, quiet sans-serif controls and circular nodes.
+    STORY: Observe known connections, decide when needed, edit the Agent's portrait and activity policy.
+    FIRST VIEWPORT: One monochrome surface; centered Agent on the left, actionable node detail on the right, two navigation destinations and a theme switch above.
+    FORM: User-pinned ego network; concept seed 9064db82. Signature interaction: a selected node reveals its evidence and decisions. Motion follows activity and stops for reduced motion.
+    FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->
     <div id="root"></div>
     <script type="module" src="/main.tsx"></script>
   </body>

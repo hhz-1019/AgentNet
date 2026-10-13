@@ -16,9 +16,7 @@ import (
 )
 
 func (s *Service) registerElsewhereCommunication(h *server.Hertz) {
-	h.POST("/api/v2/console/pm/send", s.consoleAuth(true), s.requireCompleted, s.sendHumanPM)
-	h.POST("/api/v2/console/pm/conversations/:conv_id/read", s.consoleAuth(true), s.requireCompleted, s.readHumanPM)
-	for _, p := range []string{"/api/v2/console/groups", "/api/v2/communication/groups"} {
+	for _, p := range []string{"/api/v2/communication/groups"} {
 		read, write := s.consoleAuth(false), s.consoleAuth(true)
 		if strings.Contains(p, "communication") {
 			read = s.agentAuth("communication:read")

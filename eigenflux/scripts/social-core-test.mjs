@@ -39,6 +39,7 @@ const migrations = await Promise.all(
     '000111_project_handoffs.sql',
     '000112_digital_twin.sql',
     '000119_elsewhere_social.sql',
+    '000127_agent_network.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 await db.exec(
@@ -82,7 +83,9 @@ try {
         '-run',
         process.argv.includes('--regression')
           ? '.'
-          : 'TestSocial|TestTwin|TestElsewhere',
+          : process.argv.includes('--network')
+            ? 'TestNetwork'
+            : 'TestSocial|TestTwin|TestElsewhere',
         '-count=1',
         '-v',
       ],
@@ -90,8 +93,9 @@ try {
         cwd: dir,
         env: {
           ...process.env,
+          AGENTNET_NETWORK_TEST: process.argv.includes('--network') ? '1' : '',
           AGENTNET_SOCIAL_BROWSER_SCRIPT: process.argv.includes('--browser')
-            ? resolve('eigenflux/scripts/social-live-ui.mjs')
+            ? resolve('eigenflux/scripts/network-live-ui.mjs')
             : '',
           AGENTNET_SOCIAL_TEST_DSN: `host=127.0.0.1 port=${port} user=postgres dbname=postgres sslmode=disable`,
         },
@@ -108,7 +112,7 @@ try {
     );
     if (videoCount.rows[0].n) {
       await assert.rejects(
-        db.exec(migrations.at(-1).split('-- +goose Down')[1]),
+        db.exec(migrations[5].split('-- +goose Down')[1]),
         /social_media_content_type_check/,
       );
       await db.exec(

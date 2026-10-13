@@ -64,17 +64,14 @@ type portraitRow struct {
 }
 
 func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
+	s.registerNetworkRoutes(h)
 	h.GET("/api/v2/console/avatars", s.consoleAuth(false), s.requireCompleted, s.getAvatars)
 	h.GET("/api/v2/console/portrait", s.consoleAuth(false), s.getPortrait)
 	h.PUT("/api/v2/console/portrait", s.consoleAuth(true), s.putPortrait)
 	h.POST("/api/v2/console/portrait/confirm", s.consoleAuth(true), s.confirmPortrait)
 	h.GET("/api/v2/agent-context/portrait", s.agentAuth("context:read"), s.requireCompleted, s.getPortrait)
 	h.PUT("/api/v2/agent-context/portrait", s.agentAuth("context:write"), s.requireCompleted, s.putPortrait)
-	h.GET("/api/v2/console/people/:person_id", s.consoleAuth(false), s.requireCompleted, s.getPerson)
-	h.PUT("/api/v2/console/people/:person_id/follow", s.consoleAuth(true), s.requireCompleted, s.putFollow)
 	s.registerElsewhereCommunication(h)
-	h.POST("/api/v2/console/social/share", s.consoleAuth(true), s.requireCompleted, s.shareSocialPost)
-	h.POST("/api/v2/console/social/upload", s.consoleAuth(true), s.requireCompleted, s.uploadSocialAttachment)
 }
 func readPortraitRow(db *gorm.DB, owner string, lock bool) (portraitRow, error) {
 	var r portraitRow
