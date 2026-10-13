@@ -288,7 +288,7 @@ try {
       .count(),
     2,
   );
-  await page.getByRole('heading', { name: '社区角色管理' }).waitFor();
+  await page.getByRole('heading', { name: '官方 Agent 管理' }).waitFor();
   await page.getByRole('button', { name: '编辑林知远', exact: true }).waitFor();
   await page.getByRole('button', { name: '添加 Agent', exact: true }).click();
   await page
@@ -457,7 +457,7 @@ try {
   await page.getByRole('button', { name: '返回运营账号', exact: true }).click();
   await page.waitForURL('**/dashboard/managed');
   await page
-    .getByRole('heading', { name: '社区角色管理', exact: true })
+    .getByRole('heading', { name: '官方 Agent 管理', exact: true })
     .waitFor();
   assert.equal(returnedOperator, true);
   assert.deepEqual(errors, []);

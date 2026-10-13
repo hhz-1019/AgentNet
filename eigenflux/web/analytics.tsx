@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  ArrowLeft,
   ArrowUpRight,
   Download,
   RefreshCw,
@@ -9,7 +8,7 @@ import {
   Info,
 } from 'lucide-react';
 import { api, ApiError } from './api';
-import { BrandLogo } from './brand';
+import { AdminNav } from './admin-nav';
 import type { AnalyticsData } from './analytics-types';
 import './analytics.css';
 
@@ -178,26 +177,7 @@ export function AnalyticsDashboard({ preview = false }: { preview?: boolean }) {
   };
   return (
     <div className="analytics-page">
-      <header className="analytics-nav">
-        <a
-          href="/dashboard"
-          className="analytics-brand"
-          aria-label="返回 elsewhere"
-        >
-          <BrandLogo />
-        </a>
-        <nav aria-label="管理导航">
-          <a href="/dashboard/analytics" aria-current="page">
-            数据看板
-          </a>
-          <a href="/dashboard/managed">
-            社区角色管理 <ArrowUpRight size={16} />
-          </a>
-        </nav>
-        <a href="/dashboard">
-          <ArrowLeft size={16} /> 返回网站
-        </a>
-      </header>
+      <AdminNav active="analytics" />
       <main className="analytics-main">
         {preview && (
           <div className="analytics-preview" role="note">

@@ -116,6 +116,7 @@ func TestAnalyticsFullSchema(t *testing.T) {
 	ai := makeSession("analytics-ai", 7005)
 	h := server.New()
 	h.GET("/analytics", s.consoleAuth(false), s.getAnalytics)
+	h.GET("/members", s.consoleAuth(false), s.getAdminMembers)
 	h.POST("/heartbeat", s.consoleAuth(true), s.analyticsHeartbeat)
 	call := func(method, path, body string, ss *uidSession, csrf bool, want int) []byte {
 		t.Helper()
@@ -134,6 +135,42 @@ func TestAnalyticsFullSchema(t *testing.T) {
 	}
 	call("GET", "/analytics", "", nil, false, 401)
 	call("GET", "/analytics", "", &member, false, 403)
+	call("GET", "/members", "", nil, false, 401)
+	call("GET", "/members", "", &member, false, 403)
+	call("GET", "/members?status=invalid", "", &admin, false, 400)
+	call("GET", "/members?page=0", "", &admin, false, 400)
+	for _, item := range []struct {
+		query string
+		total float64
+	}{{"", 4}, {"?q=20002", 1}, {"?status=connected", 2}, {"?status=unconnected", 2}, {"?q=%25", 0}} {
+		var response struct {
+			Data struct {
+				Total   float64
+				Members []map[string]any
+			}
+		}
+		body := call("GET", "/members"+item.query, "", &admin, false, 200)
+		check(json.Unmarshal(body, &response))
+		if response.Data.Total != item.total {
+			t.Fatalf("member filter %s: %s", item.query, body)
+		}
+		if strings.Contains(string(body), "password") || strings.Contains(string(body), "recovery") || strings.Contains(string(body), "analytics-ai") {
+			t.Fatal("members leaked protected fields or managed AI")
+		}
+	}
+	for i := 0; i < 26; i++ {
+		exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES(?,?,'x','x',?)`, fmt.Sprintf("page-%d", i), 21000+i, ms)
+	}
+	var paged struct {
+		Data struct {
+			Total   int
+			Members []any
+		}
+	}
+	check(json.Unmarshal(call("GET", "/members?page=2", "", &admin, false, 200), &paged))
+	if paged.Data.Total != 30 || len(paged.Data.Members) != 5 {
+		t.Fatal("member pagination", paged)
+	}
 	call("GET", "/analytics?days=365", "", &admin, false, 400)
 	raw := call("GET", "/analytics?days=14", "", &admin, false, 200)
 	if strings.Contains(string(raw), "password") || strings.Contains(string(raw), "private") || strings.Contains(string(raw), "analytics-a") {

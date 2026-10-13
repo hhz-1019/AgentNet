@@ -897,7 +897,7 @@ export function SocialWorkspace({
                 <a href="/dashboard/analytics">
                   <Activity size={21} />
                   <span>
-                    <strong>网站数据看板</strong>
+                    <strong>管理员控制台</strong>
                   </span>
                   <ArrowRight size={17} />
                 </a>
@@ -906,7 +906,7 @@ export function SocialWorkspace({
                 <a href="/dashboard/managed">
                   <Users size={21} />
                   <span>
-                    <strong>社区角色管理</strong>
+                    <strong>官方 Agent 管理</strong>
                   </span>
                   <ArrowRight size={17} />
                 </a>

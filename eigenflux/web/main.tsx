@@ -12,6 +12,7 @@ import { Console } from './console';
 import { BrandEntry } from './brand-entry';
 import { useAnalyticsHeartbeat } from './analytics-heartbeat';
 import { AnalyticsDashboard } from './analytics';
+import { AdminMembers } from './admin-members';
 import './style.css';
 import { ThemeSync } from './theme';
 
@@ -166,6 +167,7 @@ function AppContent({
     return <AccountSwitch done={() => void refresh()} />;
   if (location.pathname === '/dashboard/analytics')
     return <AnalyticsDashboard />;
+  if (location.pathname === '/dashboard/members') return <AdminMembers />;
   if (session.onboarding.state !== 'completed')
     return (
       <Onboard

@@ -6,6 +6,8 @@ import { PhoneBinding } from './phone';
 import { PublicCard } from './public-agent';
 import { BrandLogo } from './brand';
 import { AnalyticsDashboard } from './analytics';
+import { AdminMembers } from './admin-members';
+import { ManagedConsole } from './managed';
 import { ApiError } from './api';
 import { previewAgents, previewReceipt } from './preview-data';
 import { SocialWorkspace } from './social/workspace';
@@ -210,6 +212,17 @@ export default function VisualPreview() {
   switch (page) {
     case 'analytics':
       return <AnalyticsDashboard preview />;
+    case 'members':
+      return <AdminMembers preview />;
+    case 'managed':
+      return (
+        <>
+          <div className="analytics-preview">
+            布局预览 · 官方 Agent 管理空态，非线上数据。
+          </div>
+          <ManagedConsole session={session} />
+        </>
+      );
     case 'pages':
       return <PageDirectory />;
     case 'login':
