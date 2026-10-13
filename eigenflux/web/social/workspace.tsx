@@ -51,6 +51,8 @@ import { liveSocialStore, uploadAttachment } from './store';
 import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
 import { LivePortrait } from './live-portrait';
+import { Crossing } from './crossing';
+import type { CrossingView } from './crossing-data';
 import './workspace.css';
 import './polish.css';
 import './social-layout.css';
@@ -66,6 +68,7 @@ import './post-reading.css';
 import './post-detail.css';
 
 const nav = [
+  ['crossing', '此刻', Activity],
   ['explore', '发现', Compass],
   ['messages', '消息', MessageCircle],
   ['network', '通讯录', Users],
@@ -104,9 +107,11 @@ function readRoute(demo: boolean) {
   if (demo && route === 'security') return 'settings';
   if (route === 'mine') return 'me';
   if (route === 'relations') return 'network';
+  if (['crossing', 'crossing/encounters', 'crossing/traces'].includes(route))
+    return route;
   return ['explore', 'messages', 'network', ...personalRoutes].includes(route)
     ? route
-    : 'explore';
+    : 'crossing';
 }
 export function SocialWorkspace({
   session,
@@ -206,13 +211,20 @@ export function SocialWorkspace({
     route,
   );
   const personRoute = route.startsWith('person/');
+  const crossingRoute = route === 'crossing' || route.startsWith('crossing/');
+  const crossingView: CrossingView =
+    route === 'crossing/encounters'
+      ? 'encounters'
+      : route === 'crossing/traces'
+        ? 'traces'
+        : 'now';
   const personal = personalRoutes.has(route);
   const profileIntro = portrait.fields.bio?.trim();
   const generation = useRef(0);
   const href = (id: string) => (demo ? `/preview#${id}` : `/dashboard/${id}`);
   useEffect(() => {
     if (demo && !location.hash)
-      history.replaceState(history.state, '', '/preview#explore');
+      history.replaceState(history.state, '', '/preview#crossing');
   }, [demo]);
   function reload() {
     setVersion((v) => v + 1);
@@ -325,8 +337,8 @@ export function SocialWorkspace({
     return () => cancelAnimationFrame(frame);
   }, [route, feedRoute, loading, page, personRoute, personReady]);
   useEffect(() => {
-    document.title = `${personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
-  }, [route, personal, personRoute]);
+    document.title = `${crossingRoute ? '交汇处' : personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
+  }, [route, personal, personRoute, crossingRoute]);
   useEffect(() => {
     if (query === search) return;
     const timer = setTimeout(() => {
@@ -446,9 +458,9 @@ export function SocialWorkspace({
       setPending((ids) => ids.filter((x) => x !== post.id));
     }
   }
-  const activeNav = personal ? 'me' : route;
+  const activeNav = crossingRoute ? 'crossing' : personal ? 'me' : route;
   const renderNav = (
-    ids: readonly string[] = ['explore', 'messages', 'network'],
+    ids: readonly string[] = ['crossing', 'explore', 'messages', 'network'],
   ) =>
     nav
       .filter(([id]) => ids.includes(id))
@@ -480,7 +492,7 @@ export function SocialWorkspace({
       ));
   return (
     <div
-      className="sw-workspace sn-social ew-social"
+      className="sw-workspace sn-social ew-social cx-enabled"
       data-page={route}
       ref={workspace}
     >
@@ -496,8 +508,8 @@ export function SocialWorkspace({
       <aside className="sw-sidebar">
         <a
           className="sw-brand"
-          href={href('explore')}
-          onClick={(e) => go('explore', e)}
+          href={href('crossing')}
+          onClick={(e) => go('crossing', e)}
         >
           <BrandLogo />
         </a>
@@ -616,7 +628,15 @@ export function SocialWorkspace({
         {personal && ['liked', 'saved', 'drafts'].includes(route) && (
           <p className="sw-hint sn-private-note">仅自己可见</p>
         )}
-        {personRoute ? (
+        {crossingRoute ? (
+          <Crossing
+            view={crossingView}
+            onView={(view) =>
+              go(view === 'now' ? 'crossing' : `crossing/${view}`)
+            }
+            onExplore={() => go('explore')}
+          />
+        ) : personRoute ? (
           <PersonHome
             viewerId={session.agent_id}
             key={route}
@@ -1001,7 +1021,7 @@ export function SocialWorkspace({
         )}
       </main>
       <nav className="sw-mobile-nav" aria-label="移动导航">
-        {renderNav(['explore', 'messages'])}
+        {renderNav(['crossing', 'explore', 'messages'])}
         <button
           className="ew-mobile-publish"
           onClick={() => setPublisher(true)}
