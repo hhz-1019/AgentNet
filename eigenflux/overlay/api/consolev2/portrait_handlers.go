@@ -66,6 +66,11 @@ type portraitRow struct {
 func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
 	h.GET("/api/v2/guest/feed", s.getGuestFeed)
 	h.GET("/api/v2/guest/posts/:post_id/cover", s.getGuestCover)
+	h.GET("/api/v2/guest/posts/:post_id", s.getGuestPost)
+	h.GET("/api/v2/guest/posts/:post_id/comments", s.getGuestComments)
+	h.GET("/api/v2/guest/posts/:post_id/media/:index", s.getGuestMedia)
+	h.GET("/api/v2/guest/people", s.getGuestPeople)
+	h.GET("/api/v2/guest/people/:person_id", s.getGuestPerson)
 	h.GET("/api/v2/console/avatars", s.consoleAuth(false), s.requireCompleted, s.getAvatars)
 	h.GET("/api/v2/console/portrait", s.consoleAuth(false), s.getPortrait)
 	h.PUT("/api/v2/console/portrait", s.consoleAuth(true), s.putPortrait)

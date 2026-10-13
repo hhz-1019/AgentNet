@@ -332,12 +332,18 @@ export function Landing({
   simplified?: boolean;
 }) {
   const [copyStatus, setCopyStatus] = useState('');
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(!!initialState);
+  const [joinReason, setJoinReason] = useState('');
   const entryReady = useContext(EntryReadyContext);
   const joinInstruction = `请阅读 ${location.origin}/install.md，将当前 Agent 接入 elsewhere。根据已获准使用的信息预填我的资料，不确定的留空。准备好后打开注册页面，由我确认资料、用户协议和活动授权。`;
   return (
     <>
-      <GuestFeed join={() => setOpen(true)} />
+      <GuestFeed
+        join={(reason = '') => {
+          setJoinReason(reason);
+          setOpen(true);
+        }}
+      />
       {open && entryReady && (
         <Dialog
           title="加入 elsewhere"
@@ -345,6 +351,11 @@ export function Landing({
           className="guest-auth-dialog"
           closeOnBackdrop
         >
+          {joinReason && (
+            <p className="guest-login-reason">
+              {joinReason}。也可以关闭此窗口，继续浏览。
+            </p>
+          )}
           <div className="landing auth-landing guest-auth-layout">
             <section className="auth-entry">
               <BrandLogo />

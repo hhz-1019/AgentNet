@@ -47,6 +47,19 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 	s := &Service{db: db}
 	h.GET("/feed", s.getGuestFeed)
 	h.GET("/posts/:post_id/cover", s.getGuestCover)
+	h.GET("/posts/:post_id", s.getGuestPost)
+	h.GET("/posts/:post_id/comments", s.getGuestComments)
+	h.GET("/posts/:post_id/media/:index", s.getGuestMedia)
+	h.GET("/people", s.getGuestPeople)
+	h.GET("/people/:person_id", s.getGuestPerson)
+	get := func(path string, status int) []byte {
+		t.Helper()
+		r := ut.PerformRequest(h.Engine, http.MethodGet, path, nil).Result()
+		if r.StatusCode() != status {
+			t.Fatalf("%s: %d %s", path, r.StatusCode(), r.Body())
+		}
+		return r.Body()
+	}
 	response := ut.PerformRequest(h.Engine, http.MethodGet, "/feed", nil).Result()
 	if response.StatusCode() != 200 {
 		t.Fatal(string(response.Body()))
@@ -61,7 +74,7 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 	for _, p := range result.Data.Items {
 		if p.ID == "88201" {
 			found = true
-			if len([]rune(p.Excerpt)) != 91 || p.Cover != "/api/v2/guest/posts/88201/cover" {
+			if len([]rune(p.Excerpt)) != 91 || p.Cover != "/api/v2/guest/posts/88201/media/0" || p.AuthorName != "公开访客测试" || p.Document.Body != "" {
 				t.Fatalf("bad preview: %+v", p)
 			}
 		}
@@ -69,10 +82,13 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 			t.Fatal("non-public post exposed", p.ID)
 		}
 	}
-	if !found || strings.Contains(string(response.Body()), "正文不应") || strings.Contains(string(response.Body()), "内部来源") || strings.Contains(string(response.Body()), "agent_id") {
+	if !found || strings.Contains(string(response.Body()), "正文不应") || strings.Contains(string(response.Body()), "内部来源") {
 		t.Fatal("invalid public projection", string(response.Body()))
 	}
 	for _, id := range []string{"88202", "88203", "88204", "88205", "999999", "bad"} {
+		get("/posts/"+id, 404)
+		get("/posts/"+id+"/comments", 404)
+		get("/posts/"+id+"/media/1", 404)
 		if r := ut.PerformRequest(h.Engine, http.MethodGet, "/posts/"+id+"/cover", nil).Result(); r.StatusCode() != 404 {
 			t.Fatal("private cover accessible", id, r.StatusCode())
 		}
@@ -81,7 +97,85 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 	if cover.StatusCode() != 200 || string(cover.Body()) != "\x01\x02\x03" || string(cover.Header.Peek("Cache-Control")) != "no-store" {
 		t.Fatal("public cover mismatch")
 	}
+	detail := string(get("/posts/88201", 200))
+	if !strings.Contains(detail, "正文不应") || strings.Contains(detail, "内部来源") || strings.Contains(detail, "复现步骤与验证边界") {
+		t.Fatal("incorrect public detail projection", detail)
+	}
+	if string(get("/posts/88201/media/1", 200)) != "\x04\x05\x06" {
+		t.Fatal("second image unavailable")
+	}
+	get("/posts/88201/media/4", 404)
+	get("/posts/88201/media/bad", 404)
+	check(db.Exec(`INSERT INTO social_work_comments(comment_id,post_id,agent_id,content,idempotency_key,created_at) SELECT n,88201,88001,'公开评论','guest-'||n,1 FROM generate_series(88300,88350) n`).Error)
+	check(db.Exec(`INSERT INTO social_work_comments VALUES(88399,88201,88002,'已归档评论','archived-guest',1)`).Error)
+	comments := get("/posts/88201/comments", 200)
+	if strings.Contains(string(comments), "已归档评论") {
+		t.Fatal("archived comment exposed")
+	}
+	var page struct {
+		Data struct {
+			Items []map[string]any `json:"items"`
+			Next  string           `json:"next_cursor"`
+		} `json:"data"`
+	}
+	check(json.Unmarshal(comments, &page))
+	if len(page.Data.Items) != 50 || page.Data.Next == "" {
+		t.Fatal("comment pagination missing")
+	}
+	check(json.Unmarshal(get("/posts/88201/comments?cursor="+page.Data.Next, 200), &page))
+	if len(page.Data.Items) != 1 || page.Data.Next != "" {
+		t.Fatal("comment pagination duplicated or omitted rows")
+	}
+	// Public profiles honor owner-selected fields and never expose private memories.
+	check(db.Exec(`INSERT INTO human_accounts VALUES('guest-owner','fixture','fixture',1); INSERT INTO agent_owners VALUES(88001,'guest-owner',1); INSERT INTO twin_users(user_id,created_at,last_active_at,portrait_fields,portrait_visible) VALUES('guest-owner',1,1,'{"name":"公开昵称","bio":"私密介绍","interests":"公开兴趣","role":"私人身份","avatar":"tide"}','["name","interests"]')`).Error)
+	defer db.Exec(`DELETE FROM twin_users WHERE user_id='guest-owner';DELETE FROM agent_owners WHERE owner_uid='guest-owner';DELETE FROM human_accounts WHERE uid='guest-owner'`)
+	profile := string(get("/people/88001", 200))
+	if !strings.Contains(profile, "公开兴趣") || strings.Contains(profile, "私密介绍") || strings.Contains(profile, "私人身份") || strings.Contains(profile, "guest-owner") {
+		t.Fatal("profile visibility not respected", profile)
+	}
+	get("/people/88002", 404)
+	people := string(get("/people", 200))
+	if !strings.Contains(people, "公开访客测试") || strings.Contains(people, "已归档") {
+		t.Fatal("invalid discovery projection", people)
+	}
+	for i := 0; i < 28; i++ {
+		insert(88400+i, 88001, "public", "published", 88101)
+	}
+	check(db.Exec(`UPDATE social_work_posts SET document=jsonb_set(document,'{title}',to_jsonb('guest-pagination-'||post_id)) WHERE post_id BETWEEN 88400 AND 88427`).Error)
+	for _, scope := range []string{"latest", "recommended"} {
+		check(json.Unmarshal(get("/feed?q=guest-pagination&scope="+scope, 200), &page))
+		if len(page.Data.Items) != 24 || page.Data.Next == "" {
+			t.Fatal("feed first page invalid")
+		}
+		seen := map[string]bool{}
+		for _, item := range page.Data.Items {
+			seen[item["id"].(string)] = true
+		}
+		check(json.Unmarshal(get("/feed?q=guest-pagination&scope="+scope+"&cursor="+page.Data.Next, 200), &page))
+		if len(page.Data.Items) != 4 || page.Data.Next != "" {
+			t.Fatal("feed next page invalid")
+		}
+		for _, item := range page.Data.Items {
+			if seen[item["id"].(string)] {
+				t.Fatal("duplicate post across pages")
+			}
+		}
+	}
+	for _, path := range []string{"/feed?cursor=bad", "/feed?author=bad", "/feed?scope=friends", "/people?cursor=bad", "/posts/88201/comments?cursor=bad"} {
+		get(path, 400)
+	}
+	check(json.Unmarshal(get("/feed?q=guest-pagination&author=88002", 200), &page))
+	if len(page.Data.Items) != 0 {
+		t.Fatal("author filter ignored")
+	}
+	check(json.Unmarshal(get("/feed?tag=not-a-public-tag", 200), &page))
+	if len(page.Data.Items) != 0 {
+		t.Fatal("tag filter ignored")
+	}
 	check(db.Exec(`UPDATE social_work_posts SET visibility='friends' WHERE post_id=88201`).Error)
+	get("/posts/88201", 404)
+	get("/posts/88201/comments", 404)
+	get("/posts/88201/media/1", 404)
 	if r := ut.PerformRequest(h.Engine, http.MethodGet, "/posts/88201/cover", nil).Result(); r.StatusCode() != 404 {
 		t.Fatal("scope revocation ignored")
 	}
