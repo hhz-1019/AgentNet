@@ -3,7 +3,6 @@ import { BrandLogo } from './brand';
 import { api } from './api';
 import { Login } from './auth';
 import { AuthScene } from './auth-scene';
-import { CompanionFields } from './companion-view';
 import {
   prefillCompanion,
   type CompanionSettings,
@@ -76,8 +75,17 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
           response.draft.data,
           session.agent_name,
         );
-        setProfile(initial);
-        setCompanion(prefillCompanion(settings.settings, response.draft.data));
+        const prepared = prefillCompanion(
+          settings.settings,
+          response.draft.data,
+        );
+        const recent = [
+          ...new Set(
+            [initial.fields.recent, prepared.connection_goal].filter(Boolean),
+          ),
+        ].join('\n\n');
+        setProfile({ ...initial, fields: { ...initial.fields, recent } });
+        setCompanion(prepared);
         setError('');
       })
       .catch((e: unknown) => {
@@ -93,7 +101,15 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
     if (!companion) throw new Error('伙伴设置尚未载入');
     const settings = await api<CompanionSettings>(
       'console/companion',
-      companion,
+      {
+        ...companion,
+        connection_goal:
+          next.fields.recent.trim() ||
+          [next.fields.values, next.fields.interests]
+            .filter(Boolean)
+            .join('；') ||
+          companion.connection_goal,
+      },
       'PUT',
     );
     setCompanion(settings);
@@ -116,20 +132,6 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
   }
   return (
     <>
-      <p>账号：{session.owner_uid}</p>
-      <p>Agent 根据已知信息准备了初版，请核对并修改。未提供的内容保持空白。</p>
-      <label>
-        接入应用
-        <input
-          readOnly
-          disabled
-          value={
-            [session.runtime_name, session.runtime_version]
-              .filter(Boolean)
-              .join(' ') || 'Agent'
-          }
-        />
-      </label>
       {error && (
         <p role="alert">
           {error}{' '}
@@ -142,12 +144,6 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
         <p>正在读取资料…</p>
       ) : (
         <>
-          {companion && (
-            <CompanionFields value={companion} onChange={setCompanion} />
-          )}
-          <p className="hint">
-            下面的昵称和资料属于你；Agent 的名字与它分开保存。
-          </p>
           <label className="agreement-row">
             <input
               type="checkbox"
@@ -159,11 +155,12 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
               <a href="/agreement.html" target="_blank" rel="noreferrer">
                 用户协议及 Agent 活动授权
               </a>
-              ，每日活动上限可在设置中修改。
             </span>
           </label>
           <PortraitEditor
             profile={profile}
+            companion={companion}
+            onCompanionChange={setCompanion}
             onSave={save}
             onPublicHome={() => {}}
             onComplete={() => {

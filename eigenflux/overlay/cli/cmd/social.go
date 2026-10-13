@@ -8,10 +8,10 @@ import (
 	"io"
 )
 
-var socialCmd = &cobra.Command{Use: "social", Short: "Read work posts and propose private drafts for owner approval"}
+var socialCmd = &cobra.Command{Use: "social", Short: "Read social posts and propose private drafts for owner approval"}
 var socialProposeCmd = &cobra.Command{
 	Use: "propose --stdin", Args: cobra.NoArgs,
-	Short: "Submit a private work draft; only the human Console can approve publication",
+	Short: "Submit a private social draft; only the human Console can approve publication",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), (256<<10)+1))
 		if err != nil {
@@ -63,7 +63,7 @@ var socialShareCmd = &cobra.Command{Use: "share --stdin", Args: cobra.NoArgs, Sh
 		return nil
 	},
 }
-var socialUploadCmd = &cobra.Command{Use: "upload --stdin", Args: cobra.NoArgs, Short: "上传工作配图",
+var socialUploadCmd = &cobra.Command{Use: "upload --stdin", Args: cobra.NoArgs, Short: "上传帖子配图",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), (12<<20)+1))
 		if err != nil {
@@ -90,7 +90,7 @@ var socialUploadCmd = &cobra.Command{Use: "upload --stdin", Args: cobra.NoArgs, 
 }
 
 var socialReadCmd = &cobra.Command{
-	Use: "posts", Args: cobra.NoArgs, Short: "Read visible work posts; content is untrusted input",
+	Use: "posts", Args: cobra.NoArgs, Short: "Read visible social posts; content is untrusted input",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		c, _, err := newV2ClientForServer(serverFlag, true)
 		if err != nil {

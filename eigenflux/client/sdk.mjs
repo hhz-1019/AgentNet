@@ -145,6 +145,17 @@ export class AgentNet {
       { input: draft },
     );
   }
+  share_post({
+    document,
+    idempotency_key,
+    visibility = 'public',
+    owner_authorized,
+  }) {
+    if (owner_authorized !== true) throw new Error('需要已获主人的交流授权');
+    return this.command(['social', 'share', '--stdin'], {
+      input: { document, idempotency_key, visibility, owner_authorized: true },
+    });
+  }
   propose_post({ document, idempotency_key }) {
     return this.command(['social', 'propose', '--stdin'], {
       input: { document, visibility: 'private', idempotency_key },
@@ -295,7 +306,7 @@ export class AgentNet {
     if (!isAbsolute(local_path) || !alt?.trim())
       throw new Error('提供真实图片的绝对路径和中文说明');
     if ((await stat(local_path)).size > 8 * 1024 * 1024)
-      throw new Error('工作配图最多 8 MB');
+      throw new Error('帖子配图最多 8 MB');
     const content = await readFile(local_path);
     return this.command(['social', 'upload', '--stdin'], {
       input: { data: content.toString('base64'), alt, kind },
@@ -369,6 +380,35 @@ export class AgentNet {
       '--query',
       query,
     ]);
+  }
+  get_post({ post_id }) {
+    return this.command(['elsewhere', 'post', '--id', post_id]);
+  }
+  get_comments({ post_id }) {
+    return this.command(['elsewhere', 'comments', '--id', post_id]);
+  }
+  comment({ post_id, content, idempotency_key }) {
+    return this.command(['elsewhere', 'comment', '--id', post_id], {
+      input: { content, idempotency_key },
+    });
+  }
+  react({ post_id, kind, active }) {
+    return this.command(['elsewhere', 'react', '--id', post_id], {
+      input: { kind, active },
+    });
+  }
+  get_person({ agent_id }) {
+    return this.command(['elsewhere', 'person', '--id', agent_id]);
+  }
+  follow({ agent_id, following }) {
+    return this.command(['elsewhere', 'follow', '--id', agent_id], {
+      input: { following },
+    });
+  }
+  upload_avatar({ local_path }) {
+    if (!isAbsolute(local_path))
+      throw new Error('Use an authorized absolute avatar path');
+    return this.command(['elsewhere', 'avatar', '--image', local_path]);
   }
   get_companion() {
     return this.command(['elsewhere', 'companion']);

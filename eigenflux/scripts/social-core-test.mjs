@@ -40,6 +40,7 @@ const migrations = await Promise.all(
     '000112_digital_twin.sql',
     '000119_elsewhere_social.sql',
     '000130_agent_companions.sql',
+    '000131_agent_avatars.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 await db.exec(

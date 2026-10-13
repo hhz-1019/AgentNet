@@ -1,11 +1,15 @@
 package consolev2
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/ut"
+	"image"
+	"image/png"
 	"os"
 	"strings"
 	"testing"
@@ -46,7 +50,7 @@ func TestElsewhereCompanionLegacyRenamePreservesIdentity(t *testing.T) {
 		}
 	}
 	check(db.Exec(`INSERT INTO agents(agent_id,agent_name) VALUES(88501,'Codex'),(88502,'阿舟'); INSERT INTO human_accounts VALUES('companion-owner','fixture','fixture',1),('companion-other','fixture','fixture',1); INSERT INTO agent_owners VALUES(88501,'companion-owner',1),(88502,'companion-other',1); INSERT INTO twin_users(user_id,created_at,last_active_at,portrait_fields) VALUES('companion-owner',1,1,'{"name":"小林","recent":"私人资料"}'),('companion-other',1,1,'{"name":"另一位"}'); INSERT INTO user_relations VALUES(88501,88502,1);`).Error)
-	defer db.Exec(`DELETE FROM agent_network_goals WHERE agent_id IN(88501,88502); DELETE FROM agent_companions WHERE agent_id IN(88501,88502); DELETE FROM user_relations WHERE from_uid=88501; DELETE FROM twin_users WHERE user_id IN('companion-owner','companion-other'); DELETE FROM agent_owners WHERE agent_id IN(88501,88502); DELETE FROM human_accounts WHERE uid IN('companion-owner','companion-other'); DELETE FROM agents WHERE agent_id IN(88501,88502)`)
+	defer db.Exec(`DELETE FROM agent_network_goals WHERE agent_id IN(88501,88502); DELETE FROM agent_avatars WHERE agent_id IN(88501,88502); DELETE FROM agent_companions WHERE agent_id IN(88501,88502); DELETE FROM user_relations WHERE from_uid=88501; DELETE FROM twin_users WHERE user_id IN('companion-owner','companion-other'); DELETE FROM agent_owners WHERE agent_id IN(88501,88502); DELETE FROM human_accounts WHERE uid IN('companion-owner','companion-other'); DELETE FROM agents WHERE agent_id IN(88501,88502)`)
 	s := &Service{db: db}
 	h := server.New()
 	auth := func(ctx context.Context, c *app.RequestContext) {
@@ -60,12 +64,38 @@ func TestElsewhereCompanionLegacyRenamePreservesIdentity(t *testing.T) {
 	h.GET("/companion", auth, s.getCompanion)
 	h.PUT("/name", auth, s.renameLegacyCompanion)
 	h.PUT("/companion", auth, s.putCompanion)
+	h.POST("/avatar", auth, s.uploadAvatar)
+	h.GET(avatarPrefix+":id", s.getCustomAvatar)
+	h.PUT("/api/v2/console/portrait", auth, s.putPortrait)
 	request := func(method, path string, body any) (int, map[string]any) {
 		b, _ := json.Marshal(body)
 		r := ut.PerformRequest(h.Engine, method, path, &ut.Body{Body: strings.NewReader(string(b)), Len: len(b)}, ut.Header{Key: "Content-Type", Value: "application/json"}).Result()
 		var out map[string]any
 		_ = json.Unmarshal(r.Body(), &out)
 		return r.StatusCode(), out
+	}
+	var raster bytes.Buffer
+	if err := png.Encode(&raster, image.NewNRGBA(image.Rect(0, 0, 500, 300))); err != nil {
+		t.Fatal(err)
+	}
+	uploadStatus, upload := request("POST", "/avatar", map[string]any{"data": base64.StdEncoding.EncodeToString(raster.Bytes())})
+	if uploadStatus != 201 {
+		t.Fatal(upload)
+	}
+	avatar := upload["data"].(map[string]any)["avatar"].(string)
+	public := ut.PerformRequest(h.Engine, "GET", avatar, nil).Result()
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(public.Body()))
+	if public.StatusCode() != 200 || err != nil || format != "png" || cfg.Width != 256 || cfg.Height != 256 {
+		t.Fatal("public avatar not served as sanitized raster")
+	}
+	uploadStatus, upload = request("POST", "/avatar?other=1", map[string]any{"data": base64.StdEncoding.EncodeToString(raster.Bytes())})
+	if uploadStatus != 201 {
+		t.Fatal(upload)
+	}
+	foreign := upload["data"].(map[string]any)["avatar"].(string)
+	statusForeign, _ := request("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"avatar": foreign}})
+	if statusForeign != 400 {
+		t.Fatal("foreign avatar was attachable", statusForeign)
 	}
 	status, out := request("GET", "/companion", nil)
 	if status != 200 {

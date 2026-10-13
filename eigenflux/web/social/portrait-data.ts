@@ -1,4 +1,4 @@
-import { isDefaultAvatar } from '../default-avatars.ts';
+import { isPortraitAvatar } from '../default-avatars.ts';
 // Frontend prototype only. This is not the server TwinProfile contract.
 export const portraitFields = [
   { key: 'name', label: '昵称', public: true },
@@ -133,7 +133,7 @@ function normalizePortrait(profile: Portrait): Portrait {
   return {
     fields: Object.fromEntries([
       ...portraitFields.map((f) => [f.key, profile.fields[f.key]]),
-      ...(isDefaultAvatar(profile.fields.avatar)
+      ...(isPortraitAvatar(profile.fields.avatar)
         ? [['avatar', profile.fields.avatar]]
         : []),
     ]) as Portrait['fields'],

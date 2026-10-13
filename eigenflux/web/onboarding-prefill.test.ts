@@ -1,4 +1,3 @@
-import { defaultAvatarId } from './default-avatars.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prefillPortrait } from './onboarding-prefill.ts';
@@ -47,7 +46,7 @@ await test('legacy memory prefill survives empty modern placeholders', () => {
     role: '学生',
     values: '',
     recent: '完成当前研究',
-    avatar: 'spark',
+    avatar: '',
   });
   assert.equal(result.memories[0].content, '完成一次研究实验');
   assert.equal(result.memories[0].showOnHome, false);
@@ -74,7 +73,7 @@ await test('modern portrait wins field by field while memories stay private', ()
     },
     'Codex',
   );
-  assert.deepEqual(result.fields, { ...fields, avatar: 'tide' });
+  assert.deepEqual(result.fields, { ...fields, avatar: '' });
   assert.equal(result.memories[0].showOnHome, false);
 });
 await test('saved human edits and deliberately cleared fields cannot be refilled', () => {
@@ -97,16 +96,21 @@ await test('absent memory never invents a personal biography', () => {
     role: '',
     values: '',
     recent: '',
-    avatar: defaultAvatarId('未命名'),
+    avatar: '',
   });
   assert.deepEqual(result.memories, []);
 });
-await test('Agent avatar choice survives review and invalid URLs fall back to a local asset', () => {
+await test('custom Agent avatars survive review; unknown external URLs stay pending', () => {
   const draft = (avatar: string) => ({
     twin_profile: {
       portrait: { fields: { name: '朋友', interests: '音乐', avatar } },
     },
   });
+  const custom = '/api/v2/public/avatars/' + 'a'.repeat(32);
+  assert.equal(
+    prefillPortrait(blank(), draft(custom), '').fields.avatar,
+    custom,
+  );
   assert.equal(
     prefillPortrait(blank(), draft('bloom'), '').fields.avatar,
     'bloom',
@@ -114,7 +118,7 @@ await test('Agent avatar choice survives review and invalid URLs fall back to a 
   assert.equal(
     prefillPortrait(blank(), draft('https://example.com/pixel'), '').fields
       .avatar,
-    'tide',
+    '',
   );
   const saved = {
     ...blank(),

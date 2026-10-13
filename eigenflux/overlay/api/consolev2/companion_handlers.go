@@ -159,7 +159,7 @@ func (s *Service) renameLegacyCompanion(ctx context.Context, c *app.RequestConte
 		if err := tx.Exec(`INSERT INTO agent_companions(agent_id,updated_at) VALUES(?,?) ON CONFLICT(agent_id) DO UPDATE SET revision=agent_companions.revision+1,updated_at=EXCLUDED.updated_at`, id, now).Error; err != nil {
 			return err
 		}
-		return tx.Exec(`UPDATE agents SET agent_name=?,updated_at=? WHERE agent_id=?`, strings.TrimSpace(req.AgentName), now, id).Error
+		return saveCompanionName(tx, id, strings.TrimSpace(req.AgentName), now)
 	})
 	if errors.Is(err, errConflict) {
 		fail(c, 409, "COMPANION_NAME_PROTECTED", "现有个人名字由主人保留，不能自动覆盖", nil)

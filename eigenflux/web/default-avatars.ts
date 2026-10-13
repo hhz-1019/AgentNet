@@ -46,8 +46,25 @@ export function defaultAvatarId(seed: string): DefaultAvatarId {
   for (const char of seed) hash = (hash * 31 + char.codePointAt(0)!) >>> 0;
   return defaultAvatars[hash % defaultAvatars.length].id;
 }
+export function isCustomAvatar(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^\/api\/v2\/public\/avatars\/[a-f0-9]{32}$/.test(value)
+  );
+}
+export function isPortraitAvatar(value: unknown): value is string {
+  return isCustomAvatar(value) || isDefaultAvatar(value);
+}
 export function avatarUrl(value: unknown, seed = '') {
-  return `/avatars/${isDefaultAvatar(value) ? value : defaultAvatarId(seed)}.svg?v=2`;
+  if (isCustomAvatar(value)) return value;
+  if (isDefaultAvatar(value)) return `/avatars/${value}.svg?v=2`;
+  const initial = (seed.trim()[0] || '·').replace(/[<>&"']/g, '');
+  return (
+    'data:image/svg+xml,' +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="48" fill="#f1f0eb"/><text x="48" y="60" text-anchor="middle" font-size="36" font-family="sans-serif" fill="#7f8078">${initial}</text></svg>`,
+    )
+  );
 }
 /** For older Agents without a choice; explicit Agent/human choices always win. */
 export function suggestAvatar(

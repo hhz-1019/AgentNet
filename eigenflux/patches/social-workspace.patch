@@ -38,10 +38,17 @@
  	h.POST("/api/v2/telemetry/events:batch", s.consoleAuth(true), s.recordTelemetryBatch)
 --- a/api/consolev2/capability_registry.go
 +++ b/api/consolev2/capability_registry.go
-@@ -82,6 +82,26 @@
+@@ -82,6 +82,33 @@
  		capability("identity.legacy_login", "eigenflux auth login", "identity", "write", "旧版邮箱登录", "Legacy email login"),
  		capability("identity.legacy_verify", "eigenflux auth verify", "identity", "write", "验证旧版邮箱登录", "Verify legacy email login"),
  		capability("identity.logout", "eigenflux auth logout", "identity", "write", "退出旧版登录", "Log out of legacy authentication"),
++		capability("elsewhere.post", "eigenflux elsewhere post", "network", "read", "读取可见帖子", "post"),
++		capability("elsewhere.comments", "eigenflux elsewhere comments", "network", "read", "读取可见评论", "comments"),
++		capability("elsewhere.comment", "eigenflux elsewhere comment", "network", "write", "按授权评论", "comment"),
++		capability("elsewhere.react", "eigenflux elsewhere react", "network", "write", "点赞与收藏", "react"),
++		capability("elsewhere.person", "eigenflux elsewhere person", "network", "read", "读取公开主页", "person"),
++		capability("elsewhere.follow", "eigenflux elsewhere follow", "network", "write", "按授权关注", "follow"),
++		capability("elsewhere.avatar", "eigenflux elsewhere avatar", "profile", "write", "上传个人头像供主人确认", "Upload a personal avatar for owner review"),
 +		capability("elsewhere.companion", "eigenflux elsewhere companion", "profile", "read", "读取伙伴身份与连接目标", "Read companion identity and connection goal"),
 +		capability("elsewhere.name", "eigenflux elsewhere name", "profile", "write", "仅为工具名身份自取个人名字", "Repair a legacy tool name while preserving identity"),
 +		capability("elsewhere.portrait", "eigenflux elsewhere portrait", "profile", "read", "读取私有画像", "Read private portrait"),
@@ -56,7 +63,7 @@
 +		capability("handoff.setup_codex", "eigenflux handoff setup-codex", "runtime", "write", "配置授权的本地提醒", "Configure authorized local reminders"),
 +		capability("social.share", "eigenflux social share", "network", "write", "按主人授权分享帖子", "Share an owner-authorized post"),
 +		capability("social.upload", "eigenflux social upload", "network", "write", "上传真实可公开配图", "Upload publishable images"),
-+		capability("social.posts", "eigenflux social posts", "network", "read", "发现真实工作成果", "Read visible work posts"),
++		capability("social.posts", "eigenflux social posts", "network", "read", "阅读可见交流帖子", "Read visible social posts"),
 +		capability("social.propose", "eigenflux social propose", "network", "write", "提交私有成果草稿供主人确认", "Propose a private work draft for owner approval"),
 +		capability("handoff.send", "eigenflux handoff send", "network", "write", "私密交接项目给联系人", "Send a private project handoff"),
 +		capability("handoff.inbox", "eigenflux handoff inbox", "network", "read", "查看项目交接收件箱", "Read project handoff inbox"),
@@ -65,12 +72,13 @@
  		capability("profile.read", "eigenflux profile show", "profile", "read", "查看 Agent 资料", "View Agent profile"),
  		capability("profile.update", "eigenflux profile patch", "profile", "write", "修改 Agent Card", "Update Agent Card"),
  		capability("profile.legacy_update", "eigenflux profile update", "profile", "write", "兼容更新 Agent 资料", "Update the Agent profile through the compatibility command"),
-@@ -203,6 +223,12 @@
+@@ -203,6 +230,13 @@
  		if seed.id == "attention.prefill" {
  			seed.availability = "pre_onboarding"
  		}
 +		if strings.HasPrefix(seed.id, "elsewhere.") { seed.minCLI = "0.0.54-agentnet.9" }
-+		if seed.id == "elsewhere.companion" || seed.id == "elsewhere.name" { seed.minCLI = "0.0.54-agentnet.11" }
++		if seed.id == "elsewhere.companion" || seed.id == "elsewhere.name" || seed.id == "elsewhere.avatar" || seed.id == "elsewhere.post" || seed.id == "elsewhere.comments" || seed.id == "elsewhere.comment" || seed.id == "elsewhere.react" || seed.id == "elsewhere.person" || seed.id == "elsewhere.follow" { seed.minCLI = "0.0.54-agentnet.11" }
++		if seed.id == "elsewhere.avatar" { seed.availability = "pre_onboarding" }
 +		if strings.HasPrefix(seed.id, "twin.") { seed.minCLI = "0.0.54-agentnet.8" }
 +		if strings.HasPrefix(seed.id, "social.") { seed.minCLI = "0.0.54-agentnet.3" }
 +		if seed.id == "social.share" || seed.id == "social.upload" { seed.minCLI = "0.0.54-agentnet.5" }

@@ -11,6 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"eigenflux_server/pkg/activity"
+	"eigenflux_server/pkg/firstcontact"
 	pmdal "eigenflux_server/rpc/pm/dal"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -19,7 +21,7 @@ import (
 )
 
 var errPortraitConflict = errors.New("portrait revision conflict")
-var portraitKeys = map[string]int{"name": 80, "bio": 1000, "interests": 1000, "role": 200, "values": 1000, "recent": 1000, "avatar": 20}
+var portraitKeys = map[string]int{"name": 80, "bio": 1000, "interests": 1000, "role": 200, "values": 1000, "recent": 2000, "avatar": 100}
 
 // Optional initial Agent prefill inside the existing onboarding twin_profile envelope.
 type portraitDraft struct {
@@ -30,7 +32,7 @@ type portraitDraft struct {
 func validatePortraitDraft(p portraitDraft) error {
 	for k, v := range p.Fields {
 		limit, ok := portraitKeys[k]
-		if !ok || utf8.RuneCountInString(v) > limit || (k == "avatar" && !validDefaultAvatar(v)) {
+		if !ok || utf8.RuneCountInString(v) > limit || (k == "avatar" && !validPortraitAvatar(v)) {
 			return errors.New("画像字段无效或过长")
 		}
 	}
@@ -65,6 +67,8 @@ type portraitRow struct {
 
 func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
 	s.registerCompanionRoutes(h)
+	s.registerAvatarRoutes(h)
+	s.registerAgentSocialRoutes(h)
 	h.GET("/api/v2/guest/feed", s.getGuestFeed)
 	h.GET("/api/v2/guest/posts/:post_id/cover", s.getGuestCover)
 	h.GET("/api/v2/guest/posts/:post_id", s.getGuestPost)
@@ -177,6 +181,17 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 	if !human && req.Visible != nil {
 		fail(c, 403, "HUMAN_VISIBILITY_REQUIRED", "主页可见范围由本人设置", nil)
 		return
+	}
+	if avatar := req.Fields["avatar"]; customAvatarPattern.MatchString(avatar) {
+		var owned bool
+		if err := s.db.WithContext(ctx).Raw("SELECT EXISTS(SELECT 1 FROM agent_avatars WHERE avatar_id=? AND agent_id=?)", strings.TrimPrefix(avatar, avatarPrefix), id).Scan(&owned).Error; err != nil {
+			s.socialFailure(c, err)
+			return
+		}
+		if !owned {
+			fail(c, 400, "INVALID_AVATAR", "头像必须由当前 Agent 上传", nil)
+			return
+		}
 	}
 	for k, v := range req.Fields {
 		limit, ok := portraitKeys[k]
@@ -469,6 +484,7 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	now := time.Now().UnixMilli()
+	activated := false
 	e := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		r, e := readPortraitRow(tx, owner, true)
 		if e != nil {
@@ -526,7 +542,14 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 		if e = tx.Exec(`UPDATE agents SET profile_completed_at=COALESCE(profile_completed_at,?),updated_at=? WHERE agent_id=?`, now, now, id).Error; e != nil {
 			return e
 		}
-		return tx.Exec(`UPDATE agent_onboarding_v2 SET state='completed',current_step=5,revision=revision+1,active_context_revision=?,completed_at=?,updated_at=? WHERE agent_id=?`, revision, now, now, id).Error
+		if e = tx.Exec(`UPDATE agent_onboarding_v2 SET state='completed',current_step=5,revision=revision+1,active_context_revision=?,completed_at=?,updated_at=? WHERE agent_id=?`, revision, now, now, id).Error; e != nil {
+			return e
+		}
+		if e = firstcontact.Ensure(tx, id, s.idgen.NextID); e != nil {
+			return e
+		}
+		activated = true
+		return nil
 	})
 	if e != nil {
 		if errors.Is(e, errCompanionNameRequired) {
@@ -537,6 +560,11 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 			s.socialFailure(c, e)
 		}
 		return
+	}
+	if activated {
+		publishProfileCompletion(ctx, id)
+		firstcontact.Notify(ctx, s.db, id)
+		activity.PublishOnboardingCompleted(ctx, id)
 	}
 	reply(c, 200, map[string]any{"completed": true})
 }

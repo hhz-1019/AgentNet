@@ -24,6 +24,57 @@ const companion = {
     '认识愿意慢慢聊书、交换城市散步见闻的人；从一个具体问题聊起，不急着约时间。',
 };
 const cases = [];
+const onboarding = await readFile(
+  new URL('../skills/agentnet-onboarding/SKILL.md', import.meta.url),
+  'utf8',
+);
+const registrationInput = {
+  request:
+    '请阅读 https://agentnet.zeabur.app/install.md，将当前 Agent 接入 elsewhere，并为我打开注册页面。',
+  runtime_name: 'Codex',
+  fixture_notice: '以下全部是隔离测试的模拟记忆，不能当成真实用户或对外发布。',
+  available_memory: [
+    '模拟主人公开称呼为小林，喜欢重读小说；读完后希望聊仍然没想明白的问题。',
+    '模拟主人喜欢安静的城市散步，希望交换街道观察，而不是立即约时间。',
+    '模拟主人做决定时重视可验证的细节，不喜欢只有口号的总结。',
+    '模拟主人上个月读完一本小说后记录了对结尾的疑问，没有提供书名。',
+    '模拟主人最近在寻找愿意慢慢交流的人，对高频泛泛社交没兴趣。',
+    '模拟主人提到散步帮助自己整理读后的想法，没有提供精确地点或时间。',
+  ],
+  task: '只返回注册草稿本体 JSON，顶层必须为 identity_card、network_goal、intent_actions、twin_profile、field_provenance，不要包装在 draft/data 中，不要返回计划或解释。根据接入规则准备注册草稿。生成个人 Agent 名字、network_goal、identity_card、twin_profile.portrait.fields 与尽量充分的非重复 memories、field_provenance。没有图片工具结果，avatar 保持空；不得臆造书名、时间或相遇。这里只验证草稿，不假装已安装、打开浏览器或注册完成。',
+};
+const registration = await model.json(
+  onboarding + '\n' + companionBehavior,
+  registrationInput,
+);
+await writeFile(
+  new URL(
+    '../../.agentnet-audit/companion-registration-model.json',
+    import.meta.url,
+  ),
+  JSON.stringify(registration, null, 2),
+  { mode: 0o600 },
+);
+assert(
+  !/codex|chatgpt|claude|gemini|gpt/i.test(
+    registration.identity_card.agent_name,
+  ),
+);
+assert(registration.network_goal.length > 10);
+const portrait = registration.twin_profile.portrait;
+for (const field of ['name', 'interests', 'values', 'recent'])
+  assert(portrait.fields[field]?.trim(), field + ' not filled');
+assert.equal(portrait.fields.avatar, '');
+assert(
+  portrait.memories.length >= 4,
+  'Supported distinct memories were reduced to a generic short summary',
+);
+assert(portrait.memories.every((m) => m.content.length > 20 && !m.showOnHome));
+cases.push({
+  name: '一句话接入后的记忆资料准备',
+  input: registrationInput,
+  result: registration,
+});
 const postInput = {
   companion,
   known_owner_facts: [
@@ -118,8 +169,8 @@ const out = new URL('../../../outputs/', import.meta.url);
 await mkdir(out, { recursive: true });
 await writeFile(
   new URL('elsewhere-伙伴提示词测试.html', out),
-  `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>elsewhere 伙伴提示词测试</title><style>body{max-width:880px;margin:60px auto;padding:0 24px;font:17px/1.8 system-ui;background:#faf8f3;color:#302c26}h1{font-size:30px}section{margin:48px 0}pre{white-space:pre-wrap;background:#eee9df;padding:20px;border-radius:12px;font:14px/1.7 monospace}article{white-space:pre-wrap;padding:24px;background:white;border-radius:12px}</style><h1>elsewhere 伙伴提示词测试</h1><p>使用实际模型 ${esc(model.model)}，四组输入均为明确标注的模拟材料。没有向网络发帖、发消息或改任何真实账号。覆盖日常兴趣、综合反馈、没有变化、承诺与网络指令边界。</p>${cases.map((c) => `<section><h2>${esc(c.name)}</h2><article>${esc(c.result.content || c.result.reply)}</article><details><summary>输入与完整输出</summary><pre>${esc(JSON.stringify({ input: c.input, result: c.result }, null, 2))}</pre></details></section>`).join('')}</html>`,
+  `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>elsewhere 伙伴提示词测试</title><style>body{max-width:880px;margin:60px auto;padding:0 24px;font:17px/1.8 system-ui;background:#faf8f3;color:#302c26}h1{font-size:30px}section{margin:48px 0}pre{white-space:pre-wrap;background:#eee9df;padding:20px;border-radius:12px;font:14px/1.7 monospace}article{white-space:pre-wrap;padding:24px;background:white;border-radius:12px}</style><h1>elsewhere 伙伴提示词测试</h1><p>使用实际模型 ${esc(model.model)}，五组输入均为明确标注的模拟材料。没有向网络发帖、发消息或改任何真实账号。覆盖日常兴趣、综合反馈、没有变化、承诺与网络指令边界。</p>${cases.map((c) => `<section><h2>${esc(c.name)}</h2><article>${esc(c.result.content || c.result.reply || JSON.stringify(c.result, null, 2))}</article><details><summary>输入与完整输出</summary><pre>${esc(JSON.stringify({ input: c.input, result: c.result }, null, 2))}</pre></details></section>`).join('')}</html>`,
 );
 console.log(
-  'PASS: four private real-model companion cases; review saved to outputs.',
+  'PASS: five private real-model companion cases; review saved to outputs.',
 );

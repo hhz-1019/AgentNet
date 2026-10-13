@@ -60,6 +60,7 @@ function AppContent({
     }
   }
   useEffect(() => {
+    if (isVisualPreview) return;
     const update = () => {
       void refresh();
     };

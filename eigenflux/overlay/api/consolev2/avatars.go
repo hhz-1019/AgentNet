@@ -47,7 +47,7 @@ func (s *Service) getAvatars(ctx context.Context, c *app.RequestContext) {
 	}
 	avatars := map[string]string{}
 	for _, row := range rows {
-		if validDefaultAvatar(row.Avatar) {
+		if validPortraitAvatar(row.Avatar) {
 			avatars[strconv.FormatInt(row.AgentID, 10)] = row.Avatar
 		}
 	}

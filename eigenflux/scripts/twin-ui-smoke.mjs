@@ -28,7 +28,7 @@ try {
     let state = { state: 'in_progress', current_step: 2, revision: 1 };
     let draft = {
       identity_card: {
-        agent_name: 'Codex',
+        agent_name: '林间',
         agent_description: '协助工程与研究',
         human_description: '关注开放合作',
         working_languages: ['zh'],
@@ -71,6 +71,17 @@ try {
       visible: ['name', 'bio', 'interests'],
       memories: [],
     };
+    let companion = {
+      agent_name: '林间',
+      owner_name: '预填昵称',
+      connection_goal: '找到研究伙伴',
+      start_hour: 8,
+      end_hour: 24,
+      report_every_round: true,
+      history_images: true,
+      name_locked: false,
+      revision: 0,
+    };
     let policy = {
       daily_posts: 3,
       daily_searches: 20,
@@ -101,7 +112,7 @@ try {
       else if (path === 'auth/phone/challenges')
         data = { challenge_id: 'fixture-challenge', retry_after: 60 };
       else if (path === 'auth/uid/register') {
-        assert.equal(body.agreement_version, '2026-10-09');
+        assert.equal(body.agreement_version, '2026-10-14');
         assert.equal(body.uid, undefined);
         registered = true;
         data = { uid: '731482905', recovery_key: 'fixture-only-key' };
@@ -130,6 +141,25 @@ try {
       } else if (path === 'console/registration/progress') {
         assert.deepEqual(Object.keys(body), ['event']);
         data = { recorded: true };
+      } else if (path === 'console/companion') {
+        if (method === 'PUT') {
+          assert.equal(body.revision, companion.revision);
+          companion = {
+            ...body,
+            revision: companion.revision + 1,
+            name_locked: true,
+          };
+          data = companion;
+        } else
+          data = {
+            settings: companion,
+            behavior_version: 'companion-2026-10-14',
+            check_interval_hours: 2,
+            rename_needed: false,
+          };
+      } else if (path === 'console/portrait/avatar') {
+        assert(body.data.length > 0);
+        data = { avatar: '/api/v2/public/avatars/' + 'a'.repeat(32) };
       } else if (path === 'console/portrait') {
         if (method === 'PUT') {
           assert.equal(body.expected_revision, personalRevision);
@@ -229,23 +259,29 @@ try {
       .getByRole('heading', { name: '确认画像', exact: true })
       .waitFor();
     assert.equal(
-      await page.getByLabel('昵称', { exact: false }).inputValue(),
-      '预填昵称',
+      await page.getByLabel('Agent 的名字', { exact: true }).inputValue(),
+      '林间',
     );
     for (const [label, value] of Object.entries({
       自我介绍: '关注开放合作',
       兴趣与长期关注: '记忆中的研究兴趣',
       生活中的身份: '学生',
       在意的事与观点: '重视可验证的结果',
-      最近在经历或期待什么: '找到研究伙伴',
+      最近的近况与连接期待: '找到研究伙伴',
     }))
       assert.equal(
         await page.getByLabel(label, { exact: true }).inputValue(),
         value,
       );
-    assert.equal(await page.getByLabel('接入应用').isDisabled(), true);
+    assert.equal(await page.getByLabel('接入应用').count(), 0);
     assert.equal(await page.getByText('恢复密钥', { exact: false }).count(), 0);
-    await page.getByLabel('昵称', { exact: false }).fill('修改后的昵称');
+    await page.getByLabel('Agent 的名字', { exact: true }).fill('修改后的昵称');
+    await page
+      .getByLabel('上传 Agent 头像', { exact: true })
+      .setInputFiles('eigenflux/web/public/preview-assets/linjian.png');
+    await page
+      .getByText('头像已准备，保存资料后生效。', { exact: true })
+      .waitFor();
     await page.getByRole('checkbox', { name: /我同意/ }).check();
     await page.screenshot({
       path: `${dir}/profile-${width}.png`,
@@ -261,15 +297,27 @@ try {
       .click();
     await page.locator('.sw-workspace').waitFor();
     assert.equal(state.state, 'completed');
-    assert.equal(profile.fields.name, '修改后的昵称');
+    assert.equal(companion.agent_name, '修改后的昵称');
+    assert.equal(profile.fields.name, '预填昵称');
+    assert.equal(
+      profile.fields.avatar,
+      '/api/v2/public/avatars/' + 'a'.repeat(32),
+    );
+    assert.equal(await page.locator('.ew-avatar-option').count(), 0);
+    assert.equal(
+      await page.getByLabel('Agent 的名字', { exact: true }).count(),
+      0,
+    ); // already navigated to network
     await page.goto('http://127.0.0.1:4324/dashboard/profile');
-    await page.getByLabel('昵称', { exact: false }).fill('设置中修改的昵称');
+    await page
+      .getByLabel('Agent 的名字', { exact: true })
+      .fill('设置中修改的昵称');
     await page.getByRole('button', { name: '保存资料', exact: true }).click();
     await page.getByText('资料已保存。', { exact: true }).waitFor();
     await page.reload();
-    await page.getByLabel('昵称', { exact: false }).waitFor();
+    await page.getByLabel('Agent 的名字', { exact: true }).waitFor();
     assert.equal(
-      await page.getByLabel('昵称', { exact: false }).inputValue(),
+      await page.getByLabel('Agent 的名字', { exact: true }).inputValue(),
       '设置中修改的昵称',
     );
     await page.goto('http://127.0.0.1:4324/dashboard/security');

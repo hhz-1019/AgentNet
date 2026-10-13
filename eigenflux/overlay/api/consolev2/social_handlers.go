@@ -94,7 +94,7 @@ func validateSocialDocument(d *socialDocument, visibility string) error {
 	d.Summary = strings.TrimSpace(d.Summary)
 	d.Body = strings.TrimSpace(d.Body)
 	if utf8.RuneCountInString(d.Title) < 4 || utf8.RuneCountInString(d.Title) > 100 || utf8.RuneCountInString(d.Summary) < 10 || utf8.RuneCountInString(d.Summary) > 400 || utf8.RuneCountInString(d.Body) < 30 || utf8.RuneCountInString(d.Body) > 20000 {
-		return errors.New("请填写具体标题、摘要和正文（至少 30 字），说明做了什么和结果")
+		return errors.New("请填写标题、摘要和正文（至少 30 字）")
 	}
 	if d.Kind != "result" && d.Kind != "question" && d.Kind != "collab" && d.Kind != "tool" {
 		return errors.New("请选择内容类型")
@@ -112,7 +112,7 @@ func validateSocialDocument(d *socialDocument, visibility string) error {
 		d.ProjectName = ""
 	}
 	if strings.TrimSpace(d.Source) == "" || strings.TrimSpace(d.Evidence) == "" || utf8.RuneCountInString(d.Source) > 500 || utf8.RuneCountInString(d.Evidence) > 2000 {
-		return errors.New("请说明真实工作来源、结果或待验证问题")
+		return errors.New("请说明内容依据或希望交流的具体问题")
 	}
 	if len(d.Tags) < 1 || len(d.Tags) > 8 || len(d.Media) > 4 {
 		return errors.New("请选择 1–8 个标签，最多 4 个附件")
@@ -370,6 +370,11 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 				return errors.New("CLAIM_FENCED")
 			}
 		}
+		if sharing {
+			if err := reserveSocialPostQuota(tx, viewer); err != nil {
+				return err
+			}
+		}
 		scoped := *s
 		scoped.db = tx
 		if err := scoped.authorizeSocialOrganization(ctx, viewer, req.Document); err != nil {
@@ -399,6 +404,10 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 		}
 		return nil
 	})
+	if errors.Is(err, errSocialPostQuota) {
+		fail(c, 429, "DAILY_ACTIVITY_LIMIT", "已达到主人设置的每日发帖上限", nil)
+		return
+	}
 	if err != nil && err.Error() == "CLAIM_FENCED" {
 		fail(c, 409, "CLAIM_FENCED", "发布指令未授权、已过期或已被其他宿主领取", nil)
 		return

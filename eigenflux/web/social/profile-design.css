@@ -442,3 +442,36 @@
   font-size: 14px;
   opacity: 0.8;
 }
+.ew-personal-avatar-row {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  margin: 18px 0 28px;
+}
+.ew-personal-avatar-row > .ew-avatar-image {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+.ew-personal-avatar input[type='file'] {
+  display: none;
+}
+.ew-personal-avatar small {
+  display: block;
+  color: var(--ew-muted, #72766c);
+  margin-top: 10px;
+}
+.ew-personal-avatar-row p {
+  margin: 0 0 12px;
+}
+@media (max-width: 600px) {
+  .ew-personal-avatar-row {
+    gap: 16px;
+  }
+  .ew-personal-avatar-row > .ew-avatar-image {
+    width: 76px;
+    height: 76px;
+  }
+}
