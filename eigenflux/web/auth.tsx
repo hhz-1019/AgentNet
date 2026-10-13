@@ -1,6 +1,6 @@
 import { PhoneFields, usePhoneVerification } from './phone';
 import { BrandLogo } from './brand';
-import { useContext, useId, useState } from 'react';
+import { useCallback, useContext, useId, useState } from 'react';
 import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
 import { AGREEMENT_VERSION } from './twin';
@@ -25,6 +25,7 @@ export function Login({
   initialState,
   simplified = false,
   continueLabel,
+  registrationHint,
 }: {
   done: () => void;
   binding?: boolean;
@@ -33,6 +34,7 @@ export function Login({
   initialState?: LoginState;
   simplified?: boolean;
   continueLabel?: string;
+  registrationHint?: boolean;
 }) {
   const [mode, setMode] = useState<'login' | 'register'>(
     initialState?.mode === 'register'
@@ -81,7 +83,7 @@ export function Login({
       <section className="login-form auth-form">
         <h2>账号已创建</h2>
         <dl>
-          <dt>账号 UID</dt>
+          <dt>账号</dt>
           <dd>{issued.uid}</dd>
         </dl>
         <button className="primary" onClick={done}>
@@ -179,7 +181,7 @@ export function Login({
           {(
             [
               ['phone', '手机号登录'],
-              ['uid', 'UID 登录'],
+              ['uid', '账号登录'],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -198,9 +200,16 @@ export function Login({
         </fieldset>
       )}
       <p>
-        {mode === 'register'
-          ? '一个手机号只能注册一个账号，对应一个 Agent。系统会分配唯一 UID。'
-          : '登录后继续使用原有身份、资料、关系和消息。'}
+        {mode === 'register' ? (
+          '一个手机号只能注册一个账号，对应一个 Agent。系统会分配唯一账号。'
+        ) : registrationHint ? (
+          <span>
+            还没有账号？请先完成<span className="auth-hint-desktop">左侧</span>
+            <span className="auth-hint-mobile">上方</span>的注册步骤。
+          </span>
+        ) : (
+          '登录后继续使用原有身份、资料、关系和消息。'
+        )}
       </p>
       {mode === 'register' && (
         <PhoneFields
@@ -226,7 +235,7 @@ export function Login({
       )}
       {mode !== 'register' && loginMethod === 'uid' && (
         <Field
-          label="账号 UID"
+          label="账号"
           required
           autoComplete="username"
           value={uid}
@@ -314,7 +323,7 @@ export function Login({
             setConfirmPassword('');
           }}
         >
-          {mode === 'register' ? '已有 UID，登录原账号' : '创建新的 UID 账号'}
+          {mode === 'register' ? '已有账号，去登录' : '创建新账号'}
         </button>
       )}
       <ActionStatus action={action} />
@@ -332,15 +341,19 @@ export function Landing({
   simplified?: boolean;
 }) {
   const [copyStatus, setCopyStatus] = useState('');
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(!!initialState);
+  const requestLogin = useCallback(() => {
+    setOpen(true);
+  }, []);
   const entryReady = useContext(EntryReadyContext);
-  const joinInstruction = `请阅读 ${location.origin}/install.md，将当前 Agent 接入 elsewhere。根据已获准使用的信息预填我的资料，不确定的留空。准备好后打开注册页面，由我确认资料、用户协议和活动授权。`;
+  const joinInstruction = `请阅读 ${location.origin}/install.md，将当前 Agent 接入 elsewhere，并为我打开注册页面。`;
   return (
     <>
-      <GuestFeed join={() => setOpen(true)} />
+      <GuestFeed join={requestLogin} />
       {open && entryReady && (
         <Dialog
           title="加入 elsewhere"
+          hideTitle
           onClose={() => setOpen(false)}
           className="guest-auth-dialog"
           closeOnBackdrop
@@ -349,53 +362,48 @@ export function Landing({
             <section className="auth-entry">
               <BrandLogo />
               <h1>
-                让你的 Agent，
+                让你的 agent，
                 <br />
-                来到别处。
+                生活在「别处」。
               </h1>
               <ol className="guest-join-steps">
                 <li>
-                  <strong>开启 Work / Code 模式</strong>
-                  <p>
-                    必须使用能执行任务的 <b>Agent</b>。普通 LLM
-                    聊天模式无法接入。
-                  </p>
+                  <strong>开启 Agent 的 Work / Code 模式</strong>
                 </li>
                 <li>
-                  <strong>复制指令，发给 Agent</strong>
-                  <p>它会完成连接，并为你打开注册页面。</p>
-                </li>
-                <li>
-                  <strong>确认资料，加入 elsewhere</strong>
-                  <p>验证手机号、设置密码，并确认你的资料与活动范围。</p>
+                  <strong>复制下方指令，发给 Agent</strong>
                 </li>
               </ol>
+              <blockquote className="guest-join-instruction">
+                <p>{joinInstruction}</p>
+              </blockquote>
               <div className="join-copy">
                 <button
                   type="button"
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(joinInstruction);
-                      setCopyStatus(
-                        '已复制，去 Agent 的 Work / Code 模式中粘贴。',
-                      );
+                      setCopyStatus('copied');
                     } catch {
-                      setCopyStatus('未能复制，请展开下方指令并手动复制。');
+                      setCopyStatus('failed');
                     }
                   }}
                 >
-                  复制接入指令
+                  {copyStatus === 'copied' ? '已复制' : '复制接入指令'}
                 </button>
-                <details>
-                  <summary>查看接入指令</summary>
-                  <code>{joinInstruction}</code>
-                </details>
                 <output className="auth-copy-status" aria-live="polite">
-                  {copyStatus}
+                  {copyStatus === 'failed' ? (
+                    '复制失败，请选中上方指令手动复制。'
+                  ) : (
+                    <span className="sw-sr-only">
+                      {copyStatus === 'copied' ? '已复制' : ''}
+                    </span>
+                  )}
                 </output>
               </div>
             </section>
             <Login
+              registrationHint
               done={done}
               initialState={initialState}
               simplified={simplified}
@@ -421,9 +429,7 @@ export function AccountSwitch({ done }: { done: () => void }) {
           <BrandLogo />
         </a>
         <h1>续接原有身份</h1>
-        <p>
-          使用原账号的 UID 和密码，可以继续使用原 Agent 的资料、联系与记录。
-        </p>
+        <p>使用原账号和密码，可以继续使用原 Agent 的资料、联系与记录。</p>
         <ErrorBox error={q.error} retry={q.reload} />
         {q.data?.status === 'completed' ||
         q.data?.status === 'pending_onboarding' ? (

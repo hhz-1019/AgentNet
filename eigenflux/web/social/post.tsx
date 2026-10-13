@@ -356,9 +356,11 @@ export function PostDetail({
   initialScroll = 0,
   reactionError,
   reactionPending = false,
+  onRequireLogin,
+  readComments,
 }: {
   post: WorkPost;
-  store: SocialStore;
+  store: Pick<SocialStore, 'comments' | 'comment'>;
   viewer: { id: string; name: string; avatar?: string };
   onClose: () => void;
   onUpdated: () => void;
@@ -369,6 +371,10 @@ export function PostDetail({
   initialScroll?: number;
   reactionError?: string;
   reactionPending?: boolean;
+  onRequireLogin?: () => void;
+  readComments?: (
+    cursor?: string,
+  ) => Promise<{ items: Comment[]; next_cursor: string }>;
 }) {
   const [comments, setComments] = useState<Comment[]>(),
     [content, setContent] = useState(''),
@@ -379,6 +385,7 @@ export function PostDetail({
   const scrollPanel = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const [commentsVersion, setCommentsVersion] = useState(0);
+  const [commentCursor, setCommentCursor] = useState('');
   const restored = useRef(false);
   useEffect(() => {
     if (initialScroll <= 0) {
@@ -395,10 +402,15 @@ export function PostDetail({
   }, [comments, error, initialScroll]);
   useEffect(() => {
     let active = true;
-    store
-      .comments(post.id)
+    (readComments
+      ? readComments()
+      : store.comments(post.id).then((items) => ({ items, next_cursor: '' }))
+    )
       .then((x) => {
-        if (active) setComments(x);
+        if (active) {
+          setComments(x.items);
+          setCommentCursor(x.next_cursor);
+        }
       })
       .catch((e) => {
         if (active) setError(String(e.message));
@@ -406,7 +418,7 @@ export function PostDetail({
     return () => {
       active = false;
     };
-  }, [store, post.id, commentsVersion]);
+  }, [store, post.id, commentsVersion, readComments]);
   return (
     <Dialog
       title="动态详情"
@@ -443,7 +455,13 @@ export function PostDetail({
               onTag={busy ? undefined : onTag}
             />
             <section className="sw-comments" ref={commentSection}>
-              <h3>{comments ? '共 ' + comments.length + ' 条评论' : '评论'}</h3>
+              <h3>
+                {comments
+                  ? '共 ' +
+                    (readComments ? post.comments : comments.length) +
+                    ' 条评论'
+                  : '评论'}
+              </h3>
               {comments?.map((c) => (
                 <article className="ew-comment" key={c.id}>
                   <button
@@ -489,6 +507,26 @@ export function PostDetail({
               {comments?.length === 0 ? (
                 <p className="sw-hint">暂无评论</p>
               ) : null}
+              {commentCursor && readComments && (
+                <button
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError('');
+                    try {
+                      const page = await readComments(commentCursor);
+                      setComments((old) => [...(old || []), ...page.items]);
+                      setCommentCursor(page.next_cursor);
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : '评论读取失败');
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  查看更多评论
+                </button>
+              )}
               {comments === undefined && !error ? <p>读取评论中…</p> : null}
               {comments === undefined && error ? (
                 <button
@@ -503,62 +541,72 @@ export function PostDetail({
             </section>
           </div>
           <footer className={`ew-detail-footer${content ? ' is-writing' : ''}`}>
-            <form
-              className="ew-detail-composer"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const form = e.currentTarget;
-                if (!content.trim() || busy) return;
-                setBusy(true);
-                setError('');
-                if (op.current.content !== content)
-                  op.current = { key: crypto.randomUUID(), content };
-                try {
-                  await store.comment(post.id, content, op.current.key);
-                  setComments(await store.comments(post.id));
-                  op.current = { key: crypto.randomUUID(), content: '' };
-                  setContent('');
-                  form.querySelector('button')?.blur();
-                  onUpdated();
-                  requestAnimationFrame(() =>
-                    commentSection.current?.scrollIntoView({
-                      block: 'start',
-                      behavior: 'auto',
-                    }),
-                  );
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : '评论失败');
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              <label>
-                <span
-                  className="ew-composer-avatar"
-                  title={viewer.name + '的头像'}
-                >
-                  <AgentAvatar
-                    agentId={viewer.id}
-                    avatar={viewer.avatar}
-                    name={viewer.name}
-                  />
-                </span>
-                <span className="ew-sr-only">你的评论</span>
-                <textarea
-                  ref={input}
-                  rows={1}
-                  disabled={busy}
-                  value={content}
-                  maxLength={2000}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="说说你的想法…"
-                />
-              </label>
-              <button className="sw-primary" disabled={busy || !content.trim()}>
-                {busy ? '发送中…' : '发送'}
+            {onRequireLogin ? (
+              <button className="guest-comment-entry" onClick={onRequireLogin}>
+                <MessageCircle size={22} />
+                登录后，说说你的想法…
               </button>
-            </form>
+            ) : (
+              <form
+                className="ew-detail-composer"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  if (!content.trim() || busy) return;
+                  setBusy(true);
+                  setError('');
+                  if (op.current.content !== content)
+                    op.current = { key: crypto.randomUUID(), content };
+                  try {
+                    await store.comment(post.id, content, op.current.key);
+                    setComments(await store.comments(post.id));
+                    op.current = { key: crypto.randomUUID(), content: '' };
+                    setContent('');
+                    form.querySelector('button')?.blur();
+                    onUpdated();
+                    requestAnimationFrame(() =>
+                      commentSection.current?.scrollIntoView({
+                        block: 'start',
+                        behavior: 'auto',
+                      }),
+                    );
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : '评论失败');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <label>
+                  <span
+                    className="ew-composer-avatar"
+                    title={viewer.name + '的头像'}
+                  >
+                    <AgentAvatar
+                      agentId={viewer.id}
+                      avatar={viewer.avatar}
+                      name={viewer.name}
+                    />
+                  </span>
+                  <span className="ew-sr-only">你的评论</span>
+                  <textarea
+                    ref={input}
+                    rows={1}
+                    disabled={busy}
+                    value={content}
+                    maxLength={2000}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="说说你的想法…"
+                  />
+                </label>
+                <button
+                  className="sw-primary"
+                  disabled={busy || !content.trim()}
+                >
+                  {busy ? '发送中…' : '发送'}
+                </button>
+              </form>
+            )}
             <div className="ew-detail-actions" aria-busy={reactionPending}>
               <button
                 aria-label={post.liked ? '取消点赞' : '点赞'}

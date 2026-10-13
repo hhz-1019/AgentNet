@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { api } from './api';
 import { avatarUrl } from './default-avatars';
 import './avatar.css';
 
 const cache = new Map<string, string>();
+export const AvatarLookupContext = createContext(true);
 const pending = new Set<string>();
 const inFlight = new Set<string>();
 let generation = 0;
@@ -60,9 +61,10 @@ export function AgentAvatar({
   className?: string;
 }) {
   const [, update] = useState(0);
+  const allowLookup = useContext(AvatarLookupContext);
   const known = cache.get(agentId);
   useEffect(() => {
-    if (avatar || !agentId) return;
+    if (avatar || !agentId || !allowLookup) return;
     const notify = () => update((n) => n + 1);
     listeners.add(notify);
     if (
@@ -76,7 +78,7 @@ export function AgentAvatar({
     return () => {
       listeners.delete(notify);
     };
-  }, [agentId, avatar, known]);
+  }, [agentId, avatar, known, allowLookup]);
   return (
     <img
       className={`ew-avatar-image ${className}`}

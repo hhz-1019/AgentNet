@@ -41,7 +41,7 @@ export function IdentityCard({
     } catch {
       setError(
         uid
-          ? '未能访问剪贴板。请手动复制 UID，或打开公开页复制地址。'
+          ? '未能访问剪贴板。请手动复制 账号，或打开公开页复制地址。'
           : '未能访问剪贴板。请从浏览器地址栏复制公开页地址。',
       );
     }
@@ -81,7 +81,7 @@ export function IdentityCard({
               <>
                 {uid && (
                   <span>
-                    账号 UID <code>{uid}</code>
+                    账号 <code>{uid}</code>
                   </span>
                 )}
                 {joinedLabel && (
@@ -97,9 +97,9 @@ export function IdentityCard({
       </IdentitySurface>
       <div className="identity-share-actions">
         {uid && (
-          <button onClick={() => void copy(uid, 'UID')}>
-            {copied === 'UID' ? <Check size={16} /> : <Copy size={16} />}{' '}
-            {copied === 'UID' ? 'UID 已复制' : '复制 UID'}
+          <button onClick={() => void copy(uid, '账号')}>
+            {copied === '账号' ? <Check size={16} /> : <Copy size={16} />}{' '}
+            {copied === '账号' ? '账号 已复制' : '复制 账号'}
           </button>
         )}
         <button onClick={() => void copy(url, '链接')}>

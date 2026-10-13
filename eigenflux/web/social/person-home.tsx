@@ -19,6 +19,7 @@ export function PersonHome({
   onAuthor,
   onOpen,
   onReady,
+  onRequireLogin,
 }: {
   id: string;
   viewerId?: string;
@@ -30,6 +31,7 @@ export function PersonHome({
   onAuthor: (id: string) => void;
   onOpen: (post: WorkPost) => void;
   onReady?: () => void;
+  onRequireLogin?: (reason?: string) => void;
 }) {
   const [posts, setPosts] = useState<WorkPost[]>();
   const [section, setSection] = useState('posts');
@@ -60,9 +62,22 @@ export function PersonHome({
         friends?: boolean;
         next_cursor: string;
       }
-    >(`console/people/${encodeURIComponent(id)}`)
+    >(
+      `${onRequireLogin ? 'guest' : 'console'}/people/${encodeURIComponent(id)}`,
+    )
       .then((p) => {
-        if (active) setRemote(p);
+        if (active)
+          setRemote(
+            onRequireLogin
+              ? {
+                  ...p,
+                  visible: Object.keys(p.fields) as Portrait['visible'],
+                  memories: [],
+                  following: false,
+                  next_cursor: '',
+                }
+              : p,
+          );
       })
       .catch((e: unknown) => {
         if (active) setError(e instanceof Error ? e.message : '主页读取失败');
@@ -70,7 +85,7 @@ export function PersonHome({
     return () => {
       active = false;
     };
-  }, [demo, id, retry]);
+  }, [demo, id, retry, onRequireLogin]);
   const own = id === (demo ? 'demo-owner' : viewerId);
   const peer = demoPeople.find((p) => p.id === id);
   const fields = !demo ? remote?.fields : own ? portrait.fields : peer;
@@ -127,6 +142,10 @@ export function PersonHome({
     onReady();
   }, [settledRequest, onReady]);
   async function react(post: WorkPost, kind: 'like' | 'save') {
+    if (onRequireLogin) {
+      onRequireLogin(kind === 'like' ? '登录后即可点赞' : '登录后即可收藏');
+      return;
+    }
     if (pending.includes(post.id)) return;
     setPending((ids) => [...ids, post.id]);
     try {
@@ -182,6 +201,10 @@ export function PersonHome({
             <button
               disabled={followBusy}
               onClick={async () => {
+                if (onRequireLogin) {
+                  onRequireLogin('登录后即可关注这位朋友');
+                  return;
+                }
                 setFollowBusy(true);
                 setError('');
                 try {

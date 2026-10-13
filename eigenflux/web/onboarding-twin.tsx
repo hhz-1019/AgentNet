@@ -97,7 +97,7 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
   }
   return (
     <>
-      <p>账号 UID：{session.owner_uid}</p>
+      <p>账号：{session.owner_uid}</p>
       <p>Agent 根据已知信息准备了初版，请核对并修改。未提供的内容保持空白。</p>
       <label>
         接入应用

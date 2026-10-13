@@ -1,7 +1,13 @@
 import { ThemeSwitcher } from '../theme';
 import { UnreadDot, useUnreadMessages } from '../unread';
 import { AgentAvatar, rememberAvatar } from '../avatar';
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -113,12 +119,16 @@ export function SocialWorkspace({
   refresh,
   store = liveSocialStore,
   demo = false,
+  onRequireLogin,
 }: {
   session: Session;
   refresh: () => void;
   store?: SocialStore;
   demo?: boolean;
+  onRequireLogin?: (reason?: string) => void;
 }) {
+  const guest = Boolean(onRequireLogin);
+  const hashRouting = demo || guest;
   const [portrait, setPortrait] = useState(() =>
     demo
       ? readPortrait(session.agent_name, session.bio || '')
@@ -129,7 +139,7 @@ export function SocialWorkspace({
       rememberAvatar(session.agent_id, portrait.fields.avatar);
   }, [session.agent_id, portrait.fields.avatar]);
   useEffect(() => {
-    if (demo) return;
+    if (demo || guest) return;
     let active = true;
     void loadPortrait()
       .then((p) => {
@@ -139,16 +149,19 @@ export function SocialWorkspace({
     return () => {
       active = false;
     };
-  }, [demo, session.agent_id]);
+  }, [demo, guest, session.agent_id]);
   function persistPortrait(next: Portrait) {
     setPortrait(savePortrait(next));
   }
-  const [route, setRoute] = useState(() => readRoute(demo));
-  const hasUnreadMessages = useUnreadMessages(demo, session.agent_id);
+  const [route, setRoute] = useState(() => {
+    const r = readRoute(hashRouting);
+    return guest && personalRoutes.has(r) && r !== 'settings' ? 'explore' : r;
+  });
+  const hasUnreadMessages = useUnreadMessages(demo, session.agent_id, !guest);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [topic, setTopic] = useState('');
-  const [feed, setFeed] = useState(demo ? 'recommended' : 'latest');
+  const [feed, setFeed] = useState(demo || guest ? 'recommended' : 'latest');
   const [page, setPage] = useState<Page>();
   const [cursor, setCursor] = useState('');
   const [loading, setLoading] = useState(true);
@@ -192,16 +205,34 @@ export function SocialWorkspace({
         )
         ?.focus({ preventScroll: true });
     detailOrigin.current = card?.getBoundingClientRect();
-    setDetail(post);
+    if (guest) {
+      const request = detailRefresh.current;
+      void store
+        .get(post.id)
+        .then((full) => {
+          if (request === detailRefresh.current) setDetail(full);
+        })
+        .catch(() => {
+          if (request === detailRefresh.current)
+            setNotice('这条动态暂时无法访问，可能已撤回公开。');
+        });
+    } else setDetail(post);
   }
+  const readGuestComments = useCallback(
+    (cursor = '') =>
+      api<{ items: import('./model').Comment[]; next_cursor: string }>(
+        `guest/posts/${encodeURIComponent(detail?.id || '')}/comments?cursor=${encodeURIComponent(cursor)}`,
+      ),
+    [detail?.id],
+  );
   const accounts = useData<{ accounts: Account[] }>(
-    demo ? null : 'console/accounts',
+    demo || guest ? null : 'console/accounts',
   );
   const managedAccess = useData<{
     allowed: boolean;
     delegated?: boolean;
     sponsor_number?: string;
-  }>(demo ? null : 'console/managed/access');
+  }>(demo || guest ? null : 'console/managed/access');
   const feedRoute = ['explore', 'me', 'liked', 'saved', 'drafts'].includes(
     route,
   );
@@ -209,11 +240,16 @@ export function SocialWorkspace({
   const personal = personalRoutes.has(route);
   const profileIntro = portrait.fields.bio?.trim();
   const generation = useRef(0);
-  const href = (id: string) => (demo ? `/preview#${id}` : `/dashboard/${id}`);
+  const href = (id: string) =>
+    guest
+      ? `${location.pathname}#${id}`
+      : demo
+        ? `/preview#${id}`
+        : `/dashboard/${id}`;
   useEffect(() => {
-    if (demo && !location.hash)
+    if (demo && !guest && !location.hash)
       history.replaceState(history.state, '', '/preview#explore');
-  }, [demo]);
+  }, [demo, guest]);
   function reload() {
     setVersion((v) => v + 1);
     refreshData();
@@ -229,6 +265,10 @@ export function SocialWorkspace({
     )
       return;
     event?.preventDefault();
+    if (guest && personalRoutes.has(id) && id !== 'settings') {
+      onRequireLogin?.('登录后查看我的主页与私人内容');
+      return;
+    }
     if (id === route) return;
     detailRefresh.current++;
     history.replaceState(
@@ -274,21 +314,27 @@ export function SocialWorkspace({
   }
   useEffect(() => {
     const sync = () => {
-      if (demo && location.hash === '#social-main') return;
-      const nextRoute = readRoute(demo);
+      if (hashRouting && location.hash === '#social-main') return;
+      const requested = readRoute(hashRouting);
+      const nextRoute =
+        guest && personalRoutes.has(requested) && requested !== 'settings'
+          ? 'explore'
+          : requested;
       const saved = history.state?.elsewhereView;
       const view = saved?.route === nextRoute ? saved : undefined;
       setRoute(nextRoute);
       setPersonReady(false);
       detailPosition.current = view?.detailScroll || 0;
-      setDetail(view?.detail);
+      setDetail(guest ? undefined : view?.detail);
       const request = ++detailRefresh.current;
       if (view?.detail) {
         void store
           .get(view.detail.id)
           .then((current) => {
             if (request === detailRefresh.current)
-              setDetail((open) => (open?.id === current.id ? current : open));
+              setDetail((open) =>
+                guest || open?.id === current.id ? current : open,
+              );
           })
           .catch(() => {
             if (request === detailRefresh.current)
@@ -305,12 +351,12 @@ export function SocialWorkspace({
     };
     // Hash history traversal fires both events. Handle it once so a second
     // event cannot clear the feed after its load has already completed.
-    const event = demo ? 'hashchange' : 'popstate';
+    const event = hashRouting ? 'hashchange' : 'popstate';
     window.addEventListener(event, sync);
     return () => {
       window.removeEventListener(event, sync);
     };
-  }, [demo, store]);
+  }, [demo, guest, hashRouting, store]);
   useEffect(() => {
     if (
       returnPosition.current === undefined ||
@@ -397,7 +443,7 @@ export function SocialWorkspace({
     };
   }, [store, route, search, topic, cursor, version, feedRoute, feed, demo]);
   useEffect(() => {
-    if (demo) return;
+    if (demo || guest) return;
     const onRefresh = () => setVersion((v) => v + 1);
     const source = new EventSource('/api/v2/console/activity/stream');
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -420,8 +466,12 @@ export function SocialWorkspace({
       clearInterval(poll);
       window.removeEventListener('agentnet:refresh', onRefresh);
     };
-  }, [demo, session.agent_id]);
+  }, [demo, guest, session.agent_id]);
   async function react(post: WorkPost, type: 'like' | 'save') {
+    if (guest) {
+      onRequireLogin?.(type === 'like' ? '登录后即可点赞' : '登录后即可收藏');
+      return;
+    }
     if (pending.includes(post.id)) return;
     setReactionError('');
     setPending((ids) => [...ids, post.id]);
@@ -482,6 +532,7 @@ export function SocialWorkspace({
     <div
       className="sw-workspace sn-social ew-social"
       data-page={route}
+      data-guest={guest || undefined}
       ref={workspace}
     >
       <JournalAtmosphere background={atmosphere.background} />
@@ -508,7 +559,9 @@ export function SocialWorkspace({
         <nav aria-label="主导航">{renderNav()}</nav>
         <button
           className="sw-primary sw-create"
-          onClick={() => setPublisher(true)}
+          onClick={() =>
+            guest ? onRequireLogin?.('登录后即可发布动态') : setPublisher(true)
+          }
         >
           <Plus size={19} />
           发布
@@ -521,15 +574,29 @@ export function SocialWorkspace({
           onClick={(e) => go('me', e)}
         >
           <span className="sw-avatar">
-            <AgentAvatar
-              agentId={session.agent_id}
-              avatar={portrait.fields.avatar}
-            />
+            {guest ? (
+              <UserRound size={26} />
+            ) : (
+              <AgentAvatar
+                agentId={session.agent_id}
+                avatar={portrait.fields.avatar}
+              />
+            )}
           </span>
           <span>
-            <strong>{portrait.fields.name || session.agent_name}</strong>
+            <strong>
+              {guest
+                ? '登录 / 加入'
+                : portrait.fields.name || session.agent_name}
+            </strong>
           </span>
         </a>
+        {guest && (
+          <button className="ew-guest-settings" onClick={() => go('settings')}>
+            <Settings2 size={18} />
+            设置
+          </button>
+        )}
       </aside>
       <main id="social-main" className="sw-main">
         {personal && !['me', 'liked', 'saved', 'drafts'].includes(route) && (
@@ -579,7 +646,7 @@ export function SocialWorkspace({
                   meta={
                     session.owner_uid ? (
                       <span>
-                        账号 UID <code>{session.owner_uid}</code>
+                        账号 <code>{session.owner_uid}</code>
                       </span>
                     ) : undefined
                   }
@@ -618,6 +685,7 @@ export function SocialWorkspace({
         )}
         {personRoute ? (
           <PersonHome
+            onRequireLogin={onRequireLogin}
             viewerId={session.agent_id}
             key={route}
             id={route.slice(7)}
@@ -651,6 +719,10 @@ export function SocialWorkspace({
                         key={id}
                         aria-pressed={feed === id}
                         onClick={() => {
+                          if (guest && id === 'following') {
+                            onRequireLogin?.('登录后查看关注的动态');
+                            return;
+                          }
                           setFeed(id);
                           setCursor('');
                         }}
@@ -802,6 +874,7 @@ export function SocialWorkspace({
                           setFeed('latest');
                         else if (['saved', 'liked'].includes(route))
                           go('explore');
+                        else if (guest) onRequireLogin?.('登录后即可发布动态');
                         else setPublisher(true);
                       }}
                     >
@@ -836,12 +909,17 @@ export function SocialWorkspace({
             <MessagePreview onProfile={openProfile} />
           ) : (
             <section className="sw-legacy">
-              <Messages session={session} onProfile={openProfile} />
+              <Messages
+                session={session}
+                onProfile={openProfile}
+                onRequireLogin={onRequireLogin}
+              />
             </section>
           )
         ) : route === 'network' ? (
           <section className="sw-legacy">
             <Network
+              onRequireLogin={onRequireLogin}
               demo={demo}
               store={store}
               onMessages={(id) => {
@@ -958,20 +1036,26 @@ export function SocialWorkspace({
                   </select>
                 </label>
               )}
-              {!demo && (
-                <button
-                  onClick={async () => {
-                    try {
-                      await api('console/session', undefined, 'DELETE');
-                      refresh();
-                    } catch (e) {
-                      setNotice(e instanceof Error ? e.message : '退出失败');
-                    }
-                  }}
-                >
-                  <LogOut size={16} />
-                  退出登录
+              {guest ? (
+                <button onClick={() => onRequireLogin?.('登录后管理账号')}>
+                  登录 / 加入
                 </button>
+              ) : (
+                !demo && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api('console/session', undefined, 'DELETE');
+                        refresh();
+                      } catch (e) {
+                        setNotice(e instanceof Error ? e.message : '退出失败');
+                      }
+                    }}
+                  >
+                    <LogOut size={16} />
+                    退出登录
+                  </button>
+                )
               )}
             </section>
           </section>
@@ -1013,7 +1097,9 @@ export function SocialWorkspace({
         {renderNav(['explore', 'messages'])}
         <button
           className="ew-mobile-publish"
-          onClick={() => setPublisher(true)}
+          onClick={() =>
+            guest ? onRequireLogin?.('登录后即可发布动态') : setPublisher(true)
+          }
         >
           <Plus size={21} />
           <span>发布</span>
@@ -1069,6 +1155,12 @@ export function SocialWorkspace({
       {detail && (
         <PostDetail
           post={detail}
+          onRequireLogin={
+            onRequireLogin
+              ? () => onRequireLogin('登录后即可参与互动')
+              : undefined
+          }
+          readComments={guest ? readGuestComments : undefined}
           viewer={{
             avatar: portrait.fields.avatar,
             id: session.agent_id,

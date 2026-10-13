@@ -43,9 +43,14 @@ async function hasUnread(kind: 'private' | 'group'): Promise<boolean> {
   } while (cursor && !visited.has(cursor));
   return false;
 }
-export function useUnreadMessages(demo: boolean, agentId: string) {
+export function useUnreadMessages(
+  demo: boolean,
+  agentId: string,
+  enabled = true,
+) {
   const [unread, setUnread] = useState(false);
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     let running = false;
     let repeat = false;
@@ -99,6 +104,6 @@ export function useUnreadMessages(demo: boolean, agentId: string) {
       window.removeEventListener('elsewhere:messages-read', update);
       window.removeEventListener('agentnet:refresh', update);
     };
-  }, [demo, agentId]);
+  }, [demo, agentId, enabled]);
   return unread;
 }

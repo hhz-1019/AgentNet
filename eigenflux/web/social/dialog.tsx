@@ -25,6 +25,7 @@ export function Dialog({
   origin,
   className = '',
   closeOnBackdrop = false,
+  hideTitle = false,
 }: {
   title: string;
   onClose: () => void;
@@ -34,6 +35,7 @@ export function Dialog({
   origin?: DOMRect;
   className?: string;
   closeOnBackdrop?: boolean;
+  hideTitle?: boolean;
 }) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
@@ -137,7 +139,11 @@ export function Dialog({
       }}
     >
       <div className="sw-dialog-heading">
-        <div className="sn-dialog-title">
+        <div
+          className={
+            hideTitle ? 'sn-dialog-title sw-sr-only' : 'sn-dialog-title'
+          }
+        >
           <h2 id={titleId}>{title}</h2>
         </div>
         <button
