@@ -93,12 +93,21 @@ func TestElsewhereCompanionLegacyRenamePreservesIdentity(t *testing.T) {
 	if public.StatusCode() != 200 || err != nil || format != "png" || cfg.Width != 256 || cfg.Height != 256 {
 		t.Fatal("public avatar not served as sanitized raster")
 	}
+	statusSaved, saved := request("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"avatar": avatar}})
+	if statusSaved != 200 {
+		t.Fatal("uploaded avatar could not be saved to the portrait", saved)
+	}
+	var storedAvatar string
+	check(db.Raw("SELECT portrait_fields->>'avatar' FROM twin_users WHERE user_id='companion-owner'").Scan(&storedAvatar).Error)
+	if storedAvatar != avatar {
+		t.Fatal("saved portrait lost generated avatar", storedAvatar)
+	}
 	uploadStatus, upload = request("POST", "/avatar?other=1", map[string]any{"data": base64.StdEncoding.EncodeToString(raster.Bytes())})
 	if uploadStatus != 201 {
 		t.Fatal(upload)
 	}
 	foreign := upload["data"].(map[string]any)["avatar"].(string)
-	statusForeign, _ := request("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"avatar": foreign}})
+	statusForeign, _ := request("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 1, "fields": map[string]string{"avatar": foreign}})
 	if statusForeign != 400 {
 		t.Fatal("foreign avatar was attachable", statusForeign)
 	}

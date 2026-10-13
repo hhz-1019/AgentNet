@@ -195,7 +195,7 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 	}
 	for k, v := range req.Fields {
 		limit, ok := portraitKeys[k]
-		if !ok || utf8.RuneCountInString(v) > limit || (k == "avatar" && !validDefaultAvatar(v)) {
+		if !ok || utf8.RuneCountInString(v) > limit || (k == "avatar" && !validPortraitAvatar(v)) {
 			fail(c, 400, "INVALID_PORTRAIT", "资料格式或长度无效", nil)
 			return
 		}
