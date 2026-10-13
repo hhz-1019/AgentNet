@@ -342,9 +342,7 @@ export function Landing({
 }) {
   const [copyStatus, setCopyStatus] = useState('');
   const [open, setOpen] = useState(!!initialState);
-  const [joinReason, setJoinReason] = useState('');
-  const requestLogin = useCallback((reason = '') => {
-    setJoinReason(reason);
+  const requestLogin = useCallback(() => {
     setOpen(true);
   }, []);
   const entryReady = useContext(EntryReadyContext);
@@ -360,11 +358,6 @@ export function Landing({
           className="guest-auth-dialog"
           closeOnBackdrop
         >
-          {joinReason && (
-            <p className="guest-login-reason">
-              {joinReason}。也可以关闭此窗口，继续浏览。
-            </p>
-          )}
           <div className="landing auth-landing guest-auth-layout">
             <section className="auth-entry">
               <BrandLogo />

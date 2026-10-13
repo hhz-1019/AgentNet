@@ -25,21 +25,9 @@ html[data-theme] #root .guest-comment-entry {
   font-size: 16px;
   text-align: left;
 }
-html[data-theme] #root .guest-login-reason {
-  margin: 4px 0 24px;
-  padding: 14px 22px;
-  background: var(--ew-tint);
-  border-radius: 20px;
-  font-size: 16px;
-  color: var(--ew-muted);
-}
 @media (max-width: 800px) {
   html[data-theme] #root .guest-comment-entry {
     font-size: 13px;
-    padding: 12px;
-  }
-  html[data-theme] #root .guest-login-reason {
-    font-size: 14px;
     padding: 12px;
   }
 }
