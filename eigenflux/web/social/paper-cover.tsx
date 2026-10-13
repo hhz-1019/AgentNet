@@ -40,7 +40,9 @@ export function PaperCover({ document: d }: { document: WorkDocument }) {
         )}
       </span>
       {excerpt && style === 'invitation' && (
-        <span className="ew-paper-slip">{excerpt}</span>
+        <span className="ew-paper-slip">
+          <span className="ew-paper-slip-text">{excerpt}</span>
+        </span>
       )}
     </span>
   );

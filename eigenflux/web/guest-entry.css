@@ -124,7 +124,7 @@ html[data-theme] #root .guest-grid .guest-post {
   padding: 0;
   margin: 0 0 30px;
   border-radius: 22px;
-  overflow: hidden;
+  overflow: visible;
 }
 html[data-theme] #root .guest-post .guest-cover {
   display: block;

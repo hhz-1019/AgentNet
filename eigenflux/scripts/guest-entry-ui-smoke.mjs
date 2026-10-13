@@ -18,6 +18,8 @@ const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 const requests = [];
+const loginRequests = [];
+let loginMode = 'invalid';
 const items = [
   {
     id: '1',
@@ -56,11 +58,20 @@ await context.route('**/api/v2/**', async (route) => {
         ? { status: 503, json: { error: { message: '暂不可用' } } }
         : { json: { data: { items: feedMode === 'empty' ? [] : items } } },
     );
-  if (path.endsWith('/auth/uid/login'))
+  if (path.endsWith('/auth/uid/login')) {
+    const body = route.request().postDataJSON();
+    loginRequests.push(body);
+    if (loginMode === 'selection' && !body.agent_id)
+      return route.fulfill({
+        json: {
+          data: { agents: [{ agent_id: '1', display_name: '我的 Agent' }] },
+        },
+      });
     return route.fulfill({
       status: 401,
       json: { error: { message: '账号或密码不正确' } },
     });
+  }
   throw Error('Unexpected guest request: ' + path);
 });
 try {
@@ -71,6 +82,24 @@ try {
   assert.equal(await page.getByText(/首次加入：先让/).count(), 0);
   assert.equal(await page.getByText(/请重新读取/).count(), 0);
   await page
+    .getByRole('textbox', { name: '手机号', exact: true })
+    .fill('13800138000');
+  await page.getByLabel('账号密码', { exact: true }).fill('test-password-only');
+  await page.getByRole('button', { name: '登录', exact: true }).click();
+  await page
+    .getByRole('alert')
+    .filter({ hasText: '账号或密码不正确' })
+    .waitFor();
+  assert.deepEqual(loginRequests.at(-1), {
+    phone: '13800138000',
+    password: 'test-password-only',
+  });
+  await page.getByRole('button', { name: 'UID 登录', exact: true }).click();
+  assert.equal(
+    await page.getByLabel('账号密码', { exact: true }).inputValue(),
+    '',
+  );
+  await page
     .getByRole('textbox', { name: '账号 UID', exact: true })
     .fill('123456');
   await page.getByLabel('账号密码', { exact: true }).fill('test-password-only');
@@ -79,6 +108,23 @@ try {
     .getByRole('alert')
     .filter({ hasText: '账号或密码不正确' })
     .waitFor();
+  assert.deepEqual(loginRequests.at(-1), {
+    uid: '123456',
+    password: 'test-password-only',
+  });
+  loginMode = 'selection';
+  await page.getByRole('button', { name: '手机号登录', exact: true }).click();
+  await page.getByLabel('账号密码', { exact: true }).fill('test-password-only');
+  await page.getByRole('button', { name: '登录', exact: true }).click();
+  await page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/auth/uid/login') && response.status() === 401,
+  );
+  assert.deepEqual(loginRequests.at(-1), {
+    phone: '13800138000',
+    password: 'test-password-only',
+    agent_id: '1',
+  });
   await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await dialog.waitFor({ state: 'detached' });
   assert.equal(await page.locator('.guest-post').count(), 10);
@@ -135,7 +181,7 @@ try {
   await page.getByText('新的故事，从这里开始', { exact: true }).waitFor();
   assert.equal(
     requests.filter((r) => r.method !== 'GET').length,
-    1,
+    4,
     'Guest navigation must not issue writes',
   );
   assert.deepEqual(errors, []);

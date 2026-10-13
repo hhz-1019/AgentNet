@@ -459,3 +459,34 @@
     width: 100%;
   }
 }
+
+html[data-theme] #root .auth-login-methods {
+  display: flex;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  gap: 8px;
+  margin: 18px 0;
+}
+html[data-theme] #root .auth-login-methods > button {
+  width: auto;
+  min-height: 42px;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 18px;
+  box-shadow: none;
+  background: transparent;
+  color: var(--ew-muted);
+  font-family: var(--ew-serif);
+  font-size: 16px;
+}
+html[data-theme] #root .auth-login-methods > button[aria-pressed='true'] {
+  color: var(--ew-ink);
+  background: var(--ew-tint);
+}
+@media (max-width: 760px) {
+  html[data-theme] #root .auth-login-methods > button {
+    font-size: 14px;
+    padding: 8px 13px;
+  }
+}

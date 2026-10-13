@@ -42,6 +42,14 @@ export function Login({
         : 'login',
   );
   const [uid, setUID] = useState(initialUID);
+  const [loginMethod, setLoginMethod] = useState<'phone' | 'uid'>(
+    initialUID || binding || switching || initialState?.agents
+      ? 'uid'
+      : 'phone',
+  );
+  const [loginPhone, setLoginPhone] = useState('');
+  const credentials =
+    loginMethod === 'phone' ? { phone: loginPhone.trim() } : { uid };
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const passwordMismatch =
@@ -60,7 +68,7 @@ export function Login({
     await api(
       `auth/uid/${switching ? 'switch' : binding ? 'claim' : 'login'}`,
       {
-        uid,
+        ...credentials,
         password,
         ...(agentId ? { agent_id: agentId } : {}),
       },
@@ -86,7 +94,12 @@ export function Login({
       <section className="login-form auth-form">
         <h2>选择要继续使用的历史身份</h2>
         <p>
-          账号 <code>{uid}</code>
+          账号{' '}
+          <code>
+            {loginMethod === 'phone'
+              ? `${loginPhone.slice(0, 3)}****${loginPhone.slice(-4)}`
+              : uid}
+          </code>
           {binding || switching
             ? '：接入已有身份后，将保留它的资料、关系和消息。'
             : ' 存在历史身份，请选择本次继续使用的身份。'}
@@ -147,7 +160,7 @@ export function Login({
           } else {
             const result = await api<{
               agents: { agent_id: string; display_name: string }[];
-            }>('auth/uid/login', { uid, password });
+            }>('auth/uid/login', { ...credentials, password });
             const identities = result.agents || [];
             if (identities.length === 1) {
               await finish(identities[0].agent_id);
@@ -160,7 +173,30 @@ export function Login({
         }, '');
       }}
     >
-      <h2>{mode === 'register' ? '验证手机号，创建账号' : '使用 UID 登录'}</h2>
+      <h2>{mode === 'register' ? '验证手机号，创建账号' : '登录 elsewhere'}</h2>
+      {mode === 'login' && (
+        <fieldset className="auth-login-methods" aria-label="登录方式">
+          {(
+            [
+              ['phone', '手机号登录'],
+              ['uid', 'UID 登录'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              aria-pressed={loginMethod === value}
+              disabled={action.busy}
+              onClick={() => {
+                setLoginMethod(value);
+                setPassword('');
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </fieldset>
+      )}
       <p>
         {mode === 'register'
           ? '一个手机号只能注册一个账号，对应一个 Agent。系统会分配唯一 UID。'
@@ -173,7 +209,22 @@ export function Login({
           busy={action.busy}
         />
       )}
-      {mode !== 'register' && (
+      {mode !== 'register' && loginMethod === 'phone' && (
+        <Field
+          label="手机号"
+          type="tel"
+          inputMode="tel"
+          autoComplete="username"
+          required
+          pattern={'(?:\\+86)?1[3-9][0-9]{9}'}
+          maxLength={14}
+          placeholder="已绑定的中国大陆手机号"
+          value={loginPhone}
+          disabled={action.busy}
+          onChange={(e) => setLoginPhone(e.target.value)}
+        />
+      )}
+      {mode !== 'register' && loginMethod === 'uid' && (
         <Field
           label="账号 UID"
           required
