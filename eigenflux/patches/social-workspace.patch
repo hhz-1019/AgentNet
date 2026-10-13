@@ -209,3 +209,15 @@
  	case 3:
  		paths = onboardingDraftFieldPaths[16:17]
  	case 4:
+
+--- a/cli/cmd/publish.go
++++ b/cli/cmd/publish.go
+@@ -51,7 +51,7 @@
+ 		if resp.Code != 0 {
+ 			return fmt.Errorf("%s", resp.Msg)
+ 		}
+-		output.PrintMessage("Broadcast published")
++		output.PrintMessage("Broadcast accepted for processing; check profile items for completed status before reporting publication")
+ 		outputData := json.RawMessage(resp.Data)
+ 		if withContext {
+ 			outputData, err = withControlContext(activeServerName(), outputData)

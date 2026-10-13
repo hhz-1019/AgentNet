@@ -53,6 +53,7 @@ import { ContentTabs, useFeedMotion } from './content-motion';
 import { JournalAtmosphere, useJournalAtmosphere } from './journal-atmosphere';
 import { DemoSettings } from './social-settings';
 import type { WorkPost, SocialStore, Page } from './model';
+import { mergeFeedPage } from './feed-pages';
 import { liveSocialStore, uploadAttachment } from './store';
 import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
@@ -164,6 +165,11 @@ export function SocialWorkspace({
   const [feed, setFeed] = useState(demo || guest ? 'recommended' : 'latest');
   const [page, setPage] = useState<Page>();
   const [cursor, setCursor] = useState('');
+  const feedEnd = useRef<HTMLDivElement>(null);
+  const feedQuery = useRef('');
+  const feedVersion = useRef(0);
+  const feedHistory = useRef(new Map<string, Page>());
+  const [feedRetry, setFeedRetry] = useState(0);
   const [loading, setLoading] = useState(true);
   const [version, setVersion] = useState(0);
   const [error, setError] = useState('');
@@ -271,6 +277,14 @@ export function SocialWorkspace({
     }
     if (id === route) return;
     detailRefresh.current++;
+    // Infinite feeds can exceed the browser's serialized history size limit.
+    // Retain a few recent feed snapshots in memory, store only their keys.
+    const feedSnapshot = page ? crypto.randomUUID() : '';
+    if (page) {
+      feedHistory.current.set(feedSnapshot, page);
+      if (feedHistory.current.size > 4)
+        feedHistory.current.delete(feedHistory.current.keys().next().value!);
+    }
     history.replaceState(
       {
         ...history.state,
@@ -281,6 +295,7 @@ export function SocialWorkspace({
           topic,
           feed,
           cursor,
+          feedSnapshot,
           detail,
           scroll: window.scrollY,
           detailScroll:
@@ -322,6 +337,9 @@ export function SocialWorkspace({
           : requested;
       const saved = history.state?.elsewhereView;
       const view = saved?.route === nextRoute ? saved : undefined;
+      const restoredPage = view?.feedSnapshot
+        ? feedHistory.current.get(view.feedSnapshot)
+        : undefined;
       setRoute(nextRoute);
       setPersonReady(false);
       detailPosition.current = view?.detailScroll || 0;
@@ -341,13 +359,19 @@ export function SocialWorkspace({
               setReactionError('暂时无法更新这条动态，请关闭后重试。');
           });
       }
-      setCursor(view?.cursor || '');
+      setCursor(restoredPage ? view?.cursor || '' : '');
       setQuery(view?.query || '');
       setSearch(view?.search || '');
       setTopic(view?.topic || '');
       if (view?.feed) setFeed(view.feed);
       returnPosition.current = view?.scroll ?? 0;
-      setPage(undefined);
+      feedQuery.current = JSON.stringify([
+        nextRoute,
+        view?.search || '',
+        view?.topic || '',
+        view?.feed || feed,
+      ]);
+      setPage(restoredPage);
     };
     // Hash history traversal fires both events. Handle it once so a second
     // event cannot clear the feed after its load has already completed.
@@ -356,7 +380,7 @@ export function SocialWorkspace({
     return () => {
       window.removeEventListener(event, sync);
     };
-  }, [demo, guest, hashRouting, store]);
+  }, [demo, guest, hashRouting, store, feed]);
   useEffect(() => {
     if (
       returnPosition.current === undefined ||
@@ -383,6 +407,19 @@ export function SocialWorkspace({
   }, [query, search]);
   useEffect(() => {
     if (!feedRoute) return;
+    const key = JSON.stringify([route, search, topic, feed]);
+    const changed = feedQuery.current !== key;
+    if (changed && cursor) {
+      setPage(undefined);
+      setCursor('');
+      return;
+    }
+    const refresh = !changed && feedVersion.current !== version;
+    feedQuery.current = key;
+    feedVersion.current = version;
+    if (changed) setPage(undefined);
+    const requestCursor = refresh ? '' : cursor;
+    const mode = refresh ? 'refresh' : requestCursor ? 'append' : 'replace';
     let active = true;
     const id = ++generation.current;
     setLoading(true);
@@ -406,7 +443,7 @@ export function SocialWorkspace({
         q: search,
         kind: 'all',
         tags: topic ? [topic] : [],
-        cursor,
+        cursor: requestCursor,
       })
       .then((p) => {
         if (active && generation.current === id) {
@@ -418,7 +455,7 @@ export function SocialWorkspace({
                     ['林间的 Agent', '小周的 Agent'].includes(item.author_name),
                   )
                 : p.items;
-            setPage({
+            p = {
               ...p,
               items:
                 feed === 'recommended'
@@ -428,8 +465,11 @@ export function SocialWorkspace({
                         (b.published_at || b.created_at) -
                         (a.published_at || a.created_at),
                     ),
-            });
-          } else setPage(p);
+            };
+          }
+          setPage((previous) =>
+            mergeFeedPage(previous, p, mode, requestCursor),
+          );
         }
       })
       .catch((e) => {
@@ -441,7 +481,35 @@ export function SocialWorkspace({
     return () => {
       active = false;
     };
-  }, [store, route, search, topic, cursor, version, feedRoute, feed, demo]);
+  }, [
+    store,
+    route,
+    search,
+    topic,
+    cursor,
+    version,
+    feedRetry,
+    feedRoute,
+    feed,
+    demo,
+  ]);
+  useEffect(() => {
+    const node = feedEnd.current;
+    if (!node || !feedRoute || loading || error || !page?.next_cursor) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          // A refresh can cancel an in-flight append. Retry that same cursor
+          // rather than leaving the sentinel unable to trigger a state change.
+          if (page.next_cursor === cursor) setFeedRetry((v) => v + 1);
+          setCursor(page.next_cursor);
+        }
+      },
+      { rootMargin: '600px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [feedRoute, page, loading, error, cursor]);
   useEffect(() => {
     if (demo || guest) return;
     const onRefresh = () => setVersion((v) => v + 1);
@@ -785,7 +853,7 @@ export function SocialWorkspace({
                 </button>
               </div>
             )}
-            {error ? (
+            {error && !page ? (
               <div className="sw-feed-error" role="alert">
                 <strong>暂时无法读取动态</strong>
                 <p>{error}</p>
@@ -888,19 +956,20 @@ export function SocialWorkspace({
                     </button>
                   </div>
                 )}
-                {(cursor || page?.next_cursor) && (
-                  <div className="sw-pagination">
-                    <button disabled={!cursor} onClick={() => setCursor('')}>
-                      回到最新
-                    </button>
-                    <button
-                      disabled={!page?.next_cursor}
-                      onClick={() => setCursor(page?.next_cursor || '')}
-                    >
-                      下一页
-                    </button>
-                  </div>
-                )}
+                <div ref={feedEnd} className="sw-feed-end" aria-live="polite">
+                  {error ? (
+                    <div role="alert">
+                      <p>{error}</p>
+                      <button onClick={() => setFeedRetry((v) => v + 1)}>
+                        重试加载
+                      </button>
+                    </div>
+                  ) : loading ? (
+                    '正在加载更多…'
+                  ) : page && page.items.length > 0 && !page.next_cursor ? (
+                    '已经看完全部动态'
+                  ) : null}
+                </div>
               </>
             )}
           </>
@@ -1107,21 +1176,33 @@ export function SocialWorkspace({
           avatar={portrait.fields.avatar}
           onClose={() => setPublisher(undefined)}
           onPublish={async (input) => {
-            if (demo)
-              await (store as PreviewStore).share({
-                ...input,
-                name: portrait.fields.name,
-              });
-            else
-              await api('console/social/share', {
-                title: input.title,
-                tags: input.tags,
-                content: input.content,
-                visibility: input.visibility,
-                media: input.media,
-                idempotency_key: input.key,
-              });
+            const published = demo
+              ? await (store as PreviewStore).share({
+                  ...input,
+                  name: portrait.fields.name,
+                })
+              : await api<WorkPost>('console/social/share', {
+                  title: input.title,
+                  tags: input.tags,
+                  content: input.content,
+                  visibility: input.visibility,
+                  media: input.media,
+                  idempotency_key: input.key,
+                });
+            if (
+              !published?.id ||
+              published.state !== 'published' ||
+              published.agent_id !== session.agent_id
+            )
+              throw new Error(
+                '服务器尚未确认这条动态发布成功，请保留内容后重试。',
+              );
             go('me');
+            setCursor('');
+            setQuery('');
+            setSearch('');
+            setTopic('');
+            setPage(undefined);
             reload();
             setNotice('动态已发布。');
           }}
@@ -1138,6 +1219,11 @@ export function SocialWorkspace({
           }}
           onPublished={() => {
             go('me');
+            setCursor('');
+            setQuery('');
+            setSearch('');
+            setTopic('');
+            setPage(undefined);
             reload();
             setNotice('动态已发布。');
           }}

@@ -225,3 +225,19 @@
     font-size: 23px;
   }
 }
+
+.ew-social .sw-feed-end {
+  min-height: 76px;
+  padding: 24px 0;
+  text-align: center;
+  color: var(--ew-muted);
+  font-size: 14px;
+}
+.ew-social .sw-feed-end button {
+  padding: 10px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-surface);
+  color: inherit;
+  cursor: pointer;
+}

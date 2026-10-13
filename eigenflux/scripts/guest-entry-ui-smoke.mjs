@@ -167,11 +167,15 @@ try {
     'No separate guest shell',
   );
   assert.equal(await login.count(), 0, 'No unsolicited login wall');
-  await page.getByRole('button', { name: '下一页', exact: true }).click();
-  await page.waitForFunction(
-    () => document.querySelectorAll('.sw-feed-grid .sw-post').length === 2,
+  assert.equal(
+    await page.getByRole('button', { name: '下一页', exact: true }).count(),
+    0,
   );
-  await page.getByRole('button', { name: '回到最新', exact: true }).click();
+  await page.locator('.sw-feed-end').scrollIntoViewIfNeeded();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.sw-feed-grid .sw-post').length === 26,
+  );
+  await page.getByText('已经看完全部动态', { exact: true }).waitFor();
   await cards.nth(23).waitFor();
   await page
     .getByRole('button', { name: '查看动态：把周末留给散步', exact: true })
