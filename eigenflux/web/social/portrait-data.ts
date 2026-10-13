@@ -38,7 +38,10 @@ export type EventMemory = {
   updatedAt: number;
 };
 export type Portrait = {
-  fields: Record<PortraitField, string> & { avatar?: string };
+  fields: Record<PortraitField, string> & {
+    avatar?: string;
+    owner_name?: string;
+  };
   visible: PortraitField[];
   memories: EventMemory[];
 };

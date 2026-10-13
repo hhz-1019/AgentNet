@@ -16,7 +16,7 @@ const firstText = (...values: unknown[]) =>
 export function prefillPortrait(
   saved: SavedPortrait,
   value: unknown,
-  agentName: string,
+  _agentName: string,
 ): SavedPortrait {
   if (saved.revision) return saved;
   const draft = normalizeDraft(value);
@@ -31,13 +31,7 @@ export function prefillPortrait(
   const initial: SavedPortrait = {
     ...saved,
     fields: {
-      name: firstText(
-        fields?.name,
-        saved.fields.name,
-        twin.name,
-        draft.identity_card.agent_name,
-        agentName,
-      ),
+      name: firstText(fields?.name, saved.fields.name, twin.name, '未命名'),
       bio: firstText(
         fields?.bio,
         saved.fields.bio,

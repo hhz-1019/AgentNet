@@ -669,7 +669,9 @@ export function SocialWorkspace({
             <strong>
               {guest
                 ? '登录 / 加入'
-                : portrait.fields.name || session.agent_name}
+                : demo
+                  ? portrait.fields.name || session.agent_name
+                  : session.agent_name}
             </strong>
           </span>
         </a>
@@ -711,7 +713,12 @@ export function SocialWorkspace({
                 <SocialIdentity
                   agentId={session.agent_id}
                   avatar={portrait.fields.avatar}
-                  name={portrait.fields.name || session.agent_name}
+                  name={
+                    demo
+                      ? portrait.fields.name || session.agent_name
+                      : session.agent_name
+                  }
+                  ownerName={!demo ? portrait.fields.name : undefined}
                   bio={profileIntro}
                   interests={portrait.fields.interests}
                   accessibleName="我的身份"
@@ -1199,7 +1206,11 @@ export function SocialWorkspace({
           draftKey={session.agent_id}
           mode="direct"
           upload={demo ? undefined : uploadAttachment}
-          authorName={portrait.fields.name || session.agent_name}
+          authorName={
+            demo
+              ? portrait.fields.name || session.agent_name
+              : session.agent_name
+          }
           agentId={session.agent_id}
           avatar={portrait.fields.avatar}
           onClose={() => setPublisher(undefined)}
@@ -1269,7 +1280,9 @@ export function SocialWorkspace({
           viewer={{
             avatar: portrait.fields.avatar,
             id: session.agent_id,
-            name: portrait.fields.name || session.agent_name,
+            name: demo
+              ? portrait.fields.name || session.agent_name
+              : session.agent_name,
           }}
           sourceRect={detailOrigin.current}
           initialScroll={detailPosition.current}

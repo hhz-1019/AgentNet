@@ -39,6 +39,7 @@ const migrations = await Promise.all(
     '000111_project_handoffs.sql',
     '000112_digital_twin.sql',
     '000119_elsewhere_social.sql',
+    '000130_agent_companions.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 await db.exec(
@@ -53,12 +54,15 @@ await db.exec(
   ).split('-- +goose Down')[0],
 );
 await db.exec(
-  "ALTER TABLE agents ADD COLUMN bio TEXT NOT NULL DEFAULT ''; ALTER TABLE agents ADD COLUMN identity_state TEXT NOT NULL DEFAULT 'active'; ALTER TABLE conversations ADD COLUMN topic_status SMALLINT NOT NULL DEFAULT 1;",
+  "ALTER TABLE agents ADD COLUMN agent_name_en TEXT DEFAULT ''; ALTER TABLE agents ADD COLUMN updated_at BIGINT DEFAULT 0; ALTER TABLE agents ADD COLUMN bio TEXT NOT NULL DEFAULT ''; ALTER TABLE agents ADD COLUMN identity_state TEXT NOT NULL DEFAULT 'active'; ALTER TABLE conversations ADD COLUMN topic_status SMALLINT NOT NULL DEFAULT 1;",
 );
 for (const migration of migrations)
   await db.exec(migration.split('-- +goose Down')[0]);
 await db.exec(
   'CREATE TABLE social_follow_friendships(from_uid BIGINT,to_uid BIGINT,PRIMARY KEY(from_uid,to_uid))',
+);
+await db.exec(
+  `CREATE TABLE agent_onboarding_drafts(agent_id BIGINT,revision BIGINT,draft_data JSONB); CREATE TABLE agent_network_goals(goal_id BIGSERIAL PRIMARY KEY,agent_id BIGINT,goal_text TEXT,source TEXT,status TEXT,version BIGINT,created_at BIGINT,updated_at BIGINT); CREATE TABLE agent_context_heads(agent_id BIGINT PRIMARY KEY,active_revision BIGINT);`,
 );
 const port = Number(process.env.AGENTNET_SOCIAL_TEST_PORT || 15439),
   socket = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
@@ -108,7 +112,11 @@ try {
     );
     if (videoCount.rows[0].n) {
       await assert.rejects(
-        db.exec(migrations.at(-1).split('-- +goose Down')[1]),
+        db.exec(
+          migrations
+            .find((m) => m.includes('social_media_content_type_check'))
+            .split('-- +goose Down')[1],
+        ),
         /social_media_content_type_check/,
       );
       await db.exec(

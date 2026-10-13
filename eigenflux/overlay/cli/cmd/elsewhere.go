@@ -18,6 +18,8 @@ func init() {
 		group              bool
 	}{
 		{"portrait", "/agent-context/portrait", "GET", false},
+		{"companion", "/agent-context/companion", "GET", false},
+		{"name", "/agent-context/companion/name", "PUT", false},
 		{"sync-portrait", "/agent-context/portrait", "PUT", false},
 		{"groups", "/communication/groups", "GET", false},
 		{"create-group", "/communication/groups", "POST", false},

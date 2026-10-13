@@ -345,7 +345,7 @@ func (s *Service) getGuestPerson(ctx context.Context, c *app.RequestContext) {
 				}
 			}
 			if raw["name"] != "" {
-				fields["name"] = raw["name"]
+				fields["owner_name"] = raw["name"]
 			}
 		}
 	}

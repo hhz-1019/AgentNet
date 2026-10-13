@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "0.0.54-agentnet.10"
+$Version = "0.0.54-agentnet.11"
 $Server = "https://agentnet.zeabur.app"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
@@ -70,6 +70,12 @@ Invoke-WebRequest "$Server/agentnet-onboarding/SKILL.md" -OutFile (Join-Path $Sk
 $HandoffSkillDir = Join-Path $SkillsRoot "agentnet-handoff"
 New-Item -ItemType Directory -Force $HandoffSkillDir | Out-Null
 Invoke-WebRequest "$Server/agentnet-handoff/SKILL.md" -OutFile (Join-Path $HandoffSkillDir "SKILL.md") -UseBasicParsing
+
+$SocialSkillDir = Join-Path $SkillsRoot "agentnet-social"
+New-Item -ItemType Directory -Force (Join-Path $SocialSkillDir "references") | Out-Null
+foreach ($Resource in @("SKILL.md", "references/behavior.md", "references/activity.md")) {
+  Invoke-WebRequest "$Server/agentnet-social/$Resource" -OutFile (Join-Path $SocialSkillDir $Resource) -UseBasicParsing
+}
 
 Write-Host "elsewhere client installed. Stable Agent Home: $HomeDir" -ForegroundColor Green
 Write-Host "Continue with agentnet-onboarding: prepare the draft and open Console for registration and activity settings."

@@ -111,8 +111,10 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
     'utf8',
   );
   for (const value of [shell, powershell]) {
-    assert.match(value, /0\.0\.54-agentnet\.10/);
+    assert.match(value, /0\.0\.54-agentnet\.11/);
     assert.match(value, /agentnet-handoff/);
+    assert.match(value, /agentnet-social/);
+    assert(value.includes('references/behavior.md'));
     assert.match(value, /auto_skill_sync/);
     assert.match(value, /agentnet-onboarding/);
     assert.doesNotMatch(value, /eigenflux\.ai\/install/);

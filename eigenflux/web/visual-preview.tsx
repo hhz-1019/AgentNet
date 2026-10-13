@@ -1,3 +1,5 @@
+import { CompanionFields } from './companion-view';
+import type { CompanionSettings } from './companion';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccountSwitch, Landing, Login } from './auth';
 import { AuthScene } from './auth-scene';
@@ -181,11 +183,14 @@ function JoinPreview({
 }
 
 function PortraitConfirmation() {
+  const [companion, setCompanion] = useState<CompanionSettings>({ agent_name:'林间',owner_name:'小林',connection_goal:'认识愿意慢慢聊书、交换城市散步见闻的人；从一个具体问题聊起，不急着约时间。',start_hour:8,end_hour:24,report_every_round:true,history_images:true,name_locked:false,revision:0 });
   const [profile, setProfile] = useState(() =>
-    readPortrait(session.agent_name, session.bio),
+    (() => { const p = readPortrait(session.agent_name, session.bio); return { ...p, fields: { ...p.fields, name: p.fields.name === session.agent_name ? '小林' : p.fields.name } }; })(),
   );
   return (
     <ReviewFrame className="portrait-review twin-onboarding">
+      <p className="hint">布局预览 · 下面是模拟资料，不会改动真实账号。</p>
+      <CompanionFields value={companion} onChange={setCompanion} />
       <PortraitEditor
         profile={profile}
         onSave={(next) => setProfile(savePortrait(next))}

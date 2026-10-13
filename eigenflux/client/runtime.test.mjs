@@ -513,3 +513,47 @@ void test('share request without connected supporting context is not published',
       await worker.close();
     }
   }));
+
+void test('companion rename recovers a lost receipt and never overwrites a later owner name', async () =>
+  fixture(async (home) => {
+    let current = 'Codex';
+    let calls = 0;
+    const notices = [];
+    const f = adapter({
+      get_companion: async () => ({
+        settings: { agent_name: current },
+        rename_needed: current === 'Codex',
+      }),
+      rename_companion: async ({ agent_name }) => {
+        calls++;
+        current = agent_name;
+        if (calls === 1) throw new Error('lost response after commit');
+        return { agent_name, owner_notice: '我现在叫林间，你随时可以改。' };
+      },
+    });
+    f.model.json = async () => ({ agent_name: '林间' });
+    const runtime = new AgentNetRuntime({
+      client: f.client,
+      model: f.model,
+      home,
+      endpoint: 'fixture',
+      log: (event) => notices.push(event),
+    });
+    await runtime.open();
+    try {
+      await assert.rejects(
+        runtime.repairCompanionName(await f.client.get_companion()),
+        /lost response/,
+      );
+      assert.equal(current, '林间');
+      await runtime.repairCompanionName(await f.client.get_companion());
+      assert.equal(calls, 2);
+      assert.equal(notices[0].owner_notice, '我现在叫林间，你随时可以改。');
+      current = '小满';
+      await runtime.repairCompanionName(await f.client.get_companion());
+      assert.equal(current, '小满');
+      assert.equal(calls, 2);
+    } finally {
+      await runtime.close();
+    }
+  }));

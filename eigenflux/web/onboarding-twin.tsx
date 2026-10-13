@@ -3,6 +3,12 @@ import { BrandLogo } from './brand';
 import { api } from './api';
 import { Login } from './auth';
 import { AuthScene } from './auth-scene';
+import { CompanionFields } from './companion-view';
+import {
+  prefillCompanion,
+  type CompanionSettings,
+  type CompanionResponse,
+} from './companion';
 import { prefillPortrait } from './onboarding-prefill';
 import type { Session, DraftResponse } from './types';
 import { PortraitEditor } from './social/portrait';
@@ -50,6 +56,7 @@ export function Onboard({
 function Confirm({ session, done }: { session: Session; done: () => void }) {
   useRegistrationTracking(true, 'profile');
   const [profile, setProfile] = useState<SavedPortrait>();
+  const [companion, setCompanion] = useState<CompanionSettings>();
   const base = useRef<SavedPortrait | undefined>(undefined);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
@@ -59,8 +66,9 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
     void Promise.all([
       loadPortrait(),
       api<DraftResponse>('agents/me/onboarding-draft'),
+      api<CompanionResponse>('console/companion'),
     ])
-      .then(([saved, response]) => {
+      .then(([saved, response, settings]) => {
         if (!active) return;
         base.current = saved;
         const initial = prefillPortrait(
@@ -69,6 +77,7 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
           session.agent_name,
         );
         setProfile(initial);
+        setCompanion(prefillCompanion(settings.settings, response.draft.data));
         setError('');
       })
       .catch((e: unknown) => {
@@ -80,6 +89,14 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
   }, [attempt, session.agent_name]);
   async function save(next: Portrait) {
     if (!base.current) throw new Error('资料尚未载入');
+    if (!agreed) throw new Error('请先勾选用户协议和 Agent 活动授权。');
+    if (!companion) throw new Error('伙伴设置尚未载入');
+    const settings = await api<CompanionSettings>(
+      'console/companion',
+      companion,
+      'PUT',
+    );
+    setCompanion(settings);
     const saved = await writePortrait(base.current, next);
     base.current = saved;
     setProfile(saved);
@@ -125,6 +142,12 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
         <p>正在读取资料…</p>
       ) : (
         <>
+          {companion && (
+            <CompanionFields value={companion} onChange={setCompanion} />
+          )}
+          <p className="hint">
+            下面的昵称和资料属于你；Agent 的名字与它分开保存。
+          </p>
           <label className="agreement-row">
             <input
               type="checkbox"

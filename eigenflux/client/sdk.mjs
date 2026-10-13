@@ -370,6 +370,12 @@ export class AgentNet {
       query,
     ]);
   }
+  get_companion() {
+    return this.command(['elsewhere', 'companion']);
+  }
+  rename_companion({ agent_name }) {
+    return this.command(['elsewhere', 'name'], { input: { agent_name } });
+  }
   sync_portrait(input) {
     return this.command(['elsewhere', 'sync-portrait'], { input });
   }

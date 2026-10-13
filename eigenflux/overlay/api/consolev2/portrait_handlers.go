@@ -64,6 +64,7 @@ type portraitRow struct {
 }
 
 func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
+	s.registerCompanionRoutes(h)
 	h.GET("/api/v2/guest/feed", s.getGuestFeed)
 	h.GET("/api/v2/guest/posts/:post_id/cover", s.getGuestCover)
 	h.GET("/api/v2/guest/posts/:post_id", s.getGuestPost)
@@ -312,10 +313,9 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 				bio = fields["bio"]
 			}
 		}
-		if fields["name"] != "" {
-			return tx.Exec(`UPDATE agents SET agent_name=?,bio=? WHERE agent_id=?`, fields["name"], bio, id).Error
-		}
-		return nil
+		// The portrait describes the owner. Its nickname must never rename the
+		// companion; the dedicated companion endpoint owns the Agent name.
+		return tx.Exec(`UPDATE agents SET bio=? WHERE agent_id=?`, bio, id).Error
 	})
 	if errors.Is(err, errPortraitConflict) {
 		fail(c, 409, "REVISION_CONFLICT", "资料已变更，或包含本人保护的内容；请读取最新版本后核对", nil)
@@ -365,9 +365,8 @@ func (s *Service) getPerson(ctx context.Context, c *app.RequestContext) {
 				fields[k] = raw[k]
 			}
 			fields["avatar"] = raw["avatar"]
-			if fields["name"] == "" {
-				fields["name"] = p.AgentName
-			}
+			fields["owner_name"] = fields["name"]
+			fields["name"] = p.AgentName
 		}
 		memories, next, e = readPortraitMemories(s.db.WithContext(ctx), p.OwnerUID, c.Query("cursor"), "", true)
 		if e != nil {
@@ -453,6 +452,8 @@ func (s *Service) putFollow(ctx context.Context, c *app.RequestContext) {
 // The social onboarding confirms the reviewed portrait in one transaction. It
 // keeps the existing context compiler and credential activation, without making
 // an optional network goal or synthetic biography a signup prerequisite.
+var errCompanionNameRequired = errors.New("personal companion name required")
+
 func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 	defer s.registrationOutcome(c, "profile")
 	owner, id, ok := s.twinOwner(c)
@@ -494,12 +495,22 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 		if state.State == "" {
 			return gorm.ErrRecordNotFound
 		}
+		var name string
+		if e = tx.Raw("SELECT agent_name FROM agents WHERE agent_id=?", id).Scan(&name).Error; e != nil {
+			return e
+		}
+		if !validCompanionName(name) {
+			return errCompanionNameRequired
+		}
 		if e = tx.Exec(`INSERT INTO twin_agreement_acceptances(user_id,version,accepted_at) VALUES(?,?,?) ON CONFLICT DO NOTHING`, owner, twinAgreementVersion, now).Error; e != nil {
 			return e
 		}
 		// Registration consent allows these activities; the saved policy still limits
 		// their rate. An existing settings row (including explicit denials) wins.
 		if e = tx.Exec(`INSERT INTO agent_settings(agent_id,recurring_publish,auto_reply_pm,auto_comment,show_add_friend,updated_at) VALUES(?,true,true,true,true,?) ON CONFLICT DO NOTHING`, id, now).Error; e != nil {
+			return e
+		}
+		if e = tx.Exec(`INSERT INTO twin_agent_policy(agent_id,updated_at) VALUES(?,?) ON CONFLICT DO NOTHING`, id, now).Error; e != nil {
 			return e
 		}
 		_, revision, e := compileAndActivateContext(tx, id, now)
@@ -518,7 +529,9 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 		return tx.Exec(`UPDATE agent_onboarding_v2 SET state='completed',current_step=5,revision=revision+1,active_context_revision=?,completed_at=?,updated_at=? WHERE agent_id=?`, revision, now, now, id).Error
 	})
 	if e != nil {
-		if errors.Is(e, errConflict) {
+		if errors.Is(e, errCompanionNameRequired) {
+			fail(c, 400, "COMPANION_NAME_REQUIRED", "请为 Agent 起一个个人名字，不能使用工具或模型名称", nil)
+		} else if errors.Is(e, errConflict) {
 			fail(c, 409, "REVISION_CONFLICT", "请重新读取并确认画像", nil)
 		} else {
 			s.socialFailure(c, e)

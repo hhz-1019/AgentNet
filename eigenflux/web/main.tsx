@@ -59,6 +59,13 @@ function AppContent({
       else setError(e instanceof Error ? e.message : '连接失败');
     }
   }
+  useEffect(() => {
+    const update = () => {
+      void refresh();
+    };
+    window.addEventListener('agentnet:refresh', update);
+    return () => window.removeEventListener('agentnet:refresh', update);
+  }, []);
   async function openHandoff(replaceAgentId?: string) {
     setConnecting(true);
     try {
