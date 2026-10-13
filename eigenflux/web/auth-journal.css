@@ -5,7 +5,7 @@
   --line: rgb(122 101 71 / 28%);
   --auth-contact:
     0 1px 1px rgb(73 53 30 / 12%), 0 2px 3px rgb(73 53 30 / 5%),
-    inset 0 1px 0 rgb(255 253 246 / 88%);
+    inset 0 1px 0 color-mix(in srgb, var(--ew-line) 35%, transparent);
   display: flex;
   flex-direction: column;
   min-height: 100svh;
@@ -82,16 +82,16 @@
   margin: 0;
   padding: 28px 32px;
   border: 1px solid rgb(142 119 85 / 23%);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: linear-gradient(
     135deg,
-    rgb(255 253 246 / 76%),
-    rgb(253 248 236 / 53%)
+    color-mix(in srgb, var(--ew-surface) 76%, transparent),
+    color-mix(in srgb, var(--ew-surface) 53%, transparent)
   );
   box-shadow:
     0 1px 2px rgb(69 49 23 / 10%),
     0 8px 22px -16px rgb(69 49 23 / 23%),
-    inset 0 1px 0 rgb(255 254 250 / 86%);
+    inset 0 1px 0 color-mix(in srgb, var(--ew-line) 35%, transparent);
 }
 
 .auth-scene .login-form.auth-form h2 {
@@ -118,9 +118,9 @@
 
 .auth-scene .login-form.auth-form :is(input:not([type='checkbox']), select) {
   min-height: 52px;
-  background: rgb(255 253 246 / 55%);
+  background: color-mix(in srgb, var(--ew-surface) 55%, transparent);
   border: 1px solid rgb(126 107 79 / 38%);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   box-shadow:
     inset 0 1px 2px rgb(76 55 29 / 5%),
     0 1px 0 rgb(255 254 249 / 75%);
@@ -133,13 +133,13 @@
 }
 
 .auth-scene .login-form.auth-form input::placeholder {
-  color: #726858;
+  color: var(--ew-muted);
   opacity: 1;
 }
 
 .auth-scene .login-form.auth-form input:focus-visible {
-  border-color: #716049;
-  background: rgb(255 253 246 / 88%);
+  border-color: var(--ew-line);
+  background: color-mix(in srgb, var(--ew-surface) 88%, transparent);
   outline: 2px solid #8b775a;
   outline-offset: 3px;
 }
@@ -154,12 +154,12 @@
 
 .auth-scene :is(.login-form.auth-form, .auth-entry, .auth-state) button {
   min-height: 48px;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   border-color: rgb(133 111 79 / 32%);
   background: linear-gradient(
     180deg,
-    rgb(255 252 242 / 80%),
-    rgb(240 230 209 / 65%)
+    color-mix(in srgb, var(--ew-surface) 80%, transparent),
+    color-mix(in srgb, var(--ew-surface) 65%, transparent)
   );
   box-shadow: var(--auth-contact);
   color: var(--ew-ink);
@@ -186,7 +186,7 @@
 .auth-scene
   :is(.login-form.auth-form, .auth-entry, .auth-state)
   button:enabled:hover {
-  background: #f8f1e2;
+  background: var(--ew-surface);
   border-color: rgb(117 93 58 / 48%);
 }
 
@@ -197,19 +197,19 @@
 }
 
 .auth-scene :is(.login-form.auth-form, .auth-state) button.primary {
-  background: linear-gradient(180deg, #39342d, #2d2923);
-  border-color: #302b24;
-  color: #fff8e8;
+  background: var(--ew-action);
+  border-color: var(--ew-line);
+  color: var(--ew-on-action);
   box-shadow:
     0 1px 1px rgb(39 29 17 / 27%),
     0 2px 4px rgb(39 29 17 / 9%),
-    inset 0 1px 0 rgb(255 249 224 / 20%);
+    inset 0 1px 0 color-mix(in srgb, var(--ew-line) 35%, transparent);
 }
 
 .auth-scene
   :is(.login-form.auth-form, .auth-state)
   button.primary:enabled:hover {
-  background: linear-gradient(180deg, #413b32, #332e27);
+  background: var(--ew-action);
 }
 
 .auth-scene .login-form.auth-form button:disabled {
@@ -232,7 +232,7 @@
 }
 
 .auth-scene .login-form.auth-form > button.auth-form-link:enabled:hover {
-  color: #17130e;
+  color: var(--ew-ink);
   background: transparent;
   border-color: transparent;
   text-decoration-color: currentColor;
@@ -250,7 +250,7 @@
 }
 
 .auth-scene .login-form.auth-form .account-recovery {
-  background: rgb(239 229 209 / 45%);
+  background: color-mix(in srgb, var(--ew-surface) 45%, transparent);
   border-color: var(--line);
 }
 
@@ -286,7 +286,7 @@
 }
 
 .auth-scene :is(button, a):focus-visible {
-  outline: 2px solid #716049;
+  outline: 2px solid var(--ew-line);
   outline-offset: 4px;
 }
 

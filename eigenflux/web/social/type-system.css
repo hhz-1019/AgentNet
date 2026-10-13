@@ -38,7 +38,7 @@
 .ew-social.sn-social .sw-post:not(.expanded) .sw-post-summary {
   font-size: 18px;
   line-height: 1.85;
-  color: #625b52;
+  color: var(--ew-muted);
   margin-bottom: 16px;
 }
 .ew-social.sn-social .sw-post .sw-tags :is(button, span),
@@ -161,7 +161,7 @@
     label,
     .sn-media-actions button,
     .sn-share-count,
-    .sn-share-visibility label,
+    .sn-share-visibility legend,
     .sn-member-picker legend,
     .sn-group-footer > span
   ) {
@@ -172,7 +172,7 @@
   font-size: 24px;
   font-weight: 500;
 }
-.sn-communication-dialog :is(.sw-primary, .sn-share-visibility select) {
+.sn-communication-dialog .sw-primary {
   font-size: 17px;
 }
 .ew-social.sn-social .sw-mobile-nav span {

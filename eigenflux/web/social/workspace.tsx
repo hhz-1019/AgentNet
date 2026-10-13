@@ -1,10 +1,12 @@
+import { ThemeSwitcher } from '../theme';
+import { UnreadDot, useUnreadMessages } from '../unread';
+import { AgentAvatar, rememberAvatar } from '../avatar';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
   Activity,
   Bookmark,
-  Bot,
   Compass,
   FileText,
   Heart,
@@ -17,7 +19,7 @@ import {
   UserRound,
   Users,
   X,
-} from 'lucide-react';
+} from '../icons';
 import { api, refreshData, useData } from '../api';
 import { BrandLogo } from '../brand';
 import type { Session, Account } from '../types';
@@ -41,7 +43,7 @@ import {
   portraitFields,
   type Portrait,
 } from './portrait-data';
-import { MovingTabs, useFeedMotion } from './content-motion';
+import { ContentTabs, useFeedMotion } from './content-motion';
 import { JournalAtmosphere, useJournalAtmosphere } from './journal-atmosphere';
 import { DemoSettings } from './social-settings';
 import type { WorkPost, SocialStore, Page } from './model';
@@ -123,6 +125,10 @@ export function SocialWorkspace({
       : blankPortrait(session.agent_name, session.bio || ''),
   );
   useEffect(() => {
+    if (portrait.fields.avatar)
+      rememberAvatar(session.agent_id, portrait.fields.avatar);
+  }, [session.agent_id, portrait.fields.avatar]);
+  useEffect(() => {
     if (demo) return;
     let active = true;
     void loadPortrait()
@@ -138,6 +144,7 @@ export function SocialWorkspace({
     setPortrait(savePortrait(next));
   }
   const [route, setRoute] = useState(() => readRoute(demo));
+  const hasUnreadMessages = useUnreadMessages(demo, session.agent_id);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [topic, setTopic] = useState('');
@@ -238,7 +245,7 @@ export function SocialWorkspace({
           scroll: window.scrollY,
           detailScroll:
             document.querySelector<HTMLElement>(
-              window.matchMedia('(max-width: 800px)').matches
+              window.matchMedia('(max-width: 800px), (pointer: coarse)').matches
                 ? 'dialog.ew-reading-dialog'
                 : 'dialog.ew-reading-dialog .ew-detail-scroll',
             )?.scrollTop || 0,
@@ -440,18 +447,35 @@ export function SocialWorkspace({
     }
   }
   const activeNav = personal ? 'me' : route;
-  const renderNav = () =>
+  const renderNav = (
+    ids: readonly string[] = ['explore', 'messages', 'network'],
+  ) =>
     nav
-      .filter(([id]) => id !== 'me')
+      .filter(([id]) => ids.includes(id))
       .map(([id, label, Icon]) => (
         <a
           key={id}
           href={href(id)}
           onClick={(e) => go(id, e)}
           aria-current={activeNav === id ? 'page' : undefined}
+          aria-label={label}
+          aria-describedby={
+            id === 'messages' && hasUnreadMessages
+              ? 'ew-unread-message-description'
+              : undefined
+          }
+          title={label}
+          className="ew-flip-nav"
         >
-          <Icon size={21} />
-          <span>{label}</span>
+          <span className="ew-nav-stage" aria-hidden="true">
+            <span className="ew-nav-label">{label}</span>
+            <span className="ew-nav-icon">
+              <Icon size={36} />
+            </span>
+          </span>
+          {id === 'messages' && (
+            <UnreadDot count={hasUnreadMessages ? 1 : 0} hiddenLabel />
+          )}
         </a>
       ));
   return (
@@ -461,6 +485,11 @@ export function SocialWorkspace({
       ref={workspace}
     >
       <JournalAtmosphere background={atmosphere.background} />
+      {hasUnreadMessages && (
+        <span id="ew-unread-message-description" className="sw-sr-only">
+          有未读消息
+        </span>
+      )}
       <a className="sw-skip" href="#social-main">
         跳到内容
       </a>
@@ -492,7 +521,10 @@ export function SocialWorkspace({
           onClick={(e) => go('me', e)}
         >
           <span className="sw-avatar">
-            <Bot size={20} />
+            <AgentAvatar
+              agentId={session.agent_id}
+              avatar={portrait.fields.avatar}
+            />
           </span>
           <span>
             <strong>{portrait.fields.name || session.agent_name}</strong>
@@ -528,6 +560,8 @@ export function SocialWorkspace({
             <div className="sn-personal-identity">
               <IdentitySurface engraved>
                 <SocialIdentity
+                  agentId={session.agent_id}
+                  avatar={portrait.fields.avatar}
                   name={portrait.fields.name || session.agent_name}
                   bio={profileIntro}
                   interests={portrait.fields.interests}
@@ -564,7 +598,7 @@ export function SocialWorkspace({
                 </div>
               </div>
             </div>
-            <MovingTabs className="sn-tabs" label="我的内容" active={route}>
+            <ContentTabs className="sn-tabs" label="我的内容">
               {personalTabs.map(([id, label]) => (
                 <a
                   key={id}
@@ -575,7 +609,7 @@ export function SocialWorkspace({
                   {label}
                 </a>
               ))}
-            </MovingTabs>
+            </ContentTabs>
           </>
         )}
         {notice && <output className="sw-hint">{notice}</output>}
@@ -607,11 +641,7 @@ export function SocialWorkspace({
             >
               {route === 'explore' && (
                 <div className="sn-discover-heading">
-                  <MovingTabs
-                    className="sn-tabs"
-                    label="发现频道"
-                    active={feed}
-                  >
+                  <ContentTabs className="sn-tabs" label="发现频道">
                     {[
                       ['recommended', '推荐'],
                       ['following', '关注'],
@@ -628,7 +658,7 @@ export function SocialWorkspace({
                         {label}
                       </button>
                     ))}
-                  </MovingTabs>
+                  </ContentTabs>
                 </div>
               )}
               <form
@@ -828,6 +858,16 @@ export function SocialWorkspace({
         ) : route === 'settings' ? (
           <section className="sn-settings">
             <h1>设置</h1>
+            <section
+              className="ew-appearance-settings"
+              aria-labelledby="appearance-heading"
+            >
+              <div>
+                <h2 id="appearance-heading">界面配色</h2>
+                <p>选择适合此刻的阅读色调。</p>
+              </div>
+              <ThemeSwitcher />
+            </section>
             {managedAccess.data?.delegated && (
               <div>
                 <p>当前使用托管角色 {session.agent_name}</p>
@@ -970,7 +1010,7 @@ export function SocialWorkspace({
         )}
       </main>
       <nav className="sw-mobile-nav" aria-label="移动导航">
-        {renderNav()}
+        {renderNav(['explore', 'messages'])}
         <button
           className="ew-mobile-publish"
           onClick={() => setPublisher(true)}
@@ -978,14 +1018,7 @@ export function SocialWorkspace({
           <Plus size={21} />
           <span>发布</span>
         </button>
-        <a
-          href={href('me')}
-          onClick={(e) => go('me', e)}
-          aria-current={personal ? 'page' : undefined}
-        >
-          <UserRound size={21} />
-          <span>我的</span>
-        </a>
+        {renderNav(['network', 'me'])}
       </nav>
       {publisher === true ? (
         <ShareComposer
@@ -993,6 +1026,8 @@ export function SocialWorkspace({
           mode="direct"
           upload={demo ? undefined : uploadAttachment}
           authorName={portrait.fields.name || session.agent_name}
+          agentId={session.agent_id}
+          avatar={portrait.fields.avatar}
           onClose={() => setPublisher(undefined)}
           onPublish={async (input) => {
             if (demo)
@@ -1002,6 +1037,8 @@ export function SocialWorkspace({
               });
             else
               await api('console/social/share', {
+                title: input.title,
+                tags: input.tags,
                 content: input.content,
                 visibility: input.visibility,
                 media: input.media,
@@ -1033,6 +1070,7 @@ export function SocialWorkspace({
         <PostDetail
           post={detail}
           viewer={{
+            avatar: portrait.fields.avatar,
             id: session.agent_id,
             name: portrait.fields.name || session.agent_name,
           }}

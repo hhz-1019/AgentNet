@@ -1,0 +1,117 @@
+/* One visual vocabulary, three palettes. No bitmap inversion or gradients. */
+:root,
+[data-icon-palette='warm'] {
+  --ew-icon-primary: #a54824;
+  --ew-icon-accent: #df831d;
+  --ew-icon-fill: #f8e4ce;
+}
+:root[data-theme='cool'],
+[data-icon-palette='cool'] {
+  --ew-icon-primary: #285bd6;
+  --ew-icon-accent: #ed7b21;
+  --ew-icon-fill: #e4edff;
+}
+:root[data-theme='night'],
+[data-icon-palette='night'] {
+  --ew-icon-primary: #a5b7d2;
+  --ew-icon-accent: #c79765;
+  --ew-icon-fill: #2d3f59;
+}
+/* Preview each destination palette without losing contrast on a dark page. */
+:root[data-theme='night'] [data-icon-palette='warm'] {
+  --ew-icon-primary: #e7b38b;
+  --ew-icon-accent: #d99a4e;
+  --ew-icon-fill: #483629;
+}
+:root[data-theme='night'] [data-icon-palette='cool'] {
+  --ew-icon-primary: #8eaff1;
+  --ew-icon-accent: #d59c6c;
+  --ew-icon-fill: #2d3f59;
+}
+.ew-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+  stroke: var(--ew-icon-primary);
+}
+/* Optical offsets only: asymmetric silhouettes should feel centered without
+   moving their hit targets or interfering with navigation/spinner transforms. */
+.ew-icon[data-icon='Moon'] {
+  translate: 0.6px -0.3px;
+}
+.ew-icon[data-icon='Send'] {
+  translate: -0.5px 0.5px;
+}
+.ew-icon[data-icon='Play'] {
+  translate: 0.7px 0;
+}
+.ew-icon[data-icon='Bot'] {
+  translate: 0 -0.5px;
+}
+.ew-icon[data-icon='Search'] {
+  translate: 0.3px 0.3px;
+}
+.ew-icon[data-icon='Users'] {
+  translate: 0.3px 0;
+}
+/* Broad, closed silhouettes receive a quiet fill; details stay unfilled. */
+.ew-icon:is([data-icon='Compass'], [data-icon='Search']) > circle,
+.ew-icon:is(
+    [data-icon='MessageCircle'],
+    [data-icon='Moon'],
+    [data-icon='Send'],
+    [data-icon='Shield'],
+    [data-icon='ShieldCheck'],
+    [data-icon='FileText']
+  )
+  > path:first-child,
+.ew-icon:is([data-icon='Bot'], [data-icon='Image'], [data-icon='Video'])
+  > rect {
+  fill: var(--ew-icon-fill);
+}
+.ew-icon:is(
+    [data-icon='Sun'],
+    [data-icon='UserRound'],
+    [data-icon='Users'],
+    [data-icon='UserPlus'],
+    [data-icon='Settings2'],
+    [data-icon='Image']
+  )
+  > circle,
+.ew-icon[data-icon='Compass'] > path,
+.ew-icon[data-icon='Video'] > path:first-child {
+  fill: var(--ew-icon-accent);
+  stroke: var(--ew-icon-accent);
+}
+.ew-icon[data-icon='Users'] > path:nth-child(2),
+.ew-icon[data-icon='Users'] > path:nth-child(3),
+.ew-icon[data-icon='Bot'] > path:first-child,
+.ew-icon[data-icon='Search'] > path,
+.ew-icon[data-icon='ShieldCheck'] > path:last-child,
+.ew-icon[data-icon='Send'] > path:last-child,
+.ew-icon[data-icon='FileText'] > path:nth-child(2),
+.ew-icon[data-icon='BookOpen'] > path:first-child {
+  stroke: var(--ew-icon-accent);
+}
+/* Unselected reactions remain outlines, with an unmistakable filled state. */
+html[data-theme]
+  button[aria-pressed='true']
+  .ew-icon:is([data-icon='Heart'], [data-icon='Bookmark']) {
+  fill: var(--ew-icon-accent);
+  stroke: var(--ew-icon-primary);
+}
+/* Action buttons need the same contrast as their text, in all three themes. */
+html[data-theme]
+  :is(.sw-primary, .primary, .ew-identity-details-toggle)
+  .ew-icon {
+  --ew-icon-primary: currentColor;
+  --ew-icon-accent: currentColor;
+  --ew-icon-fill: transparent;
+}
+@media (forced-colors: active) {
+  .ew-icon {
+    --ew-icon-primary: CanvasText;
+    --ew-icon-accent: CanvasText;
+    --ew-icon-fill: Canvas;
+  }
+}

@@ -7,7 +7,7 @@
 .sn-person-home .sn-person-toolbar .sn-back {
   margin: 0;
   padding: 8px 0 8px 12px;
-  color: #746a5d;
+  color: var(--ew-muted);
 }
 .sn-person-home > .sn-tabs {
   margin-top: 24px;
@@ -18,14 +18,14 @@
   padding: 30px 0;
 }
 .sn-person-home .sn-public-fields dt {
-  color: #746a5d;
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .sn-person-home .sn-public-fields dd {
   margin-top: 12px;
   font-size: 18px;
   line-height: 1.85;
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .sn-social .sn-portrait,
 .portrait-confirm .sn-portrait {
@@ -34,7 +34,7 @@
 .sn-portrait > .sn-page-heading {
   padding-bottom: 24px;
   margin-bottom: 0;
-  border-bottom: 1px solid #cfc5b5;
+  border-bottom: 1px solid var(--ew-line);
 }
 .sn-portrait > .sn-page-heading h1 {
   font-size: 34px;
@@ -44,8 +44,8 @@
 }
 .sn-portrait > .sn-page-heading button {
   padding: 9px 12px;
-  border: 1px solid #cfc5b5;
-  border-radius: 3px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   background: transparent;
   font-size: 16px;
 }
@@ -62,7 +62,7 @@
   font-size: 16px;
   font-weight: 500;
   letter-spacing: 0;
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .sn-portrait .sn-portrait-grid {
   gap: 26px 30px;
@@ -77,14 +77,14 @@
 .sn-portrait .sn-portrait-field > div > label:first-child {
   font-size: 16px;
   font-weight: 500;
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .sn-portrait .sn-portrait-field :is(input:not([type='checkbox']), textarea),
 .sn-memory-form textarea {
-  border: 1px solid #cfc5b5;
-  border-radius: 3px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
-  color: #302c26;
+  color: var(--ew-ink);
   padding: 13px 15px;
   font-size: 18px;
   line-height: 1.85;
@@ -99,7 +99,7 @@
 .sn-portrait .sn-visibility,
 .sn-memory-form .sn-visibility {
   font-size: 16px;
-  color: #746a5d;
+  color: var(--ew-muted);
   gap: 6px;
 }
 .sn-portrait .sn-visibility input,
@@ -111,7 +111,7 @@
 .sn-portrait .sn-memories {
   padding-top: 30px;
   margin-top: 34px;
-  border-top: 1px solid #cfc5b5;
+  border-top: 1px solid var(--ew-line);
 }
 .sn-portrait .sn-memories > .sn-page-heading {
   margin-bottom: 18px;
@@ -119,11 +119,11 @@
 }
 .sn-portrait .sn-memories h3 {
   font-size: 16px;
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .sn-portrait .sn-memories h3 span {
   font-size: 16px;
-  color: #746a5d;
+  color: var(--ew-muted);
   margin-left: 7px;
 }
 .sn-portrait .sn-memories > .sn-page-heading button {
@@ -134,9 +134,9 @@
 .sn-portrait .sn-memory-search {
   width: 100%;
   max-width: none;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: transparent;
-  border: 1px solid #cfc5b5;
+  border: 1px solid var(--ew-line);
   margin-bottom: 24px;
   padding: 0 12px;
   min-height: 50px;
@@ -156,8 +156,8 @@
 }
 .sn-portrait .sn-memory,
 .sn-person-home .sn-memory {
-  border: 1px solid #cfc5b5;
-  border-radius: 3px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   background: var(--ew-paper);
   padding: 22px 24px 16px;
   min-width: 0;
@@ -169,7 +169,7 @@
   gap: 5px;
   padding: 0;
   margin-bottom: 13px;
-  color: #746a5d;
+  color: var(--ew-muted);
   font-size: 16px;
   letter-spacing: 0;
 }
@@ -177,7 +177,7 @@
 .sn-person-home .sn-memory > p {
   font-size: 18px;
   line-height: 1.9;
-  color: #302c26;
+  color: var(--ew-ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
@@ -194,7 +194,7 @@
   gap: 10px;
   margin-top: 18px;
   padding-top: 11px;
-  border-top: 1px solid #cfc5b5;
+  border-top: 1px solid var(--ew-line);
 }
 .sn-portrait .sn-memory footer button {
   padding: 3px 0;
@@ -202,29 +202,29 @@
   border-radius: 0;
   background: transparent;
   min-height: 44px;
-  color: #302c26;
+  color: var(--ew-ink);
   font-size: 16px;
 }
 .sn-portrait .sn-memory footer button:last-child {
-  color: #746a5d;
+  color: var(--ew-muted);
 }
 .sn-portrait .sn-portrait-status {
   display: block;
   margin-top: 22px;
   font-size: 16px;
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .sn-portrait .sn-portrait-actions,
 .sn-portrait .portrait-confirm-actions {
   padding-top: 26px;
   margin-top: 26px;
-  border-top: 1px solid #cfc5b5;
+  border-top: 1px solid var(--ew-line);
   display: flex;
   justify-content: flex-end;
 }
 .sn-portrait .sn-portrait-actions button,
 .sn-portrait .portrait-confirm-actions button {
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   padding: 11px 20px;
   font-size: 16px;
 }
@@ -252,7 +252,7 @@
 .sn-person-home,
 .sn-demo-settings {
   font-family: var(--ew-serif);
-  color: var(--ew-ink, #302c26);
+  color: var(--ew-ink);
 }
 .sn-portrait .sn-portrait-details {
   padding-top: 30px;
@@ -300,21 +300,21 @@
   .sn-portrait-field
   :is(input:not([type='checkbox']), textarea):focus {
   background: var(--ew-surface);
-  border-color: #8a7962;
+  border-color: var(--ew-line);
 }
 .sn-portrait
   .sn-portrait-field
   :is(input:not([type='checkbox']), textarea):focus-visible {
-  outline: 2px solid #8a7962;
+  outline: 2px solid var(--ew-line);
   outline-offset: 3px;
 }
 .sn-portrait :is(button, a):focus-visible,
 .sn-memory-form :is(button, textarea, input):focus-visible {
-  outline: 2px solid #8a7962;
+  outline: 2px solid var(--ew-line);
   outline-offset: 4px;
 }
 .sn-portrait .sn-memory-search:focus-within {
-  border-color: #8a7962;
+  border-color: var(--ew-line);
 }
 .sn-portrait .sn-memory-search input:focus-visible {
   outline-offset: 2px;
@@ -341,14 +341,14 @@
   margin-top: 12px;
   font-size: 16px;
   background: transparent;
-  border-color: #cfc5b5;
+  border-color: var(--ew-line);
 }
 .sn-portrait .sn-portrait-status {
   position: static;
   padding: 14px 16px;
   background: var(--ew-tint);
-  border-color: #cfc5b5;
-  border-radius: 3px;
+  border-color: var(--ew-line);
+  border-radius: var(--ew-radius-control);
   line-height: 1.75;
 }
 .sn-portrait .sn-portrait-actions button,
@@ -396,7 +396,7 @@
   margin: 0;
 }
 .sn-person-home .sn-public-fields > div {
-  border-top: 1px solid #cfc5b5;
+  border-top: 1px solid var(--ew-line);
   padding-top: 18px;
 }
 .sn-person-home .sn-public-fields dd {
@@ -409,8 +409,8 @@
   margin: 0 0 24px;
 }
 .sn-demo-settings .sw-empty {
-  border-top: 1px solid #cfc5b5;
-  border-bottom: 1px solid #cfc5b5;
+  border-top: 1px solid var(--ew-line);
+  border-bottom: 1px solid var(--ew-line);
   border-radius: 0;
   padding: 64px 24px;
 }

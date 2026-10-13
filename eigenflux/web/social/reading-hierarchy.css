@@ -1,0 +1,325 @@
+/* Ink hierarchy: primary titles are twice the size of readable metadata. */
+:root[data-theme] {
+  --ew-text-title: 32px;
+  --ew-text-heading: 36px;
+  --ew-text-secondary: color-mix(in srgb, var(--ew-ink) 68%, var(--ew-paper));
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(
+    .sw-section-heading h2,
+    .sn-page-heading h2,
+    .sn-person-home > header h1
+  ) {
+  font-size: var(--ew-text-heading);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sw-peer-card h3, .sw-peer-card h3 a, .sw-peer-card h3 button) {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+:root[data-theme] .sw-workspace.ew-social.sn-social .sw-post .sw-post-title {
+  font-size: var(--ew-text-title);
+  font-weight: 500;
+  line-height: 1.45;
+}
+:root[data-theme]
+  .ew-note-detail.sw-dialog
+  .sw-post.expanded
+  .ew-reading-intro
+  h2 {
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+:root[data-theme]
+  .auth-scene
+  :is(.auth-entry h1, .onboarding > h1, .auth-form h2) {
+  font-size: 36px;
+  line-height: 1.4;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(
+    .sw-peer-bio,
+    .sw-connection-body > p,
+    .sw-hint,
+    .sw-post-author small,
+    .sw-count,
+    .sn-conversation p,
+    .sn-memory-meta,
+    .sw-post-byline,
+    .sn-brand-note
+  ),
+:root[data-theme]
+  .ew-note-detail.sw-dialog
+  :is(.ew-detail-meta, .sw-comment-meta, .sw-comments-count) {
+  color: var(--ew-text-secondary);
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(
+    .sw-connection-body > small,
+    .sw-peer-card small,
+    .sn-message small,
+    .ew-live-history small
+  ) {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--ew-text-secondary);
+}
+/* Collapsed friends contain only a name and a disclosure affordance. */
+:root[data-theme] .sw-workspace.ew-social.sn-social .sw-connections-section {
+  gap: 6px;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .sw-connections-section
+  > .sw-section-heading {
+  margin-bottom: 14px;
+}
+:root[data-theme] .sw-workspace.ew-social.sn-social .ew-friend-entry {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  background: transparent;
+  border-radius: var(--ew-radius-control);
+}
+:root[data-theme] .sw-workspace.ew-social.sn-social .ew-friend-entry[open] {
+  background: var(--ew-tint);
+}
+:root[data-theme] .sw-workspace.ew-social.sn-social .ew-friend-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 60px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--ew-ink);
+  border-radius: 18px;
+}
+.ew-friend-name::-webkit-details-marker {
+  display: none;
+}
+.ew-friend-name > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ew-friend-name > svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--ew-muted);
+  transition: transform 160ms;
+}
+.ew-friend-entry[open] > .ew-friend-name > svg {
+  transform: rotate(180deg);
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .ew-friend-name:is(:hover, :focus-visible) {
+  background: var(--ew-tint);
+  color: var(--ew-ink);
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .ew-friend-entry
+  .sw-connection-card {
+  padding: 4px 16px 20px;
+  gap: 14px;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .ew-friend-entry
+  .sw-peer-avatar {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .ew-friend-entry
+  .sw-connection-actions {
+  margin-top: 16px;
+  gap: 8px;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .ew-friend-entry
+  .sw-connection-body {
+  min-width: 0;
+  flex: 1;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .ew-friend-entry
+  .sw-connection-body
+  > p {
+  margin: 0 0 12px;
+  font-size: 18px;
+  line-height: 1.9;
+}
+:root[data-theme] .sw-workspace.ew-social.sn-social .sw-connection-actions {
+  margin-top: 24px;
+}
+/* Sibling actions and identity labels share one material in all three palettes. */
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sw-connection-actions, .sw-peer-card-footer)
+  :is(button, a.sw-button, .sw-status-pill) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-ink);
+  background: var(--ew-surface);
+  background-image: none;
+  box-shadow: none;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 400;
+  text-decoration: none;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sw-connection-actions, .sw-peer-card-footer)
+  :is(button, a.sw-button):is(:hover, :focus-visible) {
+  color: var(--ew-ink);
+  background: var(--ew-tint);
+  border-color: var(--ew-line);
+  box-shadow: none;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .sw-peer-card-top
+  .sw-status-pill {
+  color: var(--ew-ink);
+  background: var(--ew-surface);
+  border-color: var(--ew-line);
+}
+@media (max-width: 760px) {
+  :root[data-theme] {
+    --ew-text-heading: 32px;
+  }
+  :root[data-theme]
+    .sw-workspace.ew-social.sn-social
+    .ew-friend-entry
+    .sw-connection-card {
+    flex-direction: column;
+    gap: 16px;
+  }
+  :root[data-theme]
+    .ew-note-detail.sw-dialog
+    .sw-post.expanded
+    .ew-reading-intro
+    h2 {
+    font-size: 32px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ew-friend-name > svg {
+    transition: none;
+  }
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .sw-peer-card
+  h3
+  :is(button, a) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  text-align: left;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-chat h2, .sn-chat h2 .sw-name-link, .ew-live-heading h2) {
+  font-size: 32px;
+  line-height: 1.45;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-conversation strong, .messages aside button strong) {
+  font-size: 28px;
+  line-height: 1.45;
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(.sn-conversation p, .messages aside button p) {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ew-text-secondary);
+}
+:root[data-theme]
+  .ew-note-detail.sw-dialog
+  :is(
+    .ew-note-date,
+    .ew-comment-date,
+    .ew-comment-byline .sw-name-link,
+    .sw-comments > h3
+  ) {
+  font-size: 16px;
+  color: var(--ew-text-secondary);
+}
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  .ew-card-meta
+  .sw-post-author
+  :is(strong, button:not(.sw-avatar)) {
+  font-size: 16px;
+  color: var(--ew-text-secondary);
+}
+/* Dialog and inset-card action groups use the same sibling palette as contacts. */
+:root[data-theme]
+  :is(
+    .sw-workspace.ew-social.sn-social,
+    .sw-dialog.sn-communication-dialog,
+    .public-agent-page
+  )
+  :is(
+    .sw-dialog-footer,
+    .sn-group-footer,
+    .sn-share-footer,
+    .identity-share-actions,
+    .sn-personal-identity-actions
+  )
+  :is(button, a.sw-button) {
+  background: var(--ew-surface);
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  box-shadow: none;
+}
+:root[data-theme]
+  :is(
+    .sw-workspace.ew-social.sn-social,
+    .sw-dialog.sn-communication-dialog,
+    .public-agent-page
+  )
+  :is(
+    .sw-dialog-footer,
+    .sn-group-footer,
+    .sn-share-footer,
+    .identity-share-actions,
+    .sn-personal-identity-actions
+  )
+  :is(button, a.sw-button):is(:hover, :focus-visible) {
+  background: var(--ew-tint);
+  color: var(--ew-ink);
+  border-color: var(--ew-line);
+  box-shadow: none;
+}

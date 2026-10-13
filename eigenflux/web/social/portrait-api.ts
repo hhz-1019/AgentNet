@@ -1,3 +1,4 @@
+import { clearAvatarCache } from '../avatar';
 import { api } from '../api';
 import { portraitFields, type Portrait } from './portrait-data';
 export type SavedPortrait = Portrait & {
@@ -12,7 +13,13 @@ export const blankPortrait = (name = '', bio = ''): SavedPortrait => ({
 });
 export async function loadPortrait(): Promise<SavedPortrait> {
   const first = await api<SavedPortrait>('console/portrait');
-  if (!first?.fields || !Array.isArray(first.memories) || !Array.isArray(first.visible) || !Number.isInteger(first.revision)) throw new Error('画像数据格式不完整，请重新载入。');
+  if (
+    !first?.fields ||
+    !Array.isArray(first.memories) ||
+    !Array.isArray(first.visible) ||
+    !Number.isInteger(first.revision)
+  )
+    throw new Error('画像数据格式不完整，请重新载入。');
   let cursor = first.next_cursor;
   while (cursor) {
     const page = await api<SavedPortrait>(
@@ -52,5 +59,6 @@ export async function writePortrait(
     },
     'PUT',
   );
+  clearAvatarCache();
   return { ...next, revision: result.revision };
 }

@@ -48,12 +48,14 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 		}
 		c.Next(ctx)
 	}
+	h.GET("/api/v2/console/avatars", auth, s.getAvatars)
 	h.GET("/api/v2/console/portrait", auth, s.getPortrait)
 	h.PUT("/api/v2/console/portrait", auth, s.putPortrait)
 	h.PUT("/api/v2/agent-context/portrait", auth, s.putPortrait)
 	h.GET("/people/:person_id", auth, s.getPerson)
 	h.PUT("/people/:person_id/follow", auth, s.putFollow)
 	h.POST("/api/v2/console/pm/send", auth, s.sendHumanPM)
+	h.POST("/api/v2/console/pm/conversations/:conv_id/read", auth, s.readHumanPM)
 	h.POST("/api/v2/console/groups", auth, s.createGroup)
 	h.GET("/api/v2/console/groups", auth, s.listGroups)
 	h.GET("/api/v2/console/groups/:group_id/messages", auth, s.groupMessages)
@@ -85,12 +87,22 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	for i := 1; i <= 61; i++ {
 		memories = append(memories, map[string]any{"id": fmt.Sprintf("00000000-0000-4000-8000-%012d", i), "content": fmt.Sprintf("记忆%d", i), "showOnHome": i == 1})
 	}
-	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "本人昵称", "bio": "公开介绍", "role": "私人身份"}, "visible": []string{"name", "bio"}, "upserts": memories}, 200)
+	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "本人昵称", "bio": "公开介绍", "role": "私人身份", "avatar": "citrus"}, "visible": []string{"name", "bio"}, "upserts": memories}, 200)
 	p = call("GET", "/api/v2/console/portrait", nil, 200)
 	if len(p["memories"].([]any)) != 12 || p["total"] != float64(61) || p["next_cursor"] != "12" {
 		t.Fatal("pagination", p)
 	}
+	avatars := call("GET", "/api/v2/console/avatars?ids=201,202&viewer=202", nil, 200)["avatars"].(map[string]any)
+	if avatars["201"] != "citrus" || avatars["202"] != "" {
+		t.Fatal("saved/default avatars", avatars)
+	}
+	call("GET", "/api/v2/console/avatars?ids=invalid", nil, 400)
+	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 1, "fields": map[string]string{"avatar": "https://example.com/avatar.svg"}}, 400)
+	call("PUT", "/api/v2/agent-context/portrait?agent=1", map[string]any{"expected_revision": 1, "fields": map[string]string{"avatar": "tide"}}, 409)
 	p = call("GET", "/people/201?viewer=202", nil, 200)
+	if p["fields"].(map[string]any)["avatar"] != "citrus" {
+		t.Fatal("public avatar missing", p)
+	}
 	if _, exists := p["fields"].(map[string]any)["role"]; exists {
 		t.Fatal("private field leaked")
 	}
@@ -121,6 +133,26 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	db.Raw(`SELECT actor_kind FROM private_messages WHERE msg_id=?`, sent["msg_id"]).Scan(&actor)
 	if actor != "human" {
 		t.Fatal("actor attribution")
+	}
+	readPath := "/api/v2/console/pm/conversations/" + sent["conv_id"].(string) + "/read"
+	receipt := map[string]any{"through_message_id": sent["msg_id"]}
+	call("POST", readPath+"?viewer=203", receipt, 404)
+	call("POST", readPath+"?viewer=202", map[string]any{"through_message_id": "invalid"}, 400)
+	call("POST", readPath+"?viewer=202", map[string]any{"through_message_id": "999999999999999999"}, 404)
+	newer := call("POST", "/api/v2/console/pm/send", map[string]any{"receiver_id": "202", "content": "arrived after the displayed page", "idempotency_key": "pm-read-newer"}, 201)
+	if read := call("POST", readPath, receipt, 200); read["read_count"] != float64(0) {
+		t.Fatal("sender must not mark recipient messages read", read)
+	}
+	if read := call("POST", readPath+"?viewer=202", receipt, 200); read["read_count"] != float64(1) {
+		t.Fatal("recipient read receipt", read)
+	}
+	if read := call("POST", readPath+"?viewer=202", receipt, 200); read["read_count"] != float64(0) {
+		t.Fatal("read receipt must be idempotent", read)
+	}
+	var newerRead bool
+	db.Raw(`SELECT is_read FROM private_messages WHERE msg_id=?`, newer["msg_id"]).Scan(&newerRead)
+	if newerRead {
+		t.Fatal("read receipt swallowed a newer unread message")
 	}
 	request["content"] = "different"
 	call("POST", "/api/v2/console/pm/send", request, 409)
@@ -173,8 +205,21 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	rangeRead("201", "bytes=99-", 416)
 	rangeRead("202", "bytes=0-3", 404) // unshared upload is private
 	call("POST", "/api/v2/console/social/share?viewer=202", map[string]any{"content": "", "media": []any{media}, "visibility": "public", "idempotency_key": "foreign-media-request"}, 403)
-	post := map[string]any{"content": "一条普通动态", "media": []any{media}, "visibility": "friends", "idempotency_key": "direct-share-request"}
+	post := map[string]any{"title": "周末的散步", "tags": []string{"日常", "散步"}, "content": "一条普通动态", "media": []any{media}, "visibility": "friends", "idempotency_key": "direct-share-request"}
+	invalid := map[string]any{"content": "测试正文", "tags": []string{"重复", "重复"}, "visibility": "public", "idempotency_key": "invalid-tags-request"}
+	call("POST", "/api/v2/console/social/share", invalid, 400)
+	invalid["tags"] = []string{strings.Repeat("字", 31)}
+	call("POST", "/api/v2/console/social/share", invalid, 400)
+	invalid["tags"] = []string{"一", "二", "三", "四", "五", "六", "七", "八", "九"}
+	call("POST", "/api/v2/console/social/share", invalid, 400)
+	invalid["tags"] = []string{}
+	invalid["title"] = strings.Repeat("字", 101)
+	call("POST", "/api/v2/console/social/share", invalid, 400)
 	published := call("POST", "/api/v2/console/social/share", post, 201)
+	document := published["document"].(map[string]any)
+	if document["title"] != "周末的散步" || document["body"] != "一条普通动态" || len(document["tags"].([]any)) != 2 {
+		t.Fatal("title, body or tags were not preserved", document)
+	}
 	again = call("POST", "/api/v2/console/social/share", post, 201)
 	if published["id"] != again["id"] {
 		t.Fatal("duplicate social post")

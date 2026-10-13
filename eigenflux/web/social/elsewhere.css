@@ -25,7 +25,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   color: var(--ew-muted);
 }
 .ew-social :is(button, .sw-button) {
-  border-radius: 8px;
+  border-radius: var(--ew-radius-control);
   box-shadow: none;
   background: var(--ew-surface);
   border-color: var(--ew-line);
@@ -39,7 +39,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social :is(button, .sw-button):hover {
   background: var(--ew-paper);
-  border-color: #c8c0b4;
+  border-color: var(--ew-line);
   box-shadow: none;
 }
 .ew-social :is(button, .sw-button):active {
@@ -52,20 +52,20 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social :is(input, textarea, select) {
   background: var(--ew-surface);
   border-color: var(--ew-line);
-  border-radius: 8px;
+  border-radius: var(--ew-radius-control);
   line-height: 1.65;
 }
 .ew-social :is(button, a, input, textarea, select):focus-visible {
-  outline: 2px solid #787168;
+  outline: 2px solid var(--ew-line);
   outline-offset: 4px;
 }
 .ew-social :is(.sw-primary, .sw-button.sw-primary) {
   background: var(--ew-action);
   border-color: var(--ew-action);
-  color: #f5f3e9;
+  color: var(--ew-on-action);
 }
 .ew-social :is(.sw-primary, .sw-button.sw-primary):hover {
-  background: #302d29;
+  background: var(--ew-action);
 }
 .ew-social .sw-main {
   padding: 28px 46px 56px;
@@ -83,7 +83,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   font-family: var(--ew-serif);
   font-size: 16px;
   line-height: 1.9;
-  color: #625b52;
+  color: var(--ew-muted);
   margin-bottom: 46px !important;
 }
 .ew-social .sn-brand-note span {
@@ -95,11 +95,11 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .sw-sidebar nav a {
   position: relative;
   border: 0;
-  border-radius: 8px 0 0 8px;
+  border-radius: var(--ew-radius-control) 0 0 var(--ew-radius-control);
   padding: 13px 12px;
   gap: 14px;
   font-size: 17px;
-  color: #625b52;
+  color: var(--ew-muted);
   box-shadow: none;
   transition:
     background 160ms,
@@ -113,25 +113,25 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-sidebar nav a[aria-current] {
   background: var(--ew-tint);
-  color: var(--ew-action);
+  color: var(--ew-ink);
   font-weight: 600;
 }
 .ew-social .sw-sidebar .sw-create {
   margin-top: 30px;
   min-height: 46px;
-  border-radius: 8px;
+  border-radius: var(--ew-radius-control);
   justify-content: flex-start;
   padding-left: 14px;
   font-size: 17px;
 }
 .ew-social .sn-account {
   border: 0;
-  border-radius: 3px;
-  color: var(--ew-action);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-ink);
 }
 .ew-social .sn-account[aria-current] .sw-avatar {
   background: var(--ew-action);
-  color: #f5f3e9;
+  color: var(--ew-on-action);
 }
 .ew-social .sn-account strong {
   font-size: 16px;
@@ -139,9 +139,9 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-avatar {
   background: var(--ew-tint);
-  border: 1px solid #ddd7cd;
+  border: 1px solid var(--ew-line);
   border-radius: 50%;
-  color: var(--ew-action);
+  color: var(--ew-ink);
 }
 .ew-feed-toolbar {
   display: flex;
@@ -165,11 +165,11 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   padding: 12px 0;
   position: relative;
   font-weight: 400;
-  color: #787168;
+  color: var(--ew-muted);
   min-height: 46px;
 }
 .ew-social .sn-discover-heading .sn-tabs button[aria-pressed='true'] {
-  color: var(--ew-action);
+  color: var(--ew-ink);
   box-shadow: none;
   font-weight: 600;
 }
@@ -178,7 +178,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   position: absolute;
   width: 20px;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--ew-radius-control);
   background: var(--ew-action);
   left: 0;
   bottom: 0;
@@ -191,12 +191,12 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   min-height: 44px;
   background: var(--ew-tint);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--ew-radius-control);
   padding: 0 13px;
-  color: #787168;
+  color: var(--ew-muted);
 }
 .ew-social .sw-search:focus-within {
-  border-color: #a4998a;
+  border-color: var(--ew-line);
   background: var(--ew-surface);
 }
 .ew-social .sw-search input {
@@ -240,7 +240,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   transform: none;
 }
 .ew-social .sw-post-media {
-  border-radius: 10px;
+  border-radius: var(--ew-radius-control);
   overflow: hidden;
   background: #e9e9df;
   position: relative;
@@ -282,10 +282,10 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   background: transparent;
 }
 .ew-post-context {
-  border-block: 1px solid #ede7dc;
+  border-block: 1px solid var(--ew-line);
   margin: 22px 0;
   padding: 14px 0;
-  color: #787168;
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .ew-post-context summary {
@@ -319,7 +319,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-post-title:hover {
   background: transparent;
-  color: #787168;
+  color: var(--ew-muted);
 }
 .ew-social .sw-tags {
   gap: 10px;
@@ -327,7 +327,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-tags :is(button, span) {
   font-size: 16px;
-  color: #787168;
+  color: var(--ew-muted);
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -336,7 +336,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   box-shadow: none;
 }
 .ew-social .sw-tags button:hover {
-  color: var(--ew-action);
+  color: var(--ew-ink);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -376,19 +376,19 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .sw-post-actions button {
   background: transparent;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--ew-radius-control);
   min-height: 32px;
   padding: 5px 0;
   font-size: 16px;
-  color: #787168;
+  color: var(--ew-muted);
   gap: 5px;
 }
 .ew-social .sw-post-actions button:hover {
-  color: var(--ew-action);
+  color: var(--ew-ink);
   background: transparent;
 }
 .ew-social .sw-post-actions button[aria-pressed='true'] {
-  color: var(--ew-action);
+  color: var(--ew-ink);
 }
 .ew-social .sw-post-actions button[aria-label='取消点赞'] {
   color: #995a4c;
@@ -409,10 +409,10 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   justify-content: space-between;
   padding: 25px;
   overflow: hidden;
-  border: 1px solid #ddd7cd;
-  border-radius: 10px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   background: var(--ew-tint);
-  color: var(--ew-action);
+  color: var(--ew-ink);
   text-align: left;
 }
 .ew-social button.sw-text-cover::after {
@@ -452,7 +452,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   background: #e2d9c3;
 }
 .ew-social button.sw-text-cover.collab:hover {
-  background: #4e4840;
+  background: var(--ew-action);
 }
 .ew-social
   button.sw-text-cover
@@ -509,7 +509,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   width: 34px;
   height: 34px;
   stroke-width: 1.2;
-  color: #787168;
+  color: var(--ew-muted);
 }
 .ew-social .sw-empty button {
   margin-top: 16px;
@@ -524,13 +524,13 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   border-color: #e1c8b9;
 }
 .ew-social .sw-hint {
-  color: #625b52;
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .ew-social output.sw-hint {
   display: block;
   padding: 12px 16px;
-  border-left: 2px solid #a4998a;
+  border-left: 2px solid var(--ew-line);
   background: var(--ew-tint);
   margin-bottom: 18px;
 }
@@ -543,13 +543,13 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .sw-peer-card {
   background: var(--ew-surface);
   border: 1px solid var(--ew-line);
-  border-radius: 10px;
+  border-radius: var(--ew-radius-control);
   box-shadow: none;
   padding: 24px;
 }
 .ew-social .sw-peer-card:hover {
   box-shadow: none;
-  border-color: #c8c0b4;
+  border-color: var(--ew-line);
   transform: none;
 }
 .ew-social .sw-peer-card h3 {
@@ -559,14 +559,14 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   font-weight: 500;
 }
 .ew-social .sw-peer-bio {
-  color: #787168;
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.9;
 }
 .ew-social .sw-peer-avatar {
   border-radius: 50%;
   background: var(--ew-tint);
-  border: 1px solid #ddd7cd;
+  border: 1px solid var(--ew-line);
 }
 .ew-social .sw-peer-avatar.tone-1 {
   background: #ede6d6;
@@ -575,16 +575,16 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   background: var(--ew-tint);
 }
 .ew-social .sw-status-pill {
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: var(--ew-paper);
   font-size: 16px;
-  color: #625b52;
+  color: var(--ew-muted);
 }
 .ew-social .sw-capability-tags span {
   border: 0;
   padding: 0;
   background: transparent;
-  color: #787168;
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .ew-social .sw-peer-card-footer {
@@ -594,7 +594,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-connection-card {
   background: var(--ew-surface);
-  border-radius: 10px;
+  border-radius: var(--ew-radius-control);
   border-color: var(--ew-line);
   box-shadow: none;
 }
@@ -621,14 +621,14 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sn-settings-list {
   background: var(--ew-surface);
-  border-radius: 10px;
+  border-radius: var(--ew-radius-control);
 }
 .ew-social .sn-back {
-  color: #787168;
+  color: var(--ew-muted);
   margin-bottom: 24px;
 }
 .ew-social .sn-back:hover {
-  color: var(--ew-action);
+  color: var(--ew-ink);
 }
 .ew-social .sn-tabs {
   border-color: var(--ew-line);
@@ -653,7 +653,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   height: clamp(460px, calc(100dvh - 140px), 880px);
   min-height: 0;
   border: 1px solid var(--ew-line);
-  border-radius: 12px;
+  border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
   overflow: hidden;
 }
@@ -669,7 +669,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .messages > aside > button {
   padding: 14px 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--ew-radius-control);
 }
 .ew-social .messages > aside > button.selected {
   background: var(--ew-tint);
@@ -724,15 +724,17 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   margin: 0;
   padding: 12px 15px;
   background: var(--ew-tint);
-  border: 1px solid #ede7dc;
-  border-radius: 3px 10px 10px 10px;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control) var(--ew-radius-control)
+    var(--ew-radius-control) var(--ew-radius-control);
   font-size: 16px;
   line-height: 1.8;
 }
 .ew-social .ew-live-history .message.own p {
   background: var(--ew-tint);
-  border-color: #ddd7cd;
-  border-radius: 10px 3px 10px 10px;
+  border-color: var(--ew-line);
+  border-radius: var(--ew-radius-control) var(--ew-radius-control)
+    var(--ew-radius-control) var(--ew-radius-control);
 }
 .ew-social .ew-live-composer {
   flex-shrink: 0;
@@ -744,10 +746,10 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   display: block;
   font-size: 16px;
   padding: 0 22px 12px;
-  color: #625b52;
+  color: var(--ew-muted);
 }
 .ew-official {
-  color: #625b52;
+  color: var(--ew-muted);
   font-size: 16px;
   font-weight: 500;
 }
@@ -921,10 +923,10 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     gap: 4px;
     border: 0;
     background: transparent;
-    border-radius: 7px;
+    border-radius: var(--ew-radius-control);
     text-decoration: none;
     padding: 5px;
-    color: #787168;
+    color: var(--ew-muted);
   }
   .ew-social .sw-mobile-nav span {
     font-size: 16px;
@@ -933,12 +935,12 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     stroke-width: 1.6;
   }
   .ew-social .sw-mobile-nav .ew-mobile-publish {
-    color: #f5f3e9;
+    color: var(--ew-on-action);
     background: var(--ew-action);
     margin: 0 5px;
   }
   .ew-social .sw-mobile-nav a[aria-current] {
-    color: var(--ew-action);
+    color: var(--ew-ink);
     background: var(--ew-tint);
   }
   .ew-social input,

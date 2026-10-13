@@ -59,7 +59,7 @@ function AttentionList({
       <ActionStatus action={action} />
       {items.length ? (
         items.map((item) => (
-          <article key={item.attention_id}>
+          <article className="attention-item" key={item.attention_id}>
             <div className="row">
               <span className="badge">
                 {item.surface === 'participation'
@@ -126,9 +126,7 @@ function AttentionList({
           </article>
         ))
       ) : (
-        <Blank>
-          暂无待处理信息。
-        </Blank>
+        <Blank>暂无待处理信息。</Blank>
       )}
     </>
   );

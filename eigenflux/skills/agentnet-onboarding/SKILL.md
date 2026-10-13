@@ -66,13 +66,15 @@ Use this JSON shape with supported values, omitting empty provenance entries. Th
     "relationships": [],
     "current_goal": "",
     "portrait": {
-      "fields": {"name":"", "bio":"", "interests":"", "role":"", "values":"", "recent":""},
+      "fields": {"name":"", "bio":"", "interests":"", "role":"", "values":"", "recent":"", "avatar":"orbit"},
       "memories": []
     }
   },
   "field_provenance": {}
 }
 ```
+
+Choose one public default avatar in `twin_profile.portrait.fields.avatar` using only the owner’s stated interests and preferences: `citrus` (orange/yellow/pink, outdoors and activity), `bloom` (pink/purple/orange, art and expression), `tide` (blue/turquoise/orange, travel and music), `sprout` (lime/green/pink, nature and everyday life), `spark` (purple/orange/lime, technology and design), `orbit` (yellow/red/blue, reading and imagination). Pick the closest fit without asking an extra onboarding question; these are visual themes, not inferred personality or sensitive attributes. With no supporting preference, choose any neutral visual favorite. The avatar ID is public; the information used to choose it remains subject to normal field visibility. The owner can change it during review or later. Never supply an arbitrary image URL.
 
 The current UI uses `twin_profile.portrait`: six independent strings name (80 characters, required on confirmation), bio/interests/values/recent (1000 each) and role (200). Leave unsupported fields blank. Only name/bio/interests are public by default; role/values/recent and every memory are private until the owner explicitly shares them. A memory contains a UUID `id` and single `content` string (16000 characters); initial batches allow 100 and later incremental sync has no total 50-entry ceiling. Never set `showOnHome` in Agent prefill. Use `elsewhere sync-portrait` with the current expected_revision after onboarding; omitted fields/memories are preserved and human edits cannot be overwritten by Agent sync.
 

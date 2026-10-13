@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '../icons';
 import { api } from '../api';
 import type { AgentContext, Friend } from '../types';
 import { Dialog } from './dialog';

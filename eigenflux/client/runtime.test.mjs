@@ -8,6 +8,7 @@ import {
   writeFile,
   mkdir,
   stat,
+  realpath,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -425,7 +426,7 @@ void test('console sharing retrieves project context and images, then retries a 
         payload: { publish: true, visibility: 'friends' },
       }),
       upload_image: async ({ local_path }) => {
-        assert.equal(local_path, join(directory, 'chart.png'));
+        assert.equal(local_path, await realpath(join(directory, 'chart.png')));
         uploads++;
         return {
           url: '/api/v2/console/social/media/71',

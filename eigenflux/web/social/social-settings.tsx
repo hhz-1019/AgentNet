@@ -1,4 +1,4 @@
-import { History } from 'lucide-react';
+import { History } from '../icons';
 import './profile-design.css';
 
 // Local review settings; real account settings keep their existing API adapter.

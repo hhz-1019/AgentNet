@@ -19,6 +19,9 @@ await test('loading paints one whole percentage without mixed carries or out-of-
     beginPath() {},
     rect() {},
     clip() {},
+    measureText(text: string) {
+      return { width: text.length * 80 };
+    },
     fillText(text: string) {
       labels.push(text);
     },
@@ -33,8 +36,8 @@ await test('loading paints one whole percentage without mixed carries or out-of-
       1,
       'each frame must have a single complete reading',
     );
-    assert.match(labels[0], /^(?:\d|[1-9]\d|100)$/);
-    const percent = Number(labels[0]);
+    assert.match(labels[0], /^(?:\d|[1-9]\d|100)%$/);
+    const percent = Number.parseInt(labels[0], 10);
     assert.ok(percent >= previous && percent <= 100);
     previous = percent;
   }
@@ -50,7 +53,7 @@ await test('loading paints one whole percentage without mixed carries or out-of-
   ] as const) {
     labels.length = 0;
     paintEntry(context, geometry, 1280, 900, 1, 'loading', progress, 0);
-    assert.deepEqual(labels, [expected]);
+    assert.deepEqual(labels, [`${expected}%`]);
   }
 });
 

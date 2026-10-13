@@ -6,7 +6,7 @@ import {
   Plus,
   ShieldCheck,
   Trash2,
-} from 'lucide-react';
+} from '../icons';
 import { Dialog } from './dialog';
 import { ApiError } from '../api';
 import {

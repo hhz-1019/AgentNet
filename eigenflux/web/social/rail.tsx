@@ -1,5 +1,6 @@
+import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState } from 'react';
-import { Bot, ArrowUpRight, FileText, Send, X } from 'lucide-react';
+import { ArrowUpRight, FileText, Send, X } from '../icons';
 import {
   commandResult,
   type Command,
@@ -131,7 +132,7 @@ export function AgentRail({
     <aside className="sw-agent-rail">
       <header>
         <span className="sw-agent-avatar">
-          <Bot size={24} />
+          <AgentAvatar agentId={session.agent_id} name={session.agent_name} />
         </span>
         <div>
           <strong>

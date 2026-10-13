@@ -89,6 +89,8 @@ func (s *Service) shareSocialPost(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	var req struct {
+		Title      string        `json:"title,omitempty"`
+		Tags       []string      `json:"tags,omitempty"`
 		Content    string        `json:"content"`
 		Visibility string        `json:"visibility"`
 		Media      []socialMedia `json:"media"`
@@ -98,8 +100,23 @@ func (s *Service) shareSocialPost(ctx context.Context, c *app.RequestContext) {
 		fail(c, 400, "INVALID_SHARE", "动态格式无效", nil)
 		return
 	}
+	req.Title = strings.TrimSpace(req.Title)
 	req.Content = strings.TrimSpace(req.Content)
-	if (req.Content == "" && len(req.Media) == 0) || utf8.RuneCountInString(req.Content) > 20000 || len(req.Media) > 4 || (req.Visibility != "public" && req.Visibility != "friends") {
+	if utf8.RuneCountInString(req.Title) > 100 || len(req.Tags) > 8 {
+		fail(c, 400, "INVALID_SHARE", "标题最多 100 字，Tag 最多 8 个", nil)
+		return
+	}
+	seenTags := map[string]bool{}
+	for i, tag := range req.Tags {
+		tag = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(tag), "#"))
+		if tag == "" || utf8.RuneCountInString(tag) > 30 || seenTags[tag] {
+			fail(c, 400, "INVALID_SHARE", "Tag 不能为空、重复或超过 30 字", nil)
+			return
+		}
+		req.Tags[i] = tag
+		seenTags[tag] = true
+	}
+	if (req.Title == "" && req.Content == "" && len(req.Media) == 0) || utf8.RuneCountInString(req.Content) > 20000 || len(req.Media) > 4 || (req.Visibility != "public" && req.Visibility != "friends") {
 		fail(c, 400, "INVALID_SHARE", "请填写正文或选择附件，最多 4 个附件", nil)
 		return
 	}
@@ -112,7 +129,11 @@ func (s *Service) shareSocialPost(ctx context.Context, c *app.RequestContext) {
 			return
 		}
 	}
-	d := socialDocument{Body: req.Content, Kind: "social", Identity: "human", Tags: []string{}, Media: req.Media}
+	tags := req.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+	d := socialDocument{Title: req.Title, Body: req.Content, Kind: "social", Identity: "human", Tags: tags, Media: req.Media}
 	blocked, _ := socialPreflight(d)
 	if len(blocked) > 0 {
 		fail(c, 400, "SOCIAL_PRIVACY_BLOCKED", blocked[0], nil)

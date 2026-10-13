@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   JOURNAL_WIND_LIFT_PX,
   paperTiltDegrees,
@@ -16,7 +16,7 @@ type Surface = {
   height: number;
 };
 
-/** One active-time clock connects the canopy and two decorative paper edges. */
+/** A quiet breeze only lifts up to two decorative paper edges. */
 export function useJournalAtmosphere(
   workspace: RefObject<HTMLDivElement | null>,
   route: string,
@@ -46,8 +46,6 @@ export function useJournalAtmosphere(
   useEffect(() => {
     if (!workspace.current || !background.current) return;
     const root = workspace.current;
-    // Root variables reach both the paper backdrop and its translucent light wash.
-    const sky = root;
     let frame = 0;
     let previous = 0;
     let elapsed = -2_000;
@@ -89,10 +87,7 @@ export function useJournalAtmosphere(
       elapsed = -2_000;
       cycle = -1;
       pair = [];
-      sky.style.removeProperty('--ew-wind-x');
-      sky.style.removeProperty('--ew-wind-y');
-      sky.style.removeProperty('--ew-wind-turn');
-      sky.style.removeProperty('--ew-sun-strength');
+
       for (const surface of surfaces.values()) {
         surface.lift = 0;
         clearSurface(surface);
@@ -137,19 +132,6 @@ export function useJournalAtmosphere(
           cycle = wind.cycle;
           choosePair();
         }
-        sky.style.setProperty(
-          '--ew-wind-x',
-          `${(wind.ambient * 18).toFixed(3)}px`,
-        );
-        sky.style.setProperty(
-          '--ew-wind-y',
-          `${(-wind.ambient * 10).toFixed(3)}px`,
-        );
-        sky.style.setProperty(
-          '--ew-wind-turn',
-          `${(wind.ambient * 0.85).toFixed(4)}deg`,
-        );
-        sky.style.setProperty('--ew-sun-strength', wind.ambient.toFixed(4));
         for (const surface of pair) {
           if (held(surface)) continue;
           const strength =
@@ -316,10 +298,7 @@ export function useJournalAtmosphere(
       for (const surface of surfaces.values()) clearSurface(surface);
       delete root.dataset.atmospherePaused;
       delete root.dataset.atmosphereReduced;
-      sky.style.removeProperty('--ew-wind-x');
-      sky.style.removeProperty('--ew-wind-y');
-      sky.style.removeProperty('--ew-wind-turn');
-      sky.style.removeProperty('--ew-sun-strength');
+
       update.current = undefined;
     };
   }, [workspace]);
@@ -327,68 +306,14 @@ export function useJournalAtmosphere(
   return { background };
 }
 
-function Canopy() {
-  return (
-    <div className="ew-tree-shadow">
-      <div className="ew-canopy-near" />
-      <div className="ew-canopy-far" />
-    </div>
-  );
-}
-
 export function JournalAtmosphere({
   background,
 }: {
   background: RefObject<HTMLDivElement | null>;
 }) {
-  const id = useId().replaceAll(':', '');
   return (
-    <>
-      <div
-        className="ew-journal-atmosphere"
-        ref={background}
-        aria-hidden="true"
-      >
-        <div className="ew-paper-grain" />
-        <svg
-          className="ew-window-projection"
-          viewBox="0 0 1600 1000"
-          preserveAspectRatio="none"
-          focusable="false"
-        >
-          <defs>
-            <filter
-              id={id + '-window'}
-              x="-30%"
-              y="-30%"
-              width="160%"
-              height="160%"
-            >
-              <feGaussianBlur stdDeviation="14" />
-            </filter>
-            <linearGradient id={id + '-daylight'} x1="0" y1="0" x2="0.9" y2="1">
-              <stop stopColor="#fff9df" stopOpacity="0.44" />
-              <stop offset="1" stopColor="#fff9df" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path
-            className="ew-window-light"
-            fill={'url(#' + id + '-daylight)'}
-            d="M -180 0 H 440 L 1115 1000 H 440 Z M 500 0 H 1100 L 1775 1000 H 1175 Z"
-          />
-          <g
-            className="ew-window-shadow"
-            fill="#655b47"
-            filter={'url(#' + id + '-window)'}
-          >
-            <path d="M 412 -100 L 1160 1100 H 1217 L 469 -100 Z M 1048 -100 L 1796 1100 H 1840 L 1092 -100 Z M -70 660 L 1700 190 L 1700 230 L -70 700 Z" />
-          </g>
-        </svg>
-        <Canopy />
-      </div>
-      <div className="ew-journal-light-wash" aria-hidden="true">
-        <Canopy />
-      </div>
-    </>
+    <div className="ew-journal-atmosphere" ref={background} aria-hidden="true">
+      <div className="ew-paper-grain" />
+    </div>
   );
 }

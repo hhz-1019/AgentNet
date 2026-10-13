@@ -33,7 +33,11 @@
     "test:managed:core": "node eigenflux/scripts/managed-core-test.mjs",
     "test:analytics:core": "node eigenflux/scripts/managed-core-test.mjs --analytics",
     "test:analytics:ui": "node eigenflux/scripts/analytics-ui-smoke.mjs",
-    "test:managed:ui": "node eigenflux/scripts/managed-ui-smoke.mjs"
+    "test:managed:ui": "node eigenflux/scripts/managed-ui-smoke.mjs",
+    "test:appearance:ui": "node eigenflux/scripts/appearance-ui-smoke.mjs",
+    "test:interface:ui": "node eigenflux/scripts/interface-ui-smoke.mjs",
+    "test:mobile:ui": "node eigenflux/scripts/mobile-ui-smoke.mjs",
+    "test:icons:ui": "node eigenflux/scripts/icons-ui-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

@@ -1,12 +1,7 @@
-import { useState } from 'react';
-import {
-  ArrowLeft,
-  Bot,
-  MessageCircle,
-  Plus,
-  Search,
-  Users,
-} from 'lucide-react';
+import { AgentAvatar } from '../avatar';
+import { useEffect, useState } from 'react';
+import { UnreadDot } from '../unread';
+import { ArrowLeft, Bot, MessageCircle, Plus, Search, Users } from '../icons';
 import { demoPeople, demoPersonId } from './people';
 import { Dialog } from './dialog';
 import { MessageComposer } from './message-composer';
@@ -17,6 +12,7 @@ type Conversation = {
   id: string;
   name: string;
   group: boolean;
+  unreadCount?: number;
   members: string[];
   messages: { name: string; text: string; id?: string; createdAt?: number }[];
 };
@@ -38,6 +34,7 @@ const initial: Conversation[] = [
   },
   {
     id: 'group',
+    unreadCount: 2,
     name: '周末去哪儿',
     group: true,
     members: ['我的 Agent', ...people],
@@ -48,6 +45,7 @@ const initial: Conversation[] = [
   },
   {
     id: 'project',
+    unreadCount: 1,
     name: '新产品讨论组',
     group: true,
     members: ['我的 Agent', people[0], people[2]],
@@ -235,6 +233,26 @@ export function MessagePreview({
       /* Navigation still works when storage is unavailable. */
     }
   }
+  useEffect(() => {
+    if (
+      !selected ||
+      !conversations.some((c) => c.id === selected && c.unreadCount)
+    )
+      return;
+    const next = conversations.map((c) =>
+      c.id === selected ? { ...c, unreadCount: 0 } : c,
+    );
+    setConversations(next);
+    try {
+      sessionStorage.setItem(
+        'elsewhere:conversation-layout:v1',
+        JSON.stringify(next),
+      );
+    } catch {
+      /* Preview remains usable. */
+    }
+    window.dispatchEvent(new Event('elsewhere:messages-read'));
+  }, [selected, conversations]);
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [details, setDetails] = useState(false);
@@ -335,10 +353,15 @@ export function MessagePreview({
               aria-pressed={selected === c.id}
               onClick={() => setSelected(c.id)}
             >
+              <UnreadDot count={c.unreadCount || 0} />
               <span
                 className={`sw-avatar sn-conversation-avatar${c.group ? ' is-group' : ''}`}
               >
-                {c.group ? <Users size={20} /> : <Bot size={20} />}
+                {c.group ? (
+                  <Users size={20} />
+                ) : (
+                  <AgentAvatar agentId={demoPersonId(c.name)} name={c.name} />
+                )}
               </span>
               <span>
                 <strong>{c.name}</strong>
@@ -372,7 +395,14 @@ export function MessagePreview({
                   className={`sn-chat-avatar${current.group ? ' is-group' : ''}`}
                   aria-hidden="true"
                 >
-                  {current.group ? <Users size={19} /> : <Bot size={19} />}
+                  {current.group ? (
+                    <Users size={19} />
+                  ) : (
+                    <AgentAvatar
+                      agentId={demoPersonId(current.name)}
+                      name={current.name}
+                    />
+                  )}
                 </span>
                 <div>
                   <h2>
@@ -420,29 +450,21 @@ export function MessagePreview({
                     className={`sn-message${['我的 Agent', '你'].includes(m.name) ? ' own' : ''}${m.name === '你' ? ' sender-owner' : ' sender-agent'}`}
                     key={m.id || i}
                   >
-                    <div className="sn-message-byline">
-                      <button
-                        className="sn-message-person"
-                        onClick={() => openProfile(m.name)}
-                      >
-                        {m.name}
-                      </button>
-                      <span className="sn-sender-kind">
-                        {m.name === '你' ? '本人' : 'Agent'}
-                      </span>
-                    </div>
+                    <button
+                      className="ew-chat-avatar"
+                      aria-label={`查看${m.name}的主页`}
+                      onClick={() => openProfile(m.name)}
+                    >
+                      <AgentAvatar
+                        agentId={
+                          ['我的 Agent', '你'].includes(m.name)
+                            ? 'demo-owner'
+                            : demoPersonId(m.name)
+                        }
+                        name={m.name}
+                      />
+                    </button>
                     <p>{m.text}</p>
-                    {m.createdAt && (
-                      <time
-                        className="sn-message-time"
-                        dateTime={new Date(m.createdAt).toISOString()}
-                      >
-                        {new Date(m.createdAt).toLocaleTimeString('zh-CN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </time>
-                    )}
                   </article>
                 ))}
                 {!current.messages.length && (

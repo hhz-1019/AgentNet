@@ -1,16 +1,20 @@
+import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
   ArrowLeft,
   ArrowUpRight,
   Globe2,
-  ImagePlus,
+  Image,
+  Plus,
+  Hash,
   LoaderCircle,
   Users,
   Video,
   X,
-} from 'lucide-react';
+} from '../icons';
 import { Dialog } from './dialog';
-import type { Media, Visibility } from './model';
+import { parseTags, type Media, type Visibility } from './model';
+import './composer-refinement.css';
 import './communication-design.css';
 import './share-preview.css';
 
@@ -21,6 +25,8 @@ type Attachment = {
   kind: 'image' | 'video';
 };
 type ShareDraft = {
+  title: string;
+  tags: string;
   content: string;
   scope: string;
   files: Pick<Attachment, 'id' | 'file' | 'kind'>[];
@@ -31,6 +37,8 @@ const unfinishedShares = new Map<string, ShareDraft>();
 export function ShareComposer({
   mode = 'direct',
   authorName = '我',
+  agentId,
+  avatar,
   draftKey,
   onClose,
   onPublish,
@@ -39,9 +47,13 @@ export function ShareComposer({
   upload?: (file: File, key: string) => Promise<string>;
   mode?: 'direct' | 'agent';
   authorName?: string;
+  agentId?: string;
+  avatar?: string;
   draftKey?: string;
   onClose: () => void;
   onPublish: (input: {
+    title: string;
+    tags: string[];
     content: string;
     visibility: Visibility;
     media: Media[];
@@ -50,6 +62,15 @@ export function ShareComposer({
 }) {
   const storageKey = `${mode}:${draftKey || authorName}`;
   const [restored] = useState(() => unfinishedShares.get(storageKey));
+  const [title, setTitle] = useState(restored?.title || '');
+  const [tags, setTags] = useState(restored?.tags || '');
+  const parsedTags = parseTags(tags);
+  const tagError =
+    parsedTags.length > 8
+      ? '最多添加 8 个 Tag。'
+      : parsedTags.some((tag) => Array.from(tag).length > 30)
+        ? '每个 Tag 最多 30 字。'
+        : '';
   const [content, setContent] = useState(restored?.content || '');
   const [scope, setScope] = useState(restored?.scope || '公开');
   const [busy, setBusy] = useState(false);
@@ -74,6 +95,8 @@ export function ShareComposer({
   );
   const completed = useRef(false);
   const latestDraft = useRef<ShareDraft>({
+    title,
+    tags,
     content,
     scope,
     files: attachments,
@@ -82,18 +105,26 @@ export function ShareComposer({
   const throughAgent = mode === 'agent';
   useEffect(() => {
     latestDraft.current = {
+      title,
+      tags,
       content,
       scope,
       files: attachments,
       operation: operation.current,
     };
-  }, [content, scope, attachments]);
+  }, [title, tags, content, scope, attachments]);
   useEffect(() => {
     const urls = objectURLs.current;
     const encoded = encodedAttachments.current;
     return () => {
       const draft = latestDraft.current;
-      if (!completed.current && (draft.content.trim() || draft.files.length)) {
+      if (
+        !completed.current &&
+        (draft.title.trim() ||
+          draft.tags.trim() ||
+          draft.content.trim() ||
+          draft.files.length)
+      ) {
         unfinishedShares.set(storageKey, {
           ...draft,
           operation: operation.current,
@@ -163,7 +194,11 @@ export function ShareComposer({
         className="sn-share-composer"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (sending.current || (!content.trim() && !attachments.length))
+          if (
+            sending.current ||
+            tagError ||
+            (!title.trim() && !content.trim() && !attachments.length)
+          )
             return;
           sending.current = true;
           setBusy(true);
@@ -171,6 +206,8 @@ export function ShareComposer({
           setError('');
           try {
             const signature = JSON.stringify([
+              title.trim(),
+              parsedTags,
               content,
               scope,
               attachments.map((item) => item.id),
@@ -211,6 +248,8 @@ export function ShareComposer({
             );
             setStage('publishing');
             await onPublish({
+              title: title.trim(),
+              tags: parsedTags,
               content: content.trim(),
               visibility: scope === '好友' ? 'friends' : 'public',
               media,
@@ -247,16 +286,58 @@ export function ShareComposer({
             className={`ew-share-layout${showPreview ? ' is-previewing' : ''}`}
           >
             <div className="ew-share-editor">
-              <label htmlFor="share-instruction">想分享什么？</label>
-              <textarea
-                id="share-instruction"
-                data-dialog-autofocus
-                rows={4}
-                maxLength={3500}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="分享一段想法，或一个新的发现。"
-              />
+              <div className="ew-share-writing">
+                <label className="sw-sr-only" htmlFor="share-title">
+                  标题
+                </label>
+                <input
+                  id="share-title"
+                  className="ew-share-title-input"
+                  data-dialog-autofocus
+                  maxLength={100}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="写一个标题…"
+                />
+                <label className="sw-sr-only" htmlFor="share-instruction">
+                  正文
+                </label>
+                <textarea
+                  id="share-instruction"
+                  rows={6}
+                  maxLength={3500}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="分享一段想法，或一个新的发现。"
+                />
+              </div>
+              <div className="ew-share-tags">
+                <label htmlFor="share-tags">
+                  <Hash size={18} aria-hidden="true" />
+                  Tag <small>最多 8 个，用逗号分隔</small>
+                </label>
+                <input
+                  id="share-tags"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="例如：散步，生活，灵感"
+                  maxLength={300}
+                  aria-invalid={!!tagError}
+                  aria-describedby={tagError ? 'share-tags-error' : undefined}
+                />
+                {parsedTags.length > 0 && (
+                  <div className="ew-share-tag-list" aria-label="已添加的 Tag">
+                    {parsedTags.map((tag) => (
+                      <span key={tag}>#{tag}</span>
+                    ))}
+                  </div>
+                )}
+                {tagError && (
+                  <p id="share-tags-error" className="sw-error" role="alert">
+                    {tagError}
+                  </p>
+                )}
+              </div>
               {throughAgent && (
                 <p className="sw-hint">
                   Agent 会按所选范围整理并发布，提交即授权本次分享。
@@ -267,17 +348,21 @@ export function ShareComposer({
                   <div className="sn-media-actions">
                     <button
                       type="button"
+                      aria-label="添加图片"
+                      title="添加图片"
                       onClick={() => images.current?.click()}
                     >
-                      <ImagePlus size={19} />
-                      添加图片
+                      <Image size={30} aria-hidden="true" />
+                      <Plus size={20} aria-hidden="true" />
                     </button>
                     <button
                       type="button"
+                      aria-label="添加视频"
+                      title="添加视频"
                       onClick={() => videos.current?.click()}
                     >
-                      <Video size={19} />
-                      添加视频
+                      <Video size={30} aria-hidden="true" />
+                      <Plus size={20} aria-hidden="true" />
                     </button>
                   </div>
                 )}
@@ -386,7 +471,11 @@ export function ShareComposer({
               <article className="ew-share-preview-paper">
                 <div className="ew-share-preview-author">
                   <span className="ew-share-preview-avatar" aria-hidden="true">
-                    {authorName.trim().slice(0, 1) || '我'}
+                    <AgentAvatar
+                      agentId={agentId}
+                      avatar={avatar}
+                      name={authorName}
+                    />
                   </span>
                   <div>
                     <strong>{authorName.trim() || '我'}</strong>
@@ -400,10 +489,18 @@ export function ShareComposer({
                     </span>
                   </div>
                 </div>
-                {content.trim() || attachments.length ? (
+                {title.trim() || content.trim() || attachments.length ? (
                   <div className="ew-share-preview-content">
+                    {title.trim() && <h2>{title}</h2>}
                     {content.trim() && (
                       <p className="ew-share-preview-text">{content}</p>
+                    )}
+                    {parsedTags.length > 0 && (
+                      <div className="ew-share-tag-list">
+                        {parsedTags.map((tag) => (
+                          <span key={tag}>#{tag}</span>
+                        ))}
+                      </div>
                     )}
                     {attachments.length > 0 && (
                       <div
@@ -453,28 +550,37 @@ export function ShareComposer({
             </p>
           )}
           <div className="sn-share-footer">
-            <div className="sn-share-visibility">
-              <label htmlFor="share-scope">谁可以看</label>
+            <fieldset className="sn-share-visibility">
+              <legend>谁可以看</legend>
               <div>
-                {scope === '好友' ? (
-                  <Users size={16} aria-hidden="true" />
-                ) : (
-                  <Globe2 size={16} aria-hidden="true" />
-                )}
-                <select
-                  id="share-scope"
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value)}
-                >
-                  <option>公开</option>
-                  <option>好友</option>
-                </select>
+                {[
+                  { value: '公开', label: '公开', Icon: Globe2 },
+                  { value: '好友', label: '好友可见', Icon: Users },
+                ].map(({ value, label, Icon }) => (
+                  <label key={value}>
+                    <input
+                      type="radio"
+                      name="share-scope"
+                      value={value}
+                      checked={scope === value}
+                      onChange={() => setScope(value)}
+                    />
+                    <span>
+                      <Icon size={20} aria-hidden="true" />
+                      {label}
+                    </span>
+                  </label>
+                ))}
               </div>
-            </div>
+            </fieldset>
             <button
               className="sw-primary"
               aria-busy={busy}
-              disabled={busy || (!content.trim() && !attachments.length)}
+              disabled={
+                busy ||
+                !!tagError ||
+                (!title.trim() && !content.trim() && !attachments.length)
+              }
             >
               {busy && <LoaderCircle size={16} className="sn-loading-icon" />}
               {stage === 'reading'

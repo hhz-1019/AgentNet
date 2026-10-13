@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { X } from 'lucide-react';
+import { X } from '../icons';
 import type { SocialStore, WorkPost } from './model';
 import { PostCard } from './post';
 import { demoPeople } from './people';
@@ -160,6 +160,14 @@ export function PersonHome({
       ) : (
         <>
           <SocialIdentity
+            agentId={id}
+            avatar={
+              !demo
+                ? remote?.fields.avatar
+                : own
+                  ? portrait.fields.avatar
+                  : undefined
+            }
             name={name}
             bio={
               !own || portrait.visible.includes('bio') ? fields?.bio : undefined

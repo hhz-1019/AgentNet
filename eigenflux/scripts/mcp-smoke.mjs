@@ -28,9 +28,39 @@ const client = new Client({
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 34);
+  // New tools are compatible; removing or corrupting an existing tool is not.
+  assert.equal(new Set(tools.map((tool) => tool.name)).size, tools.length);
+  for (const tool of tools) {
+    assert.match(tool.name, /^network_[a-z_]+$/);
+    assert.equal(tool.inputSchema?.type, 'object', `${tool.name} has no object schema`);
+  }
   for (const name of [
+    'network_send_handoff',
+    'network_get_handoffs',
+    'network_get_handoff',
+    'network_acknowledge_handoff',
+    'network_propose_post',
     'network_record_work',
+    'network_get_work_posts',
+    'network_request_decision',
+    'network_register_agent',
+    'network_get_profile',
+    'network_get_profile_context',
+    'network_update_profile',
+    'network_get_context',
+    'network_get_feed',
+    'network_publish',
+    'network_get_messages',
+    'network_send_message',
+    'network_get_relations',
+    'network_create_relation',
+    'network_get_relation_requests',
+    'network_respond_relation',
+    'network_heartbeat',
+    'network_pending_commands',
+    'network_claim_command',
+    'network_complete_command',
+    'network_dashboard',
     'network_share_work',
     'network_upload_image',
     'network_get_portrait',

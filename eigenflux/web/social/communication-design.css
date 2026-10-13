@@ -68,24 +68,24 @@
   grid-template-columns: 280px minmax(0, 1fr);
   min-height: 420px;
   height: clamp(520px, calc(100dvh - 172px), 880px);
-  border-color: var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  background: var(--ew-surface, #fffdf8);
+  border-color: var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-surface);
   box-shadow: none;
 }
 .ew-social.sn-social .sn-conversations {
   padding: 15px 10px;
-  background: var(--ew-paper, #f5f1e8);
-  border-color: var(--ew-line, #cfc5b5);
+  background: var(--ew-paper, var(--ew-surface));
+  border-color: var(--ew-line);
   scrollbar-width: thin;
 }
 .ew-social.sn-social .sn-message-search {
   margin: 0 5px;
   padding: 0 8px;
-  color: var(--ew-muted, #746a5d);
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  background: var(--ew-surface, #fffdf8);
+  color: var(--ew-muted);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-surface);
 }
 .ew-social.sn-social .sn-message-search input {
   padding: 9px 4px;
@@ -94,7 +94,7 @@
   gap: 14px;
   margin: 13px 10px 8px;
   padding-bottom: 9px;
-  border-bottom: 1px solid var(--ew-line, #cfc5b5);
+  border-bottom: 1px solid var(--ew-line);
 }
 .ew-social.sn-social .sn-message-filters button {
   padding: 5px 0;
@@ -102,10 +102,10 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
 }
 .ew-social.sn-social .sn-message-filters [aria-pressed='true'] {
-  color: var(--ew-action, #302c26);
+  color: var(--ew-ink);
   background: transparent;
   box-shadow: 0 2px var(--ew-action, #302c26);
   font-weight: 500;
@@ -114,16 +114,16 @@
   position: relative;
   gap: 11px;
   padding: 14px 10px;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: transparent;
   border-color: transparent;
-  color: var(--ew-ink, #302c26);
+  color: var(--ew-ink);
 }
 .ew-social.sn-social .sn-conversation:hover {
-  background: var(--ew-tint, #e9e0d0);
+  background: var(--ew-tint);
 }
 .ew-social.sn-social .sn-conversation[aria-pressed='true'] {
-  background: var(--ew-tint, #e9e0d0);
+  background: var(--ew-tint);
 }
 .sn-conversation[aria-pressed='true']::before {
   position: absolute;
@@ -131,23 +131,23 @@
   top: 18px;
   bottom: 18px;
   width: 2px;
-  border-radius: 2px;
-  background: var(--ew-action, #302c26);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-action);
   content: '';
 }
 .ew-social.sn-social .sn-conversation-avatar {
   flex-shrink: 0;
   width: 37px;
   height: 37px;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  color: var(--ew-action, #302c26);
-  background: var(--ew-tint, #e9e0d0);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-ink);
+  background: var(--ew-tint);
 }
 .ew-social.sn-social .sn-conversation-avatar.is-group {
-  background: var(--ew-tint, #e9e0d0);
-  color: var(--ew-muted, #746a5d);
-  border-color: var(--ew-line, #cfc5b5);
+  background: var(--ew-tint);
+  color: var(--ew-muted);
+  border-color: var(--ew-line);
 }
 .sn-conversation strong {
   font-weight: 500;
@@ -159,15 +159,15 @@
   font-weight: 500;
 }
 .ew-social.sn-social .sn-conversation small {
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .ew-social.sn-social .sn-chat > header {
   gap: 11px;
   padding: 17px 22px;
   min-height: 73px;
-  border-color: var(--ew-line, #cfc5b5);
-  background: var(--ew-surface, #fffdf8);
+  border-color: var(--ew-line);
+  background: var(--ew-surface);
 }
 .sn-chat-avatar {
   display: grid;
@@ -175,21 +175,21 @@
   width: 34px;
   height: 34px;
   flex-shrink: 0;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  color: var(--ew-action, #302c26);
-  background: var(--ew-tint, #e9e0d0);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-ink);
+  background: var(--ew-tint);
 }
 .sn-chat-avatar.is-group {
-  color: var(--ew-muted, #746a5d);
-  background: var(--ew-tint, #e9e0d0);
+  color: var(--ew-muted);
+  background: var(--ew-tint);
 }
 .sn-agent-mark {
   position: relative;
   display: block;
   width: 21px;
   height: 15px;
-  color: var(--ew-action, #302c26);
+  color: var(--ew-ink);
 }
 .sn-agent-mark::before,
 .sn-agent-mark::after,
@@ -218,9 +218,9 @@
 }
 .ew-social.sn-social .sn-chat > header > button:last-child {
   padding: 7px 10px;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  color: var(--ew-muted, #746a5d);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-muted);
   font-size: 17px;
   min-height: 44px;
   flex-shrink: 0;
@@ -238,7 +238,7 @@
 }
 .ew-social.sn-social .sn-message-history:focus-visible,
 .ew-social.sn-social .ew-live-history:focus-visible {
-  outline: 2px solid var(--ew-muted, #746a5d);
+  outline: 2px solid var(--ew-muted, var(--ew-line));
   outline-offset: -3px;
 }
 .ew-social.sn-social .sn-message {
@@ -265,7 +265,7 @@
   background: transparent;
   margin: 0;
   line-height: 1.5;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   overflow-wrap: anywhere;
 }
@@ -280,79 +280,79 @@
 .sn-sender-kind {
   flex-shrink: 0;
   padding: 0 5px;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  color: var(--ew-muted, #746a5d);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.5;
 }
 .sender-owner .sn-sender-kind {
-  color: var(--ew-action, #302c26);
-  background: var(--ew-tint, #e9e0d0);
-  border-color: var(--ew-line, #cfc5b5);
+  color: var(--ew-ink);
+  background: var(--ew-tint);
+  border-color: var(--ew-line);
 }
 .ew-social.sn-social .sn-message p {
   margin: 0;
   padding: 12px 15px;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  background: var(--ew-surface, #fffdf8);
-  color: var(--ew-ink, #302c26);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-surface);
+  color: var(--ew-ink);
   font-size: 18px;
   line-height: 1.9;
 }
 .ew-social.sn-social .sn-message.own p {
-  border-color: var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  background: var(--ew-tint, #e9e0d0);
+  border-color: var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-tint);
 }
 .ew-social.sn-social .sn-message.sender-owner p {
-  border-color: var(--ew-action, #302c26);
-  background: var(--ew-action, #302c26);
-  color: var(--ew-paper, #f5f1e8);
+  border-color: var(--ew-action, var(--ew-line));
+  background: var(--ew-action);
+  color: var(--ew-paper, var(--ew-on-action));
 }
 .sn-message-time {
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   font-variant-numeric: tabular-nums;
 }
 .ew-social.sn-social .sn-message-composer {
   padding: 12px 22px 15px;
-  border-color: var(--ew-line, #cfc5b5);
-  background: var(--ew-surface, #fffdf8);
+  border-color: var(--ew-line);
+  background: var(--ew-surface);
 }
 .ew-social.sn-social .sn-message-composer textarea {
   min-height: 65px;
   padding: 6px 0;
-  color: var(--ew-ink, #302c26);
+  color: var(--ew-ink);
   font-size: 18px;
   line-height: 1.85;
 }
 .sn-message-composer textarea::placeholder {
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
 }
 .ew-social.sn-social .sn-composer-footer {
   justify-content: space-between;
   gap: 8px;
 }
 .sn-composer-hint {
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .ew-social.sn-social .sn-message-composer .sw-primary,
 .sn-communication-dialog .sw-primary {
   min-height: 44px;
   padding: 8px 17px;
-  border: 1px solid var(--ew-action, #302c26);
-  border-radius: 3px;
-  color: var(--ew-surface, #fffdf8);
-  background: var(--ew-action, #302c26);
+  border: 1px solid var(--ew-action, var(--ew-line));
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-surface, var(--ew-on-action));
+  background: var(--ew-action);
   box-shadow: none;
 }
 .ew-social.sn-social .sn-message-composer .sw-primary:hover,
 .sn-communication-dialog .sw-primary:hover {
-  background: #504b43;
-  border-color: #504b43;
+  background: var(--ew-action);
+  border-color: var(--ew-line);
 }
 .sn-empty-mark {
   display: grid;
@@ -360,16 +360,16 @@
   width: 57px;
   height: 57px;
   margin: 0 auto 15px;
-  border: 1px solid var(--ew-line, #cfc5b5);
+  border: 1px solid var(--ew-line);
   border-radius: 50%;
-  background: var(--ew-tint, #e9e0d0);
+  background: var(--ew-tint);
 }
 .sn-chat > .sw-empty h2 {
   font-size: 17px;
 }
 .sn-chat > .sw-empty p {
   margin-top: 9px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .sw-dialog.sn-communication-dialog {
@@ -379,15 +379,15 @@
   padding: 25px 27px;
   font-size: 18px;
   line-height: 1.85;
-  color: var(--ew-ink, #302c26);
-  background: var(--ew-paper, #f5f1e8);
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
+  color: var(--ew-ink);
+  background: var(--ew-paper, var(--ew-surface));
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   box-shadow: 0 16px 65px #302c2626;
   overscroll-behavior: contain;
 }
 .sw-dialog.sn-communication-dialog::backdrop {
-  background: #302c2647;
+  background: color-mix(in srgb, var(--ew-action) 28%, transparent);
   backdrop-filter: none;
 }
 .sw-dialog.sn-communication-dialog p {
@@ -398,7 +398,7 @@
   background: transparent;
   padding-bottom: 17px;
   margin-bottom: 19px;
-  border-bottom: 1px solid var(--ew-line, #cfc5b5);
+  border-bottom: 1px solid var(--ew-line);
 }
 .sn-dialog-title {
   display: flex;
@@ -411,7 +411,7 @@
   width: 21px;
   height: 18px;
   flex-shrink: 0;
-  color: var(--ew-action, #302c26);
+  color: var(--ew-ink);
 }
 .sn-communication-dialog .sw-dialog-heading h2 {
   font-size: 26px;
@@ -421,14 +421,14 @@
 .sn-communication-dialog .sw-dialog-heading > button {
   width: 44px;
   min-height: 44px;
-  color: var(--ew-muted, #746a5d);
-  border-radius: 6px;
+  color: var(--ew-muted);
+  border-radius: var(--ew-radius-control);
 }
 .sn-communication-dialog :is(input, textarea, select) {
-  color: var(--ew-ink, #302c26);
-  background: var(--ew-surface, #fffdf8);
-  border-color: var(--ew-line, #cfc5b5);
-  border-radius: 3px;
+  color: var(--ew-ink);
+  background: var(--ew-surface);
+  border-color: var(--ew-line);
+  border-radius: var(--ew-radius-control);
 }
 .sn-communication-dialog :is(input, textarea, select):focus {
   outline: 2px solid #918679;
@@ -436,7 +436,7 @@
 }
 .sn-communication-dialog label {
   margin: 12px 0 7px;
-  color: var(--ew-action, #302c26);
+  color: var(--ew-ink);
   font-size: 18px;
 }
 .sn-communication-dialog .sn-share-fields > textarea {
@@ -459,12 +459,12 @@
 }
 .sn-communication-dialog .sn-media-actions button {
   padding: 6px 7px;
-  border-radius: 6px;
-  color: var(--ew-action, #302c26);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-ink);
   font-size: 17px;
 }
 .sn-share-count {
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -474,13 +474,13 @@
   margin: 4px 0 18px;
 }
 .sn-communication-dialog .sn-media-grid figure {
-  border-color: var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  background: var(--ew-surface, #fffdf8);
+  border-color: var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-surface);
 }
 .sn-communication-dialog .sn-media-grid :is(img, video) {
   height: 175px;
-  background: var(--ew-tint, #e9e0d0);
+  background: var(--ew-tint);
 }
 .sn-media-loading {
   position: absolute;
@@ -491,8 +491,8 @@
   justify-content: center;
   gap: 8px;
   height: 175px;
-  background: var(--ew-tint, #e9e0d0);
-  color: var(--ew-muted, #746a5d);
+  background: var(--ew-tint);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .sn-communication-dialog .sn-media-grid figcaption {
@@ -503,13 +503,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--ew-action, #302c26);
+  color: var(--ew-ink);
   font-size: 16px;
 }
 .sn-media-grid figcaption small {
   display: block;
   margin-top: 3px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .sn-communication-dialog .sn-media-remove {
@@ -519,15 +519,15 @@
   width: 27px;
   min-height: 27px;
   padding: 4px;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 6px;
-  background: var(--ew-surface, #fffdf8);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-surface);
   box-shadow: 0 2px 6px #302c2612;
 }
 .sn-communication-dialog .sn-media-placeholder {
   min-height: 175px;
-  background: var(--ew-tint, #e9e0d0);
-  color: var(--ew-muted, #746a5d);
+  background: var(--ew-tint);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .sn-share-footer,
@@ -538,27 +538,18 @@
   gap: 16px;
   margin-top: 6px;
   padding-top: 16px;
-  border-top: 1px solid var(--ew-line, #cfc5b5);
+  border-top: 1px solid var(--ew-line);
 }
-.sn-share-visibility label {
-  margin: 0 0 5px;
-  color: var(--ew-muted, #746a5d);
+.sn-share-visibility legend {
+  padding: 0 0 8px;
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .sn-share-visibility > div {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--ew-action, #302c26);
-}
-.sn-communication-dialog .sn-share-visibility select {
-  width: 104px;
-  min-height: 44px;
-  padding: 4px 6px;
-  border-color: transparent;
-  background: transparent;
-  color: var(--ew-action, #302c26);
-  font-size: 18px;
+  color: var(--ew-ink);
 }
 .sn-communication-dialog .sn-member-picker {
   margin: 20px 0;
@@ -566,7 +557,7 @@
 }
 .sn-member-picker legend {
   padding: 0 0 8px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .sn-communication-dialog .sn-member-picker label {
@@ -574,12 +565,12 @@
   gap: 12px;
   margin: 0;
   padding: 13px 9px;
-  border-bottom: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 4px;
-  color: var(--ew-action, #302c26);
+  border-bottom: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-ink);
 }
 .sn-member-picker label:has(input:checked) {
-  background: var(--ew-tint, #e9e0d0);
+  background: var(--ew-tint);
 }
 .sn-communication-dialog .sn-member-picker input {
   flex: 0 0 20px;
@@ -600,12 +591,12 @@
   align-items: center;
 }
 .sn-group-footer > span {
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .sn-communication-dialog .sn-members li {
   padding: 12px 0;
-  border-bottom: 1px solid var(--ew-line, #cfc5b5);
+  border-bottom: 1px solid var(--ew-line);
 }
 .sw-dialog.sn-communication-dialog .sn-members .sw-name-link {
   min-height: 44px;
@@ -616,20 +607,20 @@
   flex-shrink: 0;
   margin: 0 12px 8px;
   padding: 8px 16px;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
-  background: var(--ew-surface, #fffdf8);
-  color: var(--ew-ink, #302c26);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-surface);
+  color: var(--ew-ink);
   font-size: 17px;
   min-height: 44px;
 }
 .sn-draft-label {
-  color: var(--ew-ink, #302c26);
+  color: var(--ew-ink);
 }
 .sn-communication-dialog .sn-draft-restored {
   display: block;
   margin: 0 0 18px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .ew-social.sn-social .sn-chat,
@@ -653,14 +644,14 @@
   margin: 8px 0 0;
   font-size: 18px;
   line-height: 1.9;
-  border-radius: 3px;
-  border-color: var(--ew-line, #cfc5b5);
-  background: var(--ew-surface, #fffdf8);
+  border-radius: var(--ew-radius-control);
+  border-color: var(--ew-line);
+  background: var(--ew-surface);
 }
 .ew-social.sn-social .ew-live-history .message.own p {
-  background: var(--ew-tint, #e9e0d0);
-  border-color: var(--ew-line, #cfc5b5);
-  border-radius: 3px;
+  background: var(--ew-tint);
+  border-color: var(--ew-line);
+  border-radius: var(--ew-radius-control);
 }
 .ew-social.sn-social
   :is(
@@ -673,16 +664,16 @@
   line-height: 1.6;
 }
 .ew-social.sn-social .sw-network-page :is(.sw-peer-card, .sw-connection-card) {
-  border-color: var(--ew-line, #cfc5b5);
-  border-radius: 3px;
+  border-color: var(--ew-line);
+  border-radius: var(--ew-radius-control);
   box-shadow: none;
-  background: var(--ew-surface, #fffdf8);
+  background: var(--ew-surface);
   transition: border-color 160ms ease;
 }
 .ew-social.sn-social
   .sw-network-page
   :is(.sw-peer-card, .sw-connection-card):is(:hover, :focus-within) {
-  border-color: var(--ew-muted, #746a5d);
+  border-color: var(--ew-muted, var(--ew-line));
   box-shadow: none;
   transform: none;
 }
@@ -722,13 +713,13 @@
   font-size: 16px;
 }
 .ew-social.sn-social .sw-network-page .sw-peer-search {
-  border-radius: 3px;
-  border-color: var(--ew-line, #cfc5b5);
+  border-radius: var(--ew-radius-control);
+  border-color: var(--ew-line);
   transition: border-color 160ms ease;
 }
 .ew-social.sn-social .sw-network-page .sw-peer-search:focus-within {
-  border-color: var(--ew-ink, #302c26);
-  outline: 2px solid var(--ew-ink, #302c26);
+  border-color: var(--ew-ink, var(--ew-line));
+  outline: 2px solid var(--ew-ink, var(--ew-line));
   outline-offset: 2px;
 }
 .ew-social.sn-social .sw-network-page .sw-peer-search input {
@@ -745,7 +736,7 @@
   gap: 4px;
   padding: 0;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: transparent;
   box-shadow: none;
 }
@@ -753,10 +744,10 @@
   min-height: 44px;
   padding: 8px 14px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background: transparent;
   box-shadow: none;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 18px;
   font-weight: 400;
 }
@@ -765,21 +756,21 @@
   .sw-network-toolbar
   > fieldset
   button:hover {
-  background: var(--ew-surface, #fffdf8);
-  color: var(--ew-ink, #302c26);
+  background: var(--ew-surface);
+  color: var(--ew-ink);
 }
 .ew-social.sn-social
   .sw-network-page
   .sw-network-toolbar
   > fieldset
   button[aria-pressed='true'] {
-  background: var(--ew-tint, #e9e0d0);
-  color: var(--ew-ink, #302c26);
+  background: var(--ew-tint);
+  color: var(--ew-ink);
 }
 .ew-social.sn-social .sw-network-page :is(.sw-peer-avatar, .sw-status-pill) {
-  color: var(--ew-ink, #302c26);
-  background: var(--ew-tint, #e9e0d0);
-  border-color: var(--ew-line, #cfc5b5);
+  color: var(--ew-ink);
+  background: var(--ew-tint);
+  border-color: var(--ew-line);
 }
 .ew-social.sn-social .sw-network-page .sw-capability-tags {
   display: flex;
@@ -797,10 +788,10 @@
   min-height: 24px;
   padding: 2px 10px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   box-shadow: none;
-  color: var(--ew-ink, #302c26);
-  background: var(--ew-tint, #e9e0d0);
+  color: var(--ew-ink);
+  background: var(--ew-tint);
   font-size: 16px;
   font-weight: 400;
   line-height: 1.25;
@@ -819,7 +810,7 @@
   gap: 12px;
   margin-top: auto;
   padding-top: 16px;
-  border-top: 1px solid var(--ew-line, #cfc5b5);
+  border-top: 1px solid var(--ew-line);
 }
 .ew-social.sn-social .sw-network-page .sw-peer-card-footer :is(button, a) {
   flex: 1 1 160px;
@@ -834,7 +825,7 @@
   text-align: center;
 }
 .ew-social.sn-social .sw-network-page :is(a, button, input):focus-visible {
-  outline: 2px solid var(--ew-ink, #302c26);
+  outline: 2px solid var(--ew-ink, var(--ew-line));
   outline-offset: 3px;
 }
 .sn-communication-dialog .sw-error,
@@ -842,7 +833,7 @@
   margin: 8px 0;
   padding: 9px 11px;
   border: 1px solid #e2cbc0;
-  border-radius: 6px;
+  border-radius: var(--ew-radius-control);
   background: #f4e9e0;
   color: #8a4f3b;
   font-size: 16px;
@@ -864,7 +855,7 @@
   .ew-social.sn-social .sn-inbox {
     min-height: 420px;
     height: calc(100dvh - 194px);
-    border-radius: 3px;
+    border-radius: var(--ew-radius-control);
   }
   .ew-social.sn-social .sn-chat > header {
     gap: 8px;
@@ -895,7 +886,7 @@
   }
   .sw-dialog.sn-communication-dialog {
     padding: 20px;
-    border-radius: 3px;
+    border-radius: var(--ew-radius-control);
   }
   .ew-social.sn-social .sn-chat > header > .sn-chat-avatar {
     display: none;

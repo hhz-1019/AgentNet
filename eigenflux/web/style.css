@@ -11,8 +11,8 @@
     linear-gradient(rgb(244 237 223 / 62%), rgb(244 237 223 / 62%)),
     url('/textures/journal-paper.png');
   --ew-paper-size: auto, 680px 680px;
-  --ew-control-bg: linear-gradient(180deg, #faf4e8, #ede2cf);
-  --ew-control-hover: linear-gradient(180deg, #fff9ed, #f4e9d7);
+  --ew-control-bg: #faf4e8;
+  --ew-control-hover: #f4e9d7;
   --ew-paper-contact:
     0 1px 1px rgb(73 53 30 / 12%), 0 2px 3px rgb(73 53 30 / 5%),
     inset 0 1px 0 rgb(255 253 246 / 88%);
@@ -60,9 +60,9 @@ select {
 button {
   cursor: pointer;
   background: var(--ew-surface);
-  border: 1px solid #cfc5b5;
-  border-radius: 6px;
-  color: #302c26;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-ink);
   padding: 10px 15px;
   display: inline-flex;
   align-items: center;
@@ -83,10 +83,10 @@ button:disabled {
   border-color: var(--accent);
 }
 .primary:hover {
-  background: #302c26;
+  background: var(--ew-action);
 }
 :focus-visible {
-  outline: 3px solid #a4998a;
+  outline: 3px solid var(--ew-line);
   outline-offset: 3px;
 }
 h1 {
@@ -137,10 +137,10 @@ select {
   display: block;
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid #cfc5b5;
+  border: 1px solid var(--ew-line);
   background: var(--ew-surface);
-  color: #302c26;
-  border-radius: 6px;
+  color: var(--ew-ink);
+  border-radius: var(--ew-radius-control);
   margin-top: 8px;
   line-height: 1.5;
 }
@@ -184,20 +184,20 @@ article {
   font-size: 16px;
   padding: 4px 8px;
   background: var(--ew-paper);
-  border-radius: 4px;
-  color: #625b52;
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-muted);
 }
 .prewrap {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .empty {
-  border: 1px dashed #cfc5b5;
+  border: 1px dashed var(--ew-line);
   color: var(--muted);
   padding: 34px;
   line-height: 1.8;
   margin: 18px 0;
-  border-radius: 8px;
+  border-radius: var(--ew-radius-control);
 }
 .error {
   border-left: 1px solid #9c4138;
@@ -211,10 +211,10 @@ article {
   margin-left: 15px;
 }
 .success {
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .recommendation {
-  border-left: 1px solid #a4998a;
+  border-left: 1px solid var(--ew-line);
   padding-left: 16px;
 }
 .brand {
@@ -225,7 +225,7 @@ article {
   font-size: 24px;
   letter-spacing: -1px;
   font-weight: 650;
-  color: #302c26;
+  color: var(--ew-ink);
 }
 .brand-logo {
   display: block;
@@ -255,7 +255,7 @@ article {
   line-height: 1.2;
 }
 .lead {
-  color: #625b52;
+  color: var(--ew-muted);
   font-size: 18px;
   max-width: 440px;
 }
@@ -285,7 +285,7 @@ article {
   background: var(--ew-surface);
   border: 1px solid var(--line);
   padding: 32px;
-  border-radius: 12px;
+  border-radius: var(--ew-radius-control);
 }
 .login-form h2 {
   margin-top: 0;
@@ -364,8 +364,8 @@ nav a {
   align-items: center;
   gap: 12px;
   padding: 11px 13px;
-  border-radius: 6px;
-  color: #625b52;
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-muted);
   text-decoration: none;
   font-size: 16px;
 }
@@ -373,7 +373,7 @@ nav a:hover {
   background: var(--ew-paper);
 }
 nav a[aria-current] {
-  color: #4e4840;
+  color: var(--ew-ink);
   background: var(--ew-tint);
   font-weight: 600;
 }
@@ -446,11 +446,11 @@ nav a[aria-current] {
   width: 8px;
   height: 8px;
   flex-shrink: 0;
-  background: #a4998a;
+  background: var(--ew-tint);
   border-radius: 50%;
 }
 .presence.online {
-  background: #746a5d;
+  background: var(--ew-tint);
 }
 .summary {
   display: grid;
@@ -467,7 +467,7 @@ nav a[aria-current] {
   font-size: 36px;
   font-weight: 500;
   letter-spacing: -1px;
-  color: #302c26;
+  color: var(--ew-ink);
   line-height: 1.6;
 }
 .peer-grid {
@@ -479,7 +479,7 @@ nav a[aria-current] {
   width: 42px;
   height: 42px;
   background: var(--ew-tint);
-  border-radius: 9px;
+  border-radius: var(--ew-radius-control);
   display: grid;
   place-items: center;
   font-size: 16px;

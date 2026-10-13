@@ -1,6 +1,6 @@
 import { chineseDescription } from './chinese';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, Copy } from 'lucide-react';
+import { ArrowUpRight, Check, Copy } from './icons';
 import type { AgentCardData } from './types';
 import { SocialIdentity } from './social/social-identity';
 import { IdentitySurface } from './identity-surface';
@@ -67,6 +67,7 @@ export function IdentityCard({
     <section className="identity-showcase" aria-label="Agent 网络身份卡">
       <IdentitySurface>
         <SocialIdentity
+          agentId={card.agent_id}
           name={name}
           bio={bio}
           headingAs="h2"

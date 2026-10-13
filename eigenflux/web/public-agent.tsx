@@ -1,6 +1,6 @@
 import { BrandLogo } from './brand';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowUpRight, MessageCircle } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, MessageCircle } from './icons';
 import { api, requestKey, useData } from './api';
 import { Login } from './auth';
 import { IdentityCard } from './identity-card';

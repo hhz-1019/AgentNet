@@ -3,7 +3,13 @@ on:
   push:
     branches: [main, 'codex/**', 'feat/**']
     paths: ['eigenflux/**', 'upstream/eigenflux', '.gitmodules', '.github/workflows/eigenflux-core.yml', 'package*.json', '.oxlintrc.json', '.oxfmtrc.json', '.dockerignore']
+  pull_request:
+    branches: [main]
+    paths: ['eigenflux/**', 'upstream/eigenflux', '.gitmodules', '.github/workflows/eigenflux-core.yml', 'package*.json', '.oxlintrc.json', '.oxfmtrc.json', '.dockerignore']
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -19,7 +25,7 @@ jobs:
       - run: npm run lint
       - run: npm run test
       - uses: actions/setup-go@v5
-        with: {go-version: '1.25'}
+        with: {go-version: '1.25', cache-dependency-path: 'upstream/eigenflux/**/go.sum'}
       - run: npx playwright install --with-deps chromium
       - run: npm run test:host:protocol
       - run: npm run test:social:live
@@ -82,6 +88,11 @@ jobs:
           npm run core:smoke
           npm run core:mcp:smoke
           node eigenflux/scripts/first-contact-smoke.mjs
+      - name: Diagnose failed isolated deployment
+        if: failure()
+        run: |
+          docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml ps --all
+          docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml logs --no-color --tail 200
       - name: Stop isolated test deployment
         if: always()
         run: docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml down --volumes || true

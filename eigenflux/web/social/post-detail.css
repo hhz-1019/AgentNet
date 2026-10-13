@@ -6,8 +6,8 @@
   max-height: calc(100dvh - 64px);
   padding: 0;
   overflow: hidden;
-  border: 1px solid #baab9166;
-  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--ew-line) 40%, transparent);
+  border-radius: var(--ew-radius-control);
   background-color: var(--ew-paper, #f5ecda);
 }
 .ew-note-detail.sw-dialog > .sw-dialog-heading {
@@ -35,7 +35,7 @@
   width: 40px;
   min-height: 40px;
   background: var(--ew-surface, #eee4d1);
-  border: 1px solid #baab9170;
+  border: 1px solid color-mix(in srgb, var(--ew-line) 44%, transparent);
   box-shadow: 0 1px 2px #4b382316;
 }
 .ew-note-detail .ew-detail-layout {
@@ -52,7 +52,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #e4ddcf;
+  background: var(--ew-tint);
   background-image: var(--ew-paper-image);
   background-size: var(--ew-paper-size);
   touch-action: pan-y;
@@ -70,10 +70,10 @@
   max-width: min(420px, calc(100% - 32px));
   max-height: 45%;
   overflow: auto;
-  border: 1px solid #c9bba4;
-  border-radius: 4px;
-  background: #f3ecdd;
-  color: #554e43;
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-surface);
+  color: var(--ew-muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -107,7 +107,7 @@
   max-height: 100%;
   overflow: auto;
   scrollbar-width: thin;
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
 }
 .ew-note-detail .ew-detail-stage .ew-paper-heading {
   -webkit-line-clamp: unset;
@@ -142,8 +142,8 @@
   padding: 0;
   border: 1px solid #a9977855;
   border-radius: 50%;
-  color: #302c26;
-  background: #f8efdeeb;
+  color: var(--ew-ink);
+  background: color-mix(in srgb, var(--ew-surface) 92%, transparent);
   box-shadow: 0 2px 8px #302c261a;
 }
 .ew-note-detail .ew-gallery-arrow:disabled {
@@ -166,7 +166,7 @@
   max-width: calc(100% - 32px);
   padding: 0 12px;
   border-radius: 24px;
-  background: #f8efdef0;
+  background: color-mix(in srgb, var(--ew-surface) 94%, transparent);
   box-shadow: 0 1px 5px #302c2624;
   font-size: 16px;
   white-space: nowrap;
@@ -187,7 +187,7 @@
   background: none;
 }
 .ew-gallery-dots button::after {
-  content: "";
+  content: '';
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -211,7 +211,7 @@
 .ew-note-detail .ew-detail-author {
   flex-shrink: 0;
   padding: 22px 66px 20px 28px;
-  border-bottom: 1px solid #bcae954a;
+  border-bottom: 1px solid color-mix(in srgb, var(--ew-line) 29%, transparent);
 }
 .ew-note-detail .ew-detail-author .sw-post-author {
   display: flex;
@@ -224,7 +224,7 @@
   width: 42px;
   min-height: 42px;
   border-radius: 50%;
-  background: #e8dcc4;
+  background: var(--ew-tint);
   border: 1px solid #bcad9270;
   padding: 8px;
 }
@@ -321,14 +321,14 @@
   padding: 0;
   background: none;
   border: 0;
-  color: #806047;
+  color: var(--ew-muted);
   font-size: 16px;
 }
 
 /* Muted metadata sits below the writing; comments share one continuous paper. */
 .ew-note-detail.sw-dialog .sw-post.expanded .ew-note-date {
   margin: 16px 0 0;
-  color: #817566;
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.6;
 }
@@ -337,14 +337,14 @@
   max-width: none;
   margin: 0 28px;
   padding: 22px 0 30px;
-  border-top: 1px solid #bcae954a;
+  border-top: 1px solid color-mix(in srgb, var(--ew-line) 29%, transparent);
   scroll-margin-top: 20px;
 }
 .ew-note-detail.sw-dialog .sw-comments h3 {
   margin: 0 0 20px;
   font-size: 16px;
   font-weight: 400;
-  color: #817566;
+  color: var(--ew-muted);
 }
 .ew-note-detail.sw-dialog .sw-comments article.ew-comment {
   display: grid;
@@ -363,13 +363,13 @@
   height: 40px;
   min-height: 40px;
   padding: 0;
-  border: 1px solid #bcae954a;
+  border: 1px solid color-mix(in srgb, var(--ew-line) 29%, transparent);
   border-radius: 50%;
-  background: #e8dcc4;
+  background: var(--ew-tint);
   box-shadow:
     inset 0 1px 0 #fff8,
     0 1px 3px #47332212;
-  color: #645640;
+  color: var(--ew-muted);
   font-size: 18px;
 }
 .ew-note-detail .ew-comment-avatar:disabled {
@@ -389,7 +389,7 @@
   border: 0;
   background: none;
   box-shadow: none;
-  color: #817566;
+  color: var(--ew-muted);
   font-size: 16px;
   font-weight: 400;
   text-align: left;
@@ -402,8 +402,8 @@
 .ew-note-detail .ew-comment-badge {
   padding: 0 5px;
   background: #e4d7c080;
-  border-radius: 4px;
-  color: #76634d;
+  border-radius: var(--ew-radius-control);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.5;
 }
@@ -418,13 +418,13 @@
 .ew-note-detail.sw-dialog .ew-comment-date,
 .ew-note-detail.sw-dialog .ew-note-date time {
   display: block;
-  color: #817566;
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.6;
 }
 .ew-note-detail.sw-dialog .sw-comments > p {
   margin: 16px 0;
-  color: #817566;
+  color: var(--ew-muted);
   font-size: 16px;
 }
 .ew-note-detail .ew-detail-footer {
@@ -434,7 +434,7 @@
   gap: 10px 16px;
   flex-shrink: 0;
   padding: 16px 24px;
-  border-top: 1px solid #bcae954a;
+  border-top: 1px solid color-mix(in srgb, var(--ew-line) 29%, transparent);
   background: var(--ew-paper);
 }
 .ew-note-detail .ew-detail-actions {
@@ -457,7 +457,7 @@
   font-size: 16px;
   white-space: nowrap;
 }
-.ew-note-detail .ew-detail-actions button[aria-pressed="true"] {
+.ew-note-detail .ew-detail-actions button[aria-pressed='true'] {
   color: #994f3e;
 }
 .ew-note-detail .ew-detail-actions button:enabled:hover {
@@ -497,7 +497,7 @@
   padding: 10px 12px 10px 44px;
   border: 1px solid #bdac8b30;
   border-radius: 24px;
-  background: #eadeca80;
+  background: color-mix(in srgb, var(--ew-tint) 50%, transparent);
   box-shadow: inset 0 1px 2px #48341d08;
   color: var(--ew-ink);
   font: inherit;
@@ -506,7 +506,7 @@
   resize: none;
 }
 .ew-note-detail .ew-detail-composer textarea::placeholder {
-  color: #817566;
+  color: var(--ew-muted);
 }
 .ew-note-detail .ew-detail-composer > button {
   display: none;
@@ -549,13 +549,13 @@
     padding: 16px;
   }
 }
-@media (max-width: 800px) {
+@media (max-width: 800px), (pointer: coarse) {
   .sw-dialog.sn-communication-dialog.ew-reading-dialog.ew-note-detail {
     width: calc(100vw - 24px);
     max-height: calc(100dvh - 24px);
     height: calc(100dvh - 24px);
     overflow-y: auto;
-    border-radius: 10px;
+    border-radius: var(--ew-radius-control);
   }
   .ew-note-detail .ew-detail-layout {
     display: block;

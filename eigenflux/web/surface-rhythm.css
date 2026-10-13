@@ -1,0 +1,98 @@
+/* Space separates page chrome. Keep control outlines, table rules, quotations,
+   paper-cover artwork, the title/body divider and the comments boundary. */
+html[data-theme]
+  #root
+  :is(
+    .ew-feed-toolbar,
+    .sn-tabs,
+    .sn-message-filters,
+    .sw-dialog-heading,
+    .sw-dialog-footer,
+    .sn-chat > header,
+    .sn-chat > footer,
+    .ew-detail-author,
+    .ew-detail-footer,
+    .sn-share-footer,
+    .sn-group-footer,
+    .ew-share-preview-note,
+    .sw-peer-card-footer,
+    .ew-friend-entry,
+    .sn-members li,
+    .sn-member-picker label,
+    .sn-host-reply,
+    .sn-portrait > .sn-page-heading,
+    .sn-portrait .sn-memories,
+    .sn-portrait .sn-memory footer,
+    .sn-portrait-actions,
+    .portrait-confirm-actions,
+    .portrait-review > .sn-portrait,
+    .sn-public-fields > div,
+    .ew-identity-fragment,
+    .identity-profile-heading,
+    .identity-strip,
+    .ew-avatar-picker,
+    .sn-settings-list > a,
+    .sn-settings-list > div,
+    .sn-demo-settings .sw-empty,
+    .join-copy,
+    .join-agent,
+    .join-review > .row,
+    .join-shell .actions,
+    .twin-fields details,
+    details.twin-fields,
+    .twin-record,
+    .twin-onboarding .steps,
+    .public-agent-exchange,
+    .public-agent-contact,
+    .managed-top,
+    .managed-tabs,
+    .managed-session-actions,
+    .managed-source-status,
+    .managed-log article,
+    .attention-item,
+    article.event
+  ) {
+  border-block: 0;
+}
+html[data-theme]
+  #root
+  :is(
+    .sn-conversations,
+    .messages > aside,
+    .ew-share-preview,
+    .ew-detail-side,
+    .join-rail
+  ) {
+  border-inline: 0;
+}
+html[data-theme] #root .join-rail {
+  border-bottom: 0;
+}
+html[data-theme] #root .messages {
+  border-top: 0;
+}
+html[data-theme] #root .messages > aside > button {
+  border: 0;
+}
+html[data-theme] #root :is(.sn-inbox, .messages) {
+  column-gap: 20px;
+}
+html[data-theme] #root .sn-account::before,
+html[data-theme] #root .sn-conversation[aria-pressed='true']::before,
+html[data-theme] #root .sw-nav-divider {
+  display: none;
+}
+html[data-theme] #root .ew-friend-entry + .ew-friend-entry {
+  margin-top: 0;
+}
+html[data-theme] #root .managed-tabs button[aria-current] {
+  border-bottom-color: transparent;
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-tint);
+  color: var(--ew-ink);
+}
+/* Keep one inset boundary before comments, away from both text and controls. */
+html[data-theme] #root .ew-note-detail .sw-comments {
+  margin-top: 12px;
+  padding-top: 24px;
+}

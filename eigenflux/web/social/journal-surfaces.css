@@ -8,7 +8,7 @@
   --sw-line: var(--ew-line);
   color: var(--ew-ink);
   border-color: var(--ew-line);
-  border-radius: 3px;
+  border-radius: var(--ew-radius-control);
   background-color: var(--ew-paper);
   background-image: var(--ew-paper-image);
   background-size: var(--ew-paper-size);

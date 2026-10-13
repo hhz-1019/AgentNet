@@ -1,3 +1,4 @@
+import { defaultAvatarId } from './default-avatars.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prefillPortrait } from './onboarding-prefill.ts';
@@ -46,6 +47,7 @@ await test('legacy memory prefill survives empty modern placeholders', () => {
     role: '学生',
     values: '',
     recent: '完成当前研究',
+    avatar: 'spark',
   });
   assert.equal(result.memories[0].content, '完成一次研究实验');
   assert.equal(result.memories[0].showOnHome, false);
@@ -72,7 +74,7 @@ await test('modern portrait wins field by field while memories stay private', ()
     },
     'Codex',
   );
-  assert.deepEqual(result.fields, fields);
+  assert.deepEqual(result.fields, { ...fields, avatar: 'tide' });
   assert.equal(result.memories[0].showOnHome, false);
 });
 await test('saved human edits and deliberately cleared fields cannot be refilled', () => {
@@ -95,6 +97,32 @@ await test('absent memory never invents a personal biography', () => {
     role: '',
     values: '',
     recent: '',
+    avatar: defaultAvatarId('Codex'),
   });
   assert.deepEqual(result.memories, []);
+});
+await test('Agent avatar choice survives review and invalid URLs fall back to a local asset', () => {
+  const draft = (avatar: string) => ({
+    twin_profile: {
+      portrait: { fields: { name: '朋友', interests: '音乐', avatar } },
+    },
+  });
+  assert.equal(
+    prefillPortrait(blank(), draft('bloom'), '').fields.avatar,
+    'bloom',
+  );
+  assert.equal(
+    prefillPortrait(blank(), draft('https://example.com/pixel'), '').fields
+      .avatar,
+    'tide',
+  );
+  const saved = {
+    ...blank(),
+    fields: { ...blank().fields, avatar: 'orbit' },
+    revision: 1,
+  };
+  assert.equal(
+    prefillPortrait(saved, draft('bloom'), '').fields.avatar,
+    'orbit',
+  );
 });

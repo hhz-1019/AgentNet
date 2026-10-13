@@ -56,16 +56,16 @@
 .ew-identity-fragment {
   min-width: 0;
   padding-top: 14px;
-  border-top: 1px solid #cbbda435;
+  border-top: 1px solid color-mix(in srgb, var(--ew-line) 21%, transparent);
 }
 .ew-identity-fragment dt {
-  color: #cbbda4;
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.6;
 }
 .ew-identity-fragment dd {
   margin: 8px 0 0;
-  color: #fff9ed;
+  color: var(--ew-on-action);
   font-size: 18px;
   line-height: 1.8;
   white-space: pre-wrap;

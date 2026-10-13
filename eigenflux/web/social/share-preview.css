@@ -4,6 +4,39 @@
   font-family: var(--ew-serif);
 }
 
+/* Keep the editor, its heading and the preview on a single surface. */
+html[data-theme] .sw-dialog.sn-communication-dialog:has(.ew-share-layout),
+html[data-theme]
+  .sw-dialog.sn-communication-dialog:has(.ew-share-layout)
+  > .sw-dialog-heading {
+  background: var(--ew-surface);
+}
+
+html[data-theme] .sw-dialog.sn-communication-dialog .sn-share-fields,
+html[data-theme] .sw-dialog.sn-communication-dialog .sn-share-visibility {
+  background: transparent;
+}
+
+:root[data-theme]
+  body
+  .sw-dialog.sn-communication-dialog
+  .ew-share-writing:focus-within {
+  border-color: var(--ew-focus);
+}
+
+:root[data-theme='night']
+  .sw-dialog.sn-communication-dialog:has(.ew-share-layout)::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+html[data-theme]
+  body
+  .sw-dialog.sn-communication-dialog
+  .ew-share-writing
+  .ew-share-title-input:is(:focus, :focus-visible) {
+  border-bottom-color: var(--ew-line) !important;
+}
+
 .sn-communication-dialog .sn-share-composer {
   width: 100%;
   max-width: none;
@@ -48,10 +81,10 @@
   min-height: 225px;
   padding: 17px 18px;
   resize: vertical;
-  color: var(--ew-ink, #302c26);
-  background: var(--ew-surface, #fffdf8);
-  border: 1px solid var(--ew-line, #cfc5b5);
-  border-radius: 3px;
+  color: var(--ew-ink);
+  background: var(--ew-surface);
+  border: 1px solid var(--ew-line);
+  border-radius: var(--ew-radius-control);
   font-family: var(--ew-serif);
   font-size: 18px;
   line-height: 1.85;
@@ -59,12 +92,12 @@
 }
 
 .sn-communication-dialog .ew-share-editor > textarea::placeholder {
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
 }
 
 .sn-communication-dialog .ew-share-editor .sw-hint {
   margin: 12px 0 0;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.75;
 }
@@ -84,7 +117,7 @@
   min-height: 44px;
   padding: 8px 11px;
   font-size: 17px;
-  background: var(--ew-surface, #fffdf8);
+  background: var(--ew-surface);
 }
 
 .sn-communication-dialog .ew-share-editor .sn-share-count {
@@ -135,8 +168,8 @@
   top: 0;
   min-width: 0;
   padding-left: 28px;
-  border-left: 1px solid var(--ew-line, #cfc5b5);
-  color: var(--ew-ink, #302c26);
+  border-left: 1px solid var(--ew-line);
+  color: var(--ew-ink);
 }
 
 .ew-share-preview-heading {
@@ -154,18 +187,16 @@
 
 .ew-share-preview-heading small {
   flex-shrink: 0;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
 }
 
 .ew-share-preview-paper {
   padding: 22px;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  background: var(--ew-surface, #fffdf8);
-  border-radius: 3px;
-  box-shadow:
-    4px 4px 0 var(--ew-paper, #f5f1e8),
-    5px 5px 0 var(--ew-line, #cfc5b5);
+  border: 0;
+  background: var(--ew-surface);
+  border-radius: var(--ew-radius-control);
+  box-shadow: none;
 }
 
 .ew-share-preview-author {
@@ -181,9 +212,9 @@
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  border: 1px solid var(--ew-line, #cfc5b5);
-  color: var(--ew-action, #302c26);
-  background: var(--ew-tint, #e9e0d0);
+  border: 1px solid var(--ew-line);
+  color: var(--ew-ink);
+  background: var(--ew-tint);
   font-size: 20px;
 }
 
@@ -200,7 +231,7 @@
   align-items: center;
   gap: 5px;
   margin-top: 3px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.4;
 }
@@ -216,7 +247,7 @@
 
 .sn-communication-dialog .ew-share-preview-text {
   margin: 0;
-  color: var(--ew-ink, #302c26);
+  color: var(--ew-ink);
   font-size: 18px;
   line-height: 1.9;
   white-space: pre-wrap;
@@ -248,8 +279,8 @@
   width: 100%;
   height: 135px;
   object-fit: cover;
-  border-radius: 4px;
-  background: var(--ew-tint, #e9e0d0);
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-tint);
 }
 
 .ew-share-preview-gallery.is-single :is(img, video) {
@@ -260,7 +291,7 @@
 
 .ew-share-preview-gallery figcaption {
   margin-top: 7px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -271,8 +302,8 @@
   place-items: center;
   min-height: 135px;
   padding: 12px;
-  border: 1px dashed var(--ew-line, #cfc5b5);
-  color: var(--ew-muted, #746a5d);
+  border: 1px dashed var(--ew-line);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.6;
 }
@@ -291,7 +322,7 @@
 .ew-share-empty-line {
   width: 28px;
   height: 1px;
-  background: var(--ew-muted, #746a5d);
+  background: var(--ew-muted, var(--ew-tint));
 }
 
 .sn-communication-dialog .ew-share-preview-empty p {
@@ -303,7 +334,7 @@
 
 .ew-share-preview-empty > span:not(.ew-share-empty-line) {
   max-width: 230px;
-  color: var(--ew-muted, #746a5d);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.8;
 }
@@ -317,28 +348,81 @@
 .ew-share-preview-note {
   margin-top: 24px;
   padding-top: 14px;
-  border-top: 1px solid var(--ew-line, #cfc5b5);
-  color: var(--ew-muted, #746a5d);
+  border-top: 1px solid var(--ew-line);
+  color: var(--ew-muted);
   font-size: 16px;
   line-height: 1.7;
 }
 
 .sn-communication-dialog .sn-share-fields > .sn-share-footer {
   align-items: center;
+  flex-wrap: wrap;
   margin-top: 28px;
   padding-top: 20px;
 }
 
-.sn-communication-dialog .sn-share-fields .sn-share-visibility label {
-  margin-bottom: 6px;
-  font-size: 16px;
+.sn-communication-dialog .sn-share-fields .sn-share-visibility {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
-.sn-communication-dialog .sn-share-fields .sn-share-visibility select {
-  width: 108px;
+.sn-communication-dialog .sn-share-fields .sn-share-visibility label {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+
+.sn-communication-dialog .sn-share-visibility input[type='radio'] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.sn-communication-dialog .sn-share-visibility label > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 44px;
-  padding: 8px;
-  font-size: 18px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--ew-radius-control);
+  background: transparent;
+  color: var(--ew-muted);
+  font-size: 16px;
+  line-height: 1.5;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.sn-communication-dialog .sn-share-visibility label:hover > span,
+.sn-communication-dialog .sn-share-visibility input:checked + span {
+  background: var(--ew-tint);
+  color: var(--ew-ink);
+}
+
+.sn-communication-dialog .sn-share-visibility input:checked + span {
+  border-color: var(--ew-line);
+}
+
+.sn-communication-dialog .sn-share-visibility input:focus-visible + span {
+  border-color: var(--ew-focus);
+}
+
+.sn-communication-dialog .sn-share-visibility label:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .sn-communication-dialog .sn-share-fields .sn-share-footer .sw-primary {
@@ -382,10 +466,10 @@
     min-height: 44px;
     margin: 0 0 20px auto;
     padding: 8px 13px;
-    border: 1px solid var(--ew-line, #cfc5b5);
-    border-radius: 3px;
-    color: var(--ew-action, #302c26);
-    background: var(--ew-surface, #fffdf8);
+    border: 1px solid var(--ew-line);
+    border-radius: var(--ew-radius-control);
+    color: var(--ew-ink);
+    background: var(--ew-surface);
     font-family: var(--ew-serif);
     font-size: 17px;
   }
