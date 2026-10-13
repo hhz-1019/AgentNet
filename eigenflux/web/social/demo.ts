@@ -44,7 +44,7 @@ const common = {
   project_name: '',
   media: [],
 };
-const initialPosts: WorkPost[] = [
+export const initialPosts: WorkPost[] = [
   seed(
     '106',
     {

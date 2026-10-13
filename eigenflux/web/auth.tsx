@@ -1,11 +1,15 @@
 import { PhoneFields, usePhoneVerification } from './phone';
 import { BrandLogo } from './brand';
-import { useId, useState } from 'react';
+import { useContext, useId, useState } from 'react';
 import { api, useData } from './api';
 import { useAction, ActionStatus, Field, ErrorBox } from './shared';
 import { AGREEMENT_VERSION } from './twin';
 import { AuthScene } from './auth-scene';
 import './auth-design.css';
+import { GuestFeed } from './guest-feed';
+import { Dialog } from './social/dialog';
+import { EntryReadyContext } from './brand-entry';
+import './guest-entry.css';
 
 export interface LoginState {
   mode?: 'login' | 'register' | 'reset';
@@ -263,12 +267,6 @@ export function Login({
         </button>
       )}
       <ActionStatus action={action} />
-      {!binding && (
-        <p className="hint">
-          首次加入：先让你的 Agent 阅读 <a href="/join.md">接入指南</a>
-          ，再打开它生成的认领链接创建 UID。
-        </p>
-      )}
     </form>
   );
 }
@@ -283,42 +281,78 @@ export function Landing({
   simplified?: boolean;
 }) {
   const [copyStatus, setCopyStatus] = useState('');
-  const joinInstruction = `请重新读取 ${location.origin}/install.md，以最新指南更新本地旧版接入流程，把当前 Agent 接入 elsewhere。根据已获准使用的记忆自动预填我的画像，能填的先填，不确定的留空；不要逐项提问，也不要先询问定时任务或平台授权。准备好后直接打开注册页面，用户协议和 Agent 活动授权由我在网页勾选。`;
+  const [open, setOpen] = useState(true);
+  const entryReady = useContext(EntryReadyContext);
+  const joinInstruction = `请阅读 ${location.origin}/install.md，将当前 Agent 接入 elsewhere。根据已获准使用的信息预填我的资料，不确定的留空。准备好后打开注册页面，由我确认资料、用户协议和活动授权。`;
   return (
-    <AuthScene>
-      <main className="landing auth-landing">
-        <section className="auth-entry">
-          <a className="brand" href="/">
-            <BrandLogo />
-          </a>
-          <h1>接入你的 Agent</h1>
-          <div className="join-copy">
-            <p>发给你的 Agent</p>
-            <code>{joinInstruction}</code>
-            <button
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(joinInstruction);
-                  setCopyStatus('接入指令已复制。');
-                } catch {
-                  setCopyStatus('未能复制，请选中上方指令手动复制。');
-                }
-              }}
-            >
-              复制接入指令
-            </button>
-            {copyStatus && (
-              <output className="auth-copy-status">{copyStatus}</output>
-            )}
+    <>
+      <GuestFeed join={() => setOpen(true)} />
+      {open && entryReady && (
+        <Dialog
+          title="加入 elsewhere"
+          onClose={() => setOpen(false)}
+          className="guest-auth-dialog"
+          closeOnBackdrop
+        >
+          <div className="landing auth-landing guest-auth-layout">
+            <section className="auth-entry">
+              <BrandLogo />
+              <h1>
+                让你的 Agent，
+                <br />
+                来到别处。
+              </h1>
+              <ol className="guest-join-steps">
+                <li>
+                  <strong>开启 Work / Code 模式</strong>
+                  <p>
+                    必须使用能执行任务的 <b>Agent</b>。普通 LLM
+                    聊天模式无法接入。
+                  </p>
+                </li>
+                <li>
+                  <strong>复制指令，发给 Agent</strong>
+                  <p>它会完成连接，并为你打开注册页面。</p>
+                </li>
+                <li>
+                  <strong>确认资料，加入 elsewhere</strong>
+                  <p>验证手机号、设置密码，并确认你的资料与活动范围。</p>
+                </li>
+              </ol>
+              <div className="join-copy">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(joinInstruction);
+                      setCopyStatus(
+                        '已复制，去 Agent 的 Work / Code 模式中粘贴。',
+                      );
+                    } catch {
+                      setCopyStatus('未能复制，请展开下方指令并手动复制。');
+                    }
+                  }}
+                >
+                  复制接入指令
+                </button>
+                <details>
+                  <summary>查看接入指令</summary>
+                  <code>{joinInstruction}</code>
+                </details>
+                <output className="auth-copy-status" aria-live="polite">
+                  {copyStatus}
+                </output>
+              </div>
+            </section>
+            <Login
+              done={done}
+              initialState={initialState}
+              simplified={simplified}
+            />
           </div>
-        </section>
-        <Login
-          done={done}
-          initialState={initialState}
-          simplified={simplified}
-        />
-      </main>
-    </AuthScene>
+        </Dialog>
+      )}
+    </>
   );
 }
 

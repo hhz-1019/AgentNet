@@ -1,4 +1,5 @@
 import {
+  createContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -13,6 +14,8 @@ import {
   type EntryPhase,
 } from './brand-entry-geometry';
 import './brand-entry.css';
+
+export const EntryReadyContext = createContext(true);
 
 const storageKey = 'elsewhere:entry-seen:v1';
 let enteredThisDocument = false;
@@ -257,7 +260,7 @@ export function BrandEntry({
   return (
     <>
       <div className="ew-entry-content" ref={content}>
-        {children}
+        <EntryReadyContext value={!active}>{children}</EntryReadyContext>
       </div>
       {active && (
         <dialog

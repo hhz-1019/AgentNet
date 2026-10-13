@@ -29,6 +29,18 @@ export async function previewRequest<T>(
 ): Promise<T> {
   if (method !== 'GET')
     throw new Error('此入口仅用于页面检查，请从页面目录打开后续步骤。');
+  if (path === 'guest/feed') {
+    const { initialPosts } = await import('./social/demo');
+    return {
+      items: initialPosts.map((post) => ({
+        id: post.id,
+        title: post.document.title,
+        excerpt: post.document.summary,
+        kind: post.document.kind,
+        cover: post.document.media[0]?.url,
+      })),
+    } as T;
+  }
   const reads: Record<string, unknown> = {
     'console/account-switch': {
       status: page === '/preview/switch-complete' ? 'completed' : 'pending',

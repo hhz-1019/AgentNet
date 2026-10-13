@@ -33,6 +33,7 @@ jobs:
       - run: npm run test:twin:ui
       - run: npm run test:phone:core
       - run: npm run test:phone:ui
+      - run: npm run test:guest:ui
       - run: npm run test:managed:core
       - run: npm run test:managed:ui
       - run: npm run build
