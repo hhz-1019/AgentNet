@@ -1,7 +1,7 @@
 // Actual patched CLI + SDK + worker + compatible-model HTTP protocol.
 // Core authentication/queue and model outputs are explicit local fixtures.
 import { mkdtemp, cp, rm, mkdir, writeFile, readFile } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { resolve, join, basename } from 'node:path';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
@@ -23,8 +23,11 @@ let server;
 try {
   await cp('upstream/eigenflux', dir, {
     recursive: true,
-    filter: (p) => !p.endsWith('/.git'),
+    filter: (p) => basename(p) !== '.git',
   });
+  // A nested directory without its own repository makes git apply silently
+  // skip root-relative patches. Never inherit the source submodule's .git.
+  await run('git', ['init', '--quiet'], dir);
   for (const name of [
     'domestic-providers',
     'uid-deepseek',

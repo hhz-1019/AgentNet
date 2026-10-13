@@ -3,13 +3,15 @@ import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 import { cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { resolve, basename } from 'node:path';
 await mkdir('.agentnet-audit', { recursive: true });
 const dir = await mkdtemp(resolve('.agentnet-audit/phone-core-'));
 await cp('upstream/eigenflux', dir, {
   recursive: true,
-  filter: (s) => !s.endsWith('/.git'),
+  filter: (s) => basename(s) !== '.git',
 });
+// Apply patches relative to this isolated checkout, not the parent repository.
+execFileSync('git', ['init', '--quiet'], { cwd: dir });
 for (const patch of [
   'domestic-providers',
   'uid-deepseek',
