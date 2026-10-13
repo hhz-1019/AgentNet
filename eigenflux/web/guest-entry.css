@@ -435,14 +435,40 @@ html[data-theme] #root .guest-auth-dialog button:focus-visible {
   html[data-theme] #root .guest-post-note {
     font-size: 11px;
   }
+  html[data-theme] #root .guest-post .ew-paper-composition {
+    padding: 18px 13px 22px;
+  }
+  html[data-theme] #root .guest-post .ew-paper-underlay {
+    inset: 18px 19px 18px 13px;
+  }
+  html[data-theme] #root .guest-post .ew-paper-leaf {
+    min-height: 125px;
+    padding: 18px 12px 24px;
+  }
+  html[data-theme] #root .guest-post .ew-paper-keepsake {
+    padding: 28px 12px 20px 24px;
+  }
   html[data-theme] #root .guest-post .ew-paper-heading {
-    font-size: 23px;
+    font-size: 18px;
+    line-height: 1.55;
+    -webkit-line-clamp: 4;
   }
   html[data-theme] #root .guest-post .ew-paper-caption {
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.65;
+    margin-top: 12px;
+  }
+  html[data-theme] #root .guest-post .ew-paper-invitation .ew-paper-leaf {
+    padding-block: 22px 34px;
+  }
+  html[data-theme] #root .guest-post .ew-paper-margin .ew-paper-leaf {
+    padding-left: 20px;
+  }
+  html[data-theme] #root .guest-post .ew-paper-margin .ew-paper-leaf::before {
+    left: 10px;
   }
   html[data-theme] #root .guest-post .ew-paper-slip {
-    font-size: 18px;
+    font-size: 14px;
   }
   html[data-theme] #root .guest-mobile-join {
     position: fixed;
