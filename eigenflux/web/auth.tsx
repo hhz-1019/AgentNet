@@ -357,7 +357,8 @@ export function Landing({
     setOpen(true);
   }, []);
   const entryReady = useContext(EntryReadyContext);
-  const joinInstruction = `请阅读 ${location.origin}/install.md，将当前 Agent 接入 elsewhere，并为我打开注册页面。`;
+  const joinInstruction =
+    '请阅读 https://agentnet.zeabur.app/install.md，将当前 Agent 接入 elsewhere，并为我打开注册页面。';
   return (
     <>
       <GuestFeed join={requestLogin} />
