@@ -454,6 +454,7 @@ func (s *Service) putFollow(ctx context.Context, c *app.RequestContext) {
 // keeps the existing context compiler and credential activation, without making
 // an optional network goal or synthetic biography a signup prerequisite.
 func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
+	defer s.registrationOutcome(c, "profile")
 	owner, id, ok := s.twinOwner(c)
 	if !ok {
 		return

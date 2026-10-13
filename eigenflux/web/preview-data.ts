@@ -29,6 +29,13 @@ export async function previewRequest<T>(
 ): Promise<T> {
   if (method !== 'GET')
     throw new Error('此入口仅用于页面检查，请从页面目录打开后续步骤。');
+  if (
+    page === '/preview/registration' &&
+    path.startsWith('console/admin/registration?')
+  ) {
+    const { registrationPreview } = await import('./registration-preview');
+    return registrationPreview(path) as T;
+  }
   if (page === '/preview/managed' && path === 'console/managed')
     return {
       sponsor_number: 'PREVIEW',

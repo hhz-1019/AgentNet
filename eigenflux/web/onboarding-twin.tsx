@@ -14,6 +14,7 @@ import {
 } from './social/portrait-api';
 import './social/editorial.css';
 import './twin.css';
+import { useRegistrationTracking } from './registration-tracking';
 
 export function Onboard({
   session,
@@ -47,6 +48,7 @@ export function Onboard({
   return session.owner_bound ? content : <AuthScene>{content}</AuthScene>;
 }
 function Confirm({ session, done }: { session: Session; done: () => void }) {
+  useRegistrationTracking(true, 'profile');
   const [profile, setProfile] = useState<SavedPortrait>();
   const base = useRef<SavedPortrait | undefined>(undefined);
   const [agreed, setAgreed] = useState(false);

@@ -7,6 +7,7 @@ import { PublicCard } from './public-agent';
 import { BrandLogo } from './brand';
 import { AnalyticsDashboard } from './analytics';
 import { AdminMembers } from './admin-members';
+import { AdminRegistration } from './admin-registration';
 import { ManagedConsole } from './managed';
 import { ApiError } from './api';
 import { previewAgents, previewReceipt } from './preview-data';
@@ -212,6 +213,8 @@ export default function VisualPreview() {
   switch (page) {
     case 'analytics':
       return <AnalyticsDashboard preview />;
+    case 'registration':
+      return <AdminRegistration preview />;
     case 'members':
       return <AdminMembers preview />;
     case 'managed':

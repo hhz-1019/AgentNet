@@ -60,6 +60,7 @@ export function PhoneFields({
     <>
       <Field
         label="手机号"
+        data-registration-field="phone"
         type="tel"
         inputMode="tel"
         autoComplete="tel-national"
@@ -74,6 +75,7 @@ export function PhoneFields({
       <div className="phone-code-row">
         <Field
           label="短信验证码"
+          data-registration-field="code"
           required
           inputMode="numeric"
           autoComplete="one-time-code"

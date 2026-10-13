@@ -263,6 +263,8 @@ func (s *Service) issueUIDSession(c *app.RequestContext, session uidSession) {
 }
 
 func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
+	s.recordRegistration(c, "submit", "", "")
+	defer s.registrationOutcome(c, "register")
 	req, ok := s.readUIDRequest(ctx, c)
 	if !ok {
 		return

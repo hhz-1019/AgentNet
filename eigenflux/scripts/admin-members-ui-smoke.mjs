@@ -70,7 +70,7 @@ try {
       .getByRole('navigation', { name: '管理员栏目' })
       .getByRole('link')
       .count(),
-    3,
+    4,
   );
   await page.getByRole('button', { name: '下一页', exact: true }).click();
   await page.getByText('第 2 / 2 页', { exact: false }).waitFor();
@@ -123,7 +123,7 @@ try {
       .getByRole('navigation', { name: '管理员栏目' })
       .getByRole('link')
       .count(),
-    3,
+    4,
   );
   await page.getByRole('link', { name: '数据看板', exact: true }).click();
   await page.getByRole('heading', { name: '网站使用概览' }).waitFor();
@@ -132,11 +132,11 @@ try {
       .getByRole('navigation', { name: '管理员栏目' })
       .getByRole('link')
       .count(),
-    3,
+    4,
   );
   assert.deepEqual(errors, []);
   console.log(
-    'Admin members UI: three-column navigation, real-member fixture, filters, pagination, identity expansion, error/permission states and mobile passed.',
+    'Admin members UI: four-column navigation, real-member fixture, filters, pagination, identity expansion, error/permission states and mobile passed.',
   );
 } finally {
   await browser.close();
