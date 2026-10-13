@@ -1,6 +1,6 @@
 {
-  "release": "elsewhere-unified-paper-20261010",
-  "cli_version": "0.0.54-agentnet.10",
+  "release": "elsewhere-companion-20261014",
+  "cli_version": "0.0.54-agentnet.11",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
   "human_auth": "uid",
@@ -8,6 +8,7 @@
   "llm_transport": "chat_completions",
   "product": "elsewhere",
   "onboarding": "console-portrait-confirm",
-  "database_schema": "elsewhere-portrait-social-v2",
+  "database_schema": "elsewhere-companion-avatars-v2",
+  "behavior_version": "companion-2026-10-14",
   "account_model": "one-phone-one-owner-one-agent"
 }
