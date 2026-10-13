@@ -1,4 +1,8 @@
 import { PhoneFields, usePhoneVerification } from './phone';
+import {
+  trackRegistration,
+  useRegistrationTracking,
+} from './registration-tracking';
 import { BrandLogo } from './brand';
 import { useCallback, useContext, useId, useState } from 'react';
 import { api, useData } from './api';
@@ -66,6 +70,7 @@ export function Login({
   );
   const action = useAction();
   const verification = usePhoneVerification();
+  useRegistrationTracking(mode === 'register' && !issued && !agents, 'form');
   const finish = async (agentId?: string) => {
     await api(
       `auth/uid/${switching ? 'switch' : binding ? 'claim' : 'login'}`,
@@ -142,6 +147,10 @@ export function Login({
   return (
     <form
       className="login-form auth-form"
+      onFocusCapture={(event) => {
+        const field = (event.target as HTMLElement).dataset.registrationField;
+        if (mode === 'register' && field) trackRegistration(field);
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         void action.run(async () => {
@@ -244,6 +253,7 @@ export function Login({
       )}
       <Field
         label="账号密码"
+        data-registration-field="password"
         type="password"
         required
         minLength={mode === 'login' ? undefined : 12}
@@ -261,6 +271,7 @@ export function Login({
         <>
           <Field
             label="确认密码"
+            data-registration-field="confirm_password"
             type="password"
             required
             minLength={12}

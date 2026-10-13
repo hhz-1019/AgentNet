@@ -29,6 +29,36 @@ export async function previewRequest<T>(
 ): Promise<T> {
   if (method !== 'GET')
     throw new Error('此入口仅用于页面检查，请从页面目录打开后续步骤。');
+  if (
+    page === '/preview/registration' &&
+    path.startsWith('console/admin/registration?')
+  ) {
+    const { registrationPreview } = await import('./registration-preview');
+    return registrationPreview(path) as T;
+  }
+  if (page === '/preview/managed' && path === 'console/managed')
+    return {
+      sponsor_number: 'PREVIEW',
+      campaign: null,
+      spent_fen: 0,
+      members: [],
+      runs: [],
+      audit: [],
+      worker_configured: false,
+      model_configured: false,
+    } as T;
+  if (
+    page === '/preview/members' &&
+    path.startsWith('console/admin/members?')
+  ) {
+    const { membersPreview } = await import('./admin-members-preview');
+    return membersPreview(path) as T;
+  }
+  if (page === '/preview/analytics' && path.startsWith('console/analytics?')) {
+    const { analyticsPreview } = await import('./analytics-preview');
+    const days = Number(new URLSearchParams(path.split('?')[1]).get('days'));
+    return analyticsPreview([7, 14, 30].includes(days) ? days : 7) as T;
+  }
   if (path.startsWith('guest/')) {
     const { initialPosts } = await import('./social/demo');
     const { demoPeople } = await import('./social/people');

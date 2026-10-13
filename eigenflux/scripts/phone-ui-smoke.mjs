@@ -50,6 +50,30 @@ await page.route('**/api/v2/**', async (route) => {
   const path = new URL(route.request().url()).pathname.replace('/api/v2/', '');
   const body = route.request().postDataJSON();
   if (path === 'console/session') return fulfill(route, session);
+  if (path === 'console/registration/progress') {
+    const body = route.request().postDataJSON();
+    assert.deepEqual(Object.keys(body), ['event']);
+    assert.ok(
+      [
+        'form',
+        'phone',
+        'code',
+        'password',
+        'confirm_password',
+        'profile',
+        'heartbeat',
+      ].includes(body.event),
+    );
+    return fulfill(route, { recorded: true });
+  }
+  if (path === 'console/analytics/heartbeat') {
+    assert.equal(
+      session.owner_bound,
+      true,
+      'heartbeat starts only after account binding',
+    );
+    return fulfill(route, { recorded: true });
+  }
   if (path === 'agents/me/onboarding-draft')
     return fulfill(route, {
       onboarding: session.onboarding,

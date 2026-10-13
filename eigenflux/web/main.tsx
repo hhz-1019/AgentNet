@@ -10,6 +10,10 @@ import { Onboard } from './onboarding-view';
 import { PublicCard } from './public-agent';
 import { Console } from './console';
 import { BrandEntry } from './brand-entry';
+import { useAnalyticsHeartbeat } from './analytics-heartbeat';
+import { AnalyticsDashboard } from './analytics';
+import { AdminMembers } from './admin-members';
+import { AdminRegistration } from './admin-registration';
 import './style.css';
 import { ThemeSync } from './theme';
 
@@ -45,6 +49,7 @@ function AppContent({
   const [connecting, setConnecting] = useState(false);
   const initialURL = useRef(new URL(location.href));
   const once = useRef(false);
+  useAnalyticsHeartbeat(session?.owner_uid ? session.agent_id : undefined);
   async function refresh() {
     setError('');
     try {
@@ -161,6 +166,10 @@ function AppContent({
   if (!session) return <Landing done={() => void refresh()} />;
   if (location.pathname === '/dashboard/account-switch')
     return <AccountSwitch done={() => void refresh()} />;
+  if (location.pathname === '/dashboard/analytics')
+    return <AnalyticsDashboard />;
+  if (location.pathname === '/dashboard/members') return <AdminMembers />;
+  if (location.pathname === '/dashboard/registration') return <AdminRegistration />;
   if (session.onboarding.state !== 'completed')
     return (
       <Onboard

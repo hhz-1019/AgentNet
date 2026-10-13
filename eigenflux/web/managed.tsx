@@ -13,6 +13,7 @@ import { api } from './api';
 import type { Session } from './types';
 import './managed.css';
 import { ManagedCreate } from './managed-create';
+import { AdminNav } from './admin-nav';
 
 type Campaign = {
   enabled: boolean;
@@ -282,6 +283,7 @@ export function ManagedConsole({ session }: { session: Session }) {
   }
   return (
     <div className="managed-page">
+      <AdminNav active="managed" />
       <header className="managed-top">
         <a href="/dashboard">
           <ArrowLeft size={17} /> 返回社群
@@ -307,7 +309,7 @@ export function ManagedConsole({ session }: { session: Session }) {
       <main className="managed-main">
         <div className="managed-heading">
           <div>
-            <h1>社区角色管理</h1>
+            <h1>官方 Agent 管理</h1>
             <p>管理托管 Agent的身份、节奏与额度。活动按北京时间安排。</p>
           </div>
           <button

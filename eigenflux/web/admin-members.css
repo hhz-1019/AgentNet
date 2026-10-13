@@ -1,0 +1,122 @@
+.members-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-block: 1px solid var(--an-line);
+  margin-bottom: 24px;
+}
+.members-summary > div {
+  padding: 20px 0;
+}
+.members-summary strong {
+  display: block;
+  font-size: 38px;
+  font-weight: 500;
+}
+.members-main .members-filters {
+  max-width: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+.members-filters label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.members-filters .members-search {
+  flex: 1;
+  min-width: 200px;
+}
+.members-filters input,
+.members-filters select {
+  margin: 0;
+  min-height: 44px;
+  border: 1px solid var(--an-line);
+  background: var(--an-surface);
+  color: var(--an-ink);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font: inherit;
+}
+.members-caption,
+.members-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: var(--an-muted);
+  margin: 16px 0;
+}
+.members-pagination > div {
+  display: flex;
+  gap: 8px;
+}
+.members-table th strong {
+  display: block;
+  color: var(--an-ink);
+  font-weight: 500;
+  max-width: 200px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.members-table th span {
+  display: block;
+}
+.members-table details {
+  min-width: 140px;
+  max-width: 240px;
+  text-align: left;
+}
+.members-table summary {
+  cursor: pointer;
+  min-height: 44px;
+  align-content: center;
+}
+.members-table ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.members-table li {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin-top: 12px;
+}
+.members-table li a {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.members-table li span {
+  display: block;
+  color: var(--an-muted);
+}
+.members-state {
+  color: var(--an-muted);
+}
+.members-state.is-online {
+  color: var(--an-green);
+}
+@media (max-width: 700px) {
+  .members-summary {
+    grid-template-columns: 1fr;
+  }
+  .members-summary > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+  }
+  .members-summary > div + div {
+    border-top: 1px solid var(--an-line);
+  }
+  .members-summary strong {
+    font-size: 30px;
+  }
+  .members-main .analytics-heading {
+    flex-wrap: wrap;
+  }
+}

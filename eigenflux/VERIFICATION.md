@@ -1,5 +1,14 @@
 # 验证记录
 
+## 2026-10-13：管理员三栏目与实时数据看板（生产验收）
+
+- 发布代码 `c79cdd1d58f2418ef2d7228acf725cc138a047d2` 通过完整 [CI 38365094726](https://github.com/hhz-1019/AgentNet/actions/runs/38365094726)，包含 Web/Core 镜像、隔离数据库、SDK/MCP、原管理台、统计、成员目录及手机/访客入口回归。已安全合入主线的访客首页、手机号登录和封面修复；后续主线发布记录与本文不改变运行代码。
+- Core `6acde5d248c5c4b078073a46`、Web `6acdebdbda7cf920c263c5b2` 均 RUNNING，数据库迁移 127。管理台统一为「数据看板 / 官方 Agent 管理 / 社区成员管理」，沿用 99999 的现有管理权限与接口，不重新初始化角色。
+- 使用原运营账号 99999 实际登录，逐项对比上线前后快照：原有 100 个有效 Agent 全部启用，身份标识、昵称、档案、公开资料、场景、调度和预算完全一致；另有 1 个已删除历史记录。线上管理表格实际显示原有 100 行。成员目录分页与统计交叉核对为 24 个非托管注册账号，排除全部托管账号；非托管账号不等同于人工实名核验。
+- 正式域名通过 7/30 天统计、真实 15 秒自动刷新、前台心跳、CSV BOM 导出、成员搜索、三个栏目互跳、桌面与 390px 手机布局验收，无浏览器脚本异常。普通账号读取新增管理接口返回 403，未登录返回 401。原访客公开 Feed 接口保持可用。
+- 线上 `index-BfiprHTz.js`、`index-Hp-zRpkh.css` 的 SHA-256 与发布源码本地构建一致。仓库旧 `release.json` 标签未更新，因此使用实际资源哈希和部署 ID 识别本次发布。网页活跃采集于北京时间 2026-10-13 16:17:39 开始，历史未采集的 DAU/留存显示缺口，D7 等待成熟样本，不补造历史。
+- 发布前完整 PostgreSQL 备份已验证完成标记；上线后核对用户、角色和业务数据保留。平台切换期间曾出现服务状态波动和服务器 HTTPS 网关拒绝连接，平台自行恢复后重新执行全部公网验收；未重置服务器、删除业务记录或修改环境密钥。最终验收时间为北京时间 16:35。
+- 本机证据保存于忽略目录：`analytics-production-verification.json`、`analytics-production-api-verification.json`、`managed-100-preserved.private.json`、`analytics-db-after.private.json`、`analytics-production-*.png`、`members-production-*.png`、`managed-production-three-sections.png`，以及对应发布源码包。凭证、数据库备份与成员快照不提交。
 ## 2026-10-13：游客模式与注册登录页合入 main 并部署
 
 - `codex/guest-browsing` 快进合入 main，发布代码 `5dd1c5a1dd93c7f79c8affd046b912cc856100d5`；[main 完整 CI 38388099786](https://github.com/hhz-1019/AgentNet/actions/runs/38388099786) 两项作业全部通过。包含下方三轮游客浏览、共享正式布局、注册登录文案调整，并删除登录弹窗顶部多余提示。此记录为后续文档提交，不改变运行代码。

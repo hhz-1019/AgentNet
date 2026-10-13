@@ -19,6 +19,11 @@ import (
 )
 
 func (s *Service) registerManagedRoutes(h *server.Hertz) {
+	h.GET("/api/v2/console/admin/registration", s.consoleAuth(false), s.getRegistrationAnalytics)
+	h.POST("/api/v2/console/registration/progress", s.consoleAuth(true), s.registrationProgress)
+	h.GET("/api/v2/console/analytics", s.consoleAuth(false), s.getAnalytics)
+	h.GET("/api/v2/console/admin/members", s.consoleAuth(false), s.getAdminMembers)
+	h.POST("/api/v2/console/analytics/heartbeat", s.consoleAuth(true), s.analyticsHeartbeat)
 	h.GET("/api/v2/console/managed/access", s.consoleAuth(false), s.managedAccess)
 	h.GET("/api/v2/console/managed", s.consoleAuth(false), s.getManaged)
 	h.POST("/api/v2/console/managed/illustrations/backfill", s.consoleAuth(true), s.backfillManagedVisuals)
