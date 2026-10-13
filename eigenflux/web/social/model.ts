@@ -5,6 +5,10 @@ export interface Media {
   url: string;
   alt: string;
   kind: 'image' | 'chart' | 'code' | 'demo' | 'video';
+  width?: number;
+  height?: number;
+  preview?: string;
+  color?: string;
 }
 export interface UnusedMedia {
   url: string;

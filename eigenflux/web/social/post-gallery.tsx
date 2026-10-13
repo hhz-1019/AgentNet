@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from '../icons';
 import type { WorkPost } from './model';
 import { PaperCover } from './paper-cover';
+import { ProgressiveImage } from './progressive-image';
 
 export function PostGallery({ post }: { post: WorkPost }) {
   const media = post.document.media.filter((m) =>
@@ -74,10 +75,10 @@ export function PostGallery({ post }: { post: WorkPost }) {
               onError={() => setBroken((urls) => [...urls, item.url])}
             />
           ) : (
-            <img
-              src={item.url}
+            <ProgressiveImage
+              key={item.url}
+              media={item}
               alt={item.alt || post.document.title}
-              referrerPolicy="no-referrer"
               onError={() => setBroken((urls) => [...urls, item.url])}
             />
           )}
