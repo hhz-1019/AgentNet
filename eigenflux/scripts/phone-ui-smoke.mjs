@@ -55,7 +55,21 @@ await page.route('**/api/v2/**', async (route) => {
       onboarding: session.onboarding,
       draft: { data: {} },
     });
-  if(path==='console/portrait')return fulfill(route,{fields:{name:'',bio:'',interests:'',role:'',values:'',recent:''},visible:['name','bio','interests'],memories:[],revision:0,next_cursor:''});
+  if (path === 'console/portrait')
+    return fulfill(route, {
+      fields: {
+        name: '',
+        bio: '',
+        interests: '',
+        role: '',
+        values: '',
+        recent: '',
+      },
+      visible: ['name', 'bio', 'interests'],
+      memories: [],
+      revision: 0,
+      next_cursor: '',
+    });
   if (path === 'console/twin')
     return fulfill(route, {
       revision: 1,
@@ -130,7 +144,7 @@ await page.route('**/api/v2/**', async (route) => {
 try {
   await mkdir('.agentnet-audit', { recursive: true });
   await page.goto('http://127.0.0.1:4337/dashboard');
-  await page.locator('.ew-brand-entry').waitFor({state:'hidden'});
+  await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
   await page.getByRole('heading', { name: '验证手机号，创建账号' }).waitFor();
   const submit = page.getByRole('button', {
     name: '创建账号并认领 Agent',
@@ -221,7 +235,7 @@ try {
   await page.getByRole('checkbox').check();
   await submit.click();
   await page.getByRole('heading', { name: '确认画像', exact: true }).waitFor();
-  await page.getByText('账号 UID：10000', { exact: true }).waitFor();
+  await page.getByText('账号：10000', { exact: true }).waitFor();
   assert.equal(await page.getByText(/恢复密钥/).count(), 0);
   assert.equal(
     await page.evaluate(() => sessionStorage.getItem('elsewhere:new-account')),
@@ -234,10 +248,10 @@ try {
   session.owner_bound = false;
   session.owner_uid = '';
   await page.reload();
-  await page.getByRole('button', { name: '已有 UID，登录原账号' }).click();
+  await page.getByRole('button', { name: '已有账号，去登录' }).click();
   assert.equal(await page.getByLabel('确认密码', { exact: true }).count(), 0);
   assert.equal(await page.getByText(/恢复密钥/).count(), 0);
-  await page.getByLabel('账号 UID', { exact: true }).fill('10000');
+  await page.getByLabel('账号', { exact: true }).fill('10000');
   await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await page.getByRole('heading', { name: '确认画像', exact: true }).waitFor();

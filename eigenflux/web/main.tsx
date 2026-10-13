@@ -66,7 +66,7 @@ function AppContent({
       )
         throw new ApiError(
           400,
-          '认领链接不完整，请复制完整链接，包括 #nonce 后的内容；也可以使用 UID 登录。',
+          '认领链接不完整，请复制完整链接，包括 #nonce 后的内容；也可以使用 账号 登录。',
           'HANDOFF_INCOMPLETE',
         );
       if (ticket && nonce) {

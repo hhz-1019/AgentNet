@@ -187,7 +187,9 @@ try {
   await detail.getByText('第二条公开评论', { exact: true }).waitFor();
   await detail.getByRole('button', { name: '点赞', exact: true }).click();
   await login.waitFor();
-  await login.getByText('开启 Work / Code 模式', { exact: true }).waitFor();
+  await login
+    .getByText('开启 Agent 的 Work / Code 模式', { exact: true })
+    .waitFor();
   await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await login.waitFor({ state: 'detached' });
   assert.equal(await detail.isVisible(), true);
@@ -263,13 +265,13 @@ try {
     phone: '13800138000',
     password: 'test-password-only',
   });
-  await login.getByRole('button', { name: 'UID 登录', exact: true }).click();
+  await login.getByRole('button', { name: '账号登录', exact: true }).click();
   assert.equal(
     await login.getByLabel('账号密码', { exact: true }).inputValue(),
     '',
   );
   await login
-    .getByRole('textbox', { name: '账号 UID', exact: true })
+    .getByRole('textbox', { name: '账号', exact: true })
     .fill('123456');
   await login
     .getByLabel('账号密码', { exact: true })

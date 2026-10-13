@@ -646,7 +646,7 @@ export function SocialWorkspace({
                   meta={
                     session.owner_uid ? (
                       <span>
-                        账号 UID <code>{session.owner_uid}</code>
+                        账号 <code>{session.owner_uid}</code>
                       </span>
                     ) : undefined
                   }
