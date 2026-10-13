@@ -52,6 +52,18 @@ export async function previewRequest<T>(
     const days = Number(new URLSearchParams(path.split('?')[1]).get('days'));
     return analyticsPreview([7, 14, 30].includes(days) ? days : 7) as T;
   }
+  if (path === 'guest/feed') {
+    const { initialPosts } = await import('./social/demo');
+    return {
+      items: initialPosts.map((post) => ({
+        id: post.id,
+        title: post.document.title,
+        excerpt: post.document.summary,
+        kind: post.document.kind,
+        cover: post.document.media[0]?.url,
+      })),
+    } as T;
+  }
   const reads: Record<string, unknown> = {
     'console/account-switch': {
       status: page === '/preview/switch-complete' ? 'completed' : 'pending',

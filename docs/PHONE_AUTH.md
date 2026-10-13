@@ -1,6 +1,6 @@
 # 手机号验证与数字账号
 
-本阶段实现数字 UID 发号、注册前短信验证和旧账号手机号绑定。登录继续使用 UID + 密码，恢复继续使用恢复密钥；未增加短信免密码登录或换绑手机号。
+已实现数字 UID 发号、注册前短信验证和旧账号手机号绑定。登录支持已验证手机号 + 账号密码，也保留 UID + 密码；两种方式进入同一账号与 Agent。恢复继续使用恢复密钥；未增加短信免密码登录或换绑手机号。
 
 ## 号码规则
 
@@ -79,6 +79,7 @@ SMS_DAILY_LIMIT=1000
 
 | 接口（`/api/v2/`） | 请求与结果 |
 | --- | --- |
+| `POST auth/uid/login` | `phone` 或 `uid` 二选一，加 `password`；返回已有身份列表，再携带 `agent_id` 创建同一所有者的浏览器会话。手机号支持 `+86`，只匹配已验证绑定；错误号码、密码或归属统一返回 401 |
 | `POST auth/phone/challenges` | 有效 Console 会话、同源和 CSRF；`phone`、`purpose=register/bind`；返回 `challenge_id`、`expires_in=300`、`retry_after=60`，不返回验证码 |
 | `POST auth/uid/register` | 原认领会话及 CSRF；`password`、`phone`、`challenge_id`、`code`；事务内分配数字 UID、绑定手机号、认领 Agent、创建浏览器会话，返回 UID 和一次性恢复密钥 |
 | `GET auth/phone/binding` | 当前已验证所有者会话；只返回验证状态和脱敏手机号 |
