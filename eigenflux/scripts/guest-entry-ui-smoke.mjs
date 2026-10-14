@@ -52,11 +52,17 @@ const posts = Array.from({ length: 26 }, (_, i) => ({
 let feedMode = 'normal';
 let loginMode = 'invalid';
 let runtimeOnly = false;
+let sessionFailure = false;
 await context.route('**/api/v2/**', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
   const path = url.pathname;
   requests.push({ path, method: request.method(), query: url.search });
+  if (path.endsWith('/console/session') && sessionFailure)
+    return route.fulfill({
+      status: 503,
+      json: { error: { message: '会话暂不可用' } },
+    });
   if (path.endsWith('/console/session') && runtimeOnly)
     return route.fulfill({
       json: {
@@ -182,6 +188,16 @@ try {
     requests.some((r) => r.path.includes('/console/analytics/heartbeat')),
     false,
   );
+  sessionFailure = true;
+  await page.reload();
+  await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
+  await page.locator('.sw-post').first().waitFor();
+  assert.equal(
+    await login.count(),
+    0,
+    'Optional session lookup cannot block readable public posts',
+  );
+  sessionFailure = false;
   runtimeOnly = false;
   await page.goto(origin + 'dashboard/attention?item=77');
   await login.waitFor();

@@ -171,7 +171,7 @@ function AppContent({
     // This settles routing/auth only. BrandEntry also waits for the mounted
     // destination's first-page data and visible image preparation tasks.
     if (session !== undefined || error || handoffError) onReady(true);
-    if (error || handoffError) onFailure(true);
+    if (handoffError || (error && location.pathname !== '/')) onFailure(true);
   }, [session, error, handoffError, onReady, onFailure]);
   if (isVisualPreview && VisualPreview)
     return (
