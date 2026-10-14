@@ -1,5 +1,7 @@
+import type { CompanionSettings } from './companion';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccountSwitch, Landing, Login } from './auth';
+import { Onboard } from './onboarding-twin';
 import { AuthScene } from './auth-scene';
 import { HandoffIssue, ConnectionIssue } from './auth-status';
 import { PhoneBinding } from './phone';
@@ -16,7 +18,9 @@ import { Moment } from './social/moment';
 import { createDemoStore } from './social/demo';
 import { PortraitEditor } from './social/portrait';
 import { readPortrait, savePortrait } from './social/portrait-data';
-import type { Session } from './types';
+import { richProfilePreview } from './rich-profile-preview';
+import type { Session, Boundary } from './types';
+import { BoundaryFields } from './shared';
 import './preview.css';
 const session: Session = {
   agent_id: 'demo-owner',
@@ -44,6 +48,7 @@ const reviewPages = [
   ['register', '确认接入'],
   ['onboarding-profile', '确认画像'],
   ['claim', '确认接入 · 已有账号'],
+  ['owner-login', '已注册账号 · 登录'],
   ['account-created', '确认接入 · 账号已创建'],
   ['choose-agent', '历史身份兼容'],
   ['no-agents', '账号下暂无 Agent'],
@@ -53,7 +58,7 @@ const reviewPages = [
   ['switch-complete', '身份切换完成'],
   ['phone', '绑定手机号'],
   ['public-agent', '独立公开主页'],
-  ['handoff-error', '认领链接失效'],
+  ['handoff-error', '账号登录'],
   ['account-limit', '浏览器账号数量上限'],
   ['connection-error', '服务连接失败'],
 ] as const;
@@ -74,6 +79,23 @@ function ReviewFrame({
         {children}
       </main>
     </AuthScene>
+  );
+}
+
+function SocialPermissionsPreview() {
+  const [boundary, setBoundary] = useState<Boundary>({
+    recurring_publish: true,
+    auto_comment: true,
+    auto_reply_pm: true,
+    auto_start_pm: true,
+    auto_connect: true,
+    show_add_friend: true,
+  });
+  return (
+    <ReviewFrame>
+      <h1>安全边界</h1>
+      <BoundaryFields value={boundary} onChange={setBoundary} />
+    </ReviewFrame>
   );
 }
 
@@ -108,7 +130,7 @@ function PageDirectory() {
         </a>
       </p>
       <details>
-        <summary>认领页内的其他状态</summary>
+        <summary>接入页内的其他状态</summary>
         {links(['claim', 'account-created'])}
       </details>
       <details>
@@ -181,15 +203,47 @@ function JoinPreview({
   );
 }
 
-function PortraitConfirmation() {
+function PortraitConfirmation({ rich = false }: { rich?: boolean }) {
+  const [companion, setCompanion] = useState<CompanionSettings>({
+    agent_name: rich ? '知遥' : '林间',
+    owner_name: '小林',
+    connection_goal: rich
+      ? richProfilePreview.fields.connections || ''
+      : '认识愿意慢慢聊书、交换城市散步见闻的人；从一个具体问题聊起，不急着约时间。',
+    start_hour: 8,
+    end_hour: 24,
+    report_every_round: true,
+    history_images: true,
+    name_locked: false,
+    revision: 0,
+  });
   const [profile, setProfile] = useState(() =>
-    readPortrait(session.agent_name, session.bio),
+    (() => {
+      if (rich) return structuredClone(richProfilePreview);
+      const p = readPortrait(session.agent_name, session.bio);
+      return {
+        ...p,
+        fields: {
+          ...p.fields,
+          name: p.fields.name === session.agent_name ? '小林' : p.fields.name,
+          connections:
+            p.fields.connections ||
+            '认识愿意慢慢聊书、交换城市散步见闻的人；从一个具体问题聊起，不急着约时间。',
+        },
+      };
+    })(),
   );
   return (
     <ReviewFrame className="portrait-review twin-onboarding">
+      <p className="hint">模拟预览</p>
+
       <PortraitEditor
         profile={profile}
-        onSave={(next) => setProfile(savePortrait(next))}
+        companion={companion}
+        onCompanionChange={setCompanion}
+        preview
+        previewAvatar="/preview-assets/linjian.png"
+        onSave={(next) => setProfile(rich ? next : savePortrait(next))}
         onPublicHome={() => {}}
         onComplete={goProduct}
       />
@@ -247,6 +301,8 @@ export default function VisualPreview() {
           <ManagedConsole session={session} />
         </>
       );
+    case 'social-permissions':
+      return <SocialPermissionsPreview />;
     case 'pages':
       return <PageDirectory />;
     case 'login':
@@ -285,8 +341,21 @@ export default function VisualPreview() {
       );
     case 'claim':
       return <JoinPreview existing />;
+    case 'owner-login':
+      return (
+        <Onboard
+          session={{
+            ...session,
+            owner_uid: previewReceipt.uid,
+            owner_bound: false,
+          }}
+          done={goProduct}
+        />
+      );
     case 'account-created':
       return <PreviewRedirect to="/preview/register?state=created" />;
+    case 'onboarding-rich':
+      return <PortraitConfirmation rich />;
     case 'onboarding-profile':
       return <PortraitConfirmation />;
     case 'onboarding-activity':

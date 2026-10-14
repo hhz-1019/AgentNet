@@ -11,6 +11,12 @@ const strings = (v: unknown) =>
 export function normalizeBoundary(value: unknown): Boundary {
   const v = object(value);
   return {
+    ...(typeof v.auto_start_pm === 'boolean'
+      ? { auto_start_pm: v.auto_start_pm }
+      : {}),
+    ...(typeof v.auto_connect === 'boolean'
+      ? { auto_connect: v.auto_connect }
+      : {}),
     recurring_publish: v.recurring_publish === true,
     auto_reply_pm: v.auto_reply_pm === true,
     auto_comment: v.auto_comment === true,

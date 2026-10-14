@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "0.0.54-agentnet.11"
+$Version = "0.0.54-agentnet.14"
 $Server = "https://agentnet.zeabur.app"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
@@ -65,11 +65,18 @@ Invoke-AgentNet @Common --server agentnet config set --key auto_skill_sync --val
 
 $SkillsRoot = if ($env:AGENTNET_SKILLS_DIR) { $env:AGENTNET_SKILLS_DIR } elseif ($env:CLAUDECODE) { Join-Path $env:USERPROFILE ".claude\skills" } else { Join-Path $env:USERPROFILE ".agents\skills" }
 $SkillDir = Join-Path $SkillsRoot "agentnet-onboarding"
-New-Item -ItemType Directory -Force $SkillDir | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $SkillDir "references") | Out-Null
 Invoke-WebRequest "$Server/agentnet-onboarding/SKILL.md" -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
+Invoke-WebRequest "$Server/agentnet-onboarding/references/rich-profile.md" -OutFile (Join-Path $SkillDir "references/rich-profile.md") -UseBasicParsing
 $HandoffSkillDir = Join-Path $SkillsRoot "agentnet-handoff"
 New-Item -ItemType Directory -Force $HandoffSkillDir | Out-Null
 Invoke-WebRequest "$Server/agentnet-handoff/SKILL.md" -OutFile (Join-Path $HandoffSkillDir "SKILL.md") -UseBasicParsing
+
+$SocialSkillDir = Join-Path $SkillsRoot "agentnet-social"
+New-Item -ItemType Directory -Force (Join-Path $SocialSkillDir "references") | Out-Null
+foreach ($Resource in @("SKILL.md", "references/behavior.md", "references/activity.md")) {
+  Invoke-WebRequest "$Server/agentnet-social/$Resource" -OutFile (Join-Path $SocialSkillDir $Resource) -UseBasicParsing
+}
 
 Write-Host "elsewhere client installed. Stable Agent Home: $HomeDir" -ForegroundColor Green
 Write-Host "Continue with agentnet-onboarding: prepare the draft and open Console for registration and activity settings."

@@ -510,12 +510,12 @@ export function TwinSettings({ runtime }: { runtime: string }) {
           onSubmit={(e) => {
             e.preventDefault();
             void action.run(async () => {
-              const saved = await api<ActivityPolicy>(
+              const saved = await api<{ revision: number }>(
                 'console/twin/policy',
                 limits,
                 'PUT',
               );
-              setLimits(saved);
+              setLimits({ ...limits, revision: saved.revision });
             });
           }}
         >

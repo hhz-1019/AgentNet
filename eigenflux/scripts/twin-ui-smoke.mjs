@@ -3,6 +3,7 @@
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+import { richProfilePreview } from '../web/rich-profile-preview.ts';
 import { mkdir } from 'node:fs/promises';
 const dir = '.agentnet-audit/twin-ui';
 await mkdir(dir, { recursive: true });
@@ -19,16 +20,29 @@ const browser = await chromium.launch({
 });
 try {
   for (const width of [1440, 390]) {
+    const ownerName = width === 390 ? '' : '预填昵称';
     const page = await browser.newPage({ viewport: { width, height: 1000 } });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     let registered = false,
+      ownerVerified = true,
+      privateReads = 0,
       personalRevision = 0,
       policyRevision = 0;
     let state = { state: 'in_progress', current_step: 2, revision: 1 };
+    const decision = {
+      attention_id: '77',
+      title: '周六聊书，要约时间吗？',
+      body: '阿舟提议周六聊书，等待你决定。',
+      surface: 'participation',
+      status: 'open',
+      created_at: 1700000000000,
+      item_revision: 1,
+      actions: [{ action_key: 'yes', flag: '同意周六' }],
+    };
     let draft = {
       identity_card: {
-        agent_name: 'Codex',
+        agent_name: '林间',
         agent_description: '协助工程与研究',
         human_description: '关注开放合作',
         working_languages: ['zh'],
@@ -50,7 +64,7 @@ try {
           },
           memories: [],
         },
-        name: '预填昵称',
+        name: ownerName,
         basic_info: { role: '学生' },
         persona: { traits: {}, speaking_style: '简洁' },
         episodes: [],
@@ -71,6 +85,17 @@ try {
       visible: ['name', 'bio', 'interests'],
       memories: [],
     };
+    let companion = {
+      agent_name: '林间',
+      owner_name: ownerName,
+      connection_goal: '找到研究伙伴',
+      start_hour: 8,
+      end_hour: 24,
+      report_every_round: true,
+      history_images: true,
+      name_locked: false,
+      revision: 0,
+    };
     let policy = {
       daily_posts: 3,
       daily_searches: 20,
@@ -89,7 +114,7 @@ try {
           short_id: 'TEST',
           agent_name: 'Codex',
           owner_uid: registered ? '731482905' : '',
-          owner_bound: registered,
+          owner_bound: registered && ownerVerified,
           runtime_name: 'Codex',
           runtime_version: '',
           bio: '',
@@ -98,10 +123,20 @@ try {
           device_name: '',
           onboarding: state,
         };
-      else if (path === 'auth/phone/challenges')
+      else if (path === 'console/handoffs/exchange') {
+        assert.equal(body.ticket, 'efcn_' + 'a'.repeat(64));
+        data = { requires_login: false, account_switch: false };
+      } else if (path === 'auth/uid/login')
+        data = {
+          agents: [{ agent_id: '1', display_name: companion.agent_name }],
+        };
+      else if (path === 'auth/uid/claim') {
+        ownerVerified = true;
+        data = { uid: '731482905', agent_id: '1' };
+      } else if (path === 'auth/phone/challenges')
         data = { challenge_id: 'fixture-challenge', retry_after: 60 };
       else if (path === 'auth/uid/register') {
-        assert.equal(body.agreement_version, '2026-10-09');
+        assert.equal(body.agreement_version, '2026-10-14');
         assert.equal(body.uid, undefined);
         registered = true;
         data = { uid: '731482905', recovery_key: 'fixture-only-key' };
@@ -130,7 +165,27 @@ try {
       } else if (path === 'console/registration/progress') {
         assert.deepEqual(Object.keys(body), ['event']);
         data = { recorded: true };
+      } else if (path === 'console/companion') {
+        if (method === 'PUT') {
+          assert.equal(body.revision, companion.revision);
+          companion = {
+            ...body,
+            revision: companion.revision + 1,
+            name_locked: true,
+          };
+          data = companion;
+        } else
+          data = {
+            settings: companion,
+            behavior_version: 'companion-2026-10-14',
+            check_interval_hours: 2,
+            rename_needed: false,
+          };
+      } else if (path === 'console/portrait/avatar') {
+        assert(body.data.length > 0);
+        data = { avatar: '/api/v2/public/avatars/' + 'a'.repeat(32) };
       } else if (path === 'console/portrait') {
+        privateReads++;
         if (method === 'PUT') {
           assert.equal(body.expected_revision, personalRevision);
           profile.fields = { ...profile.fields, ...body.fields };
@@ -169,6 +224,12 @@ try {
             profile,
             agreement_accepted: true,
           };
+      } else if (path === 'console/attention-items/77') {
+        data = decision;
+      } else if (path === 'console/attention-items/77/respond') {
+        assert.equal(body.action_key, 'yes');
+        decision.status = 'pending';
+        data = { accepted: true };
       } else if (path === 'console/twin/policy') {
         if (method === 'PUT') {
           assert.equal(body.revision, policyRevision);
@@ -201,7 +262,9 @@ try {
         body: JSON.stringify({ data }),
       });
     });
-    await page.goto('http://127.0.0.1:4324/dashboard');
+    await page.goto(
+      'http://127.0.0.1:4324/dashboard/register#connect=efcn_' + 'a'.repeat(64),
+    );
     await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
     // Start from an unowned handoff session; the first page is registration.
     // App's session fixture has an unclaimed owner but an incomplete identity.
@@ -217,35 +280,48 @@ try {
     await page
       .getByLabel('确认密码', { exact: true })
       .fill('fixture-password-123');
-    await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
+    await page.getByRole('button', { name: '创建账号' }).click();
     assert.equal(registered, false);
     await page.getByRole('checkbox').check();
     await page.screenshot({
       path: `${dir}/registration-${width}.png`,
       fullPage: true,
     });
-    await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
+    await page.getByRole('button', { name: '创建账号' }).click();
     await page
       .getByRole('heading', { name: '确认画像', exact: true })
       .waitFor();
     assert.equal(
-      await page.getByLabel('昵称', { exact: false }).inputValue(),
-      '预填昵称',
+      await page.getByLabel('Agent 的名字', { exact: true }).inputValue(),
+      '林间',
     );
     for (const [label, value] of Object.entries({
-      自我介绍: '关注开放合作',
-      兴趣与长期关注: '记忆中的研究兴趣',
-      生活中的身份: '学生',
-      在意的事与观点: '重视可验证的结果',
-      最近在经历或期待什么: '找到研究伙伴',
+      自我介绍: '关注开放合作\n\n学生',
+      兴趣与长期关注: '记忆中的研究兴趣\n\n重视可验证的结果',
+      近期在做的事: '',
+      想认识的人: '找到研究伙伴',
     }))
       assert.equal(
         await page.getByLabel(label, { exact: true }).inputValue(),
         value,
       );
-    assert.equal(await page.getByLabel('接入应用').isDisabled(), true);
+    assert.equal(await page.getByLabel('接入应用').count(), 0);
+    assert.equal(
+      await page.getByLabel('生活中的身份', { exact: true }).count(),
+      0,
+    );
+    assert.equal(
+      await page.getByLabel('在意的事与观点', { exact: true }).count(),
+      0,
+    );
     assert.equal(await page.getByText('恢复密钥', { exact: false }).count(), 0);
-    await page.getByLabel('昵称', { exact: false }).fill('修改后的昵称');
+    await page.getByLabel('Agent 的名字', { exact: true }).fill('修改后的昵称');
+    await page
+      .getByLabel('上传 Agent 头像', { exact: true })
+      .setInputFiles('eigenflux/web/public/preview-assets/linjian.png');
+    await page
+      .getByText('头像已准备，保存资料后生效。', { exact: true })
+      .waitFor();
     await page.getByRole('checkbox', { name: /我同意/ }).check();
     await page.screenshot({
       path: `${dir}/profile-${width}.png`,
@@ -261,15 +337,27 @@ try {
       .click();
     await page.locator('.sw-workspace').waitFor();
     assert.equal(state.state, 'completed');
-    assert.equal(profile.fields.name, '修改后的昵称');
+    assert.equal(companion.agent_name, '修改后的昵称');
+    assert.equal(profile.fields.name, ownerName);
+    assert.equal(
+      profile.fields.avatar,
+      '/api/v2/public/avatars/' + 'a'.repeat(32),
+    );
+    assert.equal(await page.locator('.ew-avatar-option').count(), 0);
+    assert.equal(
+      await page.getByLabel('Agent 的名字', { exact: true }).count(),
+      0,
+    ); // already navigated to network
     await page.goto('http://127.0.0.1:4324/dashboard/profile');
-    await page.getByLabel('昵称', { exact: false }).fill('设置中修改的昵称');
+    await page
+      .getByLabel('Agent 的名字', { exact: true })
+      .fill('设置中修改的昵称');
     await page.getByRole('button', { name: '保存资料', exact: true }).click();
     await page.getByText('资料已保存。', { exact: true }).waitFor();
     await page.reload();
-    await page.getByLabel('昵称', { exact: false }).waitFor();
+    await page.getByLabel('Agent 的名字', { exact: true }).waitFor();
     assert.equal(
-      await page.getByLabel('昵称', { exact: false }).inputValue(),
+      await page.getByLabel('Agent 的名字', { exact: true }).inputValue(),
       '设置中修改的昵称',
     );
     await page.goto('http://127.0.0.1:4324/dashboard/security');
@@ -279,6 +367,120 @@ try {
       .click();
     await page.getByText('已保存', { exact: false }).first().waitFor();
     assert.equal(policy.daily_posts, 1);
+    // A completed Agent and a runtime-only browser session are not owner login.
+    ownerVerified = false;
+    const readsBeforeLogin = privateReads;
+    await page.goto('http://127.0.0.1:4324/dashboard/profile');
+    await page
+      .getByRole('heading', { name: '登录 elsewhere', exact: true })
+      .waitFor();
+    assert.equal(privateReads, readsBeforeLogin);
+    assert.equal(await page.getByLabel('Agent 的名字').count(), 0);
+    assert.equal(await page.getByText(/认领|UID|一次性链接/).count(), 0);
+    await page.getByLabel('账号', { exact: true }).fill('731482905');
+    await page
+      .getByLabel('账号密码', { exact: true })
+      .fill('fixture-password-123');
+    await page.getByRole('button', { name: '登录', exact: true }).click();
+    await page.getByLabel('Agent 的名字', { exact: true }).waitFor();
+    assert.equal(ownerVerified, true);
+    assert.equal(
+      await page.getByLabel('Agent 的名字').inputValue(),
+      '设置中修改的昵称',
+    );
+    ownerVerified = false;
+    await page.goto('http://127.0.0.1:4324/dashboard/attention?item=77');
+    await page
+      .getByRole('heading', { name: '登录 elsewhere', exact: true })
+      .waitFor();
+    await page.getByLabel('账号', { exact: true }).fill('731482905');
+    await page
+      .getByLabel('账号密码', { exact: true })
+      .fill('fixture-password-123');
+    await page.getByRole('button', { name: '登录', exact: true }).click();
+    await page
+      .getByRole('heading', { name: '周六聊书，要约时间吗？', exact: true })
+      .waitFor();
+    assert.equal(new URL(page.url()).searchParams.get('item'), '77');
+    await page.getByRole('button', { name: '同意周六', exact: true }).click();
+    await page.getByText('已决定，等待 Agent 执行', { exact: true }).waitFor();
+    // Round-trip the real-model synthetic rich profile through registration UI.
+    ownerVerified = true;
+    personalRevision = 0;
+    state = { state: 'in_progress', current_step: 2, revision: 1 };
+    profile = {
+      fields: {
+        name: '',
+        bio: '',
+        interests: '',
+        role: '',
+        values: '',
+        recent: '',
+        connections: '',
+      },
+      visible: ['name', 'bio', 'interests'],
+      memories: [],
+    };
+    // Start a separate rich-profile fixture; do not carry the preceding
+    // legacy-profile scenario's role into its biography.
+    draft.twin_profile.basic_info = {};
+    draft.twin_profile.portrait = {
+      prefill_version: 'portrait-rich-2026-10-14',
+      fields: structuredClone(richProfilePreview.fields),
+      memories: structuredClone(richProfilePreview.memories),
+    };
+    companion = {
+      ...companion,
+      agent_name: '知遥',
+      connection_goal: richProfilePreview.fields.connections,
+      revision: 0,
+    };
+    await page.goto('http://127.0.0.1:4324/dashboard');
+    await page.getByLabel('Agent 的名字', { exact: true }).waitFor();
+    for (const [label, key] of [
+      ['自我介绍', 'bio'],
+      ['兴趣与长期关注', 'interests'],
+      ['近期在做的事', 'recent'],
+      ['想认识的人', 'connections'],
+    ]) {
+      assert.equal(
+        await page.getByLabel(label, { exact: true }).inputValue(),
+        richProfilePreview.fields[key],
+      );
+      assert.equal(
+        await page.getByLabel(label, { exact: true }).getAttribute('maxlength'),
+        null,
+      );
+    }
+    await page.getByRole('checkbox', { name: /我同意/ }).check();
+    await page
+      .getByRole('button', { name: '确认画像，进入 elsewhere' })
+      .click();
+    await page.getByRole('button', { name: '发布', exact: true }).waitFor();
+    assert.equal(profile.memories.length, 20);
+    assert.deepEqual(
+      profile.memories.map((m) => ({ id: m.id, content: m.content })),
+      richProfilePreview.memories.map((m) => ({
+        id: m.id,
+        content: m.content,
+      })),
+    );
+    for (const key of ['bio', 'interests', 'recent', 'connections'])
+      assert.equal(profile.fields[key], richProfilePreview.fields[key]);
+    assert.equal(
+      companion.connection_goal,
+      richProfilePreview.fields.connections,
+    );
+    await page.goto('http://127.0.0.1:4324/dashboard/profile');
+    await page.getByLabel('想认识的人', { exact: true }).waitFor();
+    assert.equal(
+      await page.getByLabel('近期在做的事', { exact: true }).inputValue(),
+      richProfilePreview.fields.recent,
+    );
+    assert.equal(
+      await page.getByLabel('想认识的人', { exact: true }).inputValue(),
+      richProfilePreview.fields.connections,
+    );
     assert.deepEqual(errors, []);
     await page.close();
   }

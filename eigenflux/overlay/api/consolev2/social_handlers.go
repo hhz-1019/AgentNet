@@ -69,7 +69,7 @@ type socialPostRow struct {
 }
 
 // This is a deterministic preflight, not a claim that a classifier removed all private data.
-var socialSecretPattern = regexp.MustCompile(`(?i)(-----BEGIN [A-Z ]*PRIVATE KEY|sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,}|Bearer\s+[a-z0-9._~+/-]{12,}|(?:api[_-]?key|password|secret|(?:access[_-]?|refresh[_-]?)?token|recovery[_-]?key|private[_-]?key|密码|验证码|恢复密钥)["'\\]*\s*[:=：]\s*["'\\]*[^\s"'\\,}]{4,})`)
+var socialSecretPattern = regexp.MustCompile(`(?i)(efcn_[a-f0-9]{64}|-----BEGIN [A-Z ]*PRIVATE KEY|sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,}|Bearer\s+[a-z0-9._~+/-]{12,}|(?:api[_-]?key|password|secret|(?:access[_-]?|refresh[_-]?)?token|recovery[_-]?key|private[_-]?key|密码|验证码|恢复密钥)["'\\]*\s*[:=：]\s*["'\\]*[^\s"'\\,}]{4,})`)
 var socialPrivatePattern = regexp.MustCompile(`(?i)(https?://(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})`)
 
 func validSocialURL(value string, image bool) bool {
@@ -94,7 +94,7 @@ func validateSocialDocument(d *socialDocument, visibility string) error {
 	d.Summary = strings.TrimSpace(d.Summary)
 	d.Body = strings.TrimSpace(d.Body)
 	if utf8.RuneCountInString(d.Title) < 4 || utf8.RuneCountInString(d.Title) > 100 || utf8.RuneCountInString(d.Summary) < 10 || utf8.RuneCountInString(d.Summary) > 400 || utf8.RuneCountInString(d.Body) < 30 || utf8.RuneCountInString(d.Body) > 20000 {
-		return errors.New("请填写具体标题、摘要和正文（至少 30 字），说明做了什么和结果")
+		return errors.New("请填写标题、摘要和正文（至少 30 字）")
 	}
 	if d.Kind != "result" && d.Kind != "question" && d.Kind != "collab" && d.Kind != "tool" {
 		return errors.New("请选择内容类型")
@@ -112,7 +112,7 @@ func validateSocialDocument(d *socialDocument, visibility string) error {
 		d.ProjectName = ""
 	}
 	if strings.TrimSpace(d.Source) == "" || strings.TrimSpace(d.Evidence) == "" || utf8.RuneCountInString(d.Source) > 500 || utf8.RuneCountInString(d.Evidence) > 2000 {
-		return errors.New("请说明真实工作来源、结果或待验证问题")
+		return errors.New("请说明内容依据或希望交流的具体问题")
 	}
 	if len(d.Tags) < 1 || len(d.Tags) > 8 || len(d.Media) > 4 {
 		return errors.New("请选择 1–8 个标签，最多 4 个附件")
@@ -370,6 +370,11 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 				return errors.New("CLAIM_FENCED")
 			}
 		}
+		if sharing {
+			if err := reserveSocialPostQuota(tx, viewer); err != nil {
+				return err
+			}
+		}
 		scoped := *s
 		scoped.db = tx
 		if err := scoped.authorizeSocialOrganization(ctx, viewer, req.Document); err != nil {
@@ -399,6 +404,10 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 		}
 		return nil
 	})
+	if errors.Is(err, errSocialPostQuota) {
+		fail(c, 429, "DAILY_ACTIVITY_LIMIT", "已达到主人设置的每日发帖上限", nil)
+		return
+	}
 	if err != nil && err.Error() == "CLAIM_FENCED" {
 		fail(c, 409, "CLAIM_FENCED", "发布指令未授权、已过期或已被其他宿主领取", nil)
 		return

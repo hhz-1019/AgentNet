@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const twinAgreementVersion = "2026-10-09"
+const twinAgreementVersion = "2026-10-14"
 
 var twinUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
@@ -179,7 +179,7 @@ func (s *Service) getTwin(_ context.Context, c *app.RequestContext) {
 		return
 	}
 	var data string
-	err := s.db.Raw(`SELECT json_build_object('revision',u.revision,'agreement_accepted',EXISTS(SELECT 1 FROM twin_agreement_acceptances a WHERE a.user_id=u.user_id AND a.version='2026-10-09'),'profile',json_build_object('name',u.name,'basic_info',u.basic_info,'persona',json_build_object('traits',p.traits,'speaking_style',p.speaking_style,'decision_style',p.decision_style,'risk_preference',p.risk_preference,'social_preference',p.social_preference),
+	err := s.db.Raw(`SELECT json_build_object('revision',u.revision,'agreement_accepted',EXISTS(SELECT 1 FROM twin_agreement_acceptances a WHERE a.user_id=u.user_id AND a.version IN ('2026-10-09','2026-10-14')),'profile',json_build_object('name',u.name,'basic_info',u.basic_info,'persona',json_build_object('traits',p.traits,'speaking_style',p.speaking_style,'decision_style',p.decision_style,'risk_preference',p.risk_preference,'social_preference',p.social_preference),
  'episodes',COALESCE((SELECT json_agg(json_build_object('id',memory_id,'content',content,'emotion_score',emotion_score,'importance',importance,'occurred_at',occurred_at,'decay_rate',decay_rate) ORDER BY created_at,memory_id) FROM twin_episodic_memory WHERE user_id=u.user_id),'[]'),
  'knowledge',COALESCE((SELECT json_agg(json_build_object('id',memory_id,'concept',concept,'description',description,'confidence',confidence) ORDER BY updated_at,memory_id) FROM twin_semantic_memory WHERE user_id=u.user_id),'[]'),
  'relationships',COALESCE((SELECT json_agg(json_build_object('id',relationship_id,'target_id',target_id,'description',description,'intimacy',intimacy,'trust',trust,'emotion',emotion) ORDER BY target_id) FROM twin_relationships WHERE user_id=u.user_id),'[]'),
@@ -323,7 +323,7 @@ func (s *Service) getTwinPolicy(_ context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	p := twinPolicy{DailyPosts: 3, DailySearches: 20, DailyFeedback: 10}
+	p := twinPolicy{DailyPosts: 10, DailySearches: 20, DailyFeedback: 10}
 	if err := s.db.Raw(`SELECT daily_posts,daily_searches,daily_feedback,revision FROM twin_agent_policy WHERE agent_id=?`, id).Scan(&p).Error; err != nil {
 		fail(c, 500, "POLICY_READ_FAILED", "额度暂时无法读取", nil)
 		return
@@ -366,14 +366,10 @@ func (s *Service) twinQuota(activity string) app.HandlerFunc {
 			c.Abort()
 			return
 		}
-		var p twinPolicy
+		p := twinPolicy{DailyPosts: 10, DailySearches: 20, DailyFeedback: 10}
 		if err := s.db.Raw(`SELECT daily_posts,daily_searches,daily_feedback,revision FROM twin_agent_policy WHERE agent_id=?`, id).Scan(&p).Error; err != nil {
 			fail(c, 503, "ACTIVITY_UNAVAILABLE", "活动额度暂时无法核对", nil)
 			c.Abort()
-			return
-		}
-		if p.Revision == 0 {
-			c.Next(ctx)
 			return
 		}
 		limit := map[string]int{"posts": p.DailyPosts, "searches": p.DailySearches, "feedback": p.DailyFeedback}[activity]

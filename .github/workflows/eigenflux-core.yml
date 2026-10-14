@@ -81,6 +81,13 @@ jobs:
         with: {node-version: '24', cache: npm}
       - run: npm ci
       - run: node eigenflux/scripts/test-config.mjs
+      - name: Pull public test dependencies with bounded retries
+        run: |
+          for attempt in 1 2 3; do
+            docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml pull postgres redis etcd elasticsearch && exit 0
+            sleep 15
+          done
+          exit 1
       - run: docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml up -d --wait --wait-timeout 240
       - name: SDK and MCP protocol acceptance against real services
         env:

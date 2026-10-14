@@ -41,11 +41,11 @@ func TestMomentDecisionLifecycle(t *testing.T) {
  ADD COLUMN delivered_at BIGINT,ADD COLUMN completed_at BIGINT;
  ALTER TABLE agent_commands ALTER COLUMN claim_epoch SET DEFAULT 0;
  CREATE UNIQUE INDEX moment_command_idempotency ON agent_commands(agent_id,idempotency_key);
- CREATE TABLE agent_context_heads(agent_id BIGINT PRIMARY KEY,active_revision BIGINT);
+ CREATE TABLE IF NOT EXISTS agent_context_heads(agent_id BIGINT PRIMARY KEY,active_revision BIGINT);
  CREATE TABLE agent_onboarding_v2(agent_id BIGINT PRIMARY KEY,state TEXT);
  INSERT INTO agent_onboarding_v2 VALUES(1,'completed'),(2,'completed');
  CREATE TABLE agent_context_revisions(agent_id BIGINT,revision BIGINT,PRIMARY KEY(agent_id,revision));
- INSERT INTO agent_context_heads VALUES(1,1),(2,1);
+ INSERT INTO agent_context_heads VALUES(1,1),(2,1) ON CONFLICT(agent_id) DO UPDATE SET active_revision=1;
  INSERT INTO agent_context_revisions VALUES(1,1),(1,2),(2,1);
  CREATE TABLE agent_runtime_leases(agent_id BIGINT,runtime_instance_id TEXT,context_revision_applied BIGINT,lease_until BIGINT,PRIMARY KEY(agent_id,runtime_instance_id));
  CREATE TABLE control_wakeup_outbox(agent_id BIGINT,event_type TEXT,entity_id BIGINT,payload JSONB,status TEXT,next_attempt_at BIGINT,created_at BIGINT);

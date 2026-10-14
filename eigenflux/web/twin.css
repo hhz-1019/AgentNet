@@ -89,3 +89,14 @@
   color: var(--ew-muted);
   cursor: not-allowed;
 }
+
+.companion-fields {
+  padding: 20px 0;
+}
+.companion-fields details {
+  margin-top: 20px;
+}
+.companion-fields summary {
+  cursor: pointer;
+  padding: 12px 0;
+}

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { api, refreshData } from '../api';
+import type { CompanionSettings, CompanionResponse } from '../companion';
 import { PortraitEditor } from './portrait';
 import {
   loadPortrait,
@@ -15,17 +17,29 @@ export function LivePortrait({
   focusMemory?: boolean;
   onSaved?: (p: SavedPortrait) => void;
 }) {
+  const [companion, setCompanion] = useState<CompanionSettings>();
   const [profile, setProfile] = useState<SavedPortrait>();
   const current = useRef<SavedPortrait | undefined>(undefined);
   const [error, setError] = useState('');
   const [attempt, retry] = useState(0);
   useEffect(() => {
     let active = true;
-    void loadPortrait()
-      .then((p) => {
+    void Promise.all([
+      loadPortrait(),
+      api<CompanionResponse>('console/companion'),
+    ])
+      .then(([p, settings]) => {
         if (active) {
+          setCompanion(settings.settings);
           current.current = p;
-          setProfile(p);
+          setProfile({
+            ...p,
+            fields: {
+              ...p.fields,
+              connections:
+                p.fields.connections || settings.settings.connection_goal,
+            },
+          });
           setError('');
         }
       })
@@ -38,6 +52,17 @@ export function LivePortrait({
   }, [attempt]);
   async function save(next: Portrait) {
     if (!current.current) throw new Error('资料尚未载入');
+    if (!companion) throw new Error('助手资料尚未载入');
+    const settings = await api<CompanionSettings>(
+      'console/companion',
+      {
+        ...companion,
+        connection_goal: (next.fields.connections || '').trim(),
+      },
+      'PUT',
+    );
+    setCompanion(settings);
+    refreshData();
     const p = await writePortrait(current.current, next);
     current.current = p;
     setProfile(p);
@@ -53,6 +78,8 @@ export function LivePortrait({
       {profile ? (
         <PortraitEditor
           profile={profile}
+          companion={companion}
+          onCompanionChange={setCompanion}
           onSave={save}
           onPublicHome={onPublicHome}
           focusMemory={focusMemory}

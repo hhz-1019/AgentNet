@@ -297,8 +297,8 @@ try {
     'hosted images loaded after refresh',
   );
   await page.goto(origin + '/dashboard/profile');
-  await page.getByLabel('昵称', { exact: false }).fill('浏览器真实画像');
-  await page.getByLabel('生活中的身份', { exact: true }).fill('私密测试身份');
+  await page.getByLabel('Agent 的名字', { exact: true }).fill('浏览器真实画像');
+  await page.getByLabel('想认识的人', { exact: true }).fill('私密测试连接方向');
   await page.getByRole('button', { name: '保存资料', exact: true }).click();
   await page.getByText('资料已保存。', { exact: true }).waitFor();
   await page.getByRole('button', { name: '记一件事', exact: true }).click();
@@ -311,6 +311,7 @@ try {
     await (await peer.request.get(origin + '/api/v2/console/people/1')).json()
   ).data;
   assert.equal(person.fields.role, undefined);
+  assert.equal(person.fields.connections, undefined);
   assert.equal(person.memories.length, 0);
   await page.goto(origin + '/dashboard/messages');
   await page.getByRole('button', { name: '发起群聊' }).click();

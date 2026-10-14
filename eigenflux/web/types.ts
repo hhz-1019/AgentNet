@@ -36,6 +36,8 @@ export interface Session {
   onboarding: Onboarding;
 }
 export interface Boundary {
+  auto_start_pm?: boolean;
+  auto_connect?: boolean;
   recurring_publish: boolean;
   auto_reply_pm: boolean;
   auto_comment: boolean;

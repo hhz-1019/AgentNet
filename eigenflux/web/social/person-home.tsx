@@ -207,6 +207,7 @@ export function PersonHome({
                   : undefined
             }
             name={name}
+            ownerName={!demo ? remote?.fields.owner_name : undefined}
             bio={
               !own || portrait.visible.includes('bio') ? fields?.bio : undefined
             }

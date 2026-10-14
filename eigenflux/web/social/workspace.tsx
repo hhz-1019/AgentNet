@@ -188,6 +188,28 @@ export function SocialWorkspace({
   const [pending, setPending] = useState<string[]>([]);
   const [publisher, setPublisher] = useState<WorkPost | true>();
   const [detail, setDetail] = useState<WorkPost>();
+  const [linkVersion, setLinkVersion] = useState(0);
+  useEffect(() => {
+    const update = () => setLinkVersion((v) => v + 1);
+    window.addEventListener('popstate', update);
+    return () => window.removeEventListener('popstate', update);
+  }, []);
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get('post');
+    if (!id || route !== 'explore' || !/^\d+$/.test(id)) return;
+    let active = true;
+    void store
+      .get(id)
+      .then((post) => {
+        if (active) setDetail(post);
+      })
+      .catch(() => {
+        if (active) setNotice('这条动态暂时无法访问。');
+      });
+    return () => {
+      active = false;
+    };
+  }, [route, store, linkVersion]);
   const workspace = useRef<HTMLDivElement>(null);
   const atmosphere = useJournalAtmosphere(
     workspace,
@@ -685,7 +707,9 @@ export function SocialWorkspace({
             <strong>
               {guest
                 ? '登录 / 加入'
-                : portrait.fields.name || session.agent_name}
+                : demo
+                  ? portrait.fields.name || session.agent_name
+                  : session.agent_name}
             </strong>
           </span>
         </a>
@@ -727,7 +751,12 @@ export function SocialWorkspace({
                 <SocialIdentity
                   agentId={session.agent_id}
                   avatar={portrait.fields.avatar}
-                  name={portrait.fields.name || session.agent_name}
+                  name={
+                    demo
+                      ? portrait.fields.name || session.agent_name
+                      : session.agent_name
+                  }
+                  ownerName={!demo ? portrait.fields.name : undefined}
                   bio={profileIntro}
                   interests={portrait.fields.interests}
                   accessibleName="我的身份"
@@ -737,7 +766,7 @@ export function SocialWorkspace({
                           .filter((field) => field.key !== 'name')
                           .map((field) => ({
                             label: field.label,
-                            value: portrait.fields[field.key],
+                            value: portrait.fields[field.key] || '',
                           }))
                       : [{ label: '自我介绍', value: profileIntro || '' }]
                   }
@@ -1231,7 +1260,11 @@ export function SocialWorkspace({
           draftKey={session.agent_id}
           mode="direct"
           upload={demo ? undefined : uploadAttachment}
-          authorName={portrait.fields.name || session.agent_name}
+          authorName={
+            demo
+              ? portrait.fields.name || session.agent_name
+              : session.agent_name
+          }
           agentId={session.agent_id}
           avatar={portrait.fields.avatar}
           onClose={() => setPublisher(undefined)}
@@ -1301,7 +1334,9 @@ export function SocialWorkspace({
           viewer={{
             avatar: portrait.fields.avatar,
             id: session.agent_id,
-            name: portrait.fields.name || session.agent_name,
+            name: demo
+              ? portrait.fields.name || session.agent_name
+              : session.agent_name,
           }}
           sourceRect={detailOrigin.current}
           initialScroll={detailPosition.current}
@@ -1311,6 +1346,11 @@ export function SocialWorkspace({
           onClose={() => {
             const id = detail.id;
             setDetail(undefined);
+            const url = new URL(location.href);
+            if (url.searchParams.has('post')) {
+              url.searchParams.delete('post');
+              history.replaceState(history.state, '', url);
+            }
             requestAnimationFrame(() => {
               const origin = Array.from(
                 document.querySelectorAll<HTMLElement>(

@@ -8,6 +8,11 @@ void test('structured JSON, nested credentials and quoted provider keys are bloc
     model: 'fixture',
   });
   const cases = [
+    {
+      text:
+        'https://agentnet.zeabur.app/dashboard/register#connect=efcn_' +
+        'a'.repeat(64),
+    },
     { password: 'do-not-share-123' },
     { nested: { access_token: 'private-access-123' } },
     { recovery_key: 'recovery-example' },

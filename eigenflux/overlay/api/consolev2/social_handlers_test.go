@@ -355,6 +355,7 @@ func TestSocialAgentShareAuthorizationAndRetry(t *testing.T) {
 	h := server.New()
 	inject := func(ctx context.Context, c *app.RequestContext) { c.Set("agent_id", int64(1)); c.Next(ctx) }
 	h.POST("/api/v2/social/share", inject, s.createSocialDraft)
+	defer db.Exec("DELETE FROM twin_daily_usage WHERE agent_id=1 AND activity='posts'")
 	call := func(req socialWriteRequest, want int) map[string]any {
 		t.Helper()
 		data, _ := json.Marshal(req)

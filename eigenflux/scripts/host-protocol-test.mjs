@@ -34,6 +34,7 @@ try {
     'official-assistant',
     'community-activation',
     'social-workspace',
+    'account-connection',
   ])
     await run(
       'git',
@@ -47,7 +48,12 @@ try {
   await cp('eigenflux/overlay/cli', join(dir, 'cli'), { recursive: true });
   await run(
     process.env.AGENTNET_GO_BINARY || 'go',
-    ['test', './cmd', '-run', 'TestHandoff|TestPortraitProvision', '-count=1'],
+    ['test', './cmd', '-count=1'],
+    join(dir, 'cli'),
+  );
+  await run(
+    process.env.AGENTNET_GO_BINARY || 'go',
+    ['test', './internal/auth', '-run', '^TestV2CredentialsLock', '-count=1'],
     join(dir, 'cli'),
   );
   const binary = join(
@@ -125,7 +131,7 @@ try {
         models++;
         const input = JSON.parse(body.messages[1].content);
         if (input.instruction)
-          assert.equal(input.owner_goal, '整理可复现的真实工作记录');
+          assert.equal(input.owner_goal, '认识愿意慢慢聊书的人');
         const content = input.instruction
           ? {
               reply: '根据提供的真实工作记录提出私有草稿，等待主人确认。',
@@ -197,6 +203,23 @@ try {
                     security_boundary: { recurring_publish: false },
                   },
                 };
+          break;
+        case '/api/v2/agent-context/companion':
+          data = {
+            settings: {
+              agent_name: '林间',
+              owner_name: '读书的人',
+              connection_goal: '认识愿意慢慢聊书的人',
+            },
+            rename_needed: false,
+          };
+          break;
+        case '/api/v2/agent-context/portrait':
+          data = {
+            fields: { interests: '书与散步' },
+            memories: [],
+            revision: 1,
+          };
           break;
         case '/api/v2/runtime/heartbeat':
           assert.equal(body.applied_context_revision, 1);

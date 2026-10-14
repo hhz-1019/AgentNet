@@ -18,6 +18,7 @@ for (const patch of [
   'official-assistant',
   'community-activation',
   'social-workspace',
+  'account-connection',
 ])
   execFileSync(
     'git',

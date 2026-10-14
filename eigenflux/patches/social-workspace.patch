@@ -1,5 +1,5 @@
 diff --git a/api/consolev2/account_session_handlers.go b/api/consolev2/account_session_handlers.go
-index d44feb0..705de32 100644
+index 3f49b1b..293275c 100644
 --- a/api/consolev2/account_session_handlers.go
 +++ b/api/consolev2/account_session_handlers.go
 @@ -67,11 +67,17 @@ func consoleCredential(c *app.RequestContext, slot int) (consoleCookieCredential
@@ -31,7 +31,7 @@ index d44feb0..705de32 100644
  }
  
 diff --git a/api/consolev2/attention_publish_handlers.go b/api/consolev2/attention_publish_handlers.go
-index f9d8109..b48c158 100644
+index 8e43c23..d91d365 100644
 --- a/api/consolev2/attention_publish_handlers.go
 +++ b/api/consolev2/attention_publish_handlers.go
 @@ -45,10 +45,11 @@ type attentionSourceRef struct {
@@ -91,7 +91,7 @@ index f9d8109..b48c158 100644
  	goalRevisions := make([]int64, 0, len(items))
  	intentIDs := make([]int64, 0, len(items))
 diff --git a/api/consolev2/attention_response_handlers.go b/api/consolev2/attention_response_handlers.go
-index c1dc412..d9c673a 100644
+index 7055a3c..a5818cf 100644
 --- a/api/consolev2/attention_response_handlers.go
 +++ b/api/consolev2/attention_response_handlers.go
 @@ -7,13 +7,17 @@ import (
@@ -156,13 +156,22 @@ index c1dc412..d9c673a 100644
  		if marshalErr != nil {
  			return marshalErr
 diff --git a/api/consolev2/capability_registry.go b/api/consolev2/capability_registry.go
-index c403feb..57aad06 100644
+index 371798b..77ca489 100644
 --- a/api/consolev2/capability_registry.go
 +++ b/api/consolev2/capability_registry.go
-@@ -82,6 +82,24 @@ func capabilitySeeds() []capabilitySeed {
+@@ -82,6 +82,33 @@ func capabilitySeeds() []capabilitySeed {
  		capability("identity.legacy_login", "eigenflux auth login", "identity", "write", "旧版邮箱登录", "Legacy email login"),
  		capability("identity.legacy_verify", "eigenflux auth verify", "identity", "write", "验证旧版邮箱登录", "Verify legacy email login"),
  		capability("identity.logout", "eigenflux auth logout", "identity", "write", "退出旧版登录", "Log out of legacy authentication"),
++		capability("elsewhere.post", "eigenflux elsewhere post", "network", "read", "读取可见帖子", "post"),
++		capability("elsewhere.comments", "eigenflux elsewhere comments", "network", "read", "读取可见评论", "comments"),
++		capability("elsewhere.comment", "eigenflux elsewhere comment", "network", "write", "按授权评论", "comment"),
++		capability("elsewhere.react", "eigenflux elsewhere react", "network", "write", "点赞与收藏", "react"),
++		capability("elsewhere.person", "eigenflux elsewhere person", "network", "read", "读取公开主页", "person"),
++		capability("elsewhere.follow", "eigenflux elsewhere follow", "network", "write", "按授权关注", "follow"),
++		capability("elsewhere.avatar", "eigenflux elsewhere avatar", "profile", "write", "上传个人头像供主人确认", "Upload a personal avatar for owner review"),
++		capability("elsewhere.companion", "eigenflux elsewhere companion", "profile", "read", "读取伙伴身份与连接目标", "Read companion identity and connection goal"),
++		capability("elsewhere.name", "eigenflux elsewhere name", "profile", "write", "仅为工具名身份自取个人名字", "Repair a legacy tool name while preserving identity"),
 +		capability("elsewhere.portrait", "eigenflux elsewhere portrait", "profile", "read", "读取私有画像", "Read private portrait"),
 +		capability("elsewhere.sync_portrait", "eigenflux elsewhere sync-portrait", "profile", "write", "增量同步私有画像", "Sync private portrait"),
 +		capability("elsewhere.groups", "eigenflux elsewhere groups", "network", "read", "读取群列表", "Read groups"),
@@ -173,9 +182,9 @@ index c403feb..57aad06 100644
 +		capability("twin.policy", "eigenflux twin policy", "profile", "read", "读取每日活动额度", "Read daily activity limits"),
 +		capability("handoff.notify", "eigenflux handoff notify", "runtime", "read", "读取交接提醒", "Read handoff notifications"),
 +		capability("handoff.setup_codex", "eigenflux handoff setup-codex", "runtime", "write", "配置授权的本地提醒", "Configure authorized local reminders"),
-+		capability("social.share", "eigenflux social share", "network", "write", "按主人本次授权分享工作", "Share owner-authorized work"),
-+		capability("social.upload", "eigenflux social upload", "network", "write", "上传真实工作配图", "Upload work images"),
-+		capability("social.posts", "eigenflux social posts", "network", "read", "发现真实工作成果", "Read visible work posts"),
++		capability("social.share", "eigenflux social share", "network", "write", "按主人授权分享帖子", "Share an owner-authorized post"),
++		capability("social.upload", "eigenflux social upload", "network", "write", "上传真实可公开配图", "Upload publishable images"),
++		capability("social.posts", "eigenflux social posts", "network", "read", "阅读可见交流帖子", "Read visible social posts"),
 +		capability("social.propose", "eigenflux social propose", "network", "write", "提交私有成果草稿供主人确认", "Propose a private work draft for owner approval"),
 +		capability("handoff.send", "eigenflux handoff send", "network", "write", "私密交接项目给联系人", "Send a private project handoff"),
 +		capability("handoff.inbox", "eigenflux handoff inbox", "network", "read", "查看项目交接收件箱", "Read project handoff inbox"),
@@ -184,11 +193,22 @@ index c403feb..57aad06 100644
  		capability("profile.read", "eigenflux profile show", "profile", "read", "查看 Agent 资料", "View Agent profile"),
  		capability("profile.update", "eigenflux profile patch", "profile", "write", "修改 Agent Card", "Update Agent Card"),
  		capability("profile.legacy_update", "eigenflux profile update", "profile", "write", "兼容更新 Agent 资料", "Update the Agent profile through the compatibility command"),
-@@ -203,6 +221,11 @@ func capabilitySeeds() []capabilitySeed {
+@@ -157,6 +184,7 @@ func capabilitySeeds() []capabilitySeed {
+ 		capability("runtime.heartbeat", "eigenflux runtime heartbeat", "runtime", "write", "上报 Runtime 心跳", "Report a runtime heartbeat"),
+ 		capability("runtime.commands.pending", "eigenflux runtime command pending", "runtime", "read", "查看待执行命令", "List pending runtime commands"),
+ 		capability("runtime.commands.claim", "eigenflux runtime command claim", "runtime", "write", "认领 Runtime 命令", "Claim a runtime command"),
++		capability("runtime.commands.renew", "eigenflux runtime command renew", "runtime", "write", "延长 Runtime 命令租约", "Renew a runtime command lease"),
+ 		capability("runtime.commands.complete", "eigenflux runtime command complete", "runtime", "write", "完成 Runtime 命令", "Complete a runtime command"),
+ 		capability("migration.run", "eigenflux migrate", "local", "write", "迁移本地 CLI 数据", "Migrate local CLI data"),
+ 		capability("diagnostics.run", "eigenflux doctor", "local", "read", "运行诊断", "Run diagnostics"),
+@@ -203,6 +231,14 @@ func capabilitySeeds() []capabilitySeed {
  		if seed.id == "attention.prefill" {
  			seed.availability = "pre_onboarding"
  		}
 +		if strings.HasPrefix(seed.id, "elsewhere.") { seed.minCLI = "0.0.54-agentnet.9" }
++		if seed.id == "elsewhere.companion" || seed.id == "elsewhere.name" || seed.id == "elsewhere.avatar" || seed.id == "elsewhere.post" || seed.id == "elsewhere.comments" || seed.id == "elsewhere.comment" || seed.id == "elsewhere.react" || seed.id == "elsewhere.person" || seed.id == "elsewhere.follow" { seed.minCLI = "0.0.54-agentnet.11" }
++		if seed.id == "elsewhere.avatar" { seed.availability = "pre_onboarding" }
++		if seed.id == "runtime.commands.renew" { seed.minCLI = "0.0.54-agentnet.14" }
 +		if strings.HasPrefix(seed.id, "twin.") { seed.minCLI = "0.0.54-agentnet.8" }
 +		if strings.HasPrefix(seed.id, "social.") { seed.minCLI = "0.0.54-agentnet.3" }
 +		if seed.id == "social.share" || seed.id == "social.upload" { seed.minCLI = "0.0.54-agentnet.5" }
@@ -197,7 +217,7 @@ index c403feb..57aad06 100644
  			seed.id == "settings.sync" ||
  			seed.id == "skills.sync" || strings.HasPrefix(seed.id, "feed.event.") || seed.id == "feed.feedback" ||
 diff --git a/api/consolev2/command_handlers.go b/api/consolev2/command_handlers.go
-index c32f1fa..7335ce6 100644
+index 702bd82..201df5e 100644
 --- a/api/consolev2/command_handlers.go
 +++ b/api/consolev2/command_handlers.go
 @@ -188,7 +188,18 @@ func commandResponse(row commandView) map[string]interface{} {
@@ -294,10 +314,10 @@ index c32f1fa..7335ce6 100644
  				CASE WHEN command_type = 'attention_response' THEN COALESCE(payload->>'terminal', 'false') = 'true'
  					 ELSE false END AS terminal`,
 diff --git a/api/consolev2/onboarding_handlers.go b/api/consolev2/onboarding_handlers.go
-index 67f2c14..e613fd4 100644
+index b73670e..3a69c61 100644
 --- a/api/consolev2/onboarding_handlers.go
 +++ b/api/consolev2/onboarding_handlers.go
-@@ -452,6 +452,7 @@ type identityCardDraft struct {
+@@ -469,6 +469,7 @@ type identityCardDraft struct {
  }
  
  type draftPayload struct {
@@ -305,7 +325,7 @@ index 67f2c14..e613fd4 100644
  	IdentityCard     identityCardDraft `json:"identity_card"`
  	SecurityBoundary struct {
  		RecurringPublish bool `json:"recurring_publish"`
-@@ -475,6 +476,7 @@ var (
+@@ -492,6 +493,7 @@ var (
  )
  
  func validateDraftPayload(payload draftPayload) error {
@@ -314,7 +334,7 @@ index 67f2c14..e613fd4 100644
  		return errors.New("identity card exceeds its length limit")
  	}
 diff --git a/api/consolev2/onboarding_provenance.go b/api/consolev2/onboarding_provenance.go
-index 46185e5..74c99ea 100644
+index b8e37a0..9fade96 100644
 --- a/api/consolev2/onboarding_provenance.go
 +++ b/api/consolev2/onboarding_provenance.go
 @@ -52,6 +52,7 @@ var onboardingDraftFieldPaths = []string{
@@ -335,10 +355,10 @@ index 46185e5..74c99ea 100644
  		paths = onboardingDraftFieldPaths[16:17]
  	case 4:
 diff --git a/api/consolev2/service.go b/api/consolev2/service.go
-index e883f79..061471e 100644
+index 5d7f67f..99c4114 100644
 --- a/api/consolev2/service.go
 +++ b/api/consolev2/service.go
-@@ -356,6 +356,7 @@ func (s *Service) Register(h *server.Hertz) {
+@@ -365,6 +365,7 @@ func (s *Service) Register(h *server.Hertz) {
  	if s.enablePublicRegistration {
  		h.POST("/api/v2/agent-identities/registration-challenges", s.issuePublicRegistrationChallenge)
  	}
@@ -346,7 +366,7 @@ index e883f79..061471e 100644
  	h.POST("/api/v2/agent-identities/provision", s.provision)
  	h.POST("/api/v2/agent-sessions/refresh-challenges", s.createRefreshChallenge)
  	h.POST("/api/v2/agent-sessions/refresh", s.refreshAgentSession)
-@@ -408,14 +409,43 @@ func (s *Service) Register(h *server.Hertz) {
+@@ -434,14 +435,43 @@ func (s *Service) Register(h *server.Hertz) {
  	h.GET("/api/v2/console/today/status", s.consoleAuth(false), s.requireCompleted, s.getTodayStatus)
  	h.GET("/api/v2/console/today/brief", s.consoleAuth(false), s.requireCompleted, s.getTodayBrief)
  	h.GET("/api/v2/console/home/discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
@@ -393,7 +413,7 @@ index e883f79..061471e 100644
  		h.GET("/api/v2/notifications/pending", s.agentAuth("feed:read"), s.listPendingNotifications)
  		h.POST("/api/v2/notifications/ack", s.agentAuth("notifications:ack"), s.ackPendingNotifications)
  	}
-@@ -429,7 +459,7 @@ func (s *Service) Register(h *server.Hertz) {
+@@ -455,7 +485,7 @@ func (s *Service) Register(h *server.Hertz) {
  	}
  	if s.enableAttentionV1 {
  		h.POST("/api/v2/agent-attention-items/prefill", s.agentAuth("attention:prefill"), s.requireIncomplete, s.prefillAttentionItems)
@@ -402,7 +422,7 @@ index e883f79..061471e 100644
  		h.GET("/api/v2/console/attention-items", s.consoleAuth(false), s.requireCompleted, s.listAttentionItems)
  		h.GET("/api/v2/console/attention-items/:attention_id", s.consoleAuth(false), s.requireCompleted, s.getAttentionItem)
  		h.GET("/api/v2/console/attention-items/:attention_id/source", s.consoleAuth(false), s.requireCompleted, s.getAttentionSource)
-@@ -464,7 +494,7 @@ func (s *Service) Register(h *server.Hertz) {
+@@ -490,7 +520,7 @@ func (s *Service) Register(h *server.Hertz) {
  		h.GET("/api/v2/console/events/ws", s.consoleAuth(false), s.requireCompleted, s.streamCommunicationEvents)
  	}
  
@@ -411,7 +431,7 @@ index e883f79..061471e 100644
  	h.DELETE("/api/v2/broadcasts/:item_id", s.agentAuth("broadcast:write"), s.requireCompleted, apihandler.DeleteMyItem)
  	h.GET("/api/v2/agents/me/broadcasts", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMyItems)
  	h.GET("/api/v2/agent-profile", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMe)
-@@ -476,9 +506,9 @@ func (s *Service) Register(h *server.Hertz) {
+@@ -502,9 +532,9 @@ func (s *Service) Register(h *server.Hertz) {
  	// V2 aliases preserve the stable CLI request/response bodies while the CLI
  	// transitions to the canonical routes above. They use Agent V2 auth only.
  	h.GET("/api/v2/items/:item_id", s.agentAuth("feed:read"), s.requireCompleted, apihandler.GetItem)
@@ -425,7 +445,7 @@ index e883f79..061471e 100644
  	h.POST("/api/v2/pm/send", s.agentAuth("communication:write"), s.requireCompleted, apihandler.SendPM)
  	h.GET("/api/v2/pm/history", s.agentAuth("communication:read"), s.requireCompleted, apihandler.GetConvHistory)
 diff --git a/api/main.go b/api/main.go
-index 1723273..05faaaa 100644
+index 646d711..faa2554 100644
 --- a/api/main.go
 +++ b/api/main.go
 @@ -254,6 +254,7 @@ func main() {
@@ -437,7 +457,7 @@ index 1723273..05faaaa 100644
  	)
  	h.Use(hertztracing.ServerMiddleware(tracerCfg))
 diff --git a/cli/cmd/attention.go b/cli/cmd/attention.go
-index f3f52c7..e9a6052 100644
+index 4e7ffc2..4d5e962 100644
 --- a/cli/cmd/attention.go
 +++ b/cli/cmd/attention.go
 @@ -117,10 +117,11 @@ type attentionSourceRef struct {
@@ -457,7 +477,7 @@ index f3f52c7..e9a6052 100644
  
  type attentionAction struct {
 diff --git a/cli/cmd/attention_result.go b/cli/cmd/attention_result.go
-index 13b5d4a..7482049 100644
+index caa91ce..0c8474e 100644
 --- a/cli/cmd/attention_result.go
 +++ b/cli/cmd/attention_result.go
 @@ -21,6 +21,7 @@ type attentionRuntimeResultEntity struct {
@@ -479,7 +499,7 @@ index 13b5d4a..7482049 100644
  		return fmt.Errorf("summary is required and must not exceed 500 characters")
  	}
 diff --git a/cli/cmd/publish.go b/cli/cmd/publish.go
-index 20faceb..d8f87b9 100644
+index 29d7eb5..c6ce64e 100644
 --- a/cli/cmd/publish.go
 +++ b/cli/cmd/publish.go
 @@ -45,7 +45,7 @@ Examples:
@@ -492,7 +512,7 @@ index 20faceb..d8f87b9 100644
  		if withContext {
  			outputData, err = withControlContext(activeServerName(), outputData)
 diff --git a/cli/cmd/runtime_v2.go b/cli/cmd/runtime_v2.go
-index e1965e6..bcc8930 100644
+index 0317a2e..96ee64a 100644
 --- a/cli/cmd/runtime_v2.go
 +++ b/cli/cmd/runtime_v2.go
 @@ -83,11 +83,13 @@ var runtimeV2CommandPendingCmd = &cobra.Command{
