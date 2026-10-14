@@ -48,7 +48,7 @@ for (const name of names) {
     throw new Error(`Migration ${name}: ${error.message}`);
   }
 }
-const port = 15443,
+const port = process.argv.includes('--erasure') ? 15446 : 15443,
   socket = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
 await socket.start();
 try {
@@ -59,9 +59,11 @@ try {
         'test',
         './api/consolev2',
         '-run',
-        process.argv.includes('--analytics')
-          ? '^TestAnalytics'
-          : 'TestManaged|TestAccountConnection',
+        process.argv.includes('--erasure')
+          ? '^TestAccountErasure'
+          : process.argv.includes('--analytics')
+            ? '^TestAnalytics'
+            : 'TestManaged|TestAccountConnection',
         '-count=1',
         '-v',
       ],
@@ -80,7 +82,11 @@ try {
     child.once('error', fail);
     child.once('exit', (code) => done(code ?? 1));
   });
-  if (process.exitCode === 0 && !process.argv.includes('--analytics')) {
+  if (
+    process.exitCode === 0 &&
+    !process.argv.includes('--analytics') &&
+    !process.argv.includes('--erasure')
+  ) {
     await verifyManagedWritingMigration(
       db,
       (

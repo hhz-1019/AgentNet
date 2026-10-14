@@ -1,3 +1,4 @@
+import { AccountDeletion } from './account-deletion';
 import type { CompanionSettings } from './companion';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccountSwitch, Landing, Login } from './auth';
@@ -244,6 +245,23 @@ export default function VisualPreview() {
       document.title = `${title || '页面目录'} · elsewhere`;
   }, [page, title]);
   switch (page) {
+    case 'account-deletion':
+      return (
+        <ReviewFrame>
+          <h1>账号设置</h1>
+          <p>账号 100001</p>
+          <AccountDeletion
+            account="100001"
+            preview={{
+              account: '100001',
+              agents: 1,
+              posts: 7,
+              messages: 8,
+              memories: 4,
+            }}
+          />
+        </ReviewFrame>
+      );
     case 'analytics':
       return <AnalyticsDashboard preview />;
     case 'registration':

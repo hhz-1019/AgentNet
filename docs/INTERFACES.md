@@ -2,6 +2,8 @@
 
 这里是维护索引，不另行维护一份可能失真的生成式 OpenAPI。HTTP 路由和请求结构以固定上游及 overlay 的 Go 注册器/结构体为准；浏览器消费类型在 `eigenflux/web/types.ts`，MCP 入参在 `eigenflux/client/mcp.mjs`，SDK 映射在 `sdk.mjs`。新增字段应同时更新其消费者和回归用例。
 
+账号永久注销见 [账号注销](ACCOUNT_DELETION.md)。
+
 ## 人类接口
 
 下表路径均相对 `/api/v2/`。Console 使用同源 Cookie 会话，写请求带当前账号槽位的 `X-CSRF-Token`；不能把这些 Cookie 交给 Agent。账号切换先由服务端确认归属，再刷新整个会话上下文。

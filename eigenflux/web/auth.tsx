@@ -182,6 +182,9 @@ export function Login({
         }, '');
       }}
     >
+      {new URLSearchParams(location.search).get('account_deleted') === '1' && (
+        <output>账号已注销，手机号已解除绑定。搜索缓存将在后台清理。</output>
+      )}
       <h2>{mode === 'register' ? '验证手机号，创建账号' : '登录 elsewhere'}</h2>
       {mode === 'login' && (
         <fieldset className="auth-login-methods" aria-label="登录方式">

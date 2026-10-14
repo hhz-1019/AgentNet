@@ -1,3 +1,4 @@
+import { AccountDeletion } from '../account-deletion';
 import { ThemeSwitcher } from '../theme';
 import { useEntryPreparation } from '../entry-preparation';
 import { UnreadDot, useUnreadMessages } from '../unread';
@@ -1173,6 +1174,12 @@ export function SocialWorkspace({
                     退出登录
                   </button>
                 )
+              )}
+              {!guest && !demo && session.owner_bound && (
+                <AccountDeletion
+                  key={session.owner_uid}
+                  account={session.owner_uid}
+                />
               )}
             </section>
           </section>
