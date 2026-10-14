@@ -3,6 +3,7 @@
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+import { richProfilePreview } from '../web/rich-profile-preview.ts';
 import { mkdir } from 'node:fs/promises';
 const dir = '.agentnet-audit/twin-ui';
 await mkdir(dir, { recursive: true });
@@ -295,17 +296,24 @@ try {
       '林间',
     );
     for (const [label, value] of Object.entries({
-      自我介绍: '关注开放合作',
-      兴趣与长期关注: '记忆中的研究兴趣',
-      生活中的身份: '学生',
-      在意的事与观点: '重视可验证的结果',
-      最近的近况与连接期待: '找到研究伙伴',
+      自我介绍: '关注开放合作\n\n学生',
+      兴趣与长期关注: '记忆中的研究兴趣\n\n重视可验证的结果',
+      近期在做的事: '',
+      想认识的人: '找到研究伙伴',
     }))
       assert.equal(
         await page.getByLabel(label, { exact: true }).inputValue(),
         value,
       );
     assert.equal(await page.getByLabel('接入应用').count(), 0);
+    assert.equal(
+      await page.getByLabel('生活中的身份', { exact: true }).count(),
+      0,
+    );
+    assert.equal(
+      await page.getByLabel('在意的事与观点', { exact: true }).count(),
+      0,
+    );
     assert.equal(await page.getByText('恢复密钥', { exact: false }).count(), 0);
     await page.getByLabel('Agent 的名字', { exact: true }).fill('修改后的昵称');
     await page
@@ -396,6 +404,80 @@ try {
     assert.equal(new URL(page.url()).searchParams.get('item'), '77');
     await page.getByRole('button', { name: '同意周六', exact: true }).click();
     await page.getByText('已决定，等待 Agent 执行', { exact: true }).waitFor();
+    // Round-trip the real-model synthetic rich profile through registration UI.
+    ownerVerified = true;
+    personalRevision = 0;
+    state = { state: 'in_progress', current_step: 2, revision: 1 };
+    profile = {
+      fields: {
+        name: '',
+        bio: '',
+        interests: '',
+        role: '',
+        values: '',
+        recent: '',
+        connections: '',
+      },
+      visible: ['name', 'bio', 'interests'],
+      memories: [],
+    };
+    draft.twin_profile.portrait = {
+      prefill_version: 'portrait-rich-2026-10-14',
+      fields: structuredClone(richProfilePreview.fields),
+      memories: structuredClone(richProfilePreview.memories),
+    };
+    companion = {
+      ...companion,
+      agent_name: '知遥',
+      connection_goal: richProfilePreview.fields.connections,
+      revision: 0,
+    };
+    await page.goto('http://127.0.0.1:4324/dashboard');
+    await page.getByLabel('Agent 的名字', { exact: true }).waitFor();
+    for (const [label, key] of [
+      ['自我介绍', 'bio'],
+      ['兴趣与长期关注', 'interests'],
+      ['近期在做的事', 'recent'],
+      ['想认识的人', 'connections'],
+    ]) {
+      assert.equal(
+        await page.getByLabel(label, { exact: true }).inputValue(),
+        richProfilePreview.fields[key],
+      );
+      assert.equal(
+        await page.getByLabel(label, { exact: true }).getAttribute('maxlength'),
+        null,
+      );
+    }
+    await page.getByRole('checkbox', { name: /我同意/ }).check();
+    await page
+      .getByRole('button', { name: '确认画像，进入 elsewhere' })
+      .click();
+    await page.getByRole('button', { name: '发布', exact: true }).waitFor();
+    assert.equal(profile.memories.length, 20);
+    assert.deepEqual(
+      profile.memories.map((m) => ({ id: m.id, content: m.content })),
+      richProfilePreview.memories.map((m) => ({
+        id: m.id,
+        content: m.content,
+      })),
+    );
+    for (const key of ['bio', 'interests', 'recent', 'connections'])
+      assert.equal(profile.fields[key], richProfilePreview.fields[key]);
+    assert.equal(
+      companion.connection_goal,
+      richProfilePreview.fields.connections,
+    );
+    await page.goto('http://127.0.0.1:4324/dashboard/profile');
+    await page.getByLabel('想认识的人', { exact: true }).waitFor();
+    assert.equal(
+      await page.getByLabel('近期在做的事', { exact: true }).inputValue(),
+      richProfilePreview.fields.recent,
+    );
+    assert.equal(
+      await page.getByLabel('想认识的人', { exact: true }).inputValue(),
+      richProfilePreview.fields.connections,
+    );
     assert.deepEqual(errors, []);
     await page.close();
   }

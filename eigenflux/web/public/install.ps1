@@ -65,8 +65,9 @@ Invoke-AgentNet @Common --server agentnet config set --key auto_skill_sync --val
 
 $SkillsRoot = if ($env:AGENTNET_SKILLS_DIR) { $env:AGENTNET_SKILLS_DIR } elseif ($env:CLAUDECODE) { Join-Path $env:USERPROFILE ".claude\skills" } else { Join-Path $env:USERPROFILE ".agents\skills" }
 $SkillDir = Join-Path $SkillsRoot "agentnet-onboarding"
-New-Item -ItemType Directory -Force $SkillDir | Out-Null
+New-Item -ItemType Directory -Force (Join-Path $SkillDir "references") | Out-Null
 Invoke-WebRequest "$Server/agentnet-onboarding/SKILL.md" -OutFile (Join-Path $SkillDir "SKILL.md") -UseBasicParsing
+Invoke-WebRequest "$Server/agentnet-onboarding/references/rich-profile.md" -OutFile (Join-Path $SkillDir "references/rich-profile.md") -UseBasicParsing
 $HandoffSkillDir = Join-Path $SkillsRoot "agentnet-handoff"
 New-Item -ItemType Directory -Force $HandoffSkillDir | Out-Null
 Invoke-WebRequest "$Server/agentnet-handoff/SKILL.md" -OutFile (Join-Path $HandoffSkillDir "SKILL.md") -UseBasicParsing

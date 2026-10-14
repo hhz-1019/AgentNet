@@ -81,12 +81,13 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
           settings.settings,
           response.draft.data,
         );
-        const recent = [
-          ...new Set(
-            [initial.fields.recent, prepared.connection_goal].filter(Boolean),
-          ),
-        ].join('\n\n');
-        setProfile({ ...initial, fields: { ...initial.fields, recent } });
+        setProfile({
+          ...initial,
+          fields: {
+            ...initial.fields,
+            connections: initial.fields.connections || prepared.connection_goal,
+          },
+        });
         setCompanion(prepared);
         setError('');
       })
@@ -105,7 +106,7 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
       'console/companion',
       {
         ...companion,
-        connection_goal: next.fields.recent.trim(),
+        connection_goal: (next.fields.connections || '').trim(),
       },
       'PUT',
     );

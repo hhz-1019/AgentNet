@@ -140,6 +140,9 @@ export class AgentNet {
         '--runtime-name',
         runtime_name,
         ...(recover ? ['--recover-account'] : []),
+        ...(draft?.twin_profile?.portrait?.prefill_version
+          ? ['--require-rich-profile']
+          : []),
         ...(draft ? ['--draft-file', '-'] : []),
       ],
       { input: draft },

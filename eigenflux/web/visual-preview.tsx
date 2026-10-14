@@ -17,6 +17,7 @@ import { SocialWorkspace } from './social/workspace';
 import { createDemoStore } from './social/demo';
 import { PortraitEditor } from './social/portrait';
 import { readPortrait, savePortrait } from './social/portrait-data';
+import { richProfilePreview } from './rich-profile-preview';
 import type { Session } from './types';
 import './preview.css';
 const session: Session = {
@@ -183,12 +184,13 @@ function JoinPreview({
   );
 }
 
-function PortraitConfirmation() {
+function PortraitConfirmation({ rich = false }: { rich?: boolean }) {
   const [companion, setCompanion] = useState<CompanionSettings>({
-    agent_name: '林间',
+    agent_name: rich ? '知遥' : '林间',
     owner_name: '小林',
-    connection_goal:
-      '认识愿意慢慢聊书、交换城市散步见闻的人；从一个具体问题聊起，不急着约时间。',
+    connection_goal: rich
+      ? richProfilePreview.fields.connections || ''
+      : '认识愿意慢慢聊书、交换城市散步见闻的人；从一个具体问题聊起，不急着约时间。',
     start_hour: 8,
     end_hour: 24,
     report_every_round: true,
@@ -198,14 +200,15 @@ function PortraitConfirmation() {
   });
   const [profile, setProfile] = useState(() =>
     (() => {
+      if (rich) return structuredClone(richProfilePreview);
       const p = readPortrait(session.agent_name, session.bio);
       return {
         ...p,
         fields: {
           ...p.fields,
           name: p.fields.name === session.agent_name ? '小林' : p.fields.name,
-          recent:
-            p.fields.recent ||
+          connections:
+            p.fields.connections ||
             '认识愿意慢慢聊书、交换城市散步见闻的人；从一个具体问题聊起，不急着约时间。',
         },
       };
@@ -221,7 +224,7 @@ function PortraitConfirmation() {
         onCompanionChange={setCompanion}
         preview
         previewAvatar="/preview-assets/linjian.png"
-        onSave={(next) => setProfile(savePortrait(next))}
+        onSave={(next) => setProfile(rich ? next : savePortrait(next))}
         onPublicHome={() => {}}
         onComplete={goProduct}
       />
@@ -310,6 +313,8 @@ export default function VisualPreview() {
       );
     case 'account-created':
       return <PreviewRedirect to="/preview/register?state=created" />;
+    case 'onboarding-rich':
+      return <PortraitConfirmation rich />;
     case 'onboarding-profile':
       return <PortraitConfirmation />;
     case 'onboarding-activity':

@@ -31,15 +31,15 @@ export function LivePortrait({
       .then(([p, settings]) => {
         if (active) {
           setCompanion(settings.settings);
-          const recent = [
-            ...new Set(
-              [p.fields.recent, settings.settings.connection_goal].filter(
-                Boolean,
-              ),
-            ),
-          ].join('\n\n');
           current.current = p;
-          setProfile({ ...p, fields: { ...p.fields, recent } });
+          setProfile({
+            ...p,
+            fields: {
+              ...p.fields,
+              connections:
+                p.fields.connections || settings.settings.connection_goal,
+            },
+          });
           setError('');
         }
       })
@@ -57,7 +57,7 @@ export function LivePortrait({
       'console/companion',
       {
         ...companion,
-        connection_goal: next.fields.recent.trim(),
+        connection_goal: (next.fields.connections || '').trim(),
       },
       'PUT',
     );

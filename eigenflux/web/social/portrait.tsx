@@ -12,6 +12,7 @@ import {
   type Portrait,
   type PortraitField,
 } from './portrait-data';
+import { mergeLegacyPortrait } from '../portrait-merge';
 import './profile-design.css';
 
 export function PortraitEditor({
@@ -36,8 +37,9 @@ export function PortraitEditor({
   previewAvatar?: string;
 }) {
   const formId = useId();
+  const mergedProfile = mergeLegacyPortrait(profile);
   const [fields, setFields] = useState(() => ({
-    ...profile.fields,
+    ...mergedProfile.fields,
     avatar: isPortraitAvatar(profile.fields.avatar)
       ? profile.fields.avatar
       : '',
@@ -50,7 +52,7 @@ export function PortraitEditor({
     },
     [avatarPreview],
   );
-  const [visible, setVisible] = useState(profile.visible);
+  const [visible, setVisible] = useState(mergedProfile.visible);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(12);
   const [editing, setEditing] = useState<EventMemory>();
@@ -214,9 +216,7 @@ export function PortraitEditor({
                     label:
                       originalField.key === 'name'
                         ? 'Agent 的名字'
-                        : originalField.key === 'recent'
-                          ? '最近的近况与连接期待'
-                          : originalField.label,
+                        : originalField.label,
                   }
                 : originalField;
               return (
@@ -257,14 +257,12 @@ export function PortraitEditor({
                       </label>
                     )}
                   </div>
-                  {['name', 'role'].includes(field.key) ? (
+                  {field.key === 'name' ? (
                     <input
                       id={`${formId}-${field.key}`}
                       aria-label={field.label}
                       required={field.key === 'name'}
-                      maxLength={
-                        field.key === 'name' ? (companion ? 40 : 80) : 200
-                      }
+                      maxLength={companion ? 40 : 80}
                       value={
                         field.key === 'name' && companion
                           ? companion.agent_name
@@ -283,8 +281,7 @@ export function PortraitEditor({
                     <textarea
                       id={`${formId}-${field.key}`}
                       rows={field.key === 'recent' ? 4 : 3}
-                      maxLength={field.key === 'recent' ? 2000 : 1000}
-                      value={fields[field.key]}
+                      value={fields[field.key] || ''}
                       onChange={(e) => changeField(field.key, e.target.value)}
                     />
                   )}
@@ -478,7 +475,6 @@ export function PortraitEditor({
               <textarea
                 required
                 rows={8}
-                maxLength={16000}
                 value={editing.content}
                 onChange={(e) =>
                   setEditing({ ...editing, content: e.target.value })

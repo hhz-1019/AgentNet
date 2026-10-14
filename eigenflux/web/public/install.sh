@@ -75,8 +75,9 @@ case "${INVOKING_HOST:-${EIGENFLUX_HOST:-}}:${CLAUDECODE:-}" in
   *) skills_root="${AGENTNET_SKILLS_DIR:-$HOME/.agents/skills}" ;;
 esac
 skill_dir="$skills_root/agentnet-onboarding"
-mkdir -p "$skill_dir"
+mkdir -p "$skill_dir/references"
 curl -fsSL "${SERVER}/agentnet-onboarding/SKILL.md" -o "$skill_dir/SKILL.md"
+curl -fsSL "${SERVER}/agentnet-onboarding/references/rich-profile.md" -o "$skill_dir/references/rich-profile.md"
 mkdir -p "$skills_root/agentnet-handoff"
 curl -fsSL "${SERVER}/agentnet-handoff/SKILL.md" -o "$skills_root/agentnet-handoff/SKILL.md"
 mkdir -p "$skills_root/agentnet-social/references"

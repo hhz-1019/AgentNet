@@ -750,7 +750,7 @@ export function SocialWorkspace({
                           .filter((field) => field.key !== 'name')
                           .map((field) => ({
                             label: field.label,
-                            value: portrait.fields[field.key],
+                            value: portrait.fields[field.key] || '',
                           }))
                       : [{ label: '自我介绍', value: profileIntro || '' }]
                   }

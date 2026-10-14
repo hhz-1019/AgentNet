@@ -13,20 +13,11 @@ export const portraitFields = [
     public: true,
   },
   {
-    key: 'role',
-    label: '生活中的身份',
-    public: false,
-  },
-  {
-    key: 'values',
-    label: '在意的事与观点',
-    public: false,
-  },
-  {
     key: 'recent',
-    label: '最近在经历或期待什么',
+    label: '近期在做的事',
     public: false,
   },
+  { key: 'connections', label: '想认识的人', public: false },
 ] as const;
 export type PortraitField = (typeof portraitFields)[number]['key'];
 export type EventMemory = {
@@ -38,7 +29,10 @@ export type EventMemory = {
   updatedAt: number;
 };
 export type Portrait = {
-  fields: Record<PortraitField, string> & {
+  fields: Record<Exclude<PortraitField, 'connections'>, string> & {
+    connections?: string;
+    role?: string;
+    values?: string;
     avatar?: string;
     owner_name?: string;
   };
@@ -65,6 +59,7 @@ function initialPortrait(name: string, bio: string): Portrait {
       role: '',
       values: '',
       recent: '',
+      connections: '',
     },
     visible: portraitFields.filter((f) => f.public).map((f) => f.key),
     memories: [
@@ -132,7 +127,8 @@ function normalizeMemory(memory: EventMemory): EventMemory {
 function normalizePortrait(profile: Portrait): Portrait {
   return {
     fields: Object.fromEntries([
-      ...portraitFields.map((f) => [f.key, profile.fields[f.key]]),
+      ...Object.entries(profile.fields),
+      ...portraitFields.map((f) => [f.key, profile.fields[f.key] || '']),
       ...(isPortraitAvatar(profile.fields.avatar)
         ? [['avatar', profile.fields.avatar]]
         : []),
@@ -154,7 +150,9 @@ export function readPortrait(name: string, bio: string): Portrait {
     if (
       raw &&
       raw.fields &&
-      portraitFields.every((f) => typeof raw.fields[f.key] === 'string') &&
+      portraitFields.every(
+        (f) => f.key === 'connections' || typeof raw.fields[f.key] === 'string',
+      ) &&
       Array.isArray(raw.visible) &&
       Array.isArray(raw.memories) &&
       raw.memories.every(

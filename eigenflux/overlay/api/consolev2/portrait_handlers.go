@@ -21,27 +21,31 @@ import (
 )
 
 var errPortraitConflict = errors.New("portrait revision conflict")
-var portraitKeys = map[string]int{"name": 80, "bio": 1000, "interests": 1000, "role": 200, "values": 1000, "recent": 2000, "avatar": 100}
+var portraitKeys = map[string]int{"name": 80, "bio": 0, "interests": 0, "role": 0, "values": 0, "recent": 0, "connections": 0, "avatar": 100}
 
 // Optional initial Agent prefill inside the existing onboarding twin_profile envelope.
 type portraitDraft struct {
-	Fields   map[string]string `json:"fields"`
-	Memories []portraitMemory  `json:"memories"`
+	PrefillVersion string            `json:"prefill_version,omitempty"`
+	Fields         map[string]string `json:"fields"`
+	Memories       []portraitMemory  `json:"memories"`
 }
 
 func validatePortraitDraft(p portraitDraft) error {
+	if p.PrefillVersion != "" {
+		raw, _ := json.Marshal(map[string]any{"twin_profile": map[string]any{"portrait": p}})
+		if err := validateRichPortrait(raw); err != nil {
+			return err
+		}
+	}
 	for k, v := range p.Fields {
 		limit, ok := portraitKeys[k]
-		if !ok || utf8.RuneCountInString(v) > limit || (k == "avatar" && !validPortraitAvatar(v)) {
+		if !ok || (limit > 0 && utf8.RuneCountInString(v) > limit) || (k == "avatar" && !validPortraitAvatar(v)) {
 			return errors.New("画像字段无效或过长")
 		}
 	}
-	if len(p.Memories) > 100 {
-		return errors.New("初始记忆每批最多 100 条；接入后可以继续增量同步")
-	}
 	ids := map[string]bool{}
 	for _, m := range p.Memories {
-		if !twinUUID.MatchString(m.ID) || ids[m.ID] || strings.TrimSpace(m.Content) == "" || utf8.RuneCountInString(m.Content) > 16000 {
+		if !twinUUID.MatchString(m.ID) || ids[m.ID] || strings.TrimSpace(m.Content) == "" {
 			return errors.New("记忆格式无效")
 		}
 		ids[m.ID] = true
@@ -173,8 +177,8 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 		Upserts          []portraitMemory  `json:"upserts"`
 		Deletes          []string          `json:"deletes"`
 	}
-	if decodeBody(c, &req) != nil || req.ExpectedRevision < 0 || len(req.Upserts) > 100 || len(req.Deletes) > 100 {
-		fail(c, 400, "INVALID_PORTRAIT", "资料格式无效，每次最多同步 100 条记忆", nil)
+	if decodeBody(c, &req) != nil || req.ExpectedRevision < 0 {
+		fail(c, 400, "INVALID_PORTRAIT", "资料格式无效", nil)
 		return
 	}
 	human := strings.HasPrefix(string(c.Path()), "/api/v2/console/")
@@ -195,7 +199,7 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 	}
 	for k, v := range req.Fields {
 		limit, ok := portraitKeys[k]
-		if !ok || utf8.RuneCountInString(v) > limit || (k == "avatar" && !validPortraitAvatar(v)) {
+		if !ok || (limit > 0 && utf8.RuneCountInString(v) > limit) || (k == "avatar" && !validPortraitAvatar(v)) {
 			fail(c, 400, "INVALID_PORTRAIT", "资料格式或长度无效", nil)
 			return
 		}
@@ -215,7 +219,7 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 	}
 	seen := map[string]bool{}
 	for _, m := range req.Upserts {
-		if !twinUUID.MatchString(m.ID) || seen[m.ID] || strings.TrimSpace(m.Content) == "" || utf8.RuneCountInString(m.Content) > 16000 || (!human && m.ShowOnHome) {
+		if !twinUUID.MatchString(m.ID) || seen[m.ID] || strings.TrimSpace(m.Content) == "" || (!human && m.ShowOnHome) {
 			fail(c, 400, "INVALID_MEMORY", "记忆内容或可见范围无效", nil)
 			return
 		}

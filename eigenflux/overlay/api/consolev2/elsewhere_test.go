@@ -84,12 +84,13 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 		t.Fatal(p)
 	}
 	memories := []map[string]any{}
-	for i := 1; i <= 61; i++ {
+	for i := 1; i <= 121; i++ {
 		memories = append(memories, map[string]any{"id": fmt.Sprintf("00000000-0000-4000-8000-%012d", i), "content": fmt.Sprintf("记忆%d", i), "showOnHome": i == 1})
 	}
-	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "本人昵称", "bio": "公开介绍", "role": "私人身份", "avatar": "citrus"}, "visible": []string{"name", "bio"}, "upserts": memories}, 200)
+	memories[0]["content"] = "记忆1" + strings.Repeat("完整经历", 5000)
+	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "本人昵称", "bio": strings.Repeat("公开介绍", 600), "interests": strings.Repeat("兴趣细节", 600), "connections": strings.Repeat("连接方向", 600), "role": "私人身份", "avatar": "citrus"}, "visible": []string{"name", "bio"}, "upserts": memories}, 200)
 	p = call("GET", "/api/v2/console/portrait", nil, 200)
-	if len(p["memories"].([]any)) != 12 || p["total"] != float64(61) || p["next_cursor"] != "12" {
+	if len(p["memories"].([]any)) != 12 || p["total"] != float64(121) || p["next_cursor"] != "12" {
 		t.Fatal("pagination", p)
 	}
 	avatars := call("GET", "/api/v2/console/avatars?ids=201,202&viewer=202", nil, 200)["avatars"].(map[string]any)
@@ -106,6 +107,9 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	if _, exists := p["fields"].(map[string]any)["role"]; exists {
 		t.Fatal("private field leaked")
 	}
+	if p["memories"].([]any)[0].(map[string]any)["content"] != memories[0]["content"] {
+		t.Fatal("long memory truncated")
+	}
 	if len(p["memories"].([]any)) != 1 {
 		t.Fatal("private memories leaked")
 	}
@@ -114,13 +118,13 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "陈旧版本"}}, 409)
 	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 1, "upserts": []map[string]any{{"id": memories[0]["id"], "content": "只更新一条", "showOnHome": true}}}, 200)
 	p = call("GET", "/api/v2/console/portrait", nil, 200)
-	if p["total"] != float64(61) {
+	if p["total"] != float64(121) {
 		t.Fatal("partial sync erased memories")
 	}
 	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 2, "deletes": []any{memories[0]["id"]}}, 200)
 	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 3, "upserts": []any{memories[0]}}, 200)
 	p = call("GET", "/api/v2/console/portrait?q=记忆1", nil, 200)
-	if p["total"] != float64(11) {
+	if p["total"] != float64(33) {
 		t.Fatal("search/undo", p)
 	}
 	request := map[string]any{"receiver_id": "202", "content": "本人发出的真实私信", "idempotency_key": "pm-unique-request"}

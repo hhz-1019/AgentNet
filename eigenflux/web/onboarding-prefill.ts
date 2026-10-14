@@ -36,7 +36,6 @@ export function prefillPortrait(
         fields?.bio,
         saved.fields.bio,
         draft.identity_card.human_description,
-        draft.identity_card.agent_description,
       ),
       interests: firstText(
         fields?.interests,
@@ -45,12 +44,13 @@ export function prefillPortrait(
       ),
       role: firstText(fields?.role, saved.fields.role, twin.basic_info.role),
       values: firstText(fields?.values, saved.fields.values),
-      recent: firstText(
-        fields?.recent,
-        saved.fields.recent,
-        twin.current_goal,
+      connections: firstText(
+        fields?.connections,
+        saved.fields.connections,
         draft.network_goal,
+        twin.current_goal,
       ),
+      recent: firstText(fields?.recent, saved.fields.recent),
     },
     memories: saved.memories,
   };
