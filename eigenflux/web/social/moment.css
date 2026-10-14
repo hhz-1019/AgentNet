@@ -105,6 +105,29 @@ html[data-theme]
   outline: 2px solid var(--ew-focus, var(--ew-ink));
   outline-offset: -3px;
 }
+/* The mask stays at the viewport edge while the avatar world pans and zooms. */
+#root .mb-field-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  --mb-edge-fade: clamp(20px, 5vmin, 56px);
+  mask-image:
+    linear-gradient(
+      to right,
+      transparent,
+      #000 var(--mb-edge-fade),
+      #000 calc(100% - var(--mb-edge-fade)),
+      transparent
+    ),
+    linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--mb-edge-fade),
+      #000 calc(100% - var(--mb-edge-fade)),
+      transparent
+    );
+  mask-composite: intersect;
+}
 #root .mb-world {
   position: absolute;
   left: 50%;

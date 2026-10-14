@@ -96,25 +96,25 @@ export function MomentField({
         -size.width * 0.22,
         size.width / 2 -
           Math.max(...circles.map((c) => (c.x + c.radius) * scale)) -
-          32,
+          64,
       ),
       right: Math.max(
         size.width * 0.22,
         -size.width / 2 -
           Math.min(...circles.map((c) => (c.x - c.radius) * scale)) +
-          32,
+          64,
       ),
       top: Math.min(
         -size.height * 0.22,
         size.height / 2 -
           Math.max(...circles.map((c) => (c.y + c.radius) * scale)) -
-          32,
+          64,
       ),
       bottom: Math.max(
         size.height * 0.22,
         -size.height / 2 -
           Math.min(...circles.map((c) => (c.y - c.radius) * scale)) +
-          32,
+          64,
       ),
     };
   }
@@ -262,7 +262,7 @@ export function MomentField({
   function reveal(circle: MomentCircle) {
     const scale = geometry.current.scale * camera.current.targetZoom;
     const c = camera.current,
-      radius = circle.radius * scale + 16;
+      radius = circle.radius * scale + 64;
     const x = circle.x * scale + c.tx,
       y = circle.y * scale + c.ty;
     c.vx = 0;
@@ -448,36 +448,38 @@ export function MomentField({
         move();
       }}
     >
-      <div ref={world} className="mb-world">
-        {circles.map((circle) => {
-          const group = groups.find((g) => g.id === circle.id);
-          if (!group) return null;
-          const diameter = circle.radius * scale * 2;
-          return (
-            <button
-              key={circle.id}
-              className="mb-orb"
-              type="button"
-              style={{
-                width: diameter,
-                height: diameter,
-                transform: `translate3d(${(circle.x - circle.radius) * scale}px, ${(circle.y - circle.radius) * scale}px, 0)`,
-              }}
-              aria-label={`${group.name}，${group.items.length} 项事项，查看事项`}
-              onFocus={(e) => {
-                if (e.currentTarget.matches(':focus-visible')) reveal(circle);
-              }}
-              onClick={(e) => {
-                stop();
-                onSelect(group.id, e.currentTarget);
-              }}
-            >
-              <span className="mb-orb-image">
-                <AgentAvatar agentId={group.id} name={group.name} />
-              </span>
-            </button>
-          );
-        })}
+      <div className="mb-field-clip">
+        <div ref={world} className="mb-world">
+          {circles.map((circle) => {
+            const group = groups.find((g) => g.id === circle.id);
+            if (!group) return null;
+            const diameter = circle.radius * scale * 2;
+            return (
+              <button
+                key={circle.id}
+                className="mb-orb"
+                type="button"
+                style={{
+                  width: diameter,
+                  height: diameter,
+                  transform: `translate3d(${(circle.x - circle.radius) * scale}px, ${(circle.y - circle.radius) * scale}px, 0)`,
+                }}
+                aria-label={`${group.name}，${group.items.length} 项事项，查看事项`}
+                onFocus={(e) => {
+                  if (e.currentTarget.matches(':focus-visible')) reveal(circle);
+                }}
+                onClick={(e) => {
+                  stop();
+                  onSelect(group.id, e.currentTarget);
+                }}
+              >
+                <span className="mb-orb-image">
+                  <AgentAvatar agentId={group.id} name={group.name} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
