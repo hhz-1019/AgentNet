@@ -140,7 +140,9 @@ html[data-theme]
   overflow: hidden;
   background: var(--ew-tint);
   box-shadow: 0 3px 7px -4px rgb(48 44 38 / 25%);
-  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 #root .mb-orb-image img {
   display: block;
@@ -151,14 +153,29 @@ html[data-theme]
   pointer-events: none;
   -webkit-user-drag: none;
 }
-#root .mb-orb:hover .mb-orb-image {
-  transform: scale(1.012);
+#root .mb-orb:focus-visible .mb-orb-image {
+  transform: scale(var(--mb-hover-scale));
+  box-shadow:
+    0 0 0 3px var(--ew-paper, #f4eddf),
+    0 0 0 5px var(--ew-ink),
+    0 16px 32px -12px rgb(48 44 38 / 48%);
+}
+@media (hover: hover) and (pointer: fine) {
+  #root .mb-orb:hover .mb-orb-image {
+    transform: scale(var(--mb-hover-scale));
+    box-shadow:
+      0 0 0 3px var(--ew-paper, #f4eddf),
+      0 0 0 5px var(--ew-ink),
+      0 16px 32px -12px rgb(48 44 38 / 48%);
+  }
 }
 #root .mb-orb:active .mb-orb-image {
-  transform: scale(0.965);
+  transform: scale(0.94);
+  transition-duration: 110ms;
 }
 #root .mb-field[data-dragging] .mb-orb-image {
   transform: none;
+  box-shadow: 0 3px 7px -4px rgb(48 44 38 / 25%);
 }
 #root .mb-orb:focus-visible {
   outline: 2px solid var(--ew-ink);
@@ -172,6 +189,7 @@ html[data-theme]
     transition: opacity 120ms ease-out;
   }
   #root .mb-orb:hover .mb-orb-image,
+  #root .mb-orb:focus-visible .mb-orb-image,
   #root .mb-orb:active .mb-orb-image {
     transform: none;
   }

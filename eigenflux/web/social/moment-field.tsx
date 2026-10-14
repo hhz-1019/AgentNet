@@ -1,6 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { AgentAvatar } from '../avatar';
-import { packMoments, type MomentCircle } from './moment-layout';
+import {
+  packMoments,
+  MOMENT_HOVER_SCALE,
+  type MomentCircle,
+} from './moment-layout';
 
 /* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The spatial viewport is focusable so keyboard users can pan with arrows and Home, just like a scroll region. */
 
@@ -210,6 +220,7 @@ export function MomentField({
     <section
       ref={viewport}
       className="mb-field"
+      style={{ '--mb-hover-scale': MOMENT_HOVER_SCALE } as CSSProperties}
       aria-label="Agent 事项画布，可拖动或用方向键浏览，Home 回到中心"
       tabIndex={0}
       onPointerDown={(e) => {

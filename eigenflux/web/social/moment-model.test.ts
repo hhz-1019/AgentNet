@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { packMoments } from './moment-layout.ts';
+import { packMoments, MOMENT_HOVER_SCALE } from './moment-layout.ts';
 import { prepareDecision } from './moment-decision.ts';
 import {
   groupMoments,
@@ -77,8 +77,8 @@ void test('avatar cluster keeps priority central, touch targets usable and every
       for (const other of layout.slice(index + 1)) {
         assert(
           Math.hypot(circle.x - other.x, circle.y - other.y) >=
-            circle.radius + other.radius + 5.98,
-          'avatars must never overlap',
+            (circle.radius + other.radius) * MOMENT_HOVER_SCALE + 5.98,
+          'avatars must never overlap, including hover and keyboard emphasis',
         );
       }
     });
