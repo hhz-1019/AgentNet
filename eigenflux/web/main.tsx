@@ -52,7 +52,7 @@ function AppContent({
     initialURL.current.searchParams.get('account') || '',
   );
   const once = useRef(false);
-  useAnalyticsHeartbeat(session?.owner_uid ? session.agent_id : undefined);
+  useAnalyticsHeartbeat(session?.owner_bound ? session.agent_id : undefined);
   async function refresh() {
     setError('');
     try {
@@ -199,6 +199,12 @@ function AppContent({
         openHandoff={(id) => void openHandoff(id)}
       />
     );
+  if (
+    location.pathname === '/' &&
+    !session?.owner_bound &&
+    (session !== undefined || error)
+  )
+    return <Landing done={() => void refresh()} />;
   if (error)
     return <ConnectionIssue error={error} retry={() => location.reload()} />;
   if (session === undefined)

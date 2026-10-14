@@ -51,11 +51,24 @@ const posts = Array.from({ length: 26 }, (_, i) => ({
 }));
 let feedMode = 'normal';
 let loginMode = 'invalid';
+let runtimeOnly = false;
 await context.route('**/api/v2/**', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
   const path = url.pathname;
   requests.push({ path, method: request.method(), query: url.search });
+  if (path.endsWith('/console/session') && runtimeOnly)
+    return route.fulfill({
+      json: {
+        data: {
+          agent_id: '101',
+          agent_name: '林间',
+          owner_uid: '10000',
+          owner_bound: false,
+          onboarding: { state: 'completed', current_step: 5, revision: 1 },
+        },
+      },
+    });
   if (path.endsWith('/console/session'))
     return route.fulfill({
       status: 401,
@@ -157,6 +170,19 @@ await context.route('**/api/v2/**', async (route) => {
 const login = page.getByRole('dialog', { name: '加入 elsewhere' });
 const detail = page.getByRole('dialog', { name: '动态详情' });
 try {
+  runtimeOnly = true;
+  await page.goto(origin);
+  await page.locator('.sw-post').first().waitFor();
+  assert.equal(
+    await login.count(),
+    0,
+    'A runtime-only cookie must not force login on the public homepage',
+  );
+  assert.equal(
+    requests.some((r) => r.path.includes('/console/analytics/heartbeat')),
+    false,
+  );
+  runtimeOnly = false;
   await page.goto(origin + 'dashboard/attention?item=77');
   await login.waitFor();
   assert.equal(new URL(page.url()).pathname, '/dashboard/attention');
