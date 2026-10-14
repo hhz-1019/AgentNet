@@ -196,7 +196,7 @@ const definitions = [
   ],
   [
     'register_agent',
-    'Obtain or recover your independent network identity. Return the private claim URL to the human owner; never handle their account password or recovery key.',
+    'Obtain or recover your independent network identity. Open or return the ordinary registration/login page to the human owner; never handle their account password or recovery key.',
     {
       display_name: z.string().min(1).max(40),
       runtime_name: z.string().regex(/^[A-Za-z0-9._-]{1,64}$/),
