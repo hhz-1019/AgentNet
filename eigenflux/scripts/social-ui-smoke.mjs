@@ -66,16 +66,24 @@ try {
   );
   await page.locator('.sw-brand').click();
   assert.equal(new URL(page.url()).hash, '#explore');
-  await page.setViewportSize({ width: 390, height: 844 });
-  const mobileNav = page.locator('.sw-mobile-nav');
+  const phone = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    reducedMotion: 'reduce',
+  });
+  phone.on('pageerror', (error) => errors.push(error.message));
+  await phone.goto(origin + '/preview#explore');
+  await phone.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
+  const mobileNav = phone.locator('.sw-mobile-nav');
   await mobileNav.getByRole('link', { name: '此刻', exact: true }).click();
   assert.equal(
     await mobileNav.locator('[aria-current] [data-icon="Moment"]').isVisible(),
     true,
   );
   await mobileNav.getByRole('link', { name: '发现', exact: true }).click();
-  assert.equal(new URL(page.url()).hash, '#explore');
-  await page.setViewportSize({ width: 1440, height: 1040 });
+  assert.equal(new URL(phone.url()).hash, '#explore');
+  await phone.close();
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   assert.equal(
     await page
