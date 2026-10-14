@@ -11,8 +11,13 @@ export function momentRepulsion(
     const dx = circle.x - pointer.x,
       dy = circle.y - pointer.y;
     const distance = Math.hypot(dx, dy);
-    const reach = Math.max(0, 1 - Math.max(0, distance - circle.radius) / 180);
-    const force = 8 * reach ** 2 * Math.min(1, distance / 32);
+    // A broad, gentle falloff lets surrounding faces yield as well. A tiny
+    // influence radius pins the nearest face against motionless neighbors.
+    const reach = Math.max(0, 1 - Math.max(0, distance - circle.radius) / 900);
+    const force =
+      Math.min(18, circle.radius * 0.3) *
+      reach ** 1.5 *
+      Math.min(1, distance / 32);
     return {
       id: circle.id,
       x: distance ? (dx / distance) * force : 0,
@@ -27,16 +32,22 @@ export function momentRepulsion(
     for (let j = i + 1; j < circles.length; j++) {
       const a = circles[i],
         b = circles[j];
-      const relativeMotion = Math.hypot(
-        offsets[i].x - offsets[j].x,
-        offsets[i].y - offsets[j].y,
-      );
-      if (!relativeMotion) continue;
+      const dx = a.x - b.x,
+        dy = a.y - b.y;
+      const separation = Math.hypot(dx, dy);
+      // Only motion toward a neighbor can consume its clearance. Tangential
+      // and separating motion must stay free, or the whole field barely moves.
+      const closingMotion =
+        -(
+          dx * (offsets[i].x - offsets[j].x) +
+          dy * (offsets[i].y - offsets[j].y)
+        ) / separation;
+      if (closingMotion <= 0) continue;
       const room =
-        Math.hypot(a.x - b.x, a.y - b.y) -
+        separation -
         Math.max(a.radius, b.radius) * MOMENT_HOVER_SCALE -
         Math.min(a.radius, b.radius);
-      strength = Math.min(strength, Math.max(0, room - 0.2) / relativeMotion);
+      strength = Math.min(strength, Math.max(0, room - 0.2) / closingMotion);
     }
   }
   return offsets.map((offset) => ({

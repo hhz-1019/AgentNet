@@ -52,7 +52,8 @@ void test('mouse repulsion is bounded, points away, returns to rest and preserve
       circles.forEach((a, i) => {
         const motion = offsets[i];
         assert(
-          Math.hypot(motion.x, motion.y) <= 8.00001,
+          Math.hypot(motion.x, motion.y) <=
+            Math.min(18, a.radius * 0.3) + 0.00001,
           'force cannot grow with zoom',
         );
         assert(
@@ -81,9 +82,39 @@ void test('mouse repulsion is bounded, points away, returns to rest and preserve
     );
   }
   const single = [{ id: 'one', x: 0, y: 0, radius: 80 }];
-  assert.equal(momentRepulsion(single, { x: 40, y: 0 })[0].x, -8);
+  const desktopScale = momentViewportScale(layout, 1440, 800);
+  const desktop = layout.map((c) => ({
+    ...c,
+    x: c.x * desktopScale,
+    y: c.y * desktopScale,
+    radius: c.radius * desktopScale,
+  }));
+  for (const pointer of [
+    { x: 45, y: 20 },
+    { x: -180, y: 160 },
+    { x: 300, y: 0 },
+  ]) {
+    assert(
+      Math.max(
+        ...momentRepulsion(desktop, pointer).map((offset) =>
+          Math.hypot(offset.x, offset.y),
+        ),
+      ) >= 6,
+      'dense desktop layouts must retain visible motion, not only a large theoretical maximum',
+    );
+  }
+  assert.equal(momentRepulsion(single, { x: 40, y: 0 })[0].x, -18);
   assert.equal(momentRepulsion(single, { x: 0, y: 0 })[0].x, 0);
   assert.equal(Math.abs(momentRepulsion(single, { x: 1000, y: 0 })[0].x), 0);
+  const adjacent = [
+    { id: 'left', x: -90, y: 0, radius: 80 },
+    { id: 'right', x: 90, y: 0, radius: 80 },
+  ];
+  const separating = momentRepulsion(adjacent, { x: 0, y: 0 });
+  assert(
+    separating[0].x < -15 && separating[1].x > 15,
+    'neighbors moving apart must visibly respond instead of losing force to the collision guard',
+  );
 });
 void test('pinch preserves the world point under moving fingers and clamps zoom without drift', () => {
   const camera = { x: 80, y: -30, zoom: 1 };
