@@ -421,7 +421,7 @@ export function Settings({ runtime = '' }: { runtime?: string }) {
               onClick={() => {
                 if (
                   confirm(
-                    '撤销此身份密钥后，该运行环境需要重新认领。确定撤销？',
+                    '撤销此身份密钥后，该运行环境需要重新接入。确定撤销？',
                   )
                 )
                   void action.run(async () => {

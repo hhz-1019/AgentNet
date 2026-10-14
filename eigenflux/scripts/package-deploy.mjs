@@ -55,6 +55,7 @@ const ownPaths =
         'eigenflux/Caddyfile',
         'eigenflux/overlay/cli',
         'eigenflux/patches/social-workspace.patch',
+        'eigenflux/patches/account-connection.patch',
       ]
     : [
         'eigenflux/patches',

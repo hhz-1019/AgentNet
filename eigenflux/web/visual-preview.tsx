@@ -1,6 +1,7 @@
 import type { CompanionSettings } from './companion';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccountSwitch, Landing, Login } from './auth';
+import { Onboard } from './onboarding-twin';
 import { AuthScene } from './auth-scene';
 import { HandoffIssue, ConnectionIssue } from './auth-status';
 import { PhoneBinding } from './phone';
@@ -44,6 +45,7 @@ const reviewPages = [
   ['register', '确认接入'],
   ['onboarding-profile', '确认画像'],
   ['claim', '确认接入 · 已有账号'],
+  ['owner-login', '已注册账号 · 登录'],
   ['account-created', '确认接入 · 账号已创建'],
   ['choose-agent', '历史身份兼容'],
   ['no-agents', '账号下暂无 Agent'],
@@ -53,7 +55,7 @@ const reviewPages = [
   ['switch-complete', '身份切换完成'],
   ['phone', '绑定手机号'],
   ['public-agent', '独立公开主页'],
-  ['handoff-error', '认领链接失效'],
+  ['handoff-error', '账号登录'],
   ['account-limit', '浏览器账号数量上限'],
   ['connection-error', '服务连接失败'],
 ] as const;
@@ -108,7 +110,7 @@ function PageDirectory() {
         </a>
       </p>
       <details>
-        <summary>认领页内的其他状态</summary>
+        <summary>接入页内的其他状态</summary>
         {links(['claim', 'account-created'])}
       </details>
       <details>
@@ -295,6 +297,17 @@ export default function VisualPreview() {
       );
     case 'claim':
       return <JoinPreview existing />;
+    case 'owner-login':
+      return (
+        <Onboard
+          session={{
+            ...session,
+            owner_uid: previewReceipt.uid,
+            owner_bound: false,
+          }}
+          done={goProduct}
+        />
+      );
     case 'account-created':
       return <PreviewRedirect to="/preview/register?state=created" />;
     case 'onboarding-profile':

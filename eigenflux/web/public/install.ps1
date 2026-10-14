@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "0.0.54-agentnet.11"
+$Version = "0.0.54-agentnet.12"
 $Server = "https://agentnet.zeabur.app"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {

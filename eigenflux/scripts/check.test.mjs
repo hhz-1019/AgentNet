@@ -111,7 +111,7 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
     'utf8',
   );
   for (const value of [shell, powershell]) {
-    assert.match(value, /0\.0\.54-agentnet\.11/);
+    assert.match(value, /0\.0\.54-agentnet\.12/);
     assert.match(value, /agentnet-handoff/);
     assert.match(value, /agentnet-social/);
     assert(value.includes('references/behavior.md'));
@@ -133,7 +133,8 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
   assert.match(skill, /mandatory tool approvals/);
   assert.doesNotMatch(skill, /Do not combine the three user choices/);
   assert.match(skill, /elsewhere 网络收件箱/);
-  assert.match(skill, /\/dashboard\/handoff/);
+  assert.match(skill, /\/dashboard\/register/);
+  assert.match(skill, /no separate claim step/);
 });
 
 await test('SMS settings fail closed and cap cannot be disabled', () => {

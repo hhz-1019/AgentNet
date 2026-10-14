@@ -24,6 +24,8 @@ try {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     let registered = false,
+      ownerVerified = true,
+      privateReads = 0,
       personalRevision = 0,
       policyRevision = 0;
     let state = { state: 'in_progress', current_step: 2, revision: 1 };
@@ -101,7 +103,7 @@ try {
           short_id: 'TEST',
           agent_name: 'Codex',
           owner_uid: registered ? '731482905' : '',
-          owner_bound: registered,
+          owner_bound: registered && ownerVerified,
           runtime_name: 'Codex',
           runtime_version: '',
           bio: '',
@@ -110,7 +112,17 @@ try {
           device_name: '',
           onboarding: state,
         };
-      else if (path === 'auth/phone/challenges')
+      else if (path === 'console/handoffs/exchange') {
+        assert.equal(body.ticket, 'efcn_' + 'a'.repeat(64));
+        data = { requires_login: false, account_switch: false };
+      } else if (path === 'auth/uid/login')
+        data = {
+          agents: [{ agent_id: '1', display_name: companion.agent_name }],
+        };
+      else if (path === 'auth/uid/claim') {
+        ownerVerified = true;
+        data = { uid: '731482905', agent_id: '1' };
+      } else if (path === 'auth/phone/challenges')
         data = { challenge_id: 'fixture-challenge', retry_after: 60 };
       else if (path === 'auth/uid/register') {
         assert.equal(body.agreement_version, '2026-10-14');
@@ -162,6 +174,7 @@ try {
         assert(body.data.length > 0);
         data = { avatar: '/api/v2/public/avatars/' + 'a'.repeat(32) };
       } else if (path === 'console/portrait') {
+        privateReads++;
         if (method === 'PUT') {
           assert.equal(body.expected_revision, personalRevision);
           profile.fields = { ...profile.fields, ...body.fields };
@@ -232,7 +245,9 @@ try {
         body: JSON.stringify({ data }),
       });
     });
-    await page.goto('http://127.0.0.1:4324/dashboard');
+    await page.goto(
+      'http://127.0.0.1:4324/dashboard/register#connect=efcn_' + 'a'.repeat(64),
+    );
     await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
     // Start from an unowned handoff session; the first page is registration.
     // App's session fixture has an unclaimed owner but an incomplete identity.
@@ -248,14 +263,14 @@ try {
     await page
       .getByLabel('确认密码', { exact: true })
       .fill('fixture-password-123');
-    await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
+    await page.getByRole('button', { name: '创建账号' }).click();
     assert.equal(registered, false);
     await page.getByRole('checkbox').check();
     await page.screenshot({
       path: `${dir}/registration-${width}.png`,
       fullPage: true,
     });
-    await page.getByRole('button', { name: '创建账号并认领 Agent' }).click();
+    await page.getByRole('button', { name: '创建账号' }).click();
     await page
       .getByRole('heading', { name: '确认画像', exact: true })
       .waitFor();
@@ -328,6 +343,27 @@ try {
       .click();
     await page.getByText('已保存', { exact: false }).first().waitFor();
     assert.equal(policy.daily_posts, 1);
+    // A completed Agent and a runtime-only browser session are not owner login.
+    ownerVerified = false;
+    const readsBeforeLogin = privateReads;
+    await page.goto('http://127.0.0.1:4324/dashboard/profile');
+    await page
+      .getByRole('heading', { name: '登录 elsewhere', exact: true })
+      .waitFor();
+    assert.equal(privateReads, readsBeforeLogin);
+    assert.equal(await page.getByLabel('Agent 的名字').count(), 0);
+    assert.equal(await page.getByText(/认领|UID|一次性链接/).count(), 0);
+    await page.getByLabel('账号', { exact: true }).fill('731482905');
+    await page
+      .getByLabel('账号密码', { exact: true })
+      .fill('fixture-password-123');
+    await page.getByRole('button', { name: '登录', exact: true }).click();
+    await page.getByLabel('Agent 的名字', { exact: true }).waitFor();
+    assert.equal(ownerVerified, true);
+    assert.equal(
+      await page.getByLabel('Agent 的名字').inputValue(),
+      '设置中修改的昵称',
+    );
     assert.deepEqual(errors, []);
     await page.close();
   }

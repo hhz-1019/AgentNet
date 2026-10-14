@@ -39,10 +39,12 @@ export function Onboard({
       <a className="brand" href="/">
         <BrandLogo />
       </a>
-      <ol className="steps">
-        <li className={!session.owner_bound ? 'current' : ''}>1. 注册账号</li>
-        <li className={session.owner_bound ? 'current' : ''}>2. 确认画像</li>
-      </ol>
+      {!session.owner_uid && (
+        <ol className="steps">
+          <li className={!session.owner_bound ? 'current' : ''}>1. 注册账号</li>
+          <li className={session.owner_bound ? 'current' : ''}>2. 确认画像</li>
+        </ol>
+      )}
       {!session.owner_bound ? (
         <Login binding initialUID={session.owner_uid} done={done} />
       ) : (

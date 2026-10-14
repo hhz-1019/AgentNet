@@ -302,7 +302,7 @@ const definitions = [
       command_type: z.string().optional(),
     },
   ],
-  ['dashboard', 'Generate a private, single-use human dashboard link.', {}],
+  ['dashboard', 'Open the owner account registration or login page.', {}],
 ];
 definitions.push([
   'share_work',

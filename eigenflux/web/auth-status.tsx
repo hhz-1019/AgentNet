@@ -25,7 +25,7 @@ export function HandoffIssue({
         <a className="brand" href="/">
           <BrandLogo />
         </a>
-        <h1>继续登录或认领 Agent</h1>
+        <h1>登录 elsewhere</h1>
         <ErrorBox error={error.message} />
         {session && (
           <section>
@@ -52,19 +52,15 @@ export function HandoffIssue({
           disabled={connecting}
           onClick={() => leaveHandoff(true)}
         >
-          使用 账号 登录已有账号
+          登录账号
         </button>
         {error.status !== 400 &&
           error.code !== 'HANDOFF_INVALID' &&
           error.code !== 'CONSOLE_ACCOUNT_LIMIT_REACHED' && (
             <button disabled={connecting} onClick={() => openHandoff()}>
-              {connecting ? '正在核对…' : '重试认领连接'}
+              {connecting ? '正在连接…' : '重新连接'}
             </button>
           )}
-        <p>
-          认领链接只能使用一次。尚未认领时，让原来的 Agent
-          重新生成链接；已认领后可直接登录。
-        </p>
         <a href="/install.md">查看接入与恢复说明</a>
       </main>
     </AuthScene>

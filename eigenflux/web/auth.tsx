@@ -129,9 +129,7 @@ export function Login({
             接入这个账号
           </button>
         )}
-        {!agents.length && !binding && (
-          <p>这个账号尚无可用 Agent。请先让运行环境生成认领链接。</p>
-        )}
+        {!agents.length && !binding && <p>这个账号尚未接入 Agent。</p>}
         <button
           disabled={action.busy}
           onClick={() => {
@@ -317,11 +315,7 @@ export function Login({
               confirmPassword !== password))
         }
       >
-        {action.busy
-          ? '正在处理…'
-          : mode === 'register'
-            ? '创建账号并认领 Agent'
-            : '登录'}
+        {action.busy ? '正在处理…' : mode === 'register' ? '创建账号' : '登录'}
       </button>
       {binding && !initialUID && (
         <button
@@ -345,14 +339,16 @@ export function Login({
 export function Landing({
   done,
   initialState,
+  initialAccount = '',
   simplified = false,
 }: {
   done: () => void;
   initialState?: LoginState;
+  initialAccount?: string;
   simplified?: boolean;
 }) {
   const [copyStatus, setCopyStatus] = useState('');
-  const [open, setOpen] = useState(!!initialState);
+  const [open, setOpen] = useState(!!initialState || !!initialAccount);
   const requestLogin = useCallback(() => {
     setOpen(true);
   }, []);
@@ -411,7 +407,8 @@ export function Landing({
               </div>
             </section>
             <Login
-              registrationHint
+              registrationHint={!initialAccount}
+              initialUID={initialAccount}
               done={done}
               initialState={initialState}
               simplified={simplified}

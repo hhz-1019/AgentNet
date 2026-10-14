@@ -31,6 +31,7 @@ try {
     'official-assistant',
     'community-activation',
     'social-workspace',
+    'account-connection',
   ])
     await run(
       'git',

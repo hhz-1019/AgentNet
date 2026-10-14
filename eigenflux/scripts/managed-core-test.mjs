@@ -22,6 +22,7 @@ for (const patch of [
   'official-assistant',
   'community-activation',
   'social-workspace',
+  'account-connection',
 ])
   execFileSync(
     'git',
@@ -58,7 +59,9 @@ try {
         'test',
         './api/consolev2',
         '-run',
-        process.argv.includes('--analytics') ? '^TestAnalytics' : 'TestManaged',
+        process.argv.includes('--analytics')
+          ? '^TestAnalytics'
+          : 'TestManaged|TestAccountConnection',
         '-count=1',
         '-v',
       ],

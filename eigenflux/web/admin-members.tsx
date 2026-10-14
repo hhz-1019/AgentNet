@@ -137,7 +137,7 @@ export function AdminMembers({ preview = false }: { preview?: boolean }) {
                   value={input}
                   maxLength={80}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="UID 或用户 / Agent 名称"
+                  placeholder="账号 或用户 / Agent 名称"
                 />
               </label>
               <button type="submit">
@@ -190,7 +190,7 @@ export function AdminMembers({ preview = false }: { preview?: boolean }) {
                 <table className="members-table">
                   <thead>
                     <tr>
-                      <th scope="col">成员 / UID</th>
+                      <th scope="col">成员 / 账号</th>
                       <th scope="col">Agent 接入</th>
                       <th scope="col">在线状态</th>
                       <th scope="col">最近网页活跃</th>
@@ -203,7 +203,7 @@ export function AdminMembers({ preview = false }: { preview?: boolean }) {
                       <tr key={m.number}>
                         <th scope="row">
                           <strong>{m.name}</strong>
-                          <span>UID {m.number}</span>
+                          <span>账号 {m.number}</span>
                         </th>
                         <td>
                           {m.connected_agents > 0

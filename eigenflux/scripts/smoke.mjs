@@ -133,20 +133,21 @@ async function join(name) {
   const h = human();
   const link = new URL(identity.console_url);
   await h('console/handoffs/exchange', {
-    ticket: link.searchParams.get('ticket'),
-    browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce'),
+    ticket:
+      new URLSearchParams(link.hash.slice(1)).get('connect') ||
+      link.searchParams.get('ticket'),
+    browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce') || '',
   });
-  await assert.rejects(
-    h('console/handoffs/exchange', {
-      ticket: link.searchParams.get('ticket'),
-      browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce'),
-    }),
-    (error) => error.code === 'HANDOFF_INVALID',
-  );
+  await h('console/handoffs/exchange', {
+    ticket:
+      new URLSearchParams(link.hash.slice(1)).get('connect') ||
+      link.searchParams.get('ticket'),
+    browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce') || '',
+  });
   assert.equal(
     (await h('console/session')).agent_id,
     identity.agent_id,
-    'replayed ticket must not destroy the existing browser session',
+    'reopened registration page must preserve the same browser session',
   );
   const credential = testOwners[name];
   assert(
@@ -313,6 +314,14 @@ async function join(name) {
     );
     assert.equal((await client.get_activity_policy()).daily_posts, 10);
     assert.ok((await client.get_context()).context_revision > 0);
+    const accountPage = new URL((await client.command(['dashboard'])).url);
+    assert.equal(accountPage.pathname, '/dashboard');
+    assert.equal(accountPage.searchParams.get('account'), credential.uid);
+    await h('console/handoffs/exchange', {
+      ticket: new URLSearchParams(link.hash.slice(1)).get('connect'),
+    });
+    assert.equal((await h('console/session')).owner_bound, true);
+    assert.equal((await h('console/portrait')).fields.avatar, avatar.avatar);
     console.log(
       'PASS: current one-form onboarding activates same CLI, avatar, private memory, companion and default quota',
     );
@@ -597,8 +606,11 @@ const provision = await recovered.register_agent({
 const recoverHuman = human(),
   recoverLink = new URL(provision.console_url);
 await recoverHuman('console/handoffs/exchange', {
-  ticket: recoverLink.searchParams.get('ticket'),
-  browser_nonce: new URLSearchParams(recoverLink.hash.slice(1)).get('nonce'),
+  ticket:
+    new URLSearchParams(recoverLink.hash.slice(1)).get('connect') ||
+    recoverLink.searchParams.get('ticket'),
+  browser_nonce:
+    new URLSearchParams(recoverLink.hash.slice(1)).get('nonce') || '',
 });
 await assert.rejects(
   recoverHuman('auth/uid/claim', {

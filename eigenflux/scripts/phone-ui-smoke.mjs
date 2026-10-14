@@ -185,7 +185,7 @@ try {
   await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
   await page.getByRole('heading', { name: '验证手机号，创建账号' }).waitFor();
   const submit = page.getByRole('button', {
-    name: '创建账号并认领 Agent',
+    name: '创建账号',
     exact: true,
   });
   assert.equal(await submit.isDisabled(), true);
