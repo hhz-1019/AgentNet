@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { packMoments } from './moment-layout.ts';
 import {
   groupMoments,
   momentStage,
@@ -20,6 +21,42 @@ const base: MomentItem = {
   related_agent: { agent_id: '2', name: '伙伴' },
   actions: [],
 };
+void test('avatar cluster keeps priority central, touch targets usable and every circle separate', () => {
+  for (const count of [0, 1, 2, 24, 100]) {
+    const input = Array.from({ length: count }, (_, i) => ({
+      id: String(i),
+      priority: 130 - ((i * 37) % 131),
+    }));
+    const layout = packMoments(input);
+    assert.deepEqual(
+      layout,
+      packMoments([...input].reverse()),
+      'packing must be stable across API order',
+    );
+    if (count) assert.deepEqual([layout[0].x, layout[0].y], [0, 0]);
+    layout.forEach((circle, index) => {
+      assert(
+        circle.radius * 2 * 0.7 >= 44,
+        'smallest responsive target remains usable',
+      );
+      if (index) {
+        const previous = layout[index - 1];
+        assert(circle.radius <= previous.radius);
+        assert(
+          Math.hypot(circle.x, circle.y) >=
+            Math.hypot(previous.x, previous.y) - 0.01,
+        );
+      }
+      for (const other of layout.slice(index + 1)) {
+        assert(
+          Math.hypot(circle.x - other.x, circle.y - other.y) >=
+            circle.radius + other.radius + 5.98,
+          'avatars must never overlap',
+        );
+      }
+    });
+  }
+});
 void test('groups by real agent and preserves large decimal IDs', () => {
   const groups = groupMoments(
     [

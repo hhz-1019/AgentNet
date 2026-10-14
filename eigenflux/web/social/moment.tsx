@@ -1,15 +1,10 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import { AgentAvatar } from '../avatar';
 import { AttentionSource } from '../activity';
 import { Dialog } from './dialog';
 import { DragRail } from './drag-rail';
+import { MomentField } from './moment-field';
 import {
   groupMoments,
   momentStage,
@@ -50,6 +45,7 @@ export function Moment({
     inflight = useRef(false);
   const offset = useRef(0);
   const chosenRevision = useRef(0);
+  const requestedPage = useRef(0);
   const attempt = useRef<{ signature: string; key: string } | undefined>(
     undefined,
   );
@@ -192,53 +188,24 @@ export function Moment({
         </div>
       )}
       {items.length > 0 && (
-        <DragRail label="Agent 事项" className="mb-agent-rail">
-          <div className="mb-agent-canvas">
-            {groups.map((g, index) => (
-              <button
-                key={g.id}
-                className={
-                  'mb-node ' +
-                  (g.own
-                    ? 'mb-self'
-                    : ['mb-sage', 'mb-lavender', 'mb-blue'][index % 3])
-                }
-                style={
-                  {
-                    '--priority-size': 0.68 + (g.priority / 130) * 0.32,
-                  } as CSSProperties
-                }
-                aria-label={
-                  g.name + '，' + g.items.length + ' 项事项，查看事项'
-                }
-                onClick={(e) => {
-                  origin.current = e.currentTarget.querySelector('.mb-bubble');
-                  setSelected(g.id);
-                  setItemId(g.items[0].attention_id);
-                  resetChoice();
-                }}
-              >
-                <span className="mb-bubble">
-                  <AgentAvatar agentId={g.id} name={g.name} />
-                </span>
-                <span className="mb-name">{g.name}</span>
-                <span className="mb-caption">
-                  {g.items.length === 1
-                    ? momentLabels[momentStage(g.items[0], now)]
-                    : g.items.length + ' 项事项'}
-                </span>
-              </button>
-            ))}
-            {more && (
-              <button
-                className="mb-load-more"
-                onClick={() => setPages((p) => p + 1)}
-              >
-                更早的事项
-              </button>
-            )}
-          </div>
-        </DragRail>
+        <MomentField
+          groups={groups}
+          frozen={Boolean(group)}
+          onSelect={(id, element) => {
+            const chosen = groups.find((g) => g.id === id);
+            if (!chosen) return;
+            origin.current = element;
+            setSelected(id);
+            setItemId(chosen.items[0].attention_id);
+            resetChoice();
+          }}
+          onReachEdge={() => {
+            if (more && !inflight.current && requestedPage.current !== pages) {
+              requestedPage.current = pages;
+              setPages((p) => p + 1);
+            }
+          }}
+        />
       )}
       {group && item && (
         <Dialog
@@ -326,7 +293,10 @@ export function Moment({
               pageGap={32}
               resetKey={item.attention_id + activeView}
             >
-              <article className="mb-reader">
+              <article
+                key={item.attention_id + activeView}
+                className="mb-reader"
+              >
                 <h3>
                   {activeView === 'approval' && action
                     ? actionText(action)

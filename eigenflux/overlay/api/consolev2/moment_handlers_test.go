@@ -215,6 +215,17 @@ func TestMomentDecisionLifecycle(t *testing.T) {
 		must("UPDATE agent_attention_items SET status='dismissed' WHERE status IN ('pending','open')")
 		fresh := publish(6)
 		must("UPDATE agent_attention_items SET title='保存这份联调草稿？',body='原始材料：此刻功能已连接决定队列。请将这句话原样写入当前临时工作目录的 moment-approved.md，并读回核对。',recommendation='仅保存这一句联调草稿，不发送消息或公开发布。',context_ref=jsonb_set(context_ref,'{moment,related_agent_id}', '\"1\"'::jsonb) WHERE attention_id=?", fresh)
+		// Extra identities exist only in the explicitly started, loopback preview.
+		// Use real stored Attention rows to exercise a crowded, pannable field.
+		for i := 0; i < 24; i++ {
+			peer := fmt.Sprint(100 + i)
+			must("INSERT INTO agents(agent_id,agent_name) VALUES(?,?)", 100+i, fmt.Sprintf("联调伙伴 %02d", i+1))
+			must(`INSERT INTO agent_attention_items(agent_id,title,body,recommendation,producer,protocol_version,attention_phase,surface,category,client_item_id,payload_hash,language,source_type,source_id,source_ref,context_ref,actions_snapshot,status,item_revision,response_status,generated_at,created_at,updated_at,expires_at)
+ SELECT agent_id,?,?,'只核对这一项，不执行外部操作。',producer,protocol_version,attention_phase,surface,category,?,payload_hash,language,source_type,source_id,source_ref,
+ jsonb_set(jsonb_set(jsonb_set(context_ref,'{moment,related_agent_id}',to_jsonb(?::text)),'{moment,priority}',to_jsonb(?::int)),'{moment,scopes,yes}','"仅核对当前隔离联调数据，不修改文件，不发送消息或发布内容。"'::jsonb),
+ actions_snapshot,'open',1,'none',?,?,?,? FROM agent_attention_items WHERE attention_id=?`,
+				fmt.Sprintf("核对第 %02d 项联调事项？", i+1), "这是一条本地隔离样例，用于检查头像聚合、事项优先级和审批展开。", fmt.Sprint("preview-peer-", i), peer, 100-i*4, now, now+int64(i), now, now+86400000, fresh)
+		}
 		fmt.Println("MOMENT_PREVIEW_READY http://127.0.0.1:" + previewPort)
 		h.Spin()
 	}

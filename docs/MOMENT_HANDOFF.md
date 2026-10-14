@@ -4,9 +4,9 @@
 
 ## 界面与状态
 
-一个气泡代表一个关联 Agent，自己的画像、目标和分享确认在自己的 Agent 中。真实数据来自 `GET /api/v2/console/moment`。优先级取 Agent 提交的 0–100 分，加上待确认 30、执行结果 15、排队/执行中 10；同组取最高值。优先组更大且优先展示；气泡随视口缩放，超出一屏时在页面内横向拖拽查看，末尾可加载更早事项。
+一个圆形头像代表一个关联 Agent，自己的画像、目标和分享确认在自己的 Agent 中。主画布只展示头像，不展示姓名、状态、数量或翻页按钮。真实数据来自 `GET /api/v2/console/moment`。优先级取 Agent 提交的 0–100 分，加上待确认 30、执行结果 15、排队/执行中 10；同组取最高值。头像按优先级紧密排布且互不重叠，优先级越高越大、越靠中心；尺寸随视口缩放。画布支持向四周拖拽和松手惯性，靠近边缘时可继续加载更早事项；方向键平移，Home 回到中心，Tab 聚焦时将对应头像移入视野。
 
-首页与详情固定在当前视口内，不产生页面纵向滚动。多事项列表支持鼠标拖拽、触屏横向滑动和键盘翻页；长正文横向分段，操作按钮始终可见。详情按事项、授权、结果和依据逐步展示，保留原请求、建议、范围、条件和期限，去掉重复说明。复用气泡展开/收回、焦点恢复和减少动效设置。页面可见时每 8 秒读取进度；加载、空态和错误不会使用假数据兜底。游客进入此刻需要登录。
+首页与详情固定在当前视口内，不产生页面纵向滚动。点击头像平滑展开审批卡片，关闭后收回原头像，保留画布位置；详情打开期间冻结头像排布。详情内的多事项列表支持鼠标拖拽、触屏横向滑动和键盘翻页；长正文横向分段，操作按钮始终可见。详情按事项、授权、结果和依据逐步展示，保留原请求、建议、范围、条件和期限，去掉重复说明。保留焦点恢复和减少动效设置。页面可见时每 8 秒读取进度；加载、空态和错误不会使用假数据兜底。游客进入此刻需要登录。
 
 - **确认已保存**：后端保存决定快照，创建待领取命令。
 - **Agent 正在执行**：具备有效租约的绑定宿主已领取命令。
@@ -74,7 +74,7 @@ AGENTNET_CODEX_SANDBOX=read-only
 - `npm test`：状态区分、归组、绑定、期限、中断恢复、幂等回执、Codex 子进程输入和会话解析。
 - `npm run test:moment:core`：隔离 PGlite/PostgreSQL 协议、真实 Go handler、生产 Attention CHECK 约束；覆盖发布、所有权、确认、条件冲突、领取、续租、回执、撤回、上下文冲突、过期和中断隔离。
 - `npm run test:host:protocol`：实际补丁 CLI 与 SDK/宿主协议，服务器和模型为隔离 fixture。
-- `node eigenflux/scripts/social-core-test.mjs --moment --serve`：仅本机 4320 端口的隔离 Go 服务。开发页 `/preview-moment-live` 使用真实 Moment 组件与这些 API。
+- `node eigenflux/scripts/social-core-test.mjs --moment --serve`：仅本机 4320 端口的隔离 Go 服务。开发页 `/preview-moment-live` 使用真实 Moment 组件与这些 API，额外创建 24 个联调身份以检查密集头像和二维拖拽；这些样例不会进入正式后端。
 - 确认联调事项后运行 `node eigenflux/scripts/moment-preview-worker.mjs --codex --once`：由当前安装的 Codex 在临时目录完成文件写入，不使用真实 Agent 凭证。不加 `--codex` 时为明确标识的确定性执行器。
 
 实现入口：`web/social/moment*`、`overlay/api/consolev2/moment*`、`overlay/cli/cmd/moment.go`、`client/decisions.mjs`、`client/codex-executor.mjs`。对上游的修改留在 `patches/social-workspace.patch`，未修改固定的 submodule。

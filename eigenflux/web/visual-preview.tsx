@@ -221,12 +221,9 @@ export default function VisualPreview() {
           <a className="sw-brand" href="/preview#crossing">
             <BrandLogo />
           </a>
-          <p>此刻</p>
+          <p title="本地隔离数据联调">此刻</p>
         </aside>
         <main className="sw-main">
-          <span className="mb-preview-badge" title="本地隔离数据">
-            联调
-          </span>
           <Moment
             agentId="1"
             onExplore={() => location.assign('/preview#explore')}

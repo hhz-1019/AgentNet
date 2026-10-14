@@ -1,4 +1,4 @@
-/* Moment owns one screen. Overflow belongs to horizontal, draggable rails. */
+/* Moment owns one screen: a movable avatar field and contained detail panels. */
 html:has(.sw-workspace[data-page^='crossing'] .mb-live),
 body:has(.sw-workspace[data-page^='crossing'] .mb-live) {
   height: 100%;
@@ -19,7 +19,7 @@ html[data-theme]
   height: 100%;
   min-height: 0;
   min-width: 0;
-  padding: clamp(12px, 3vh, 32px) clamp(16px, 3vw, 40px);
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -83,64 +83,101 @@ html[data-theme]
 #root .mb-rail-arrows button:disabled {
   opacity: 0.25;
 }
-#root .mb-agent-rail {
-  flex: 1;
-}
-#root .mb-agent-rail > .mb-drag-rail {
-  container-type: size;
-}
-#root .mb-agent-canvas {
-  height: 100%;
-  width: 100%;
-  display: grid;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(180px, 50%);
-  align-items: center;
-  justify-items: center;
-}
-#root .mb-agent-canvas:has(> :last-child:nth-child(-n + 2)) {
-  grid-template-rows: minmax(0, 1fr);
-}
-#root .mb-agent-canvas:has(> :only-child) {
-  grid-auto-columns: 100%;
-}
-#root .mb-live .mb-node {
+/* The camera moves; the page itself never scrolls. */
+#root .mb-field {
   position: relative;
-  left: auto;
-  top: auto;
-  transform: none;
-  width: 100%;
-  max-width: 300px;
-  padding: 12px;
+  flex: 1;
+  min-height: 0;
   min-width: 0;
-  gap: 6px;
-  --bubble-base: min(232px, 34cqw, calc(43cqh - 42px));
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  isolation: isolate;
 }
-#root .mb-agent-canvas:has(> :last-child:nth-child(-n + 2)) .mb-node {
-  --bubble-base: min(250px, 36cqw, calc(70cqh - 70px));
+#root .mb-field[data-dragging],
+#root .mb-field[data-dragging] .mb-orb {
+  cursor: grabbing;
 }
-#root .mb-live .mb-bubble {
-  width: calc(var(--bubble-base) * var(--priority-size));
-  height: auto;
-  aspect-ratio: 1;
-  flex-shrink: 0;
-  margin-bottom: 10px;
+#root .mb-field:focus-visible {
+  outline: 2px solid var(--ew-focus, var(--ew-ink));
+  outline-offset: -3px;
 }
-#root .mb-live .mb-bubble .agent-avatar,
-#root .mb-live .mb-bubble img {
+#root .mb-world {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+#root .mb-orb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ew-ink);
+  box-shadow: none;
+  cursor: pointer;
+  touch-action: none;
+  transition:
+    transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 560ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+#root .mb-orb-image {
+  display: block;
   width: 100%;
   height: 100%;
-  border-radius: 50%;
+  border-radius: inherit;
+  overflow: hidden;
+  background: var(--ew-tint);
+  box-shadow: 0 3px 7px -4px rgb(48 44 38 / 25%);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#root .mb-orb-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
   object-fit: cover;
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
-#root .mb-live .mb-name {
-  font-size: clamp(16px, 2.5cqw, 21px);
+#root .mb-orb:hover .mb-orb-image {
+  transform: scale(1.012);
 }
-#root .mb-live .mb-caption {
-  font-size: 14px;
-  white-space: normal;
-  text-align: center;
+#root .mb-orb:active .mb-orb-image {
+  transform: scale(0.965);
+}
+#root .mb-field[data-dragging] .mb-orb-image {
+  transform: none;
+}
+#root .mb-orb:focus-visible {
+  outline: 2px solid var(--ew-ink);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .mb-orb {
+    transition: none;
+  }
+  #root .mb-orb-image {
+    transition: opacity 120ms ease-out;
+  }
+  #root .mb-orb:hover .mb-orb-image,
+  #root .mb-orb:active .mb-orb-image {
+    transform: none;
+  }
+  #root .mb-reader {
+    animation: none;
+  }
 }
 #root .mb-live .mb-empty {
   flex: 1;
@@ -156,9 +193,6 @@ html[data-theme]
 #root .mb-load-message {
   padding: 16px;
   line-height: 1.6;
-}
-#root .mb-load-more {
-  padding: 16px;
 }
 #root dialog.mb-fit-panel {
   width: min(960px, calc(100vw - 48px));
@@ -317,31 +351,15 @@ html[data-theme]
   font-size: 15px;
   flex-shrink: 0;
 }
-#root .mb-preview-badge {
-  position: absolute;
-  top: 16px;
-  left: 20px;
-  color: var(--ew-muted);
-  font-size: 14px;
-}
 @media (max-width: 600px) {
   html[data-theme]
     #root
     .sw-workspace[data-page^='crossing']:has(.mb-live)
     .sw-main {
-    padding: 12px 12px calc(80px + env(safe-area-inset-bottom));
+    padding: 0 0 calc(80px + env(safe-area-inset-bottom));
   }
   html[data-theme] #root .sw-workspace.mb-live-preview .sw-main {
-    padding-bottom: 12px;
-  }
-  #root .mb-agent-canvas {
-    grid-auto-columns: 72%;
-  }
-  #root .mb-live .mb-node {
-    --bubble-base: min(205px, 48cqw, calc(43cqh - 42px));
-  }
-  #root .mb-agent-canvas:has(> :last-child:nth-child(-n + 2)) .mb-node {
-    --bubble-base: min(220px, 48cqw, calc(70cqh - 70px));
+    padding-bottom: 0;
   }
   #root dialog.mb-fit-panel {
     width: calc(100vw - 20px);
@@ -367,12 +385,6 @@ html[data-theme]
   }
 }
 @media (max-height: 540px) {
-  #root .mb-agent-canvas {
-    grid-template-rows: minmax(0, 1fr);
-  }
-  #root .mb-live .mb-node {
-    --bubble-base: min(190px, 32cqw, calc(70cqh - 70px));
-  }
   #root dialog.mb-fit-panel {
     height: calc(100dvh - 16px);
   }
@@ -395,5 +407,19 @@ html[data-theme]
   #root .mb-reader h3 {
     margin-bottom: 12px;
     font-size: 21px;
+  }
+}
+
+@keyframes mb-detail-change {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #root .mb-reader {
+    animation: mb-detail-change 220ms ease-out;
   }
 }
