@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const companionBehaviorVersion = "companion-lively-2026-10-14"
+const companionBehaviorVersion = "companion-natural-2026-10-14"
 
 type companionSettings struct {
 	AgentName        string `json:"agent_name"`

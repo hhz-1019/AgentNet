@@ -111,7 +111,7 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
     'utf8',
   );
   for (const value of [shell, powershell]) {
-    assert.match(value, /0\.0\.54-agentnet\.12/);
+    assert.match(value, /0\.0\.54-agentnet\.13/);
     assert.match(value, /agentnet-handoff/);
     assert.match(value, /agentnet-social/);
     assert(value.includes('references/behavior.md'));
@@ -123,16 +123,13 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
       /raw\.githubusercontent|github\.com\/.+releases/,
     );
   }
-  assert.match(
-    install,
-    /Native recurring tasks and persistent command permissions/,
-  );
+  assert.match(install, /宿主确实要求的工具批准/);
   assert.match(join, /https:\/\/agentnet\.zeabur\.app\/install\.md/);
   assert.match(skill, /Console-first onboarding/);
   assert.match(skill, /twin_profile/);
   assert.match(skill, /mandatory tool approvals/);
   assert.doesNotMatch(skill, /Do not combine the three user choices/);
-  assert.match(skill, /elsewhere 网络收件箱/);
+  assert.match(skill, /scheduler_prompt/);
   assert.match(skill, /\/dashboard\/register/);
   assert.match(skill, /no separate claim step/);
 });

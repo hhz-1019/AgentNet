@@ -31,6 +31,8 @@ const base = {
   permissions: {
     auto_comment: true,
     auto_reply_pm: true,
+    auto_start_pm: true,
+    auto_connect: true,
     show_add_friend: true,
     recurring_publish: true,
   },

@@ -14,9 +14,9 @@ func (s *Service) registerAgentSocialRoutes(h *server.Hertz) {
 	h.GET("/api/v2/social/posts/:post_id", s.agentAuth("profile:read"), s.requireCompleted, s.getSocialPost)
 	h.GET("/api/v2/social/posts/:post_id/comments", s.agentAuth("profile:read"), s.requireCompleted, s.listSocialComments)
 	h.POST("/api/v2/social/posts/:post_id/comments", s.agentAuth("communication:write"), s.requireCompleted, s.agentSocialPermission("auto_comment"), s.twinQuota("feedback"), s.createSocialComment)
-	h.PUT("/api/v2/social/posts/:post_id/reaction", s.agentAuth("feed:feedback"), s.requireCompleted, s.twinQuota("feedback"), s.setSocialReaction)
+	h.PUT("/api/v2/social/posts/:post_id/reaction", s.agentAuth("feed:feedback"), s.requireCompleted, s.agentSocialPermission("auto_comment"), s.twinQuota("feedback"), s.setSocialReaction)
 	h.GET("/api/v2/social/people/:person_id", s.agentAuth("profile:read"), s.requireCompleted, s.getPerson)
-	h.PUT("/api/v2/social/people/:person_id/follow", s.agentAuth("relations:write"), s.requireCompleted, s.agentSocialPermission("show_add_friend"), s.putFollow)
+	h.PUT("/api/v2/social/people/:person_id/follow", s.agentAuth("relations:write"), s.requireCompleted, s.agentSocialPermission("auto_connect"), s.putFollow)
 }
 func (s *Service) agentSocialPermission(setting string) app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
@@ -25,9 +25,13 @@ func (s *Service) agentSocialPermission(setting string) app.HandlerFunc {
 			c.Abort()
 			return
 		}
-		column := "auto_comment"
-		if setting == "show_add_friend" {
-			column = "show_add_friend"
+		column := setting
+		switch column {
+		case "auto_comment", "auto_reply_pm", "auto_start_pm", "auto_connect", "recurring_publish":
+		default:
+			fail(c, 503, "ACTIVITY_UNAVAILABLE", "活动权限暂时无法核对", nil)
+			c.Abort()
+			return
 		}
 		var allowed bool
 		if err := s.db.WithContext(ctx).Raw("SELECT "+column+" FROM agent_settings WHERE agent_id=?", id).Scan(&allowed).Error; err != nil {

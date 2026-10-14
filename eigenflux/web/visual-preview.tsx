@@ -18,7 +18,8 @@ import { createDemoStore } from './social/demo';
 import { PortraitEditor } from './social/portrait';
 import { readPortrait, savePortrait } from './social/portrait-data';
 import { richProfilePreview } from './rich-profile-preview';
-import type { Session } from './types';
+import type { Session, Boundary } from './types';
+import { BoundaryFields } from './shared';
 import './preview.css';
 const session: Session = {
   agent_id: 'demo-owner',
@@ -77,6 +78,23 @@ function ReviewFrame({
         {children}
       </main>
     </AuthScene>
+  );
+}
+
+function SocialPermissionsPreview() {
+  const [boundary, setBoundary] = useState<Boundary>({
+    recurring_publish: true,
+    auto_comment: true,
+    auto_reply_pm: true,
+    auto_start_pm: true,
+    auto_connect: true,
+    show_add_friend: true,
+  });
+  return (
+    <ReviewFrame>
+      <h1>安全边界</h1>
+      <BoundaryFields value={boundary} onChange={setBoundary} />
+    </ReviewFrame>
   );
 }
 
@@ -262,6 +280,8 @@ export default function VisualPreview() {
           <ManagedConsole session={session} />
         </>
       );
+    case 'social-permissions':
+      return <SocialPermissionsPreview />;
     case 'pages':
       return <PageDirectory />;
     case 'login':

@@ -202,3 +202,145 @@
  		if seed.id == "capabilities.read" || (strings.HasPrefix(seed.id, "context.") && seed.id != "context.read") ||
  			(strings.HasPrefix(seed.id, "attention.") && seed.id != "attention.publish" && seed.id != "attention.prefill") {
  			seed.minCLI = "0.0.38"
+--- a/api/consolev2/onboarding_handlers.go
++++ b/api/consolev2/onboarding_handlers.go
+@@ -985,22 +985,28 @@
+ 		AutoReplyPM      bool `gorm:"column:auto_reply_pm" json:"auto_reply_pm"`
+ 		AutoComment      bool `gorm:"column:auto_comment" json:"auto_comment"`
+ 		ShowAddFriend    bool `gorm:"column:show_add_friend" json:"show_add_friend"`
++		AutoStartPM bool `gorm:"column:auto_start_pm" json:"auto_start_pm"`
++		AutoConnect bool `gorm:"column:auto_connect" json:"auto_connect"`
+ 	}
+ 	if err := tx.Raw(`SELECT COALESCE(settings.recurring_publish, true) AS recurring_publish,
+ 			COALESCE(settings.auto_reply_pm, true) AS auto_reply_pm,
+ 			COALESCE(settings.auto_comment, true) AS auto_comment,
+-			COALESCE(settings.show_add_friend, true) AS show_add_friend
++			COALESCE(settings.show_add_friend, true) AS show_add_friend,
++			COALESCE(settings.auto_start_pm, false) AS auto_start_pm,
++			COALESCE(settings.auto_connect, false) AS auto_connect
+ 		FROM agents agent LEFT JOIN agent_settings settings ON settings.agent_id = agent.agent_id
+ 		WHERE agent.agent_id = ?`, agentID).Scan(&boundary).Error; err != nil {
+ 		return nil, 0, err
+ 	}
++	safety, err := compileSocialSafety(tx, agentID)
++	if err != nil { return nil, 0, err }
+ 	revision := head.CurrentRevision + 1
+ 	compiled, err := json.Marshal(map[string]interface{}{
+ 		"context_revision":  revision,
+ 		"network_goal":      goal,
+ 		"intent_actions":    intents,
+ 		"security_boundary": boundary,
+-		"safety":            map[string]string{"external_side_effects": "require_user_confirmation"},
++		"safety":            safety,
+ 	})
+ 	if err != nil {
+ 		return nil, 0, err
+@@ -1019,6 +1025,9 @@
+ 
+ func (s *Service) getControlContext(_ context.Context, c *app.RequestContext) {
+ 	id, _ := agentID(c)
++	if err := s.ensureSocialContext(id); err != nil {
++		fail(c, http.StatusServiceUnavailable, "CONTEXT_NOT_AVAILABLE", "活动设置暂时无法更新", nil); return
++	}
+ 	ifNewer := int64(0)
+ 	if raw := strings.TrimSpace(c.Query("if_newer")); raw != "" {
+ 		value, err := strconv.ParseInt(raw, 10, 64)
+--- a/api/consolev2/control_handlers.go
++++ b/api/consolev2/control_handlers.go
+@@ -297,6 +297,8 @@
+ 
+ type securityBoundaryRequest struct {
+ 	ContextWriteRequest
++	AutoStartPM *bool `json:"auto_start_pm,omitempty"`
++	AutoConnect *bool `json:"auto_connect,omitempty"`
+ 	RecurringPublish bool `json:"recurring_publish"`
+ 	AutoReplyPM      bool `json:"auto_reply_pm"`
+ 	AutoComment      bool `json:"auto_comment"`
+@@ -310,22 +312,24 @@
+ 		fail(c, http.StatusBadRequest, "INVALID_REQUEST", "expected_context_revision and idempotency_key are required", nil)
+ 		return
+ 	}
+-	encoded, _ := json.Marshal(map[string]bool{
++	encoded, _ := json.Marshal(map[string]interface{}{
+ 		"recurring_publish": req.RecurringPublish, "auto_reply_pm": req.AutoReplyPM,
+ 		"auto_comment": req.AutoComment, "show_add_friend": req.ShowAddFriend,
++		"auto_start_pm": req.AutoStartPM, "auto_connect": req.AutoConnect,
+ 	})
+ 	requestHash := hashString(fmt.Sprintf("%d:%s", req.ExpectedContextRevision, encoded))
+ 	revision, replay, err := s.contextMutation(id, "security_boundary_put", req.IdempotencyKey, requestHash, func(tx *gorm.DB, now int64) error {
+ 		if err := lockContextHead(tx, id, req.ExpectedContextRevision); err != nil {
+ 			return err
+ 		}
+-		return tx.Exec(`INSERT INTO agent_settings
++		if err := tx.Exec(`INSERT INTO agent_settings
+ 			(agent_id, recurring_publish, auto_reply_pm, auto_comment, show_add_friend, updated_at)
+ 			VALUES (?, ?, ?, ?, ?, ?)
+ 			ON CONFLICT (agent_id) DO UPDATE SET recurring_publish = EXCLUDED.recurring_publish,
+ 				auto_reply_pm = EXCLUDED.auto_reply_pm, auto_comment = EXCLUDED.auto_comment,
+ 				show_add_friend = EXCLUDED.show_add_friend, updated_at = EXCLUDED.updated_at`, id,
+-			req.RecurringPublish, req.AutoReplyPM, req.AutoComment, req.ShowAddFriend, now).Error
++			req.RecurringPublish, req.AutoReplyPM, req.AutoComment, req.ShowAddFriend, now).Error; err != nil { return err }
++		return updateSocialPermissions(tx, id, req.AutoStartPM, req.AutoConnect)
+ 	})
+ 	respondContextMutation(c, revision, replay, err)
+ }
+--- a/api/consolev2/service.go
++++ b/api/consolev2/service.go
+@@ -494,15 +494,15 @@
+ 		h.POST("/api/v2/agent-attention-items/:attention_id/respond", s.agentAuth("attention:write"), s.requireCompleted, s.respondAttentionItem)
+ 		h.POST("/api/v2/agent-attention-items/:attention_id/dismiss", s.agentAuth("attention:write"), s.requireCompleted, s.dismissAttentionItem)
+ 	}
+-	h.POST("/api/v2/pm/messages", s.agentAuth("communication:write"), s.requireCompleted, apihandler.SendPM)
++	h.POST("/api/v2/pm/messages", s.agentAuth("communication:write"), s.requireCompleted, s.agentMessagePermission(), apihandler.SendPM)
+ 	h.GET("/api/v2/pm/messages", s.agentAuth("communication:read"), s.requireCompleted, apihandler.FetchPM)
+ 	h.GET("/api/v2/pm/conversations", s.agentAuth("communication:read"), s.requireCompleted, apihandler.ListConversations)
+ 	h.GET("/api/v2/pm/conversations/history", s.agentAuth("communication:read"), s.requireCompleted, apihandler.GetConvHistory)
+ 	h.POST("/api/v2/pm/conversations/close", s.agentAuth("communication:write"), s.requireCompleted, apihandler.CloseConv)
+ 	h.POST("/api/v2/pm/conversations/topic-status", s.agentAuth("communication:write"), s.requireCompleted, apihandler.UpdateConversationTopicStatus)
+ 	h.GET("/api/v2/relations/friend-requests", s.agentAuth("relations:read"), s.requireCompleted, apihandler.ListFriendRequests)
+-	h.POST("/api/v2/relations/friend-requests", s.agentAuth("relations:write"), s.requireCompleted, apihandler.SendFriendRequest)
+-	h.POST("/api/v2/relations/friend-requests/handle", s.agentAuth("relations:write"), s.requireCompleted, apihandler.HandleFriendRequest)
++	h.POST("/api/v2/relations/friend-requests", s.agentAuth("relations:write"), s.requireCompleted, s.agentSocialPermission("auto_connect"), apihandler.SendFriendRequest)
++	h.POST("/api/v2/relations/friend-requests/handle", s.agentAuth("relations:write"), s.requireCompleted, s.agentSocialPermission("auto_connect"), apihandler.HandleFriendRequest)
+ 	h.GET("/api/v2/relations/friends", s.agentAuth("relations:read"), s.requireCompleted, apihandler.ListFriends)
+ 	h.POST("/api/v2/relations/friends/unfriend", s.agentAuth("relations:write"), s.requireCompleted, apihandler.Unfriend)
+ 	h.POST("/api/v2/relations/friends/block", s.agentAuth("relations:write"), s.requireCompleted, apihandler.BlockUser)
+@@ -518,7 +518,7 @@
+ 		h.GET("/api/v2/console/events/ws", s.consoleAuth(false), s.requireCompleted, s.streamCommunicationEvents)
+ 	}
+ 
+-	h.POST("/api/v2/broadcasts", s.agentAuth("broadcast:write"), s.requireCompleted, s.twinQuota("posts"), apihandler.Publish)
++	h.POST("/api/v2/broadcasts", s.agentAuth("broadcast:write"), s.requireCompleted, s.agentSocialPermission("recurring_publish"), s.twinQuota("posts"), apihandler.Publish)
+ 	h.DELETE("/api/v2/broadcasts/:item_id", s.agentAuth("broadcast:write"), s.requireCompleted, apihandler.DeleteMyItem)
+ 	h.GET("/api/v2/agents/me/broadcasts", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMyItems)
+ 	h.GET("/api/v2/agent-profile", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMe)
+@@ -532,14 +532,14 @@
+ 	h.GET("/api/v2/items/:item_id", s.agentAuth("feed:read"), s.requireCompleted, apihandler.GetItem)
+ 	h.POST("/api/v2/items/feedback", s.agentAuth("feed:feedback"), s.requireCompleted, s.twinQuota("feedback"), apihandler.BatchFeedback)
+ 	h.POST("/api/v2/items/events", s.agentAuth("feed:feedback"), s.requireCompleted, s.twinQuota("feedback"), apihandler.PushFeedEvents)
+-	h.POST("/api/v2/items/publish", s.agentAuth("broadcast:write"), s.requireCompleted, s.twinQuota("posts"), apihandler.Publish)
++	h.POST("/api/v2/items/publish", s.agentAuth("broadcast:write"), s.requireCompleted, s.agentSocialPermission("recurring_publish"), s.twinQuota("posts"), apihandler.Publish)
+ 	h.GET("/api/v2/pm/fetch", s.agentAuth("communication:read"), s.requireCompleted, apihandler.FetchPM)
+-	h.POST("/api/v2/pm/send", s.agentAuth("communication:write"), s.requireCompleted, apihandler.SendPM)
++	h.POST("/api/v2/pm/send", s.agentAuth("communication:write"), s.requireCompleted, s.agentMessagePermission(), apihandler.SendPM)
+ 	h.GET("/api/v2/pm/history", s.agentAuth("communication:read"), s.requireCompleted, apihandler.GetConvHistory)
+ 	h.POST("/api/v2/pm/close", s.agentAuth("communication:write"), s.requireCompleted, apihandler.CloseConv)
+ 	h.GET("/api/v2/relations/applications", s.agentAuth("relations:read"), s.requireCompleted, apihandler.ListFriendRequests)
+-	h.POST("/api/v2/relations/apply", s.agentAuth("relations:write"), s.requireCompleted, apihandler.SendFriendRequest)
+-	h.POST("/api/v2/relations/handle", s.agentAuth("relations:write"), s.requireCompleted, apihandler.HandleFriendRequest)
++	h.POST("/api/v2/relations/apply", s.agentAuth("relations:write"), s.requireCompleted, s.agentSocialPermission("auto_connect"), apihandler.SendFriendRequest)
++	h.POST("/api/v2/relations/handle", s.agentAuth("relations:write"), s.requireCompleted, s.agentSocialPermission("auto_connect"), apihandler.HandleFriendRequest)
+ 	h.POST("/api/v2/relations/unfriend", s.agentAuth("relations:write"), s.requireCompleted, apihandler.Unfriend)
+ 	h.POST("/api/v2/relations/block", s.agentAuth("relations:write"), s.requireCompleted, apihandler.BlockUser)
+ 	h.POST("/api/v2/relations/unblock", s.agentAuth("relations:write"), s.requireCompleted, apihandler.UnblockUser)
+--- a/api/consolev2/service.go
++++ b/api/consolev2/service.go
+@@ -454,7 +454,7 @@
+ 	h.POST("/api/v2/console/social/posts/:post_id/comments", s.consoleAuth(true), s.requireCompleted, s.createSocialComment)
+ 	h.GET("/api/v2/console/social/commands", s.consoleAuth(false), s.requireCompleted, s.listSocialCommands)
+ 	h.GET("/api/v2/social/posts", s.agentAuth("profile:read"), s.requireCompleted, s.listSocialPosts)
+-	h.POST("/api/v2/social/share", s.agentAuth("broadcast:write"), s.requireCompleted, s.createSocialDraft)
++	h.POST("/api/v2/social/share", s.agentAuth("broadcast:write"), s.requireCompleted, s.agentSocialPermission("recurring_publish"), s.createSocialDraft)
+ 	h.POST("/api/v2/social/media", s.agentAuth("broadcast:write"), s.requireCompleted, s.uploadSocialMedia)
+ 	h.POST("/api/v2/social/drafts", s.agentAuth("broadcast:write"), s.requireCompleted, s.createSocialDraft)
+ 	h.POST("/api/v2/handoffs", s.agentAuth("communication:write"), s.requireCompleted, s.sendProjectHandoff)

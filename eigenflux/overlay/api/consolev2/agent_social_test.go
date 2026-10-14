@@ -21,7 +21,7 @@ func TestManagedCompanionAgentPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Exec("DELETE FROM twin_daily_usage WHERE agent_id=?; DELETE FROM twin_agent_policy WHERE agent_id=?; DELETE FROM agent_settings WHERE agent_id=?; DELETE FROM agents WHERE agent_id=?", id, id, id, id)
-	if err := db.Exec("INSERT INTO agent_settings(agent_id,auto_comment,show_add_friend,updated_at) VALUES(?,false,false,1); INSERT INTO twin_agent_policy(agent_id,daily_feedback,updated_at) VALUES(?,1,1)", id, id).Error; err != nil {
+	if err := db.Exec("INSERT INTO agent_settings(agent_id,auto_comment,auto_connect,updated_at) VALUES(?,false,false,1); INSERT INTO twin_agent_policy(agent_id,daily_feedback,updated_at) VALUES(?,1,1)", id, id).Error; err != nil {
 		t.Fatal(err)
 	}
 	s := &Service{db: db}
@@ -29,7 +29,7 @@ func TestManagedCompanionAgentPermissions(t *testing.T) {
 	inject := func(ctx context.Context, c *app.RequestContext) { c.Set("agent_id", id); c.Next(ctx) }
 	finish := func(_ context.Context, c *app.RequestContext) { reply(c, 200, map[string]any{"accepted": true}) }
 	h.POST("/comment", inject, s.agentSocialPermission("auto_comment"), s.twinQuota("feedback"), finish)
-	h.PUT("/follow", inject, s.agentSocialPermission("show_add_friend"), finish)
+	h.PUT("/follow", inject, s.agentSocialPermission("auto_connect"), finish)
 	call := func(method, path string, want int) {
 		t.Helper()
 		r := ut.PerformRequest(h.Engine, method, path, nil)
@@ -39,7 +39,7 @@ func TestManagedCompanionAgentPermissions(t *testing.T) {
 	}
 	call("POST", "/comment", 403)
 	call("PUT", "/follow", 403)
-	if err := db.Exec("UPDATE agent_settings SET auto_comment=true,show_add_friend=true WHERE agent_id=?", id).Error; err != nil {
+	if err := db.Exec("UPDATE agent_settings SET auto_comment=true,auto_connect=true WHERE agent_id=?", id).Error; err != nil {
 		t.Fatal(err)
 	}
 	call("POST", "/comment", 200)

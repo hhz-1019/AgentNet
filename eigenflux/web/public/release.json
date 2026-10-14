@@ -1,5 +1,5 @@
 {
-  "release": "elsewhere-rich-portrait-20261014",
+  "release": "elsewhere-companion-social-20261014",
   "cli_version": "0.0.54-agentnet.13",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
@@ -8,8 +8,8 @@
   "llm_transport": "chat_completions",
   "product": "elsewhere",
   "onboarding": "console-portrait-confirm",
-  "database_schema": "elsewhere-companion-avatars-v2",
-  "behavior_version": "companion-lively-2026-10-14",
+  "database_schema": "elsewhere-companion-social-v3",
+  "behavior_version": "companion-natural-2026-10-14",
   "account_model": "one-phone-one-owner-one-agent",
   "account_flow": "phone-account-registration",
   "portrait_prefill_version": "portrait-rich-2026-10-14"
