@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { packMoments, MOMENT_HOVER_SCALE } from './moment-layout.ts';
 import { prepareDecision } from './moment-decision.ts';
+import { zoomMoment } from './moment-zoom.ts';
 import {
   groupMoments,
   momentStage,
@@ -22,6 +23,24 @@ const base: MomentItem = {
   related_agent: { agent_id: '2', name: '伙伴' },
   actions: [],
 };
+void test('pinch preserves the world point under moving fingers and clamps zoom without drift', () => {
+  const camera = { x: 80, y: -30, zoom: 1 };
+  const anchor = { x: -120, y: 70 };
+  const destination = { x: -90, y: 100 };
+  const world = {
+    x: (anchor.x - camera.x) / camera.zoom,
+    y: (anchor.y - camera.y) / camera.zoom,
+  };
+  for (const requested of [0.01, 0.7, 1.8, 9]) {
+    const next = zoomMoment(camera, requested, anchor, destination);
+    assert(next.zoom >= 0.45 && next.zoom <= 2.5);
+    assert.equal(world.x * next.zoom + next.x, destination.x);
+    assert.equal(world.y * next.zoom + next.y, destination.y);
+    assert.deepEqual(zoomMoment(next, 1, destination, anchor), camera);
+  }
+  const max = zoomMoment(camera, 9, anchor);
+  assert.deepEqual(zoomMoment(max, 9, anchor), max);
+});
 void test('approval selects available delivery and preserves it across uncertain save retries', () => {
   const body = {
     action_key: 'accept',

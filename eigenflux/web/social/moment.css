@@ -111,6 +111,7 @@ html[data-theme]
   top: 50%;
   width: 0;
   height: 0;
+  transform-origin: 0 0;
 }
 #root .mb-orb {
   position: absolute;
@@ -155,18 +156,12 @@ html[data-theme]
 }
 #root .mb-orb:focus-visible .mb-orb-image {
   transform: scale(var(--mb-hover-scale));
-  box-shadow:
-    0 0 0 3px var(--ew-paper, #f4eddf),
-    0 0 0 5px var(--ew-ink),
-    0 16px 32px -12px rgb(48 44 38 / 48%);
+  box-shadow: 0 16px 32px -12px rgb(48 44 38 / 38%);
 }
 @media (hover: hover) and (pointer: fine) {
   #root .mb-orb:hover .mb-orb-image {
     transform: scale(var(--mb-hover-scale));
-    box-shadow:
-      0 0 0 3px var(--ew-paper, #f4eddf),
-      0 0 0 5px var(--ew-ink),
-      0 16px 32px -12px rgb(48 44 38 / 48%);
+    box-shadow: 0 16px 32px -12px rgb(48 44 38 / 38%);
   }
 }
 #root .mb-orb:active .mb-orb-image {
