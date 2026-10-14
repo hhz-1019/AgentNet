@@ -102,3 +102,41 @@
  		}
  		c.Next(ctx)
  	}
+--- a/rpc/sort/dal/es.go
++++ b/rpc/sort/dal/es.go
+@@ -43,4 +43,8 @@
+ func IndexItem(ctx context.Context, item *Item) error {
++ return withAccountErasureFence(ctx, []Item{*item}, func() error { return indexLiveItem(ctx, item) })
++}
++
++func indexLiveItem(ctx context.Context, item *Item) error {
+ 	body, err := json.Marshal(item)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to marshal item: %w", err)
+--- a/rpc/sort/dal/es_query.go
++++ b/rpc/sort/dal/es_query.go
+@@ -314,4 +314,8 @@
+ func BulkIndexItems(ctx context.Context, items []Item) error {
++ return withAccountErasureFence(ctx, items, func() error { return bulkIndexLiveItems(ctx, items) })
++}
++
++func bulkIndexLiveItems(ctx context.Context, items []Item) error {
+ 	if len(items) == 0 {
+ 		return nil
+ 	}
+--- a/rpc/auth/handler.go
++++ b/rpc/auth/handler.go
+@@ -658,6 +658,13 @@
+ 			email = parts[1]
+ 		}
+ 		if agentID > 0 {
++			// Redis credentials must not outlive permanent account erasure.
++			var erased bool
++			if err := db.DB.WithContext(ctx).Raw("SELECT EXISTS(SELECT 1 FROM erased_agent_ids WHERE agent_id=?)", agentID).Scan(&erased).Error; err != nil || erased {
++				return &auth.ValidateSessionResp{
++					BaseResp: &base.BaseResp{Code: 401, Msg: "invalid or expired session"},
++				}, nil
++			}
+ 			return &auth.ValidateSessionResp{
+ 				AgentId:  agentID,
+ 				Email:    &email,

@@ -1,0 +1,78 @@
+.account-deletion {
+  margin-top: 1.5rem;
+}
+.account-delete-link {
+  color: var(--text-muted, #746b63);
+  font-size: 0.88rem;
+}
+.account-deletion dialog {
+  color: var(--text, #342f2a);
+  background: var(--surface, #fffaf3);
+  border: 1px solid #d9cbbc;
+  border-radius: 18px;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  padding: 26px;
+  box-shadow: 0 24px 80px #251a1433;
+}
+.account-deletion dialog::backdrop {
+  background: #17110b70;
+}
+.account-deletion form {
+  display: grid;
+  gap: 16px;
+}
+.account-deletion h2 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+.account-deletion p {
+  margin: 0;
+  line-height: 1.65;
+}
+.deletion-counts,
+.deletion-note {
+  font-size: 0.88rem;
+  color: var(--text-muted, #746b63);
+}
+.account-deletion form > label:not(.deletion-check) {
+  display: block;
+  margin: 0;
+}
+.account-deletion form > label > input:not([type='checkbox']) {
+  display: block;
+  margin-top: 7px;
+}
+.deletion-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.9rem;
+}
+.account-deletion .deletion-check input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+.deletion-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.deletion-confirm {
+  background: #873b32;
+  color: #fffaf5;
+  border-color: #873b32;
+}
+.deletion-confirm:disabled {
+  opacity: 0.45;
+}
+@media (max-width: 480px) {
+  .account-deletion dialog {
+    padding: 20px;
+  }
+  .deletion-actions > button {
+    flex: 1;
+  }
+}
