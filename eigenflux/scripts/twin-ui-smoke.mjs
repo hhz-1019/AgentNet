@@ -421,6 +421,9 @@ try {
       visible: ['name', 'bio', 'interests'],
       memories: [],
     };
+    // Start a separate rich-profile fixture; do not carry the preceding
+    // legacy-profile scenario's role into its biography.
+    draft.twin_profile.basic_info = {};
     draft.twin_profile.portrait = {
       prefill_version: 'portrait-rich-2026-10-14',
       fields: structuredClone(richProfilePreview.fields),
