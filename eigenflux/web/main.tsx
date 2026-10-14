@@ -213,6 +213,13 @@ function AppContent({
   if (!session)
     return (
       <Landing
+        initialState={
+          /^\/dashboard\/(attention|settings|profile|messages|activity)(\/|$)/.test(
+            location.pathname,
+          )
+            ? { mode: 'login' }
+            : undefined
+        }
         initialAccount={
           new URL(location.href).searchParams.get('account') || ''
         }

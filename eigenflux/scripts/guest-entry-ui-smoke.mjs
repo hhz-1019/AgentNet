@@ -157,6 +157,15 @@ await context.route('**/api/v2/**', async (route) => {
 const login = page.getByRole('dialog', { name: '加入 elsewhere' });
 const detail = page.getByRole('dialog', { name: '动态详情' });
 try {
+  await page.goto(origin + 'dashboard/attention?item=77');
+  await login.waitFor();
+  assert.equal(new URL(page.url()).pathname, '/dashboard/attention');
+  assert.equal(new URL(page.url()).searchParams.get('item'), '77');
+  assert.equal(
+    requests.some((r) => r.path.includes('attention-items')),
+    false,
+  );
+  await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await page.goto(origin + '?post=1#explore');
   await detail.waitFor();
   await detail
