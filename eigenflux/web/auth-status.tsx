@@ -27,7 +27,7 @@ export function HandoffIssue({
         </a>
         <h1>登录 elsewhere</h1>
         <ErrorBox error={error.message} />
-        {session && (
+        {session?.owner_bound && (
           <section>
             <h2>此浏览器已有登录会话</h2>
             <p>{session.agent_name}</p>

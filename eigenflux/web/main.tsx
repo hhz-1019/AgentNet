@@ -218,11 +218,6 @@ function AppContent({
     );
   if (location.pathname === '/dashboard/account-switch')
     return <AccountSwitch done={() => void refresh()} />;
-  if (location.pathname === '/dashboard/analytics')
-    return <AnalyticsDashboard />;
-  if (location.pathname === '/dashboard/members') return <AdminMembers />;
-  if (location.pathname === '/dashboard/registration')
-    return <AdminRegistration />;
   if (session.owner_bound === false || session.onboarding.state !== 'completed')
     return (
       <Onboard
@@ -231,6 +226,11 @@ function AppContent({
         done={() => void refresh()}
       />
     );
+  if (location.pathname === '/dashboard/analytics')
+    return <AnalyticsDashboard />;
+  if (location.pathname === '/dashboard/members') return <AdminMembers />;
+  if (location.pathname === '/dashboard/registration')
+    return <AdminRegistration />;
   return (
     <Console
       key={session.agent_id}
