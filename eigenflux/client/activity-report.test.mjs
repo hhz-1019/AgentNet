@@ -175,3 +175,31 @@ await test('model-invented destinations do not become clickable owner tasks', as
     /invented a link/,
   );
 });
+await test('bare verified URLs become inline links without repeating the decision', async () => {
+  const url = 'https://agentnet.zeabur.app/dashboard/attention?item=77';
+  const result = await createActivityReport(
+    {
+      json: async (prompt) =>
+        prompt.startsWith('审校')
+          ? { grounded: true, unsupported: [] }
+          : {
+              reply: `周六的时间等你决定，看看这里：${url}`,
+              covered_ids: ['p'],
+            },
+    },
+    {
+      pending: [
+        {
+          id: 'p',
+          text: '周六的时间等你决定',
+          needs_owner: true,
+          action_url: url,
+          action_label: '看看邀请',
+        },
+      ],
+    },
+  );
+  assert(result.reply.includes(`[看看邀请](${url})`));
+  assert.equal(result.reply.split(url).length - 1, 1);
+  assert(!result.reply.includes('\n-'));
+});

@@ -46,6 +46,17 @@ function linkedReply(reply, facts) {
   for (const match of reply.matchAll(/https?:\/\/[^\s)\]>]+/g))
     if (!allowed.has(match[0]))
       throw new Error('Owner feedback invented a link');
+  for (const fact of all) {
+    if (
+      fact.needs_owner === true &&
+      reply.includes(fact.action_url) &&
+      !reply.includes(`](${fact.action_url})`)
+    )
+      reply = reply.replaceAll(
+        fact.action_url,
+        `[${fact.action_label || '查看相关事项'}](${fact.action_url})`,
+      );
+  }
   const missing = all.filter(
     (f) => f.needs_owner === true && !reply.includes(`](${f.action_url})`),
   );
