@@ -9,6 +9,7 @@ import { AgentAvatar } from '../avatar';
 import { zoomMoment } from './moment-zoom';
 import {
   packMoments,
+  momentViewportScale,
   MOMENT_HOVER_SCALE,
   type MomentCircle,
 } from './moment-layout';
@@ -59,7 +60,7 @@ export function MomentField({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  const scale = clamp(Math.min(size.width, size.height) / 520, 0.85, 1.35);
+  const scale = momentViewportScale(circles, size.width, size.height);
   const camera = useRef({
     x: 0,
     y: 0,

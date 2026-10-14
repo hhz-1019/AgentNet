@@ -1,6 +1,34 @@
 export type MomentCircle = { id: string; x: number; y: number; radius: number };
 export const MOMENT_HOVER_SCALE = 1.1;
 
+export function momentViewportScale(
+  circles: MomentCircle[],
+  width: number,
+  height: number,
+) {
+  const baseline = Math.max(
+    0.85,
+    Math.min(1.35, Math.min(width, height) / 520),
+  );
+  if (circles.length < 5 || width <= 0 || height <= 0) return baseline;
+  // Cover the viewport, including its corners, rather than fit the whole
+  // cluster inside it. Sample its silhouette around the central priority item;
+  // the extra margin puts the outer faces beyond the stationary edge fade.
+  let scale = baseline;
+  for (let step = 0; step < 64; step++) {
+    const angle = (step * Math.PI) / 32;
+    const dx = Math.cos(angle),
+      dy = Math.sin(angle);
+    const reach = Math.max(
+      ...circles.map((c) => c.x * dx + c.y * dy + c.radius),
+    );
+    const viewportReach =
+      (width / 2) * Math.abs(dx) + (height / 2) * Math.abs(dy) + 48;
+    scale = Math.max(scale, viewportReach / reach);
+  }
+  return scale;
+}
+
 // Pack in priority order around the most urgent Agent. Tangent candidates keep
 // the cluster dense; the radial floor prevents a lower rank displacing it.
 export function packMoments(
