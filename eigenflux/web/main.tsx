@@ -62,12 +62,15 @@ function AppContent({
       setSession(account && current.owner_uid !== account ? null : current);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
-        if (lastAccount.current && location.pathname.startsWith('/dashboard'))
+        if (lastAccount.current && location.pathname.startsWith('/dashboard')) {
+          const destination = new URL(location.href);
+          destination.searchParams.set('account', lastAccount.current);
           history.replaceState(
             null,
             '',
-            `/dashboard?account=${encodeURIComponent(lastAccount.current)}`,
+            destination.pathname + destination.search + destination.hash,
           );
+        }
         setSession(null);
       } else setError(e instanceof Error ? e.message : '连接失败');
     }

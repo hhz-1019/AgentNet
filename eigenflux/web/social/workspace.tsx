@@ -179,6 +179,28 @@ export function SocialWorkspace({
   const [pending, setPending] = useState<string[]>([]);
   const [publisher, setPublisher] = useState<WorkPost | true>();
   const [detail, setDetail] = useState<WorkPost>();
+  const [linkVersion, setLinkVersion] = useState(0);
+  useEffect(() => {
+    const update = () => setLinkVersion((v) => v + 1);
+    window.addEventListener('popstate', update);
+    return () => window.removeEventListener('popstate', update);
+  }, []);
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get('post');
+    if (!id || route !== 'explore' || !/^\d+$/.test(id)) return;
+    let active = true;
+    void store
+      .get(id)
+      .then((post) => {
+        if (active) setDetail(post);
+      })
+      .catch(() => {
+        if (active) setNotice('这条动态暂时无法访问。');
+      });
+    return () => {
+      active = false;
+    };
+  }, [route, store, linkVersion]);
   const workspace = useRef<HTMLDivElement>(null);
   const atmosphere = useJournalAtmosphere(
     workspace,
@@ -1292,6 +1314,11 @@ export function SocialWorkspace({
           onClose={() => {
             const id = detail.id;
             setDetail(undefined);
+            const url = new URL(location.href);
+            if (url.searchParams.has('post')) {
+              url.searchParams.delete('post');
+              history.replaceState(history.state, '', url);
+            }
             requestAnimationFrame(() => {
               const origin = Array.from(
                 document.querySelectorAll<HTMLElement>(

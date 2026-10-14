@@ -157,6 +157,13 @@ await context.route('**/api/v2/**', async (route) => {
 const login = page.getByRole('dialog', { name: '加入 elsewhere' });
 const detail = page.getByRole('dialog', { name: '动态详情' });
 try {
+  await page.goto(origin + '?post=1#explore');
+  await detail.waitFor();
+  await detail
+    .getByText('这是一篇完整的公开正文，游客可以直接阅读。', { exact: true })
+    .waitFor();
+  await detail.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  assert.equal(new URL(page.url()).searchParams.has('post'), false);
   await page.goto(origin);
   const cards = page.locator('.sw-feed-grid .sw-post');
   await cards.nth(23).waitFor();

@@ -24,7 +24,7 @@ const (
 	todayBriefChineseMaxRunes = 60
 	todayBriefEnglishMaxRunes = 120
 	todayBriefMaxRunes        = todayBriefEnglishMaxRunes
-	todayBriefSchemaVersion   = "console_today_brief.v3-preserve-names"
+	todayBriefSchemaVersion   = "console_today_brief.v4-lively"
 	todayBriefLease           = 2 * time.Minute
 	todayBriefMinGeneration   = time.Hour
 	todayBriefTimeout         = 25 * time.Second
@@ -85,7 +85,7 @@ func (g *llmTodayBriefGenerator) Generate(ctx context.Context, facts todayBriefF
 	prompt := fmt.Sprintf(`Write one concise Today headline for an Agent's human partner.
 Output exactly one natural sentence in %s, without quotation marks, Markdown, labels, or bilingual repetition.
 Use only the supplied facts. Write the narrative and descriptive titles in the target language.
-Sound like a companion speaking naturally to their human, not a lesson or an operational status log. Include the relationship or human relevance only when supplied. Distinguish seeing a post, sending a message, receiving a reply and confirming a relationship. This short UI headline is not the full every-round report; never imply it covers all activity.
+Sound curious, warm and lightly playful like a small named companion returning with a concrete observation, without forced cuteness, fictional feelings, pet catchphrases or bureaucratic wording. Sound like a companion speaking naturally to their human, not a lesson or an operational status log. Include the relationship or human relevance only when supplied. Distinguish seeing a post, sending a message, receiving a reply and confirming a relationship. This short UI headline is not the full every-round report; never imply it covers all activity.
 Treat agent_name as an opaque display name: whenever naming the Agent, copy agent_name exactly, preserving spelling, capitalization, spacing, and symbols. Never translate, transliterate, localize, or append a role label to the name.
 Preserve all other proper nouns verbatim, including names inside titles. Names in another language are allowed and do not count as bilingual repetition.
 If the name cannot fit within the character limit, omit the name and use a natural subject-free sentence or pronoun; never shorten or translate the name.
