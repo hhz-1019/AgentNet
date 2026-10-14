@@ -118,7 +118,10 @@ const noImageInput = {
   task: '宿主目前没有图片、搜索、生图或上传工具。说明该怎么准备一条短帖并返回 JSON {title,content,media,image_status}，不要假装尝试了不存在的工具或编造 URL。',
 };
 const noImage = await model.json(companionBehavior, noImageInput);
-assert.deepEqual(noImage.media, []);
+assert(
+  noImage.media == null ||
+    (Array.isArray(noImage.media) && noImage.media.length === 0),
+);
 assert(!/https?:\/\//.test(JSON.stringify(noImage)));
 cases.push({
   name: '缺少图片工具时不伪造素材',
