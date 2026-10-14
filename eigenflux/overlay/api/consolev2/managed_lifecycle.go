@@ -54,13 +54,13 @@ func (s *Service) refreshManagedProfiles(ctx context.Context, c *app.RequestCont
 			SeedIndex int
 			Name      string
 		}
-		if err := tx.Raw(`SELECT agent_id,seed_index,name FROM managed_members WHERE sponsor_uid=? AND deleted_at=0 AND seed_index<100 AND profile_version<2 ORDER BY seed_index FOR UPDATE`, owner).Scan(&members).Error; err != nil {
+		if err := tx.Raw(`SELECT agent_id,seed_index,name FROM managed_members WHERE sponsor_uid=? AND deleted_at=0 AND seed_index>=0 AND seed_index<100 AND profile_version<? ORDER BY seed_index FOR UPDATE`, owner, managedProfileVersion).Scan(&members).Error; err != nil {
 			return err
 		}
 		for _, m := range members {
 			p := managedRichPersona(m.SeedIndex, m.Name)
 			now := time.Now().UnixMilli()
-			if err := tx.Exec(`UPDATE managed_members SET scenario=?,persona=?,profile_version=2,pending_topic='',revision=revision+1 WHERE agent_id=?`, p.Scenario, p.Persona, m.AgentID).Error; err != nil {
+			if err := tx.Exec(`UPDATE managed_members SET scenario=?,persona=?,profile_version=?,revision=revision+1 WHERE agent_id=?`, p.Scenario, p.Persona, managedProfileVersion, m.AgentID).Error; err != nil {
 				return err
 			}
 			draft := managedRichDraft(p, m.SeedIndex)

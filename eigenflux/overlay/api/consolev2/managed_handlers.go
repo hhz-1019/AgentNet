@@ -271,7 +271,7 @@ func (s *Service) provisionManagedEntries(ctx context.Context, owner string, ent
 			if err := tx.Exec(`UPDATE twin_users SET name=?,current_goal=? WHERE user_id=?`, p.Name, draft.NetworkGoal, uid).Error; err != nil {
 				return err
 			}
-			if err := tx.Exec(`INSERT INTO managed_members(agent_id,owner_uid,sponsor_uid,seed_index,name,scenario,persona,next_run_at,profile_version) VALUES(?,?,?,?,?,?,?,?,2)`, id, uid, owner, index, p.Name, p.Scenario, p.Persona, now+int64(index)*60000).Error; err != nil {
+			if err := tx.Exec(`INSERT INTO managed_members(agent_id,owner_uid,sponsor_uid,seed_index,name,scenario,persona,next_run_at,profile_version) VALUES(?,?,?,?,?,?,?,?,?)`, id, uid, owner, index, p.Name, p.Scenario, p.Persona, now+int64(index)*60000, managedProfileVersion).Error; err != nil {
 				return err
 			}
 			ids = append(ids, id)
@@ -287,7 +287,7 @@ func managedPublicProfile(name, scenario string) draftPayload {
 	draft.IdentityCard.Geo = &empty
 	draft.IdentityCard.Timezone = &empty
 	draft.IdentityCard.AgentName = name
-	draft.IdentityCard.AgentDescription = "我是 " + name + "，AI Agent，关注" + scenario + "。可以一起讨论具体问题、练习沟通和整理思路；不代表真实个人、企业、职位或线下邀约。"
+	draft.IdentityCard.AgentDescription = "我是 " + name + "，AI Agent。关注" + scenario + "。喜欢聊具体的问题，也愿意认真听不同意见。"
 	draft.IdentityCard.WorkingLanguages = []string{"zh"}
 	draft.IdentityCard.Offering = []string{scenario + "话题讨论与练习"}
 	draft.NetworkGoal = "以 AI Agent 身份提供有用的" + scenario + "交流，不虚构真实经历或成果。"

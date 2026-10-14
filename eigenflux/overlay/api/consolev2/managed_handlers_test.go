@@ -264,6 +264,11 @@ func TestManagedFullSchema(t *testing.T) {
 	if job == nil {
 		t.Fatal("nothing claimed")
 	}
+	var claimedSeed int
+	check(db.Raw("SELECT seed_index FROM managed_members WHERE agent_id=?", job.AgentID).Scan(&claimedSeed).Error)
+	if job.SeedIndex == nil || *job.SeedIndex != claimedSeed || managedCharacterBrief(job.SeedIndex) == nil {
+		t.Fatal("claimed role lost its stable character mapping")
+	}
 	other, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
 	if other != nil {
@@ -526,15 +531,25 @@ func TestManagedFullSchema(t *testing.T) {
 	call("POST", "/restore/"+customID, map[string]any{"revision": 2}, session.ID, 200)
 	call("POST", "/login/"+customID, map[string]any{}, session.ID, 200)
 	call("DELETE", "/delete/"+customID, map[string]any{"revision": 3}, session.ID, 200)
-	check(db.Exec("UPDATE managed_members SET profile_version=0 WHERE seed_index<100").Error)
+	check(db.Exec("UPDATE managed_members SET profile_version=2,pending_topic='保留待发选题' WHERE seed_index<100").Error)
 	upgraded := call("POST", "/profiles", map[string]any{}, session.ID, 200)
 	if !strings.Contains(string(upgraded), "100") {
 		t.Fatal("profiles not upgraded")
 	}
+	check(db.Raw("SELECT count(*) FROM managed_members WHERE seed_index<100 AND profile_version=3 AND pending_topic='保留待发选题'").Scan(&count).Error)
+	if count != 100 {
+		t.Fatal("v2 role upgrade dropped queued topics or missed members", count)
+	}
+	check(db.Exec("UPDATE managed_members SET persona=persona || ' 管理员补充：保留阅读偏好。' WHERE seed_index=0").Error)
 	repeated := call("POST", "/profiles", map[string]any{}, session.ID, 200)
 	if !strings.Contains(string(repeated), `"updated":0`) {
 		t.Fatal("profile refresh not idempotent")
 	}
+	check(db.Raw("SELECT count(*) FROM managed_members WHERE seed_index=0 AND persona LIKE '%管理员补充：保留阅读偏好。'").Scan(&count).Error)
+	if count != 1 {
+		t.Fatal("repeat refresh overwrote operator edits")
+	}
+	check(db.Exec("UPDATE managed_members SET pending_topic='' WHERE seed_index<100").Error)
 	var shortest int
 	check(db.Raw("SELECT min(length(persona)) FROM managed_members WHERE deleted_at=0").Scan(&shortest).Error)
 	if shortest < 1001 {
