@@ -54,6 +54,13 @@
 .ew-icon[data-icon='Users'] {
   translate: 0.3px 0;
 }
+.ew-icon[data-icon='Moment'] > circle {
+  fill: var(--ew-icon-fill);
+}
+.ew-icon[data-icon='Moment'] > circle:nth-child(2) {
+  fill: var(--ew-icon-accent);
+  stroke: var(--ew-icon-accent);
+}
 /* Broad, closed silhouettes receive a quiet fill; details stay unfilled. */
 .ew-icon:is([data-icon='Compass'], [data-icon='Search']) > circle,
 .ew-icon:is(
@@ -113,5 +120,70 @@ html[data-theme]
     --ew-icon-primary: CanvasText;
     --ew-icon-accent: CanvasText;
     --ew-icon-fill: Canvas;
+  }
+}
+
+/* Each destination has one short, distinct acknowledgement on selection.
+   Animate the glyph parts, never the navigation hit target. */
+@media (prefers-reduced-motion: no-preference) {
+  .ew-flip-nav[aria-current] [data-icon='Moment'] > circle {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ew-moment-gather 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .ew-flip-nav [data-icon='Moment'] > circle:first-child {
+    --moment-from-x: -2px;
+    --moment-from-y: 1px;
+  }
+  .ew-flip-nav [data-icon='Moment'] > circle:nth-child(2) {
+    --moment-from-x: 2px;
+    --moment-from-y: -2px;
+  }
+  .ew-flip-nav [data-icon='Moment'] > circle:last-child {
+    --moment-from-x: 2px;
+    --moment-from-y: 2px;
+  }
+  .ew-flip-nav[aria-current] [data-icon='Compass'] > path {
+    transform-origin: 12px 12px;
+    animation: ew-compass-turn 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .ew-flip-nav[aria-current] [data-icon='MessageCircle'] > path {
+    transform-origin: 5px 20px;
+    animation: ew-message-open 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .ew-flip-nav[aria-current] [data-icon='Users'] > circle {
+    animation: ew-people-greet 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+@keyframes ew-moment-gather {
+  from {
+    transform: translate(var(--moment-from-x), var(--moment-from-y)) scale(0.8);
+  }
+  to {
+    transform: translate(0, 0) scale(1);
+  }
+}
+@keyframes ew-compass-turn {
+  from {
+    transform: rotate(-65deg);
+  }
+  to {
+    transform: rotate(0);
+  }
+}
+@keyframes ew-message-open {
+  from {
+    transform: scale(0.65, 0.8);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes ew-people-greet {
+  from {
+    transform: translate(-2px, -2px);
+  }
+  to {
+    transform: translate(0, 0);
   }
 }

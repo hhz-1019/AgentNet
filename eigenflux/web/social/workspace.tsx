@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Activity,
+  Moment as MomentIcon,
   Bookmark,
   Compass,
   FileText,
@@ -77,7 +78,7 @@ import './post-reading.css';
 import './post-detail.css';
 
 const nav = [
-  ['crossing', '此刻', Activity],
+  ['crossing', '此刻', MomentIcon],
   ['explore', '发现', Compass],
   ['messages', '消息', MessageCircle],
   ['network', '通讯录', Users],
@@ -123,7 +124,7 @@ function readRoute(demo: boolean) {
     return route;
   return ['explore', 'messages', 'network', ...personalRoutes].includes(route)
     ? route
-    : 'crossing';
+    : 'explore';
 }
 export function SocialWorkspace({
   session,
@@ -297,7 +298,7 @@ export function SocialWorkspace({
         : `/dashboard/${id}`;
   useEffect(() => {
     if (demo && !guest && !location.hash)
-      history.replaceState(history.state, '', '/preview#crossing');
+      history.replaceState(history.state, '', '/preview#explore');
   }, [demo, guest]);
   function reload() {
     setVersion((v) => v + 1);
@@ -636,6 +637,7 @@ export function SocialWorkspace({
           }
           title={label}
           className="ew-flip-nav"
+          data-nav={id}
         >
           <span className="ew-nav-stage" aria-hidden="true">
             <span className="ew-nav-label">{label}</span>
@@ -667,8 +669,8 @@ export function SocialWorkspace({
       <aside className="sw-sidebar">
         <a
           className="sw-brand"
-          href={href('crossing')}
-          onClick={(e) => go('crossing', e)}
+          href={href('explore')}
+          onClick={(e) => go('explore', e)}
         >
           <BrandLogo />
         </a>
