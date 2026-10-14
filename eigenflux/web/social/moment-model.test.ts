@@ -96,8 +96,10 @@ void test('avatar cluster keeps priority central, touch targets usable and every
       for (const other of layout.slice(index + 1)) {
         assert(
           Math.hypot(circle.x - other.x, circle.y - other.y) >=
-            (circle.radius + other.radius) * MOMENT_HOVER_SCALE + 5.98,
-          'avatars must never overlap, including hover and keyboard emphasis',
+            Math.max(circle.radius, other.radius) * MOMENT_HOVER_SCALE +
+              Math.min(circle.radius, other.radius) +
+              1.98,
+          'avatars must never overlap when one is emphasized by hover or keyboard',
         );
       }
     });

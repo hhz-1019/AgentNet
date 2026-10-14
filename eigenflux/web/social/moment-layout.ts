@@ -7,15 +7,16 @@ export function packMoments(
   groups: { id: string; priority: number }[],
 ): MomentCircle[] {
   const circles: MomentCircle[] = [];
-  const gap = 6;
+  // Only the currently emphasized face grows; reserving both neighbors' full
+  // hover envelopes makes the resting cluster look unnecessarily scattered.
+  const spacing = (a: number, b: number) =>
+    a + b + Math.max(a, b) * (MOMENT_HOVER_SCALE - 1) + 2;
   let radialFloor = 0;
   for (const group of [...groups].sort(
     (a, b) => b.priority - a.priority || a.id.localeCompare(b.id),
   )) {
     const radius =
       32 + 132 * (Math.max(0, Math.min(130, group.priority)) / 130) ** 3;
-    // Reserve the hover envelope so emphasis never covers a neighboring face.
-    const footprint = radius * MOMENT_HOVER_SCALE;
     if (!circles.length) {
       circles.push({ id: group.id, x: 0, y: 0, radius });
       continue;
@@ -23,7 +24,7 @@ export function packMoments(
     let best: { x: number; y: number; distance: number } | undefined;
     const phase = circles.length * 2.3999632297;
     for (const anchor of circles) {
-      const distance = anchor.radius * MOMENT_HOVER_SCALE + footprint + gap;
+      const distance = spacing(anchor.radius, radius);
       for (let step = 0; step < 48; step++) {
         const angle = phase + (step * Math.PI) / 24;
         const x = anchor.x + Math.cos(angle) * distance;
@@ -35,7 +36,7 @@ export function packMoments(
           circles.some(
             (other) =>
               (other.x - x) ** 2 + (other.y - y) ** 2 <
-              (other.radius * MOMENT_HOVER_SCALE + footprint + gap - 0.01) ** 2,
+              (spacing(other.radius, radius) - 0.01) ** 2,
           )
         )
           continue;
@@ -43,13 +44,10 @@ export function packMoments(
       }
     }
     // Always have a non-overlapping fallback, including very large collections.
-    const x =
-      Math.max(
-        radialFloor,
-        ...circles.map((c) => c.x + c.radius * MOMENT_HOVER_SCALE),
-      ) +
-      footprint +
-      gap;
+    const x = Math.max(
+      radialFloor,
+      ...circles.map((c) => c.x + spacing(c.radius, radius)),
+    );
     const placed = best || { x, y: 0, distance: x };
     circles.push({ id: group.id, x: placed.x, y: placed.y, radius });
     radialFloor = placed.distance;

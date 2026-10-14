@@ -59,7 +59,7 @@ export function MomentField({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  const scale = clamp(Math.min(size.width, size.height) / 620, 0.7, 1);
+  const scale = clamp(Math.min(size.width, size.height) / 520, 0.85, 1.35);
   const camera = useRef({
     x: 0,
     y: 0,
