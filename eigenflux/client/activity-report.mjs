@@ -28,7 +28,9 @@ function actionURL(value) {
       ? 'peer'
       : url.pathname === '/dashboard/explore'
         ? 'post'
-        : '';
+        : url.pathname === '/dashboard/attention'
+          ? 'item'
+          : '';
   const targeted =
     query &&
     [...url.searchParams.keys()].length === 1 &&

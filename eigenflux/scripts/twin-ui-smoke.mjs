@@ -29,6 +29,16 @@ try {
       personalRevision = 0,
       policyRevision = 0;
     let state = { state: 'in_progress', current_step: 2, revision: 1 };
+    const decision = {
+      attention_id: '77',
+      title: '周六聊书，要约时间吗？',
+      body: '阿舟提议周六聊书，等待你决定。',
+      surface: 'participation',
+      status: 'open',
+      created_at: 1700000000000,
+      item_revision: 1,
+      actions: [{ action_key: 'yes', flag: '同意周六' }],
+    };
     let draft = {
       identity_card: {
         agent_name: '林间',
@@ -213,6 +223,12 @@ try {
             profile,
             agreement_accepted: true,
           };
+      } else if (path === 'console/attention-items/77') {
+        data = decision;
+      } else if (path === 'console/attention-items/77/respond') {
+        assert.equal(body.action_key, 'yes');
+        decision.status = 'pending';
+        data = { accepted: true };
       } else if (path === 'console/twin/policy') {
         if (method === 'PUT') {
           assert.equal(body.revision, policyRevision);
@@ -364,6 +380,22 @@ try {
       await page.getByLabel('Agent 的名字').inputValue(),
       '设置中修改的昵称',
     );
+    ownerVerified = false;
+    await page.goto('http://127.0.0.1:4324/dashboard/attention?item=77');
+    await page
+      .getByRole('heading', { name: '登录 elsewhere', exact: true })
+      .waitFor();
+    await page.getByLabel('账号', { exact: true }).fill('731482905');
+    await page
+      .getByLabel('账号密码', { exact: true })
+      .fill('fixture-password-123');
+    await page.getByRole('button', { name: '登录', exact: true }).click();
+    await page
+      .getByRole('heading', { name: '周六聊书，要约时间吗？', exact: true })
+      .waitFor();
+    assert.equal(new URL(page.url()).searchParams.get('item'), '77');
+    await page.getByRole('button', { name: '同意周六', exact: true }).click();
+    await page.getByText('已决定，等待 Agent 执行', { exact: true }).waitFor();
     assert.deepEqual(errors, []);
     await page.close();
   }

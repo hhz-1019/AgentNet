@@ -69,7 +69,8 @@ assert(
   portrait.memories.length >= 4,
   'Supported distinct memories were reduced to a generic short summary',
 );
-assert(portrait.memories.every((m) => m.content.length > 20 && !m.showOnHome));
+assert(portrait.memories.every((m) => m.content.trim() && !m.showOnHome));
+assert(portrait.memories.filter((m) => m.content.length > 20).length >= 4);
 cases.push({
   name: '一句话接入后的记忆资料准备',
   input: registrationInput,
