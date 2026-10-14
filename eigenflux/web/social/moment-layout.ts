@@ -1,6 +1,51 @@
 export type MomentCircle = { id: string; x: number; y: number; radius: number };
 export const MOMENT_HOVER_SCALE = 1.1;
 
+// Input and output are in screen pixels: zooming must not amplify the force.
+export function momentRepulsion(
+  circles: MomentCircle[],
+  pointer: { x: number; y: number } | null,
+) {
+  if (!pointer) return circles.map((circle) => ({ id: circle.id, x: 0, y: 0 }));
+  const offsets = circles.map((circle) => {
+    const dx = circle.x - pointer.x,
+      dy = circle.y - pointer.y;
+    const distance = Math.hypot(dx, dy);
+    const reach = Math.max(0, 1 - Math.max(0, distance - circle.radius) / 180);
+    const force = 8 * reach ** 2 * Math.min(1, distance / 32);
+    return {
+      id: circle.id,
+      x: distance ? (dx / distance) * force : 0,
+      y: distance ? (dy / distance) * force : 0,
+    };
+  });
+  // Keep the dense packing safe even while any one face is enlarged by hover.
+  // A shared limiter preserves the direction of the field and avoids jitter
+  // from repeatedly pushing individual neighbors out of each other's way.
+  let strength = 1;
+  for (let i = 0; i < circles.length; i++) {
+    for (let j = i + 1; j < circles.length; j++) {
+      const a = circles[i],
+        b = circles[j];
+      const relativeMotion = Math.hypot(
+        offsets[i].x - offsets[j].x,
+        offsets[i].y - offsets[j].y,
+      );
+      if (!relativeMotion) continue;
+      const room =
+        Math.hypot(a.x - b.x, a.y - b.y) -
+        Math.max(a.radius, b.radius) * MOMENT_HOVER_SCALE -
+        Math.min(a.radius, b.radius);
+      strength = Math.min(strength, Math.max(0, room - 0.2) / relativeMotion);
+    }
+  }
+  return offsets.map((offset) => ({
+    id: offset.id,
+    x: offset.x * strength,
+    y: offset.y * strength,
+  }));
+}
+
 export function momentViewportScale(
   circles: MomentCircle[],
   width: number,

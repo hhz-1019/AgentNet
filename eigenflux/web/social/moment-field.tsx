@@ -10,6 +10,7 @@ import { zoomMoment } from './moment-zoom';
 import {
   packMoments,
   momentViewportScale,
+  momentRepulsion,
   MOMENT_HOVER_SCALE,
   type MomentCircle,
 } from './moment-layout';
@@ -34,6 +35,8 @@ export function MomentField({
 }) {
   const viewport = useRef<HTMLElement>(null);
   const world = useRef<HTMLDivElement>(null);
+  const faces = useRef(new Map<string, HTMLSpanElement>());
+  const pointer = useRef<Point | null>(null);
   const [size, setSize] = useState({ width: 800, height: 700 });
   const [circles, setCircles] = useState(() => packMoments(groups));
   const signature = JSON.stringify(groups.map((g) => [g.id, g.priority]));
@@ -87,8 +90,28 @@ export function MomentField({
   const bounds = useRef({ left: 0, right: 0, top: 0, bottom: 0 });
   const edge = useRef(onReachEdge);
   edge.current = onReachEdge;
-  const geometry = useRef({ size, circles, scale });
-  geometry.current = { size, circles, scale };
+  const geometry = useRef({ size, circles, scale, frozen });
+  geometry.current = { size, circles, scale, frozen };
+  function paintRepulsion() {
+    const c = camera.current,
+      g = geometry.current;
+    const screenScale = g.scale * c.zoom;
+    const offsets = momentRepulsion(
+      g.circles.map((circle) => ({
+        id: circle.id,
+        x: circle.x * screenScale + c.x,
+        y: circle.y * screenScale + c.y,
+        radius: circle.radius * screenScale,
+      })),
+      reduced.current || drag.current || g.frozen ? null : pointer.current,
+    );
+    for (const offset of offsets) {
+      const face = faces.current.get(offset.id);
+      if (!face) continue;
+      face.style.setProperty('--mb-drift-x', `${offset.x / c.zoom}px`);
+      face.style.setProperty('--mb-drift-y', `${offset.y / c.zoom}px`);
+    }
+  }
   function updateBounds() {
     const { size, circles, scale: baseScale } = geometry.current;
     const scale = baseScale * camera.current.targetZoom;
@@ -154,6 +177,7 @@ export function MomentField({
     c.y += (c.ty - c.y) * ease;
     c.zoom += (c.targetZoom - c.zoom) * ease;
     paint();
+    paintRepulsion();
     if (
       Math.abs(c.tx - c.x) + Math.abs(c.ty - c.y) > 0.1 ||
       Math.abs(c.targetZoom - c.zoom) > 0.0001 ||
@@ -180,6 +204,7 @@ export function MomentField({
     c.vy = 0;
   }
   function zoomAt(value: number, anchor: Point, destination = anchor) {
+    pointer.current = null;
     const c = camera.current;
     const next = zoomMoment(
       { x: c.tx, y: c.ty, zoom: c.targetZoom },
@@ -240,11 +265,19 @@ export function MomentField({
     const media = matchMedia('(prefers-reduced-motion: reduce)');
     const change = () => {
       reduced.current = media.matches;
+      if (media.matches) {
+        pointer.current = null;
+        paintRepulsion();
+      }
     };
     change();
     media.addEventListener('change', change);
     const hidden = () => {
-      if (document.hidden) stop();
+      if (document.hidden) {
+        stop();
+        pointer.current = null;
+        paintRepulsion();
+      }
     };
     document.addEventListener('visibilitychange', hidden);
     return () => {
@@ -254,7 +287,11 @@ export function MomentField({
     };
   }, []);
   useEffect(() => {
-    if (frozen) stop();
+    if (frozen) {
+      stop();
+      pointer.current = null;
+      paintRepulsion();
+    }
   }, [frozen]);
   useEffect(() => {
     limit();
@@ -325,6 +362,8 @@ export function MomentField({
           (e.pointerType !== 'touch' && !e.isPrimary)
         )
           return;
+        pointer.current = null;
+        paintRepulsion();
         if (e.pointerType === 'touch') {
           if (touches.current.size >= 2) return;
           touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -350,6 +389,10 @@ export function MomentField({
         };
       }}
       onPointerMove={(e) => {
+        if (e.pointerType === 'mouse' && !drag.current && !frozen) {
+          pointer.current = localPoint({ x: e.clientX, y: e.clientY });
+          move();
+        }
         if (touches.current.has(e.pointerId)) {
           touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pinch.current) {
@@ -392,6 +435,10 @@ export function MomentField({
         move();
       }}
       onPointerUp={(e) => endPointer(e.pointerId)}
+      onPointerLeave={() => {
+        pointer.current = null;
+        move();
+      }}
       onPointerCancel={(e) => endPointer(e.pointerId, true)}
       onLostPointerCapture={(e) => {
         // Ignore bubbling capture transfers from the touched avatar to the
@@ -474,7 +521,13 @@ export function MomentField({
                   onSelect(group.id, e.currentTarget);
                 }}
               >
-                <span className="mb-orb-image">
+                <span
+                  className="mb-orb-image"
+                  ref={(node) => {
+                    if (node) faces.current.set(circle.id, node);
+                    else faces.current.delete(circle.id);
+                  }}
+                >
                   <AgentAvatar agentId={group.id} name={group.name} />
                 </span>
               </button>

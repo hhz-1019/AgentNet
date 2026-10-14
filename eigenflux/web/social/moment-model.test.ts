@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   packMoments,
   momentViewportScale,
+  momentRepulsion,
   MOMENT_HOVER_SCALE,
 } from './moment-layout.ts';
 import { prepareDecision } from './moment-decision.ts';
@@ -27,6 +28,63 @@ const base: MomentItem = {
   related_agent: { agent_id: '2', name: '伙伴' },
   actions: [],
 };
+void test('mouse repulsion is bounded, points away, returns to rest and preserves hover clearance', () => {
+  const layout = packMoments(
+    Array.from({ length: 26 }, (_, i) => ({
+      id: String(i),
+      priority: 130 - ((i * 37) % 131),
+    })),
+  );
+  for (const scale of [0.45, 1, 3]) {
+    const circles = layout.map((c) => ({
+      ...c,
+      x: c.x * scale,
+      y: c.y * scale,
+      radius: c.radius * scale,
+    }));
+    for (const pointer of [
+      { x: 0, y: 0 },
+      { x: 45, y: 20 },
+      { x: -180, y: 160 },
+      { x: 9000, y: 9000 },
+    ]) {
+      const offsets = momentRepulsion(circles, pointer);
+      circles.forEach((a, i) => {
+        const motion = offsets[i];
+        assert(
+          Math.hypot(motion.x, motion.y) <= 8.00001,
+          'force cannot grow with zoom',
+        );
+        assert(
+          motion.x * (a.x - pointer.x) + motion.y * (a.y - pointer.y) >=
+            -0.00001,
+          'always repel, never attract',
+        );
+        for (let j = i + 1; j < circles.length; j++) {
+          const b = circles[j];
+          assert(
+            Math.hypot(
+              a.x + motion.x - b.x - offsets[j].x,
+              a.y + motion.y - b.y - offsets[j].y,
+            ) >=
+              Math.max(a.radius, b.radius) * MOMENT_HOVER_SCALE +
+                Math.min(a.radius, b.radius),
+            'moving faces must retain hover clearance',
+          );
+        }
+      });
+    }
+    assert(
+      momentRepulsion(circles, null).every(
+        (offset) => offset.x === 0 && offset.y === 0,
+      ),
+    );
+  }
+  const single = [{ id: 'one', x: 0, y: 0, radius: 80 }];
+  assert.equal(momentRepulsion(single, { x: 40, y: 0 })[0].x, -8);
+  assert.equal(momentRepulsion(single, { x: 0, y: 0 })[0].x, 0);
+  assert.equal(Math.abs(momentRepulsion(single, { x: 1000, y: 0 })[0].x), 0);
+});
 void test('pinch preserves the world point under moving fingers and clamps zoom without drift', () => {
   const camera = { x: 80, y: -30, zoom: 1 };
   const anchor = { x: -120, y: 70 };

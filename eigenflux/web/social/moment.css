@@ -163,8 +163,12 @@ html[data-theme]
   border-radius: inherit;
   overflow: hidden;
   background: var(--ew-tint);
+  /* Move only the face, leaving its button's hit target stable. */
+  pointer-events: none;
+  translate: var(--mb-drift-x, 0px) var(--mb-drift-y, 0px);
   box-shadow: 0 3px 7px -4px rgb(48 44 38 / 25%);
   transition:
+    translate 280ms cubic-bezier(0.16, 1, 0.3, 1),
     transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
 }
