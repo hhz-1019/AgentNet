@@ -4,9 +4,65 @@ import { chatDecisions } from './chat-decisions.mjs';
 import { App } from '@modelcontextprotocol/ext-apps';
 import { AppBridge } from '@modelcontextprotocol/ext-apps/app-bridge';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { readFile } from 'node:fs/promises';
+import { runInNewContext } from 'node:vm';
 
 const executor_id = 'chat_00000000-0000-4000-8000-000000000001';
 const binding = { command_id: '123', executor_id };
+
+void test('panel remains available without host messaging and advertises chat only with permission', async () => {
+  const source = (
+    await readFile(new URL('./moment-panel.mjs', import.meta.url), 'utf8')
+  ).replace("import { App } from '@modelcontextprotocol/ext-apps';", '');
+  for (const mode of [
+    'supported',
+    'no-permission',
+    'connection-failed',
+    'connection-timeout',
+  ]) {
+    const frame = { hidden: true, contentWindow: { postMessage() {} } };
+    const status = { hidden: false };
+    const listeners = [];
+    await runInNewContext(`(async () => { ${source} })()`, {
+      App: class {
+        async connect() {
+          if (mode === 'connection-failed') throw new Error('unavailable');
+          if (mode === 'connection-timeout') await new Promise(() => {});
+        }
+        getHostCapabilities() {
+          return mode === 'supported' ? { message: { text: {} } } : {};
+        }
+      },
+      document: {
+        querySelector: (selector) =>
+          ({
+            '#moment-config': {
+              textContent: JSON.stringify({
+                url: 'https://example.com/dashboard/crossing',
+              }),
+            },
+            '#status': status,
+            iframe: frame,
+          })[selector],
+      },
+      window: { addEventListener: (...args) => listeners.push(args) },
+      crypto,
+      URL,
+      setTimeout: (callback, delay) => {
+        assert.equal(delay, 5000);
+        return setTimeout(
+          () => callback(),
+          mode === 'connection-timeout' ? 0 : delay,
+        );
+      },
+      clearTimeout,
+    });
+    assert.equal(frame.hidden, false, mode);
+    assert.equal(frame.src, 'https://example.com/dashboard/crossing', mode);
+    assert.equal(status.hidden, true, mode);
+    assert.equal(listeners.length, mode === 'supported' ? 1 : 0, mode);
+  }
+});
 
 void test('official MCP Apps transport delivers a user message and exposes host rejection', async () => {
   const app = new App(

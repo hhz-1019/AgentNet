@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { packMoments } from './moment-layout.ts';
+import { prepareDecision } from './moment-decision.ts';
 import {
   groupMoments,
   momentStage,
@@ -21,6 +22,32 @@ const base: MomentItem = {
   related_agent: { agent_id: '2', name: '伙伴' },
   actions: [],
 };
+void test('approval selects available delivery and preserves it across uncertain save retries', () => {
+  const body = {
+    action_key: 'accept',
+    expected_item_revision: 1,
+    condition: '仅加好友',
+  };
+  const executor = 'chat_00000000-0000-4000-8000-000000000001';
+  const background = prepareDecision(undefined, '1', body, '');
+  assert.equal('chat_executor' in background.body, false);
+  assert.strictEqual(
+    prepareDecision(background, '1', body, executor),
+    background,
+  );
+  const chat = prepareDecision(undefined, '1', body, executor);
+  assert.equal(chat.body.chat_executor, executor);
+  assert.strictEqual(prepareDecision(chat, '1', body, ''), chat);
+  const updated = prepareDecision(
+    chat,
+    '1',
+    { ...body, expected_item_revision: 2 },
+    '',
+  );
+  assert.notEqual(updated.key, chat.key);
+  assert.equal('chat_executor' in updated.body, false);
+  assert.equal(updated.body.condition, body.condition);
+});
 void test('avatar cluster keeps priority central, touch targets usable and every circle separate', () => {
   for (const count of [0, 1, 2, 24, 100]) {
     const input = Array.from({ length: count }, (_, i) => ({
