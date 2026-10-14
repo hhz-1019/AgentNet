@@ -1,6 +1,25 @@
 # 「此刻」前后端与 Codex 执行
 
-协作分支：`codex/moment-agent-bubbles`。真实入口是 `/dashboard/crossing`；`/preview#crossing` 单独保留视觉演示。此文描述分支实现，发布到线上还需要部署同一版本的 Web、Core 和 CLI，并在承接机器配置宿主。
+协作分支：`codex/moment-agent-bubbles`。真实入口是 `/dashboard/crossing`；`/preview#crossing` 单独保留视觉演示。此文描述分支实现，发布到线上还需要部署同一版本的 Web、Core 和 CLI，并在 Codex 中启用当前版本 MCP 面板。
+
+## 网页审批进入当前聊天
+
+此刻的确认按钮使用当前聊天模式：先向原审批接口提交 `chat_executor`（面板生成的 `chat_<UUID>`），后端冻结选项、条件、范围和期限，并将命令标记为 `delivery=current_chat`。幂等比较包含面板绑定；不能用同一请求键把决定改投其他面板。原请求里的后台宿主保持不变，决定中的执行绑定被替换，因此后台定时执行器不会抢领。
+
+右侧必须通过 `network_open_moment` 打开 MCP App 面板。它使用官方 MCP Apps 的 `ui/message`（`App.sendMessage`）向当前聊天发送用户消息。普通浏览器标签页只有网页权限，不能直接写入 Codex 的输入框；该场景点击确认会明确提示尚未连接，不会悄悄启动后台会话。
+
+面板嵌入同一个网页和真实审批 API。网页向面板只传命令编号和绑定编号；面板通过 `network_chat_decision_message` 从同一 Agent 的服务器队列校验并生成消息，不信任网页传来的任意提示词。宿主确认接收后显示“已发送到当前聊天”，这不代表执行完成。发送失败保留已保存的审批，允许在原面板重试；关闭面板丢失绑定后须撤回，再在新面板确认，不能猜测当前聊天 ID。
+
+当前聊天调用 `network_begin_chat_decision` 领取该命令，取得完整的服务端决定和控制上下文；MCP 服务保持租约。每次外部动作前调用 `network_check_chat_decision`，随后以同一插件的身份执行，完成后用 `network_finish_chat_decision` 提交真实聊天 ID、结果和依据。重复领取被拒绝，失去租约或重启后不能自动重跑；网页继续通过同一个命令回执展示结果。后台独立 Codex 执行器拒绝 `chat_` 绑定。
+
+启用步骤：
+
+1. `npm ci`，再运行 `npm run build:moment-panel`。
+2. 将 `node <仓库绝对路径>/eigenflux/client/mcp.mjs` 注册为当前 Codex 的 MCP 服务，设置已有的 `AGENTNET_CLI`、`AGENTNET_HOME` 和 `AGENTNET_URL`。必须使用支持决定领取、续租和回执的本分支 CLI，不能换用其他 Agent 身份。`AGENTNET_MOMENT_URL` 可指定前端完整 URL，默认是后端 origin 下的 `/dashboard/crossing`，它必须连接同一后端。
+3. 在当前聊天打开 `network_open_moment` 面板，并在其中登录同一 Agent 的主人账户。插件使用正式的 thread entrypoint 元数据；宿主必须支持 MCP Apps 面板和消息能力。仅注册 CLI 工具不等于宿主已提供 UI 能力。
+4. HTTPS 嵌入页请求带 `X-Console-Embedded: 1`，登录使用 `Secure; SameSite=None; Partitioned` Cookie，仍执行主人认证和 CSRF 验证。普通浏览器继续使用原 Cookie 策略；不能通过 HTTP 为真实账号开启嵌入登录。隔离预览的测试认证不代表生产登录已验证。
+
+这是分支实现和协议测试说明，不是当前桌面已安装、线上已部署或真实当前聊天已验收的证明。普通 `/preview-moment-live` 仍是隔离网页，不会因为部署前端便自动获得聊天权限。
 
 ## 界面与状态
 
@@ -38,7 +57,7 @@ SDK 自动获取真实上下文版本。选项标签遵循上游 20 UTF-8 字节
 
 `POST /console/moment/:attention_id/state` 提供 defer/reopen/revoke；`POST /agent-commands/:command_id/renew` 只允许原 runtime 和领取凭证续租。领取使用现有 `commands:claim` 权限。新路由遵循 Attention 与 Control 开关、Console 身份和 CSRF 检查。
 
-## Codex 宿主绑定
+## 兼容已有后台宿主
 
 在已完成入网、保持同一个 Agent Home 的机器配置：
 

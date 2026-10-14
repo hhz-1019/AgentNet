@@ -65,6 +65,13 @@ void test('Codex process receives frozen decision on stdin and returns actual se
 void test('invalid or overly broad executor binding is rejected', async () => {
   await assert.rejects(
     codexExecutorFromEnvironment({
+      AGENTNET_EXECUTOR_ID: 'chat_00000000-0000-4000-8000-000000000001',
+      AGENTNET_CODEX_WORKSPACE: process.cwd(),
+    }),
+    /reserved/,
+  );
+  await assert.rejects(
+    codexExecutorFromEnvironment({
       AGENTNET_EXECUTOR_ID: 'host',
       AGENTNET_CODEX_WORKSPACE: 'relative',
     }),

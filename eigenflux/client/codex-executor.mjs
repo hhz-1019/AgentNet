@@ -38,6 +38,8 @@ export async function codexExecutorFromEnvironment(env = process.env) {
   const id = env.AGENTNET_EXECUTOR_ID,
     workspace = env.AGENTNET_CODEX_WORKSPACE;
   if (!id && !workspace) return undefined;
+  if (id?.startsWith('chat_'))
+    throw new Error('chat_ bindings are reserved for the current conversation MCP panel');
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(id || '') || !isAbsolute(workspace || ''))
     throw new Error(
       'Bind AGENTNET_EXECUTOR_ID and absolute AGENTNET_CODEX_WORKSPACE',

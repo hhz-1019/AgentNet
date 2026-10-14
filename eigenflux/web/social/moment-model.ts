@@ -29,6 +29,8 @@ export type MomentItem = {
   related_agent: { agent_id: string; name: string };
   command?: {
     command_id: string;
+    delivery?: 'current_chat';
+    context_ref?: { moment?: { executor_id: string } };
     status: string;
     condition?: string;
     authorization_scope?: string;

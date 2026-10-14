@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,12 @@ type momentContext struct {
 	Priority       int               `json:"priority"`
 	ExecutorID     string            `json:"executor_id"`
 	Scopes         map[string]string `json:"scopes"`
+}
+
+var chatExecutorPattern = regexp.MustCompile(`^chat_[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
+
+func validChatExecutor(value string) bool {
+	return value == "" || chatExecutorPattern.MatchString(value)
 }
 
 func validateMomentContext(m *momentContext, actions []attentionProtocolAction) error {
@@ -143,7 +150,7 @@ func (s *Service) listMoment(_ context.Context, c *app.RequestContext) {
 		_ = json.Unmarshal([]byte(r.CommandPayload), &payload)
 		item["related_agent"] = map[string]any{"agent_id": r.PeerID, "name": r.PeerName}
 		if r.CommandID != nil {
-			item["command"] = map[string]any{"command_id": fmt.Sprint(*r.CommandID), "status": r.CommandStatus, "result": result, "condition": payload["condition"], "authorization_scope": payload["authorization_scope"], "selected_at": payload["selected_at"], "revoked_at": payload["revoked_at"], "completed_at": r.CompletedAt}
+			item["command"] = map[string]any{"command_id": fmt.Sprint(*r.CommandID), "status": r.CommandStatus, "result": result, "condition": payload["condition"], "authorization_scope": payload["authorization_scope"], "selected_at": payload["selected_at"], "revoked_at": payload["revoked_at"], "completed_at": r.CompletedAt, "delivery": payload["delivery"], "context_ref": payload["context_ref"]}
 		}
 		items = append(items, item)
 	}

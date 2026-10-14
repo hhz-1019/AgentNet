@@ -5,6 +5,7 @@ import { AttentionSource } from '../activity';
 import { Dialog } from './dialog';
 import { DragRail } from './drag-rail';
 import { MomentField } from './moment-field';
+import { useMomentChat } from './moment-chat';
 import {
   groupMoments,
   momentStage,
@@ -25,6 +26,8 @@ export function Moment({
   agentId: string;
   onExplore: () => void;
 }) {
+  const chat = useMomentChat();
+  const [sent, setSent] = useState<string[]>([]);
   const [items, setItems] = useState<MomentItem[]>([]),
     [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(''),
@@ -125,19 +128,38 @@ export function Moment({
     setFeedback('');
     try {
       if (kind === 'confirm') {
+        if (!chat.executor)
+          throw new Error(
+            '当前页面尚未连接聊天。请从聊天侧栏打开「此刻」后再确认。审批尚未保存。',
+          );
         const body = {
           action_key: action!.action_key,
           expected_item_revision: item.item_revision,
           condition,
+          chat_executor: chat.executor,
         };
         const signature = JSON.stringify([item.attention_id, body]);
         if (attempt.current?.signature !== signature)
           attempt.current = { signature, key: crypto.randomUUID() };
-        await api('console/attention-items/' + item.attention_id + '/respond', {
-          ...body,
-          idempotency_key: attempt.current.key,
-        });
-        setFeedback('');
+        const saved = await api<{ command_id: string }>(
+          'console/attention-items/' + item.attention_id + '/respond',
+          {
+            ...body,
+            idempotency_key: attempt.current.key,
+          },
+        );
+        // Saving the decision succeeds independently of message transport.
+        // Always refresh so a failed send cannot look like a failed approval.
+        try {
+          await chat.send(saved.command_id);
+          setSent((ids) => [...ids, saved.command_id]);
+          setFeedback('已发送到当前聊天，等待 Agent 处理。');
+        } catch (e) {
+          setFeedback(
+            '审批已保存。' +
+              (e instanceof Error ? e.message : '消息发送结果未确认。'),
+          );
+        }
       } else {
         await api('console/moment/' + item.attention_id + '/state', {
           action: kind,
@@ -284,7 +306,10 @@ export function Moment({
                 )}
               </nav>
               <output className="mb-current-status">
-                {momentLabels[stage]}
+                {stage === 'pending' &&
+                item.command?.delivery === 'current_chat'
+                  ? '确认已保存 · 等待当前聊天执行'
+                  : momentLabels[stage]}
               </output>
             </div>
             <DragRail
@@ -409,7 +434,7 @@ export function Moment({
                       disabled={busy || Boolean(error)}
                       onClick={() => void mutate('confirm')}
                     >
-                      {busy ? '保存中…' : '确认授权'}
+                      {busy ? '处理中…' : '确认并交给当前聊天'}
                     </button>
                   ) : (
                     <DragRail
@@ -442,13 +467,42 @@ export function Moment({
                 </>
               )}
               {stage === 'pending' && (
-                <button
-                  className="mb-secondary"
-                  disabled={busy}
-                  onClick={() => void mutate('revoke')}
-                >
-                  撤回决定
-                </button>
+                <>
+                  {item.command?.delivery === 'current_chat' &&
+                    !sent.includes(item.command.command_id) && (
+                      <button
+                        disabled={busy}
+                        className="mb-primary"
+                        onClick={async () => {
+                          const command = item.command!;
+                          setBusy(true);
+                          try {
+                            await chat.send(
+                              command.command_id,
+                              command.context_ref?.moment?.executor_id || '',
+                            );
+                            setSent((ids) => [...ids, command.command_id]);
+                            setFeedback('已发送到当前聊天，等待 Agent 处理。');
+                          } catch (e) {
+                            setFeedback(
+                              e instanceof Error ? e.message : '发送失败。',
+                            );
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        发送到当前聊天
+                      </button>
+                    )}
+                  <button
+                    className="mb-secondary"
+                    disabled={busy}
+                    onClick={() => void mutate('revoke')}
+                  >
+                    撤回决定
+                  </button>
+                </>
               )}
               {['deferred', 'revoked'].includes(stage) && (
                 <button

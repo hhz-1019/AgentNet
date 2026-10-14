@@ -210,6 +210,24 @@ func TestMomentDecisionLifecycle(t *testing.T) {
 	must("UPDATE agent_context_heads SET active_revision=2 WHERE agent_id=1")
 	call("POST", "/items/"+id+"/respond", map[string]any{"action_key": "yes", "expected_item_revision": 1, "idempotency_key": "stale-context-01"}, "1", 409)
 	must("UPDATE agent_context_heads SET active_revision=1 WHERE agent_id=1")
+	// Chat approvals are fenced from the old background executor.
+	chatID := publish(7)
+	chatExecutor := "chat_00000000-0000-4000-8000-000000000001"
+	chatRequest := map[string]any{"action_key":"yes", "expected_item_revision":1, "idempotency_key":"chat-approval-one", "condition":"只写草稿", "chat_executor":chatExecutor}
+	chatSaved := call("POST", "/items/"+chatID+"/respond", chatRequest, "1", 202)
+	chatCommand := chatSaved["command_id"].(string)
+	if call("POST", "/items/"+chatID+"/respond", chatRequest, "1", 200)["command_id"] != chatCommand { t.Fatal("chat decision replay lost") }
+	chatRequest["chat_executor"] = "chat_00000000-0000-4000-8000-000000000002"
+	call("POST", "/items/"+chatID+"/respond", chatRequest, "1", 409)
+	chatRequest["chat_executor"] = "arbitrary-thread"
+	call("POST", "/items/"+chatID+"/respond", chatRequest, "1", 400)
+	claimRequest["executor_id"] = "test_host"
+	call("POST", "/commands/"+chatCommand+"/claim", claimRequest, "1", 409)
+	claimRequest["executor_id"] = chatExecutor
+	chatClaim := call("POST", "/commands/"+chatCommand+"/claim", claimRequest, "1", 200)
+	chatPayload := chatClaim["payload"].(map[string]any)
+	if chatPayload["delivery"] != "current_chat" || chatPayload["condition"] != "只写草稿" || chatPayload["authorization_scope"] != "只写草稿，不公开发送。" { t.Fatal("chat approval grant lost") }
+	call("POST", "/commands/"+chatCommand+"/complete", map[string]any{"runtime_instance_id":"runtime","claim_token":chatClaim["claim_token"],"claim_epoch":chatClaim["claim_epoch"],"status":"completed","result":result}, "1", 200)
 	if previewPort != "" {
 		must("UPDATE agent_commands SET status='failed',result='{\"summary\":\"历史联调记录，未再次执行。\"}' WHERE status IN ('pending','notified')")
 		must("UPDATE agent_attention_items SET status='dismissed' WHERE status IN ('pending','open')")

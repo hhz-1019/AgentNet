@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { AgentNet } from './sdk.mjs';
+import { registerMomentPanel } from './moment-panel-server.mjs';
 
 const client = new AgentNet({
   binary: process.env.AGENTNET_CLI,
@@ -325,4 +326,5 @@ for (const [name, description, inputSchema] of definitions)
       }
     },
   );
+await registerMomentPanel(server, client);
 await server.connect(new StdioServerTransport());

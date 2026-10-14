@@ -1,3 +1,35 @@
+diff --git a/api/consolev2/account_session_handlers.go b/api/consolev2/account_session_handlers.go
+index d44feb0..705de32 100644
+--- a/api/consolev2/account_session_handlers.go
++++ b/api/consolev2/account_session_handlers.go
+@@ -67,11 +67,17 @@ func consoleCredential(c *app.RequestContext, slot int) (consoleCookieCredential
+ }
+ 
+ func (s *Service) setConsoleCookieAtSlot(c *app.RequestContext, slot int, value string, maxAge int) {
++	if s.setEmbeddedConsoleCookie(c, consoleSessionCookieName(slot), value, maxAge, true) {
++		return
++	}
+ 	c.SetCookie(consoleSessionCookieName(slot), value, maxAge, "/", "", protocol.CookieSameSiteLaxMode, s.secureCookie, true)
+ 	c.Header("Referrer-Policy", "no-referrer")
+ }
+ 
+ func (s *Service) setCSRFCookieAtSlot(c *app.RequestContext, slot int, value string, maxAge int) {
++	if s.setEmbeddedConsoleCookie(c, consoleCSRFCookieName(slot), value, maxAge, false) {
++		return
++	}
+ 	c.SetCookie(consoleCSRFCookieName(slot), value, maxAge, "/", "", protocol.CookieSameSiteStrictMode, s.secureCookie, false)
+ }
+ 
+@@ -80,6 +86,9 @@ func (s *Service) setActiveConsoleSlot(c *app.RequestContext, slot int, maxAge i
+ 	if maxAge >= 0 {
+ 		value = strconv.Itoa(slot)
+ 	}
++	if s.setEmbeddedConsoleCookie(c, activeConsoleSlotCookieName, value, maxAge, false) {
++		return
++	}
+ 	c.SetCookie(activeConsoleSlotCookieName, value, maxAge, "/", "", protocol.CookieSameSiteStrictMode, s.secureCookie, false)
+ }
+ 
 diff --git a/api/consolev2/attention_publish_handlers.go b/api/consolev2/attention_publish_handlers.go
 index f9d8109..b48c158 100644
 --- a/api/consolev2/attention_publish_handlers.go
@@ -59,12 +91,14 @@ index f9d8109..b48c158 100644
  	goalRevisions := make([]int64, 0, len(items))
  	intentIDs := make([]int64, 0, len(items))
 diff --git a/api/consolev2/attention_response_handlers.go b/api/consolev2/attention_response_handlers.go
-index c1dc412..cb572b8 100644
+index c1dc412..d9c673a 100644
 --- a/api/consolev2/attention_response_handlers.go
 +++ b/api/consolev2/attention_response_handlers.go
-@@ -8,12 +8,14 @@ import (
+@@ -7,13 +7,17 @@ import (
+ 	"fmt"
  	"net/http"
  	"strconv"
++	"strings"
  	"time"
 +	"unicode/utf8"
  
@@ -73,16 +107,17 @@ index c1dc412..cb572b8 100644
  )
  
  type respondAttentionRequest struct {
++	ChatExecutor         string `json:"chat_executor,omitempty"`
 +	Condition            string `json:"condition,omitempty"`
  	ActionKey            string `json:"action_key"`
  	ExpectedItemRevision int64  `json:"expected_item_revision"`
  	IdempotencyKey       string `json:"idempotency_key"`
-@@ -87,11 +89,14 @@ func (s *Service) respondAttentionItem(_ context.Context, c *app.RequestContext)
+@@ -87,11 +91,17 @@ func (s *Service) respondAttentionItem(_ context.Context, c *app.RequestContext)
  	attentionID, parseErr := strconv.ParseInt(c.Param("attention_id"), 10, 64)
  	var req respondAttentionRequest
  	if parseErr != nil || attentionID <= 0 || decodeBody(c, &req) != nil ||
 -		!attentionActionKeyPattern.MatchString(req.ActionKey) || req.ExpectedItemRevision <= 0 || !validAttentionID(req.IdempotencyKey) {
-+		utf8.RuneCountInString(req.Condition) > 1000 || !attentionActionKeyPattern.MatchString(req.ActionKey) || req.ExpectedItemRevision <= 0 || !validAttentionID(req.IdempotencyKey) {
++		!validChatExecutor(req.ChatExecutor) || utf8.RuneCountInString(req.Condition) > 1000 || !attentionActionKeyPattern.MatchString(req.ActionKey) || req.ExpectedItemRevision <= 0 || !validAttentionID(req.IdempotencyKey) {
  		fail(c, http.StatusBadRequest, "INVALID_ATTENTION_RESPONSE", "attention response is invalid", nil)
  		return
  	}
@@ -90,10 +125,13 @@ index c1dc412..cb572b8 100644
 +	if req.Condition != "" {
 +		requestHash = hashString(fmt.Sprintf("%d\x00%d\x00%s\x00%s", attentionID, req.ExpectedItemRevision, req.ActionKey, req.Condition))
 +	}
++	if req.ChatExecutor != "" {
++		requestHash = hashString(requestHash + "\x00" + req.ChatExecutor)
++	}
  	now := time.Now().UnixMilli()
  	var commandID, itemRevision int64
  	var itemStatus, commandStatus, selectedFlag string
-@@ -227,6 +232,12 @@ func (s *Service) respondAttentionItem(_ context.Context, c *app.RequestContext)
+@@ -227,6 +237,23 @@ func (s *Service) respondAttentionItem(_ context.Context, c *app.RequestContext)
  			},
  			"context_ref": contextRef, "selected_at": now, "terminal": terminal,
  		}
@@ -102,6 +140,17 @@ index c1dc412..cb572b8 100644
 +		if contextRef.Moment != nil {
 +			payload["authorization_scope"] = contextRef.Moment.Scopes[req.ActionKey]
 +			payload["related_agent_id"] = contextRef.Moment.RelatedAgentID
++		}
++		if req.ChatExecutor != "" {
++			if contextRef.Moment == nil || strings.TrimSpace(contextRef.Moment.Scopes[req.ActionKey]) == "" {
++				return errConflict
++			}
++			chatContext := contextRef
++			chatMoment := *contextRef.Moment
++			chatMoment.ExecutorID = req.ChatExecutor
++			chatContext.Moment = &chatMoment
++			payload["context_ref"] = chatContext
++			payload["delivery"] = "current_chat"
 +		}
  		payloadBytes, marshalErr := json.Marshal(payload)
  		if marshalErr != nil {
