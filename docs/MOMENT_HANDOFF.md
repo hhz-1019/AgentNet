@@ -98,3 +98,11 @@ AGENTNET_CODEX_SANDBOX=read-only
 - 确认联调事项后运行 `node eigenflux/scripts/moment-preview-worker.mjs --codex --once`：由当前安装的 Codex 在临时目录完成文件写入，不使用真实 Agent 凭证。不加 `--codex` 时为明确标识的确定性执行器。
 
 实现入口：`web/social/moment*`、`overlay/api/consolev2/moment*`、`overlay/cli/cmd/moment.go`、`client/decisions.mjs`、`client/codex-executor.mjs`。对上游的修改留在 `patches/social-workspace.patch`，未修改固定的 submodule。
+
+## 2026-10-15：空态与移动导航修正验收
+
+- 修正 `ced56db`，与协作者正文显示修正整合后发布源码为 `61f0af2`。完整 CI [38693643862](https://github.com/hhz-1019/AgentNet/actions/runs/38693643862) 通过。
+- 线上已登录账号的 Moment 请求为 200、事项为空；不能将本地原型人物作为真实事项补入。现在预览复用正式组件，空态提供简短说明与复制给 Agent 的整理指令；初次读取纳入入场准备，刷新不再吞掉请求，已撤回且过期的事项不再提供重新考虑。
+- 真实 Go 隔离服务验证了网页选择、条件保存、后台领取、临时草稿写入及回执自动显示；这不是生产账号已执行任务或当前聊天 MCP 面板已接通的证明。
+- 手机导航为「此刻、发现、发布、消息、我的」，发布居中；消息页内「会话 / 通讯录」共享头部和左边距，通讯录沿用消息选中状态。桌面保留独立通讯录。桌面/手机、游客、状态冲突和 320px 窄屏检查通过。
+- Web 部署 `6ad076d8ea06c8de70fdc284` 已于 2026-10-15 14:51（北京时间）进入 RUNNING；只更新 Web。公网 `index-qw4WhCA2.js`、`index-C1YZHHYt.css` 的 SHA-256 与本地已验证构建一致。Core 与数据库未变更。
