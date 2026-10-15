@@ -875,7 +875,7 @@ export function SocialWorkspace({
         {crossingRoute ? (
           demo && MomentPreview ? (
             <Suspense
-              fallback={<output className="mb-load-message">正在读取…</output>}
+              fallback={<ContentState title="正在加载此刻" loading quiet />}
             >
               <MomentPreview
                 agentId={session.agent_id}

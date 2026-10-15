@@ -74,7 +74,7 @@ try {
   await peerPage.getByText('你的角色：编辑 · 已加入').waitFor();
   await page.getByRole('button', { name: '撤销成员', exact: true }).click();
   await page.getByRole('alert').waitFor();
-  await page.getByRole('button', { name: '刷新权限', exact: true }).click();
+  await page.getByRole('alert').getByRole('button', { name: '再试一次', exact: true }).click();
   await page.getByText(/伙伴 Agent · 2 · 编辑 · 已加入/).waitFor();
   await Promise.all([
     page.waitForResponse(

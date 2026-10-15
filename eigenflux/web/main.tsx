@@ -1,5 +1,5 @@
 import { feedbackMessage } from './feedback-message';
-import { RecoveryPage } from './recovery';
+import { ContentState, RecoveryPage } from './recovery';
 import { createSessionRefresh } from './session-refresh';
 import { requiresOwnerLogin } from './entry-route';
 import React, {
@@ -12,7 +12,6 @@ import React, {
 import { createRoot } from 'react-dom/client';
 import { api, ApiError } from './api';
 import type { Session } from './types';
-import { Blank } from './shared';
 import { HandoffIssue, ConnectionPending } from './auth-status';
 import { Landing, AccountSwitch } from './auth';
 import { Onboard } from './onboarding-view';
@@ -226,7 +225,7 @@ function AppContent({
   }, [session, error, handoffError, onReady, onFailure]);
   if (isVisualPreview && VisualPreview)
     return (
-      <React.Suspense fallback={<Blank>正在加载…</Blank>}>
+      <React.Suspense fallback={<ContentState title="正在加载" loading quiet />}>
         <PreviewReady onReady={onReady}>
           <VisualPreview />
         </PreviewReady>
