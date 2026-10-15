@@ -44,6 +44,17 @@ func TestManagedAnyUserInbox(t *testing.T) {
 		c.Status(500)
 	})
 	h.POST("/human", auth, s.sendHumanPM)
+	h.GET("/empty-inbox", auth, s.listCommunicationConversations)
+	emptyInbox := ut.PerformRequest(h.Engine, "GET", "/empty-inbox", nil)
+	var emptyResult struct {
+		Data struct {
+			Conversations json.RawMessage `json:"conversations"`
+		} `json:"data"`
+	}
+	check(json.Unmarshal(emptyInbox.Body.Bytes(), &emptyResult))
+	if emptyInbox.Code != 200 || string(emptyResult.Data.Conversations) != "[]" {
+		t.Fatalf("empty inbox must return an array: %d %s", emptyInbox.Code, emptyInbox.Body.String())
+	}
 	call := func(path string, body any, want int) map[string]any {
 		t.Helper()
 		raw, _ := json.Marshal(body)

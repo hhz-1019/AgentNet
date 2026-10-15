@@ -33,6 +33,12 @@ export async function previewRequest<T>(
   }
   if (method !== 'GET')
     throw new Error('此入口仅用于页面检查，请从页面目录打开后续步骤。');
+  if (page === '/preview/messages-empty') {
+    if (path.startsWith('console/pm/conversations?'))
+      return { conversations: null, agent_contexts: {}, next_cursor: '' } as T;
+    if (path.startsWith('console/groups?'))
+      return { items: null, next_cursor: '' } as T;
+  }
   if (
     page === '/preview/registration' &&
     path.startsWith('console/admin/registration?')

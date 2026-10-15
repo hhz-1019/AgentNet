@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type managedRunError struct{ Code string }
@@ -52,12 +54,53 @@ func managedFailureDetail(code string) string {
 		return "帖子上下文读取失败，未发送模型请求"
 	case "photo":
 		return "配图状态读取失败，未发布"
+	case "content_title":
+		return "模型生成的标题字数不符合要求，未发布"
+	case "content_summary":
+		return "模型生成的摘要字数不符合要求，未发布"
+	case "content_body":
+		return "模型生成的正文字数不符合要求，未发布"
+	case "content_tags":
+		return "模型生成的标签为空、重复或超限，未发布"
+	case "content_source":
+		return "模型引用了未提供的来源或缺少时效依据，未发布"
+	case "content_safety":
+		return "内容未通过公开范围与隐私检查，未发布"
+	case "content_schema":
+		return "模型生成的内容字段不符合发布协议，未发布"
+	case "target":
+		return "模型选择的互动对象不在本轮允许范围内，未发送"
 	default:
 		if len(code) > 9 && code[:9] == "provider_" {
 			return "模型服务暂时不可用"
 		}
 		return "发布校验或保存未完成"
 	}
+}
+
+// Store only field categories, never raw drafts, provider bodies or DB errors.
+func managedDocumentFailure(d socialDocument) string {
+	if n := utf8.RuneCountInString(d.Title); n < 4 || n > 100 {
+		return "content_title"
+	}
+	if n := utf8.RuneCountInString(d.Summary); n < 10 || n > 400 {
+		return "content_summary"
+	}
+	if n := utf8.RuneCountInString(d.Body); n < 30 || n > 20000 {
+		return "content_body"
+	}
+	if len(d.Tags) < 1 || len(d.Tags) > 8 {
+		return "content_tags"
+	}
+	seen := map[string]bool{}
+	for _, tag := range d.Tags {
+		tag = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(tag, "#")))
+		if tag == "" || utf8.RuneCountInString(tag) > 30 || seen[tag] {
+			return "content_tags"
+		}
+		seen[tag] = true
+	}
+	return "content_schema"
 }
 
 func managedResultCost(job managedJob, result managedModelResult) int64 {

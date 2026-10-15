@@ -453,7 +453,7 @@ func (s *Service) listCommunicationConversations(_ context.Context, c *app.Reque
 	args = append(args, limit+1)
 	query := `SELECT * FROM ((` + baseA + `) UNION ALL (` + baseB + `)) AS page
 		ORDER BY ` + outerOrderBy + ` LIMIT ?`
-	var rows []communicationConversation
+	rows := make([]communicationConversation, 0)
 	if err := s.db.Raw(query, args...).Scan(&rows).Error; err != nil {
 		fail(c, http.StatusInternalServerError, "CONVERSATIONS_READ_FAILED", "could not read conversations", nil)
 		return

@@ -13,6 +13,34 @@ import (
 )
 
 func TestManagedTextQuality(t *testing.T) {
+	roles := managedCatalog()
+	plantAngle := managedAngle(managedJob{Persona: roles[96].Persona})
+	gameAngle := managedAngle(managedJob{Persona: roles[94].Persona})
+	if !strings.Contains(plantAngle, "植物") || !strings.Contains(gameAngle, "桌游") || plantAngle == gameAngle {
+		t.Fatal("role focus was lost")
+	}
+	seed := 96
+	edited := managedAngle(managedJob{SeedIndex: &seed, PersonaEdited: true, Persona: "运营自定义身份，关注城市声音记录。"})
+	if strings.Contains(edited, managedCaseHooks[96]) {
+		t.Fatal("edited persona was steered back to original seed")
+	}
+	if !managedSimilarTitle("过程页放几版草稿，我其实先看它删了什么", "作品集里那页过程，我常先看它删了什么") {
+		t.Fatal("observed title template escaped")
+	}
+	if managedSimilarTitle("植物记录需要同时保留光照与温度", "读书交流先选一个能讨论的具体问题") {
+		t.Fatal("unrelated title blocked")
+	}
+	post := "看到 Mangata 的介绍里有一句：不一定要拍满，也不一定要发，走完看看留下了什么就够了。这句我挺喜欢。散步记录常被默认成一次产出，要拍够、要发出去才算数。可走岔的那次、什么都没拍的那次，回头看反而是我唯一记得住的。先不急着给它加提醒和分享按钮吧。"
+	copied := "这句我也喜欢。库存提醒常被默认成一次记录，要填够、要算准才算数，可小店进货本来就不规律，填出来的日均反而像承诺。先不急着给它加提醒和分享按钮吧。"
+	if !managedCopiesPost(copied, post) {
+		t.Fatal("observed comment template escaped")
+	}
+	if managedCopiesPost("我赞同这个判断", post) || managedCopiesPost("散步中停下来等待的时间也值得保留。可以把停留位置单独做个标记，回看时不必靠照片数量猜测。", post) {
+		t.Fatal("independent comment blocked")
+	}
+	if managedSourceKey("https://sspai.com/post/123/?utm_source=test#anchor") != managedSourceKey("https://sspai.com/post/123") {
+		t.Fatal("canonical source variants bypass quota")
+	}
 	if !managedNearText("作品集先展示取舍：删掉了什么？", "作品集先展示取舍 删掉了什么") {
 		t.Fatal("punctuation bypass")
 	}
@@ -224,6 +252,36 @@ func TestManagedSocialInteractions(t *testing.T) {
 	if count != 1 {
 		t.Fatal("cross-scene like missing")
 	}
+	// A comment cannot transplant the target post's sentences as its own reply.
+	copyDoc := duplicateDoc
+	copyDoc.Body = "记录植物时先写清楚天气和光照条件，再把看到的变化与自己的推测分开，下一次观察才有比较的依据。"
+	copyJSON, _ := json.Marshal(copyDoc)
+	check(db.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision) VALUES(98015,98002,'published',1,'public',?::jsonb,?,?,1)`, string(copyJSON), now, now).Error)
+	newRun()
+	check(s.commitManaged(ctx, job, managedModelResult{Value: managedOutput{Action: "comment", PostID: "98015", Content: copyDoc.Body}, UsageKnown: true}, map[int64]bool{98015: true}))
+	check(db.Raw(`SELECT status FROM managed_runs WHERE run_id=?`, job.RunID).Scan(&receipt.Status).Error)
+	check(db.Raw(`SELECT count(*) FROM social_work_comments WHERE post_id=98015`).Scan(&count).Error)
+	if receipt.Status != "skipped" || count != 0 {
+		t.Fatal("copied comment was published")
+	}
+	// Field failures remain actionable while keeping model text out of receipts.
+	newRun()
+	badDocument := duplicateDoc
+	badDocument.Summary = "太短"
+	invalidResult := managedModelResult{Value: managedOutput{Action: "post", Document: badDocument}, Requested: true, UsageKnown: true, Input: 20, Output: 20}
+	invalidErr := s.commitManaged(ctx, job, invalidResult, nil)
+	if invalidErr == nil || managedFailureCode(invalidErr) != "content_summary" {
+		t.Fatal("schema failure lost field category", invalidErr)
+	}
+	s.finishManagedFailure(job, invalidResult, invalidErr)
+	var failure struct {
+		Detail     string
+		ChargedFen int64
+	}
+	check(db.Raw(`SELECT detail,charged_fen FROM managed_runs WHERE run_id=?`, job.RunID).Scan(&failure).Error)
+	if !strings.Contains(failure.Detail, "[content_summary]") || failure.ChargedFen != 1 {
+		t.Fatal("field receipt or known usage lost", failure)
+	}
 	raw, err := s.managedDailySummary(ctx, "quality", "2026-10-15")
 	check(err)
 	var summary map[string]any
@@ -258,5 +316,20 @@ func TestManagedSocialInteractions(t *testing.T) {
 	check(err)
 	if len(sources) != 1 {
 		t.Fatal("skipped source reservation was not released")
+	}
+	// Old public posts have no source_key but must still occupy their quota.
+	check(db.Exec(`UPDATE managed_runs SET status='skipped' WHERE sponsor_uid='quality' AND status='running'`).Error)
+	legacyDoc := duplicateDoc
+	legacyJSON, _ := json.Marshal(legacyDoc)
+	check(db.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision) VALUES(98013,98001,'published',1,'public',?::jsonb,?,?,1),(98014,98002,'published',1,'public',?::jsonb,?,?,1)`, string(legacyJSON), now, now, string(legacyJSON), now, now).Error)
+	legacySnapshot, _ := json.Marshal([]managedSource{{URL: "https://sspai.com/post/managed-quality-fixture?utm_source=old#top"}})
+	for _, post := range []int64{98013, 98014} {
+		check(db.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at,post_id,source_snapshot) VALUES(?,98001,'quality','2026-10-15','2026-10','published',0,0,?,?,?::jsonb)`, post, now, post, string(legacySnapshot)).Error)
+	}
+	newRun()
+	sources, err = s.managedRoleSources(ctx, job)
+	check(err)
+	if len(sources) != 0 {
+		t.Fatal("legacy public source usage was ignored")
 	}
 }

@@ -13,6 +13,7 @@ import { AnalyticsDashboard } from './analytics';
 import { AdminMembers } from './admin-members';
 import { AdminRegistration } from './admin-registration';
 import { ManagedConsole } from './managed';
+import { Messages } from './network';
 import { ApiError } from './api';
 import { previewAgents, previewReceipt } from './preview-data';
 import { SocialWorkspace } from './social/workspace';
@@ -288,6 +289,15 @@ export default function VisualPreview() {
       </div>
     );
   switch (page) {
+    case 'messages-empty':
+      return (
+        <div className="sw-workspace sn-social ew-social">
+          <main className="sw-main">
+            <div className="analytics-preview">本地空收件箱验证 · 不发送真实消息</div>
+            <Messages session={session} />
+          </main>
+        </div>
+      );
     case 'analytics':
       return <AnalyticsDashboard preview />;
     case 'registration':

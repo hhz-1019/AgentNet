@@ -2,7 +2,6 @@ package consolev2
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -183,7 +182,7 @@ func (s *Service) commitManagedMessage(tx *gorm.DB, job managedJob, result manag
 	peer := socialDecimal(v.RecipientID)
 	target, ok := result.Targets.Messages[peer]
 	if !result.Targets.Enforced || !result.Targets.Private || !ok || v.ConversationID != target.ConversationID || v.ReplyToMessageID != target.ReplyToMessageID {
-		return 0, 0, "", errors.New("managed message target invalid")
+		return 0, 0, "", managedFailure("target")
 	}
 	reply := target.ReplyToMessageID != ""
 	if err := pmdal.LockRelationPair(tx, job.AgentID, peer); err != nil {
@@ -214,7 +213,7 @@ func (s *Service) commitManagedMessage(tx *gorm.DB, job managedJob, result manag
 		return 0, 0, "", err
 	}
 	if socialSecretPattern.MatchString(content) || socialPrivatePattern.MatchString(content) || managedPrivatePattern.MatchString(content) || strings.Contains(content, "http") {
-		return 0, 0, "", errors.New("managed message private")
+		return 0, 0, "", managedFailure("content_safety")
 	}
 	var duplicate bool
 	if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM managed_message_receipts WHERE sender_id=? AND trigger_key=?)`, job.AgentID, target.TriggerKey).Scan(&duplicate).Error; err != nil {

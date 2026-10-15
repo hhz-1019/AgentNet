@@ -545,7 +545,10 @@ export function Messages({
       : `console/pm/conversations?cursor=${encodeURIComponent(cursor)}`,
   );
   const [selected, setSelected] = useState(
-    () => selectedConversations.get(session.agent_id) || '',
+    () => {
+      const peer = new URLSearchParams(window.location.search).get('peer');
+      return peer ? 'peer:' + peer : selectedConversations.get(session.agent_id) || '';
+    },
   );
   useEffect(() => {
     selectedConversations.set(session.agent_id, selected);
@@ -556,25 +559,35 @@ export function Messages({
       ? null
       : `console/groups?cursor=${encodeURIComponent(groupCursor)}`,
   );
-  const selectedGroup = groups.data?.items.find(
+  const groupItems = useMemo(
+    () => (Array.isArray(groups.data?.items) ? groups.data.items : []),
+    [groups.data?.items],
+  );
+  const conversations = useMemo(
+    () => (Array.isArray(q.data?.conversations) ? q.data.conversations : []),
+    [q.data?.conversations],
+  );
+  const selectedGroup = groupItems.find(
     (g) => 'g:' + g.group_id === selected,
   );
   const requestedPeer =
     new URLSearchParams(window.location.search).get('peer') || '';
+  useEffect(() => {
+    if (requestedPeer) {
+      setSelected('peer:' + requestedPeer);
+      setMessageCursor('');
+    }
+  }, [requestedPeer]);
   const missingPeer =
     requestedPeer &&
     q.data &&
-    !q.data.conversations.some((c) => c.peer_agent_id === requestedPeer);
+    !conversations.some((c) => c.peer_agent_id === requestedPeer);
   const [drafts, setDrafts] = useState<Record<string, string>>(
     () => replyDrafts.get(session.agent_id) || {},
   );
   const [replyStatus, setReplyStatus] = useState<Record<string, string>>({});
   const replyOperations = useRef(
     new Map<string, { content: string; key: string }>(),
-  );
-  const conversations = useMemo(
-    () => (Array.isArray(q.data?.conversations) ? q.data.conversations : []),
-    [q.data?.conversations],
   );
   const contexts = q.data?.agent_contexts || {};
   const history = useData<{ messages: Message[]; next_cursor: string }>(
@@ -599,7 +612,7 @@ export function Messages({
     };
     if (selected.startsWith('g:')) refreshReadState();
     else {
-      const incoming = history.data.messages.filter(
+      const incoming = (history.data.messages || []).filter(
         (m) => m.receiver_agent_id === session.agent_id && !m.is_read,
       );
       if (incoming.length) {
@@ -670,6 +683,10 @@ export function Messages({
     Boolean(history.data) && !history.loading,
   );
   useEffect(() => {
+    if (selected === 'peer:' + requestedPeer) {
+      const existing = conversations.find((c) => c.peer_agent_id === requestedPeer);
+      if (existing) setSelected(existing.conv_id);
+    }
     if (!selected && missingPeer) {
       setSelected('peer:' + requestedPeer);
       return;
@@ -715,7 +732,7 @@ export function Messages({
       <div className="messages">
         <aside>
           {onRequireLogin && <Blank>登录后查看会话列表。</Blank>}
-          {groups.data?.items.map((g) => (
+          {groupItems.map((g) => (
             <button
               key={g.group_id}
               className={selected === 'g:' + g.group_id ? 'selected' : ''}

@@ -434,7 +434,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 			d.OrganizationID = ""
 			d.Media = []socialMedia{}
 			if len(value.SourceIDs) > 1 {
-				return errors.New("too many sources")
+				return managedFailure("content_source")
 			}
 			for _, sourceID := range value.SourceIDs {
 				found := false
@@ -445,33 +445,33 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 					}
 				}
 				if !found {
-					return errors.New("unknown source")
+					return managedFailure("content_source")
 				}
 			}
 			if len(value.SourceIDs) == 0 && (strings.Contains(d.Body, "今日最新") || strings.Contains(d.Body, "刚刚发布")) {
-				return errors.New("freshness claim without source")
+				return managedFailure("content_source")
 			}
 			if d.Kind == "result" || utf8.RuneCountInString(d.Body) > 1200 || strings.Contains(d.Body, "http") {
-				return errors.New("managed content invalid")
+				return managedFailure("content_schema")
 			}
 			if err := validateSocialDocument(&d, "public"); err != nil {
-				return err
+				return managedFailure(managedDocumentFailure(d))
 			}
 			blocked, _ := socialPreflight(d)
 			publicContent, _ := json.Marshal(d)
 			if len(blocked) > 0 || socialPrivatePattern.Match(publicContent) || managedPrivatePattern.Match(publicContent) {
-				return errors.New("managed content private")
+				return managedFailure("content_safety")
 			}
 			var duplicate bool
 			if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM social_work_posts WHERE agent_id=? AND document->>'title'=? AND created_at>?)`, job.AgentID, d.Title, time.Now().Add(-7*24*time.Hour).UnixMilli()).Scan(&duplicate).Error; err != nil {
 				return err
 			}
 			var recentTitles []string
-			if err := tx.Raw(`SELECT p.document->>'title' FROM social_work_posts p JOIN managed_members m USING(agent_id) WHERE m.sponsor_uid=? AND m.scenario=? AND p.created_at>? ORDER BY p.created_at DESC LIMIT 40`, job.SponsorUID, job.Scenario, time.Now().Add(-30*24*time.Hour).UnixMilli()).Scan(&recentTitles).Error; err != nil {
+			if err := tx.Raw(`SELECT p.document->>'title' FROM social_work_posts p JOIN managed_members m USING(agent_id) WHERE m.sponsor_uid=? AND p.state='published' AND p.visibility='public' AND p.created_at>? ORDER BY p.created_at DESC LIMIT 80`, job.SponsorUID, time.Now().Add(-30*24*time.Hour).UnixMilli()).Scan(&recentTitles).Error; err != nil {
 				return err
 			}
 			for _, title := range recentTitles {
-				if managedTitleKey(title) == managedTitleKey(d.Title) {
+				if managedTitleKey(title) == managedTitleKey(d.Title) || managedSimilarTitle(title, d.Title) {
 					duplicate = true
 				}
 			}
@@ -514,7 +514,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 		} else if value.Action == "like" {
 			id := socialDecimal(value.PostID)
 			if !eligible[id] || (result.Targets.Enforced && !result.Targets.Likes[id]) {
-				return errors.New("managed like invalid")
+				return managedFailure("target")
 			}
 			scoped := *s
 			scoped.db = tx
@@ -527,7 +527,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 				return err
 			}
 			if !allowed {
-				return errors.New("managed like target invalid")
+				return managedFailure("target")
 			}
 			result := tx.Exec("INSERT INTO social_work_reactions(post_id,agent_id,kind) VALUES(?,?,'like') ON CONFLICT DO NOTHING", id, job.AgentID)
 			if result.Error != nil {
@@ -552,7 +552,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 				status = "messaged"
 			}
 		} else if value.Action != "skip" {
-			return errors.New("managed action invalid")
+			return managedFailure("output")
 		}
 		// An intentional quiet response is a completed decision too. Do not pay
 		// to reconsider the same incoming message every subsequent schedule.

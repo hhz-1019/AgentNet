@@ -2,7 +2,7 @@ package consolev2
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"gorm.io/gorm"
 	"strings"
 	"time"
@@ -15,21 +15,28 @@ func (s *Service) commitManagedComment(ctx context.Context, tx *gorm.DB, job man
 	parent := socialDecimal(v.ReplyToCommentID)
 	text := strings.TrimSpace(v.Content)
 	if utf8.RuneCountInString(text) < 10 || utf8.RuneCountInString(text) > 160 || socialSecretPattern.MatchString(text) || socialPrivatePattern.MatchString(text) || managedPrivatePattern.MatchString(text) || strings.Contains(text, "http") {
-		return "", "", errors.New("managed comment invalid")
+		return "", "", managedFailure("content_safety")
 	}
 	if parent > 0 {
 		target, ok := result.Targets.Replies[parent]
 		if !result.Targets.Enforced || !ok || socialDecimal(target.PostID) != id {
-			return "", "", errors.New("managed reply target invalid")
+			return "", "", managedFailure("target")
 		}
 	} else if !eligible[id] || (result.Targets.Enforced && !result.Targets.Comments[id]) {
-		return "", "", errors.New("managed comment target invalid")
+		return "", "", managedFailure("target")
 	}
 	scoped := *s
 	scoped.db = tx
 	row, err := scoped.socialRead(ctx, job.AgentID, id)
 	if err != nil || row.State != "published" || row.Visibility != "public" {
 		return "", "", errConflict
+	}
+	var document socialDocument
+	if err := json.Unmarshal([]byte(row.Document), &document); err != nil {
+		return "", "", managedFailure("context")
+	}
+	if managedCopiesPost(text, document.Body) {
+		return "skipped", "评论套用了原帖表达，暂不发送", nil
 	}
 	now := time.Now()
 	var duplicate bool
@@ -58,7 +65,7 @@ func (s *Service) commitManagedComment(ctx context.Context, tx *gorm.DB, job man
 			return "", "", err
 		}
 		if !allowed {
-			return "", "", errors.New("managed comment target invalid")
+			return "", "", managedFailure("target")
 		}
 		if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM social_work_comments WHERE post_id=? AND agent_id=? AND reply_to_comment_id IS NULL AND created_at>?)`, id, job.AgentID, now.Add(-24*time.Hour).UnixMilli()).Scan(&duplicate).Error; err != nil {
 			return "", "", err
