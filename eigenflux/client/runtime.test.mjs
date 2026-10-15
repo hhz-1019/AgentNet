@@ -557,3 +557,47 @@ void test('companion rename recovers a lost receipt and never overwrites a later
       await runtime.close();
     }
   }));
+
+void test('runtime carries the same existing companion voice to owner replies and draft handoff', async () =>
+  fixture(async (home) => {
+    const voice = {
+      agent_name: '苔苔',
+      profile: '说话安静细腻，配图偏自然光和纸张质感。',
+    };
+    const f = adapter({
+      get_companion: async () => ({
+        settings: { agent_name: voice.agent_name },
+      }),
+      get_portrait: async () => ({
+        fields: { bio: voice.profile },
+        memories: [{ content: 'private-memory' }],
+      }),
+    });
+    f.model.json = async (_prompt, input) => {
+      assert.deepEqual(input.companion_voice, voice);
+      return { reply: '我把这次改动整理好了。', work_ids: [record.work_id] };
+    };
+    await mkdir(join(home, 'records'));
+    await writeFile(
+      join(home, 'records', 'result.json'),
+      JSON.stringify(record),
+    );
+    const worker = new AgentNetRuntime({
+      ...f,
+      home,
+      endpoint: 'https://example.com',
+      allowDrafts: true,
+      workDirectory: join(home, 'records'),
+    });
+    await worker.run({ once: true });
+    assert.equal(f.state.completions[0].status, 'completed');
+    assert.deepEqual(
+      f.state.completions[0].result.work_report.companion_voice,
+      voice,
+    );
+    assert(
+      !JSON.stringify(f.state.completions[0].result.work_report).includes(
+        'private-memory',
+      ),
+    );
+  }));

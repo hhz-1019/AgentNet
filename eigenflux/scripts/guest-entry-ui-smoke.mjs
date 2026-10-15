@@ -58,6 +58,8 @@ await context.route('**/api/v2/**', async (route) => {
   const url = new URL(request.url());
   const path = url.pathname;
   requests.push({ path, method: request.method(), query: url.search });
+  if (path.endsWith('/guest/avatars'))
+    return route.fulfill({ json: { data: { avatars: { '101': 'tide' } } } });
   if (path.endsWith('/console/session') && sessionFailure)
     return route.fulfill({
       status: 503,

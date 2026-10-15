@@ -1,6 +1,10 @@
 import { groundText } from './grounding.mjs';
 import { ownerReportPrompt } from './prompts.mjs';
-import { secretInDraft, assertChineseContent } from './work.mjs';
+import {
+  secretInDraft,
+  assertChineseContent,
+  normalizeCompanionVoice,
+} from './work.mjs';
 
 const categories = [
   'observations',
@@ -77,7 +81,7 @@ function linkedReply(reply, facts) {
 // comprehensive round report. No synthetic facts are added by the helper.
 export async function createActivityReport(
   model,
-  { companion, ...round },
+  { companion, companion_voice, ...round },
   options = {},
 ) {
   const facts = Object.fromEntries(
@@ -110,7 +114,13 @@ export async function createActivityReport(
         throw new Error('Invalid owner action label');
     }
   }
-  const input = { companion, ...facts };
+  const input = {
+    companion,
+    ...(companion_voice !== undefined
+      ? { companion_voice: normalizeCompanionVoice(companion_voice) }
+      : {}),
+    ...facts,
+  };
   if (secretInDraft(input))
     throw new Error('Remove credentials from activity evidence');
   const required = Object.values(facts)
