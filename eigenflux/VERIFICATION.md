@@ -7,7 +7,12 @@
 - 头像及正文媒体从PostgreSQL读取原始字节，去掉Base64往返，不改变图片内容、尺寸、画质或访问权限。连接池按每进程默认8个连接/2个空闲连接限制，增加空闲回收、内部池指标和普通响应Server-Timing。静态资源长期缓存与私人接口缓存规则分别验证。
 - 本地类型、lint、128项单元测试、生产构建、性能回归、游客桌面/手机流程、社交流程通过；隔离PostgreSQL后端24项顶层测试通过，含媒体权限/字节、未读隔离、连接池配置、Server-Timing和迁移回滚。索引计划测试在30,000条合成评论上确认索引被采用。扩大到全部上游测试时本机无CGO导致SQLite测试不能运行，此部分交由Linux容器CI验证，不计为本地全量通过。
 - 同浏览器、合成预览、减少动画设置下，1440px/390px的发现和消息页面四组前后截图SHA-256完全一致。动画文件源码保持一致，延迟Logo资源时仍等待原有准备流程。证据在忽略目录 `.agentnet-audit/performance-preserved-design/`；本地预览 `http://127.0.0.1:4321/preview#messages`。
-- 发布验收结果在本节补记；本地验证不代表已上线或全国用户P95已达标。
+- 运行代码 `0a8cd7df4a8a146cdc39ee42918dd934bca7c424` 已安全快进合入 main；[分支完整 CI 38713587453](https://github.com/hhz-1019/AgentNet/actions/runs/38713587453) 与 [main 完整 CI 38715162129](https://github.com/hhz-1019/AgentNet/actions/runs/38715162129) 均通过，包括 Linux 镜像测试、真实 PostgreSQL 迁移及 SDK/MCP 验收。此后的发布记录提交不改变运行代码。
+- Zeabur Core `6ad0a0d68c763c9cefcf045f`、Web `6ad0a42db94765dbcff03a45` 均 RUNNING。数据库版本为134，两个新增索引均 `indisvalid=true`；API进程指标确认最大连接数8、空闲连接2，验收采样时连接等待计数为0。部署前完成39.5MB的在线逻辑备份，并使用 `pg_restore -f /dev/null` 完整读取校验；备份保存在数据库持久卷，未执行生产恢复，也不等同于异地灾备。
+- 首次公网检查发现 Zeabur 挂载的旧 `/etc/caddy/Caddyfile` 覆盖镜像配置，使静态资源仍为no-cache。已保存旧配置、移除该覆盖并重启Web，确认使用仓库配置。最终JS/CSS返回 `public, max-age=31536000, immutable`，HTML返回no-cache，私人接口保留private/no-store；修复无需改动页面或动画。
+- 北京时间18:09完成公网复验：发布标识 `elsewhere-underlying-performance-20261015-r1`；首页、dashboard、统计、游客Feed均200，匿名session及新未读接口401，内部bootstrap入口404。`index-DAW9gagL.js`、`index-CKrlh_VU.css` SHA-256与本地构建一致；四张线上原有正文图片与部署前字节数和SHA-256完全一致。Core最近100条日志未发现error/fatal/panic；Web无error级日志，存在重启、HTTP内部监听及SSE连接中断警告，不宣称所有日志无警告。
+- 本机该次顺序请求中，四张图片的Server-Timing约2.46–3.81ms，总接收耗时约3.97–10.52s；仅为本机瞬时样本，不能作为全国P95或优化前后收益。这表明网络/传输仍需后续解决。没有执行生产发帖、短信或新账号注册；已登录写入流程由隔离回归覆盖。
+- 证据保存在 `.agentnet-audit/performance-preserved-design/` 的生产接口、图片、数据库指标、CI、截图及构建/运行日志。回退参考为Core `6ad08b1a70022145c6b46114`、Web `6ad08b0f70022145c6b4610e`；新增索引兼容旧代码，不盲目回退schema。CLI上传均异常退出但平台确认接收，没有重复上传。
 
 ## 2026-10-15：加载文案放大与游客导航修正上线
 
