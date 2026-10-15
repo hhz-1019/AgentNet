@@ -1,5 +1,26 @@
 # 验证记录
 
+## 2026-10-15：加载文案放大与游客导航修正上线
+
+- 代码 `e4c0a6c9734a7f055bfcb081238cad15c2d9ec36` 已合入 main 并推送；[完整 CI 38671347549](https://github.com/hhz-1019/AgentNet/actions/runs/38671347549) 通过。加载文案桌面自适应 26–36px、手机 24px，保留衬线风格，并避让跳过按钮；同时发布下方首页品牌、游客导航及入场遮挡修正。
+- Web 部署 `6ad03cacdd3ac5bf6cd6ec6c` RUNNING，仅更新 Web。公网 `index-Bp6y69yc.js`、`index-BvPWG7bv.css` 的 SHA-256 与本地发布构建一致；首页、dashboard、此刻路由、安装指南、统计与游客 Feed 正常，匿名 session 为 401，Web 运行日志未见 error、panic 或 fatal。
+- 桌面 1440px 与手机 390px 加载幕已本地视觉核验，截图 `entry-caption-desktop.png`、`entry-caption-mobile.png` 位于 `.agentnet-audit/`。线上浏览器截图超时，未声称完成公网视觉复验。证据见同目录 `entry-production-verification.json`、`entry-web-{deployments,build,runtime}.json`；Web 回退目标为 `6acfbe8d35745241a807ee36`。此记录为发布后文档提交，不改变运行代码。
+
+## 2026-10-15：首页品牌、游客导航与入场遮挡修正（本地验证）
+
+- 删除侧栏“另一个你，生活在别处。”及失效样式；桌面 Logo 放大至最高 188px，窄侧栏随可用宽度收缩。删除游客专属设置按钮，继续复用正式导航（含“此刻”）和底部账号入口，保留私人操作的登录拦截。
+- 加载页显示“你的 agent，正在登陆「别处」”；加载幕使用原生模态顶层，读条和变形期间隐藏底层内容但保持数据准备，揭幕阶段沿用 Logo 透视效果。共享弹窗等入场完成后才打开，避免直接帖子链接提前显示详情。
+- 类型、Lint、入场 5 项单元测试、生产构建、游客和正式社交 UI 回归通过。新增三主题侧栏 Logo／导航／发布／账号入口位置一致性断言，以及延迟资源下直接帖子弹窗、读条／变形遮挡与结束恢复检查。真实浏览器检查桌面首页和加载幕；截图 `.agentnet-audit/entry-guest-aligned.png`、`entry-curtain.png`，本地预览 `http://127.0.0.1:4322/preview/login?entry=replay`。本轮未部署。
+
+## 2026-10-15：此刻页面合入主线并部署 Zeabur
+
+- 发布源码 `1ffa1fdb8b69065f4d7cb97873dd62e78269b550`，协作分支与 main 的完整 CI 均通过：[38603088180](https://github.com/hhz-1019/AgentNet/actions/runs/38603088180)、[38604997697](https://github.com/hhz-1019/AgentNet/actions/runs/38604997697)。导航独立入口为「此刻」，沿用主站布局，首页仍为发现；此记录为部署后的文档提交，不改变运行代码。
+- 通过官方 CLI 上传固定源码包，依次部署 Core `6acfbb0b35745241a807edc6` 与 Web `6acfbe8d35745241a807ee36`，两者均 RUNNING。数据库部署前后均为迁移 133，Core 容器内 CLI 为 `0.0.54-agentnet.14`，Attention 与 Control 两个功能开关已启用；抽查最近 100 条后端运行日志未发现 error、fatal 或 panic。保留现有域名、环境变量与持久卷。
+- 北京时间 01:45 公网核验通过：`/`、`/dashboard/crossing`、统计与游客 Feed 返回 200；未登录 session、此刻事项接口与命令续租接口返回 401；内部 bootstrap 接口仍为 404。公开发布标识为 `elsewhere-moment-companion-20261015`，安装脚本与发布元数据版本均为 `.14`，Windows 客户端校验文件可访问。
+- 公网 `index-DG-O941-.js` 与 `index-BdYQomdz.css` 的 SHA-256 均与本地已验证发布构建完全相同。证据保存在忽略目录 `.agentnet-audit/moment-production-verification.json`、固定源码包及部署构建/运行日志；未将私有环境配置上传或提交。
+- 本次生产验收未执行真实用户审批、发帖或加好友，未将匿名接口验证等同于真实 Agent 全链路验收。审批生命周期、执行绑定、续租与回执由前述 CI 的隔离服务测试覆盖；各个本地 Agent 仍需使用 `.14` 并配置执行宿主，具备 MCP Apps 消息权限时才可将确认发送到当前聊天。
+- 回退参考为之前的 Core `6acfad4df97321c9dc99a0ad` 与 Web `6acfad5ff97321c9dc99a0b0`；不回退数据库 schema。上传 CLI 两次异常退出，但平台部署记录均确认已接收，未重复上传。
+
 ## 2026-10-13：第四栏目注册流程分析（生产验收）
 
 - 发布代码 `653fce411020a4ff227b6f7b1d93a3862ac0f6eb` 通过完整 [CI 38399684377](https://github.com/hhz-1019/AgentNet/actions/runs/38399684377)，安全快进合入 main，保留此前游客浏览与管理功能。新增六步注册漏斗、最后输入项、30 分钟 / 24 小时未继续筛选、历史待完成、搜索分页和步骤明细；只记录阶段名称及固定错误码，不记录输入值。

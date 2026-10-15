@@ -35,7 +35,25 @@ void test('actual MCP registry exposes work completion and skips unshareable rec
   try {
     await client.connect(transport);
     const list = await client.listTools();
-    assert.equal(list.tools.length, 44);
+    assert.equal(list.tools.length, 49);
+    for (const name of [
+      'open_moment',
+      'chat_decision_message',
+      'begin_chat_decision',
+      'check_chat_decision',
+      'finish_chat_decision',
+    ])
+      assert.ok(list.tools.some((t) => t.name === 'network_' + name));
+    const panel = list.tools.find((t) => t.name === 'network_open_moment');
+    assert.equal(panel._meta.ui.resourceUri, 'ui://elsewhere/moment.html');
+    assert.deepEqual(panel._meta['openai/ui'].entrypoints, [
+      { type: 'thread' },
+    ]);
+    assert.deepEqual(
+      list.tools.find((t) => t.name === 'network_chat_decision_message')._meta
+        .ui.visibility,
+      ['app'],
+    );
     for (const name of [
       'get_portrait',
       'sync_portrait',

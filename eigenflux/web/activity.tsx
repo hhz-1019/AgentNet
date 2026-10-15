@@ -146,7 +146,7 @@ interface SourceBroadcast {
   author_identity?: { display_name: string };
   content_truncated?: boolean;
 }
-function AttentionSource({ id }: { id: string }) {
+export function AttentionSource({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
   const q = useData<{
     detail: SourceBroadcast & {

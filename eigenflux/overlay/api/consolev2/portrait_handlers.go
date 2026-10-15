@@ -70,6 +70,7 @@ type portraitRow struct {
 }
 
 func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
+	s.registerMomentRoutes(h)
 	s.registerCompanionRoutes(h)
 	s.registerAvatarRoutes(h)
 	s.registerAgentSocialRoutes(h)

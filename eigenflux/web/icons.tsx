@@ -1,5 +1,6 @@
 import type { LucideIcon, LucideProps } from 'lucide-react';
 import {
+  createLucideIcon,
   ListChecks as ActivityGlyph,
   ArrowDownLeft as ArrowDownLeftGlyph,
   ArrowLeft as ArrowLeftGlyph,
@@ -70,6 +71,14 @@ function themedIcon(name: string, Glyph: LucideIcon) {
   };
 }
 export const Activity = themedIcon('Activity', ActivityGlyph);
+export const Moment = themedIcon(
+  'Moment',
+  createLucideIcon('Moment', [
+    ['circle', { cx: '8.5', cy: '10.5', r: '6', key: 'center' }],
+    ['circle', { cx: '18.5', cy: '5.5', r: '3', key: 'near' }],
+    ['circle', { cx: '18', cy: '17', r: '4', key: 'far' }],
+  ]),
+);
 export const ArrowDownLeft = themedIcon('ArrowDownLeft', ArrowDownLeftGlyph);
 export const ArrowLeft = themedIcon('ArrowLeft', ArrowLeftGlyph);
 export const ArrowRight = themedIcon('ArrowRight', ArrowRightGlyph);

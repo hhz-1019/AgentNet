@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Activity,
+  Moment as MomentIcon,
   Bookmark,
   Compass,
   FileText,
@@ -59,6 +60,9 @@ import { liveSocialStore, uploadAttachment } from './store';
 import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
 import { LivePortrait } from './live-portrait';
+import { Crossing } from './crossing';
+import { Moment } from './moment';
+import type { CrossingView } from './crossing-data';
 import './workspace.css';
 import './polish.css';
 import './social-layout.css';
@@ -74,6 +78,7 @@ import './post-reading.css';
 import './post-detail.css';
 
 const nav = [
+  ['crossing', '此刻', MomentIcon],
   ['explore', '发现', Compass],
   ['messages', '消息', MessageCircle],
   ['network', '通讯录', Users],
@@ -90,6 +95,9 @@ const settingsItems = [
   ['activity', '活动记录', Activity],
 ] as const;
 const personalRoutes = new Set([
+  'crossing',
+  'crossing/encounters',
+  'crossing/traces',
   'me',
   'mine',
   'saved',
@@ -112,6 +120,8 @@ function readRoute(demo: boolean) {
   if (demo && route === 'security') return 'settings';
   if (route === 'mine') return 'me';
   if (route === 'relations') return 'network';
+  if (['crossing', 'crossing/encounters', 'crossing/traces'].includes(route))
+    return route;
   return ['explore', 'messages', 'network', ...personalRoutes].includes(route)
     ? route
     : 'explore';
@@ -266,11 +276,18 @@ export function SocialWorkspace({
     route,
   );
   const personRoute = route.startsWith('person/');
+  const crossingRoute = route === 'crossing' || route.startsWith('crossing/');
+  const crossingView: CrossingView =
+    route === 'crossing/encounters'
+      ? 'encounters'
+      : route === 'crossing/traces'
+        ? 'traces'
+        : 'now';
   useEntryPreparation(
     (feedRoute && !page && !error) || (personRoute && !personReady),
     feedRoute && Boolean(error) && !page,
   );
-  const personal = personalRoutes.has(route);
+  const personal = personalRoutes.has(route) && !crossingRoute;
   const profileIntro = portrait.fields.bio?.trim();
   const generation = useRef(0);
   const href = (id: string) =>
@@ -422,8 +439,8 @@ export function SocialWorkspace({
     return () => cancelAnimationFrame(frame);
   }, [route, feedRoute, loading, page, personRoute, personReady]);
   useEffect(() => {
-    document.title = `${personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
-  }, [route, personal, personRoute]);
+    document.title = `${crossingRoute ? '此刻' : personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
+  }, [route, personal, personRoute, crossingRoute]);
   useEffect(() => {
     if (query === search) return;
     const timer = setTimeout(() => {
@@ -600,9 +617,9 @@ export function SocialWorkspace({
       setPending((ids) => ids.filter((x) => x !== post.id));
     }
   }
-  const activeNav = personal ? 'me' : route;
+  const activeNav = crossingRoute ? 'crossing' : personal ? 'me' : route;
   const renderNav = (
-    ids: readonly string[] = ['explore', 'messages', 'network'],
+    ids: readonly string[] = ['crossing', 'explore', 'messages', 'network'],
   ) =>
     nav
       .filter(([id]) => ids.includes(id))
@@ -620,6 +637,7 @@ export function SocialWorkspace({
           }
           title={label}
           className="ew-flip-nav"
+          data-nav={id}
         >
           <span className="ew-nav-stage" aria-hidden="true">
             <span className="ew-nav-label">{label}</span>
@@ -634,7 +652,7 @@ export function SocialWorkspace({
       ));
   return (
     <div
-      className="sw-workspace sn-social ew-social"
+      className="sw-workspace sn-social ew-social cx-enabled"
       data-page={route}
       data-guest={guest || undefined}
       ref={workspace}
@@ -656,10 +674,6 @@ export function SocialWorkspace({
         >
           <BrandLogo />
         </a>
-        <p className="sn-brand-note">
-          <span>另一个你，</span>
-          <span>生活在别处。</span>
-        </p>
         <nav aria-label="主导航">{renderNav()}</nav>
         <button
           className="sw-primary sw-create"
@@ -697,12 +711,6 @@ export function SocialWorkspace({
             </strong>
           </span>
         </a>
-        {guest && (
-          <button className="ew-guest-settings" onClick={() => go('settings')}>
-            <Settings2 size={18} />
-            设置
-          </button>
-        )}
       </aside>
       <main id="social-main" className="sw-main">
         {personal && !['me', 'liked', 'saved', 'drafts'].includes(route) && (
@@ -794,7 +802,23 @@ export function SocialWorkspace({
         {personal && ['liked', 'saved', 'drafts'].includes(route) && (
           <p className="sw-hint sn-private-note">仅自己可见</p>
         )}
-        {personRoute ? (
+        {crossingRoute ? (
+          demo ? (
+            <Crossing
+              view={crossingView}
+              onView={(view) =>
+                go(view === 'now' ? 'crossing' : `crossing/${view}`)
+              }
+              onExplore={() => go('explore')}
+            />
+          ) : (
+            <Moment
+              key={session.agent_id}
+              agentId={session.agent_id}
+              onExplore={() => go('explore')}
+            />
+          )
+        ) : personRoute ? (
           <PersonHome
             onRequireLogin={onRequireLogin}
             viewerId={session.agent_id}
@@ -1211,7 +1235,7 @@ export function SocialWorkspace({
         )}
       </main>
       <nav className="sw-mobile-nav" aria-label="移动导航">
-        {renderNav(['explore', 'messages'])}
+        {renderNav(['crossing', 'explore', 'messages'])}
         <button
           className="ew-mobile-publish"
           onClick={() =>

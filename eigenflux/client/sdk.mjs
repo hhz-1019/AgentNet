@@ -556,39 +556,133 @@ export class AgentNet {
   heartbeat() {
     return this.command(['runtime', 'heartbeat']);
   }
-  request_decision({ title, body, recommendation, choices }) {
+  async request_decision({
+    title,
+    body,
+    recommendation,
+    choices,
+    related_agent_id,
+    priority = 50,
+    executor_id,
+    scopes,
+    source_ref,
+    expires_at,
+    idempotency_key = crypto.randomUUID(),
+    client_item_id = idempotency_key,
+  }) {
     const now = Date.now();
     if (!recommendation?.trim())
       throw new Error('Explain your recommendation for the owner');
     if (!Array.isArray(choices) || choices.length < 1 || choices.length > 4)
       throw new Error('Supply 1–4 explicit choices');
+    if (
+      choices.some(
+        (c) => typeof c !== 'string' || Buffer.byteLength(c, 'utf8') > 20,
+      )
+    )
+      throw new Error('Choice labels must fit 20 UTF-8 bytes');
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(idempotency_key))
+      throw new Error(
+        'Decision idempotency key must contain 8–128 letters, digits, underscores or hyphens',
+      );
+    const signature = createHash('sha256')
+      .update(
+        JSON.stringify({
+          endpoint: this.endpoint,
+          title,
+          body,
+          recommendation,
+          choices,
+          related_agent_id,
+          priority,
+          executor_id,
+          scopes,
+          source_ref,
+          expires_at,
+          client_item_id,
+        }),
+      )
+      .digest('hex');
+    const requestDir = resolve(this.home, 'agentnet-decisions');
+    const requestFile = resolve(
+      requestDir,
+      createHash('sha256').update(idempotency_key).digest('hex') + '.json',
+    );
+    const replay = async () => {
+      const stored = JSON.parse(await readFile(requestFile, 'utf8'));
+      if (stored.signature !== signature)
+        throw new Error(
+          'Decision idempotency key already belongs to different content',
+        );
+      return stored.input;
+    };
+    try {
+      const input = await replay();
+      return this.command(['attention', 'publish', '--stdin'], { input });
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    let context_ref;
+    if (executor_id) {
+      if (
+        !Array.isArray(scopes) ||
+        scopes.length !== choices.length ||
+        scopes.some((s) => typeof s !== 'string' || !s.trim())
+      )
+        throw new Error(
+          'Every choice requires an explicit authorization scope',
+        );
+      const context = await this.get_context();
+      context_ref = {
+        context_revision: context.context_revision,
+        moment: {
+          related_agent_id,
+          priority,
+          executor_id,
+          scopes: Object.fromEntries(scopes.map((s, i) => ['choice_' + i, s])),
+        },
+      };
+    } else if (scopes || related_agent_id)
+      throw new Error('Bind executor_id for scoped decisions');
+    const input = {
+      schema_version: 'agent_attention.v1',
+      idempotency_key,
+      items: [
+        {
+          client_item_id,
+          surface: 'participation',
+          category: 'other_decision',
+          language: 'zh-CN',
+          title,
+          body,
+          recommendation,
+          context_ref,
+          source_ref,
+          actions: choices.map((choice, index) => ({
+            action_key: `choice_${index}`,
+            kind: 'custom',
+            flag: choice,
+            appearance: index === 0 ? 'primary' : 'secondary',
+          })),
+          generated_at: now,
+          expires_at: expires_at ?? now + 86400000,
+        },
+      ],
+    };
+    await mkdir(requestDir, { recursive: true, mode: 0o700 });
+    try {
+      await writeFile(requestFile, JSON.stringify({ signature, input }), {
+        flag: 'wx',
+        mode: 0o600,
+      });
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+    }
     return this.command(['attention', 'publish', '--stdin'], {
-      input: {
-        schema_version: 'agent_attention.v1',
-        idempotency_key: crypto.randomUUID(),
-        items: [
-          {
-            client_item_id: crypto.randomUUID(),
-            surface: 'participation',
-            category: 'other_decision',
-            language: 'zh-CN',
-            title,
-            body,
-            recommendation,
-            actions: choices.map((choice, index) => ({
-              action_key: `choice_${index}`,
-              kind: 'custom',
-              flag: choice,
-              appearance: index === 0 ? 'primary' : 'secondary',
-            })),
-            generated_at: now,
-            expires_at: now + 86400000,
-          },
-        ],
-      },
+      input: await replay(),
     });
   }
-  pending_commands({ command_type = '' } = {}) {
+  pending_commands({ command_type = '', executor_id = '' } = {}) {
     return this.command([
       'runtime',
       'command',
@@ -596,15 +690,32 @@ export class AgentNet {
       '--limit',
       '50',
       ...(command_type ? ['--command-type', command_type] : []),
+      ...(executor_id ? ['--executor-id', executor_id] : []),
     ]);
   }
-  claim_command({ command_id }) {
+  claim_command({ command_id, executor_id }) {
     return this.command([
       'runtime',
       'command',
       'claim',
       '--command-id',
       command_id,
+      ...(executor_id ? ['--executor-id', executor_id] : []),
+    ]);
+  }
+  renew_command({ command_id, claim_token, claim_epoch, executor_id }) {
+    return this.command([
+      'runtime',
+      'command',
+      'renew',
+      '--command-id',
+      command_id,
+      '--claim-token',
+      claim_token,
+      '--claim-epoch',
+      String(claim_epoch),
+      '--executor-id',
+      executor_id,
     ]);
   }
   async complete_command({

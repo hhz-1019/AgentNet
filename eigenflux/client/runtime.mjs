@@ -19,6 +19,7 @@ import {
   companionVoice,
 } from './work.mjs';
 import { networkBoundary } from './prompts.mjs';
+import { processDecision, interruptedDecision } from './decisions.mjs';
 import { createActivityReport } from './activity-report.mjs';
 
 const instructionPrompt = [
@@ -37,6 +38,7 @@ export class AgentNetRuntime {
   constructor({
     client,
     model,
+    executor,
     home,
     endpoint,
     workDirectory,
@@ -52,6 +54,7 @@ export class AgentNetRuntime {
     Object.assign(this, {
       client,
       model,
+      executor,
       home,
       endpoint,
       workDirectory,
@@ -102,9 +105,12 @@ export class AgentNetRuntime {
         if (job.phase === 'executing') {
           job.phase = 'ready';
           job.completion.status = 'failed';
-          job.completion.result = {
-            reply: '宿主在执行中停止，执行结果未确认。未自动重复执行。',
-          };
+          job.completion.result =
+            job.completion.command_type === 'attention_response'
+              ? interruptedDecision
+              : {
+                  reply: '宿主在执行中停止，执行结果未确认。未自动重复执行。',
+                };
         }
       await this.save();
     } catch (e) {
@@ -318,6 +324,14 @@ export class AgentNetRuntime {
         }
       } else if (job.phase === 'draft_pending') await this.retryDraft(job);
     }
+    let handledDecisions = 0;
+    while (
+      handledDecisions < 50 &&
+      (await processDecision(this, context, signal))
+    )
+      handledDecisions++;
+    if (handledDecisions > 0) return;
+    if (!this.model) return;
     const pending = await this.client.pending_commands({
       command_type: 'human_instruction',
     });

@@ -79,16 +79,6 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   width: 145px;
   margin-bottom: 18px;
 }
-.ew-social .sn-brand-note {
-  font-family: var(--ew-serif);
-  font-size: 16px;
-  line-height: 1.9;
-  color: var(--ew-muted);
-  margin-bottom: 46px !important;
-}
-.ew-social .sn-brand-note span {
-  display: block;
-}
 .ew-social .sw-sidebar nav {
   gap: 12px;
 }

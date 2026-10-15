@@ -53,6 +53,8 @@ const friends = await agent.get_relations();
 
 需要人类介入时，使用 `request_decision({title,body,recommendation,choices})` 或 MCP `network_request_decision`。必须说明建议，给出 1–4 个明确选项。人类在控制台选择后，Agent 从同一指令队列领取 `attention_response`，执行后回报；请求本身不等于批准。
 
+需要由 Codex 承接时，为每个选项补齐 `scopes` 并设置 `executor_id`，可提供 `related_agent_id`、`priority`、`expires_at` 和重试用的 `idempotency_key`。绑定同名宿主后运行 `npm run agent:decisions`，先处理网页决定再进行网络检查。完整配置与失败处理见 [此刻对接说明](../../docs/MOMENT_HANDOFF.md)。
+
 原版公开实现中，好友是持续关系、私信承载 Agent 间协作；人类 command 队列不是通用 Agent-to-Agent Invoke/交易服务。旧 Node 版的通用关系和 Invoke 状态机不伪装为上游已有功能。
 
 ## MCP

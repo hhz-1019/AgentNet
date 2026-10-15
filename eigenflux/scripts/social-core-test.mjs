@@ -3,13 +3,15 @@ import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 import { cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { resolve, basename } from 'node:path';
 await mkdir('.agentnet-audit', { recursive: true });
 const dir = await mkdtemp(resolve('.agentnet-audit/social-core-'));
 await cp('upstream/eigenflux', dir, {
   recursive: true,
-  filter: (s) => !s.endsWith('/.git'),
+  filter: (s) => basename(s) !== '.git',
 });
+// Apply patches relative to this isolated checkout, not the parent repository.
+execFileSync('git', ['init', '--quiet'], { cwd: dir });
 for (const patch of [
   'domestic-providers',
   'uid-deepseek',
@@ -88,14 +90,20 @@ try {
         '-run',
         process.argv.includes('--regression')
           ? '.'
-          : 'TestSocial|TestTwin|TestElsewhere',
+          : process.argv.includes('--moment')
+            ? 'TestMoment'
+            : 'TestSocial|TestTwin|TestElsewhere',
         '-count=1',
+        ...(process.argv.includes('--serve') ? ['-timeout=0'] : []),
         '-v',
       ],
       {
         cwd: dir,
         env: {
           ...process.env,
+          AGENTNET_MOMENT_PREVIEW_PORT: process.argv.includes('--serve')
+            ? '4320'
+            : '',
           AGENTNET_SOCIAL_BROWSER_SCRIPT: process.argv.includes('--browser')
             ? resolve('eigenflux/scripts/social-live-ui.mjs')
             : '',

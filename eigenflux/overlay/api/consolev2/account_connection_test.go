@@ -35,7 +35,7 @@ func TestAccountConnectionRepeatAndOwnerLogin(t *testing.T) {
 	check(db.Raw(`INSERT INTO agent_principals(agent_id,key_type,key_fingerprint,public_key,status,created_at,last_seen_at) VALUES(?,'ed25519-v1','connection-test',?,'limited',?,?) RETURNING principal_id`, id, make([]byte, 32), now, now).Scan(&principal).Error)
 	check(db.Exec(`INSERT INTO agent_onboarding_v2(agent_id,state,current_step,revision,created_at,updated_at) VALUES(?,'in_progress',2,1,?,?)`, id, now, now).Error)
 	check(db.Exec(`INSERT INTO agent_onboarding_drafts(agent_id,revision,draft_data,field_provenance,actor_type,request_id,created_at) VALUES(?,1,'{}','{}','agent_prefill','connection-test',?)`, id, now).Error)
-	s := &Service{db: db, otpPepper: "private-connection-test-only", publicURL: "https://test.invalid"}
+	s := &Service{enableAttentionV1: true, enableControl: true, db: db, otpPepper: "private-connection-test-only", publicURL: "https://test.invalid"}
 	h := server.New()
 	h.POST("/create", func(ctx context.Context, c *app.RequestContext) {
 		s.createAccountConnection(ctx, c, id, principal, []string{"account_recovery_v1"})
@@ -43,6 +43,7 @@ func TestAccountConnectionRepeatAndOwnerLogin(t *testing.T) {
 	h.POST("/open", s.exchangeHandoff)
 	h.GET("/api/v2/console/session", s.consoleAuth(false), s.getConsoleSession)
 	h.GET("/api/v2/console/portrait", s.consoleAuth(false), s.getPortrait)
+	s.registerMomentRoutes(h)
 	cookies := map[string]string{}
 	request := func(method, path string, body any) (int, map[string]any) {
 		t.Helper()
@@ -105,6 +106,10 @@ func TestAccountConnectionRepeatAndOwnerLogin(t *testing.T) {
 	if status != 403 {
 		t.Fatal("runtime session read private owner portrait", out)
 	}
+	status, out = request("GET", "/api/v2/console/moment", nil)
+	if status != 403 {
+		t.Fatal("runtime session read private Moment approvals", out)
+	}
 	status, out = request("POST", "/open", map[string]any{"ticket": key})
 	if status != 200 || out["data"].(map[string]any)["requires_login"] != true || cookies[consoleCookieName] != oldCookie {
 		t.Fatal("registered connection bypassed login or changed session", out)
@@ -127,6 +132,10 @@ func TestAccountConnectionRepeatAndOwnerLogin(t *testing.T) {
 	status, out = request("GET", "/api/v2/console/session", nil)
 	if status != 200 || out["data"].(map[string]any)["owner_bound"] != true {
 		t.Fatal("verified owner lost access", out)
+	}
+	status, out = request("GET", "/api/v2/console/moment", nil)
+	if status != 200 {
+		t.Fatal("verified owner cannot read Moment approvals", out)
 	}
 	status, out = request("POST", "/create", nil)
 	if status != 200 || !strings.HasSuffix(out["data"].(map[string]any)["handoff_url"].(string), "/dashboard?account=777880011") {

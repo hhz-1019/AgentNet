@@ -7,10 +7,10 @@
   },
   "scripts": {
     "dev": "vite --config eigenflux/web/vite.config.mjs",
-    "build": "vite build --config eigenflux/web/vite.config.mjs",
+    "build": "vite build --config eigenflux/web/vite.config.mjs && npm run build:moment-panel",
     "start": "docker compose --env-file .env.eigenflux -f eigenflux/compose.yaml up -d --build",
     "typecheck": "tsc -p eigenflux/web/tsconfig.json",
-    "test": "node --test eigenflux/scripts/check.test.mjs eigenflux/web/onboarding.test.ts eigenflux/web/onboarding-prefill.test.ts eigenflux/web/companion.test.ts eigenflux/web/preview-data.test.ts eigenflux/web/guest-data.test.ts eigenflux/web/social/model.test.ts eigenflux/web/social/feed-pages.test.ts eigenflux/web/brand-entry.test.ts eigenflux/web/social/journal-wind.test.ts eigenflux/web/social/message-history.test.ts eigenflux/client/work.test.mjs eigenflux/client/runtime.test.mjs eigenflux/client/context.test.mjs eigenflux/client/handoff.test.mjs eigenflux/client/prompts.test.mjs eigenflux/client/activity-report.test.mjs eigenflux/client/grounding.test.mjs eigenflux/scripts/broadcast-social-migration.test.mjs eigenflux/scripts/social-permissions-migration.test.mjs eigenflux/web/avatar-cache.test.ts",
+    "test": "node --test eigenflux/scripts/check.test.mjs eigenflux/web/onboarding.test.ts eigenflux/web/onboarding-prefill.test.ts eigenflux/web/preview-data.test.ts eigenflux/web/guest-data.test.ts eigenflux/web/social/model.test.ts eigenflux/web/social/feed-pages.test.ts eigenflux/web/brand-entry.test.ts eigenflux/web/social/journal-wind.test.ts eigenflux/web/social/message-history.test.ts eigenflux/client/work.test.mjs eigenflux/client/runtime.test.mjs eigenflux/client/context.test.mjs eigenflux/client/handoff.test.mjs eigenflux/client/prompts.test.mjs eigenflux/scripts/broadcast-social-migration.test.mjs eigenflux/client/decisions.test.mjs eigenflux/client/codex-executor.test.mjs eigenflux/web/social/moment-model.test.ts eigenflux/client/chat-decisions.test.mjs eigenflux/web/companion.test.ts eigenflux/client/activity-report.test.mjs eigenflux/client/grounding.test.mjs eigenflux/scripts/social-permissions-migration.test.mjs eigenflux/web/entry-route.test.ts eigenflux/web/avatar-cache.test.ts",
     "lint": "oxlint -c eigenflux/.oxlintrc.json eigenflux/web eigenflux/client eigenflux/scripts",
     "format": "oxfmt eigenflux/web eigenflux/client eigenflux/scripts",
     "core:configure": "node eigenflux/scripts/configure.mjs",
@@ -40,9 +40,13 @@
     "test:interface:ui": "node eigenflux/scripts/interface-ui-smoke.mjs",
     "test:mobile:ui": "node eigenflux/scripts/mobile-ui-smoke.mjs",
     "test:icons:ui": "node eigenflux/scripts/icons-ui-smoke.mjs",
-    "test:guest:ui": "node eigenflux/scripts/guest-entry-ui-smoke.mjs"
+    "test:guest:ui": "node eigenflux/scripts/guest-entry-ui-smoke.mjs",
+    "test:moment:core": "node eigenflux/scripts/social-core-test.mjs --moment",
+    "agent:decisions": "node eigenflux/client/host.mjs --decisions-only --once",
+    "build:moment-panel": "node eigenflux/scripts/build-moment-panel.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "2.0.3",
     "@modelcontextprotocol/sdk": "1.30.0",
     "lucide-react": "1.31.0",
     "react": "19.2.6",

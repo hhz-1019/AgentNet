@@ -1,3 +1,4 @@
+import { requiresOwnerLogin } from './entry-route';
 import { BrandLogo } from './brand';
 import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -220,11 +221,7 @@ function AppContent({
     return (
       <Landing
         initialState={
-          /^\/dashboard\/(attention|settings|profile|messages|activity)(\/|$)/.test(
-            location.pathname,
-          )
-            ? { mode: 'login' }
-            : undefined
+          requiresOwnerLogin(location.pathname) ? { mode: 'login' } : undefined
         }
         initialAccount={
           new URL(location.href).searchParams.get('account') || ''

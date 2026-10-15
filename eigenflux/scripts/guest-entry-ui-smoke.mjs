@@ -288,8 +288,14 @@ try {
     await nav
       .locator('a')
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label'))),
-    ['发现', '消息', '通讯录'],
+    ['此刻', '发现', '消息', '通讯录'],
   );
+  await nav.getByRole('link', { name: '此刻', exact: true }).click();
+  await login.waitFor();
+  assert.equal(await page.locator('.mb-live').count(), 0);
+  assert(!requests.some((r) => r.path.endsWith('/console/moment')));
+  await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await login.waitFor({ state: 'detached' });
   await nav.getByRole('link', { name: '通讯录', exact: true }).click();
   await page.locator('.sw-peer-card').waitFor();
   assert.equal(await login.count(), 0);
@@ -380,6 +386,10 @@ try {
         '.ew-feed-toolbar',
         '.sw-feed-grid',
         '.sw-mobile-nav',
+        '.sw-brand',
+        '.sw-sidebar nav',
+        '.sw-sidebar .sw-create',
+        '.sw-sidebar .sn-account',
       ];
       return selectors.map((selector) => {
         const el = document.querySelector(selector);
@@ -392,6 +402,9 @@ try {
           style.display,
           style.columnCount,
           style.gridTemplateColumns,
+          selector.startsWith('.sw-sidebar ') || selector === '.sw-brand'
+            ? Math.round(rect.y)
+            : null,
         ];
       });
     });
@@ -402,6 +415,18 @@ try {
     );
     await page.goto(origin + '#explore');
     await cards.nth(23).waitFor();
+    assert.equal(
+      await page.locator('.ew-guest-settings, .sn-brand-note').count(),
+      0,
+    );
+    assert.deepEqual(
+      await page
+        .locator('.sw-sidebar nav a')
+        .evaluateAll((links) =>
+          links.map((link) => link.getAttribute('aria-label')),
+        ),
+      ['此刻', '发现', '消息', '通讯录'],
+    );
     const guestMetrics = await metrics();
     await page.goto(origin + 'preview#explore');
     await page.locator('.sw-post').first().waitFor();
@@ -445,13 +470,75 @@ try {
       .evaluateAll((nodes) =>
         nodes.map((n) => n.getAttribute('aria-label') || n.textContent.trim()),
       ),
-    ['发现', '消息', '发布', '通讯录', '我的'],
+    ['此刻', '发现', '消息', '发布', '通讯录', '我的'],
   );
   await mobileNav.getByRole('link', { name: '通讯录', exact: true }).click();
   await mobilePage.locator('.sw-peer-card').first().waitFor();
   await mobileNav.getByRole('button', { name: '发布', exact: true }).click();
   await mobilePage.getByRole('dialog', { name: '加入 elsewhere' }).waitFor();
   await mobile.close();
+  // A direct post URL can mount a native modal while entry resources are pending.
+  // It must stay below the curtain, including the morph-to-reveal transition.
+  const animated = await context.newPage();
+  animated.on('pageerror', (error) => errors.push(error.message));
+  await animated.emulateMedia({ reducedMotion: 'no-preference' });
+  await animated.addInitScript(() =>
+    sessionStorage.removeItem('elsewhere:entry-seen:v1'),
+  );
+  let releaseLogo;
+  const logoReady = new Promise((resolve) => {
+    releaseLogo = resolve;
+  });
+  await animated.route('**/brand/wordmark.svg', async (route) => {
+    await logoReady;
+    await route.continue();
+  });
+  await animated.goto(origin + '?post=1#explore', {
+    waitUntil: 'domcontentloaded',
+  });
+  await animated.locator('.ew-note-detail').waitFor({ state: 'attached' });
+  const curtain = animated.locator('.ew-brand-entry');
+  assert.equal(await curtain.getAttribute('data-entry-phase'), 'loading');
+  assert.equal(await curtain.evaluate((el) => el.matches(':modal')), true);
+  assert.equal(
+    await animated
+      .locator('.ew-note-detail')
+      .evaluate((el) => el.matches(':modal')),
+    false,
+  );
+  assert.equal(
+    await animated
+      .locator('.sw-sidebar')
+      .evaluate((el) => getComputedStyle(el).visibility),
+    'hidden',
+  );
+  assert.equal(
+    await animated
+      .getByText('你的 agent，正在登陆「别处」', { exact: true })
+      .isVisible(),
+    true,
+  );
+  releaseLogo();
+  await animated.locator('.ew-brand-entry[data-entry-phase="morph"]').waitFor();
+  assert.equal(
+    await animated
+      .locator('.sw-sidebar')
+      .evaluate((el) => getComputedStyle(el).visibility),
+    'hidden',
+  );
+  await curtain.waitFor({ state: 'detached' });
+  await animated.locator('.ew-note-detail[open]').waitFor();
+  assert.equal(
+    await animated
+      .locator('.ew-note-detail')
+      .evaluate((el) => el.matches(':modal')),
+    true,
+  );
+  assert.equal(
+    await animated.locator('.ew-entry-content').getAttribute('aria-hidden'),
+    null,
+  );
+  await animated.close();
   await page.goto(origin + '#explore');
   await cards.nth(23).waitFor();
   feedMode = 'error';

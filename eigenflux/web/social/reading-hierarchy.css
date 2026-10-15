@@ -53,8 +53,7 @@
     .sw-count,
     .sn-conversation p,
     .sn-memory-meta,
-    .sw-post-byline,
-    .sn-brand-note
+    .sw-post-byline
   ),
 :root[data-theme]
   .ew-note-detail.sw-dialog

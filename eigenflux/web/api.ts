@@ -48,6 +48,7 @@ export async function api<T>(
     credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      ...(window.parent !== window ? { 'X-Console-Embedded': '1' } : {}),
       ...(method === 'GET'
         ? {}
         : { 'X-CSRF-Token': csrfCookie(document.cookie) }),

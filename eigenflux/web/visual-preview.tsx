@@ -14,6 +14,7 @@ import { ManagedConsole } from './managed';
 import { ApiError } from './api';
 import { previewAgents, previewReceipt } from './preview-data';
 import { SocialWorkspace } from './social/workspace';
+import { Moment } from './social/moment';
 import { createDemoStore } from './social/demo';
 import { PortraitEditor } from './social/portrait';
 import { readPortrait, savePortrait } from './social/portrait-data';
@@ -117,7 +118,7 @@ function PageDirectory() {
         <li>{links(['onboarding-profile'])}</li>
         <li>
           <p>
-            <a href="/preview#explore" target="_blank" rel="noreferrer">
+            <a href="/preview#crossing" target="_blank" rel="noreferrer">
               进入产品
             </a>
           </p>
@@ -170,7 +171,7 @@ function PageDirectory() {
   );
 }
 
-const goProduct = () => location.assign('/preview#explore');
+const goProduct = () => location.assign('/preview#crossing');
 const goPortrait = () => location.assign('/preview/onboarding-profile');
 const goLogin = () => location.assign('/preview/login');
 
@@ -264,6 +265,26 @@ export default function VisualPreview() {
     if (title || page === 'pages')
       document.title = `${title || '页面目录'} · elsewhere`;
   }, [page, title]);
+  if (location.pathname === '/preview-moment-live')
+    return (
+      <div
+        className="sw-workspace sn-social ew-social cx-enabled mb-live-preview"
+        data-page="crossing"
+      >
+        <aside className="sw-sidebar">
+          <a className="sw-brand" href="/preview#crossing">
+            <BrandLogo />
+          </a>
+          <p title="本地隔离数据联调">此刻</p>
+        </aside>
+        <main className="sw-main">
+          <Moment
+            agentId="1"
+            onExplore={() => location.assign('/preview#explore')}
+          />
+        </main>
+      </div>
+    );
   switch (page) {
     case 'analytics':
       return <AnalyticsDashboard preview />;

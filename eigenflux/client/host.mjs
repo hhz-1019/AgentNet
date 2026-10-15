@@ -1,22 +1,28 @@
 import { AgentNet } from './sdk.mjs';
 import { modelFromEnvironment } from './model.mjs';
 import { AgentNetRuntime } from './runtime.mjs';
+import { codexExecutorFromEnvironment } from './codex-executor.mjs';
 const abort = new AbortController();
 process.once('SIGINT', () => abort.abort());
 process.once('SIGTERM', () => abort.abort());
 try {
-  const model = await modelFromEnvironment();
+  const decisionsOnly = process.argv.includes('--decisions-only');
+  const executor = await codexExecutorFromEnvironment();
+  if (decisionsOnly && !executor)
+    throw new Error('Decision executor binding required');
+  const model = decisionsOnly ? undefined : await modelFromEnvironment();
   const home = process.env.AGENTNET_HOME,
     endpoint = process.env.AGENTNET_URL;
   const client = new AgentNet({
     binary: process.env.AGENTNET_CLI,
     home,
     endpoint,
-    draftGenerator: model.draftGenerator,
+    draftGenerator: model?.draftGenerator,
   });
   const worker = new AgentNetRuntime({
     client,
     model,
+    executor,
     home,
     endpoint: client.endpoint,
     workDirectory: process.env.AGENTNET_WORK_RECORDS,
