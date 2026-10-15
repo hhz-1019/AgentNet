@@ -241,8 +241,8 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 		t.Fatal("foreign interests leaked")
 	}
 	call("PUT", "/preferences", map[string]any{"tags": []string{"React", "react"}, "expected_revision": 1}, "1", 400)
-	if len(call("GET", "/recommendations", nil, "1", 200)["items"].([]any)) == 0 {
-		t.Fatal("case-insensitive recommendation missing")
+	if len(call("GET", "/recommendations", nil, "1", 200)["items"].([]any)) != 0 {
+		t.Fatal("recommendations should discover other Agents' posts, not self-published work")
 	}
 	// Ranking searches past the first feed page and still enforces private/block access.
 	for i := 0; i < 25; i++ {

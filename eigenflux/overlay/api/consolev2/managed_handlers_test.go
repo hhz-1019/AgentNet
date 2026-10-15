@@ -264,6 +264,11 @@ func TestManagedFullSchema(t *testing.T) {
 	if job == nil {
 		t.Fatal("nothing claimed")
 	}
+	var claimedSeed int
+	check(db.Raw("SELECT seed_index FROM managed_members WHERE agent_id=?", job.AgentID).Scan(&claimedSeed).Error)
+	if job.SeedIndex == nil || *job.SeedIndex != claimedSeed || managedCharacterBrief(job.SeedIndex) == nil {
+		t.Fatal("claimed role lost its stable character mapping")
+	}
 	other, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
 	if other != nil {
@@ -352,15 +357,32 @@ func TestManagedFullSchema(t *testing.T) {
 	})
 	func() {
 		defer func() { http.DefaultTransport = originalTransport }()
-		out := call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants test"}, session.ID, 200)
+		out := call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants"}, session.ID, 200)
 		if !strings.Contains(string(out), `"updated":1`) {
 			t.Fatal("targeted photo collection failed", string(out))
 		}
-		out = call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants test"}, session.ID, 200)
+		out = call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants"}, session.ID, 200)
 		if !strings.Contains(string(out), `"updated":0`) {
 			t.Fatal("existing photo overwritten")
 		}
 	}()
+	var repairRevision int64
+	check(db.Raw("SELECT revision FROM social_work_posts WHERE post_id=?", socialDecimal(repairID)).Scan(&repairRevision).Error)
+	if _, err := s.removeManagedPostPhoto(context.Background(), "another-sponsor", socialDecimal(repairID), repairRevision); err == nil {
+		t.Fatal("cross-sponsor removal accepted")
+	}
+	call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision - 1}, session.ID, 409)
+	if out := string(call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision}, session.ID, 200)); !strings.Contains(out, `"updated":1`) {
+		t.Fatal("mismatched photo not detached", out)
+	}
+	var repaired socialDocument
+	var repairedRaw string
+	check(db.Raw("SELECT document::text FROM social_work_posts WHERE post_id=?", socialDecimal(repairID)).Scan(&repairedRaw).Error)
+	check(json.Unmarshal([]byte(repairedRaw), &repaired))
+	if len(repaired.Media) != 0 || repaired.Body != d.Body || strings.Contains(repaired.Evidence, "配图来源：") {
+		t.Fatal("repair changed prose or retained attribution", repaired)
+	}
+	call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision}, session.ID, 409)
 	next, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
 	if next != nil {
@@ -406,7 +428,7 @@ func TestManagedFullSchema(t *testing.T) {
 	if s.commitManaged(context.Background(), *next, bad, map[int64]bool{}) == nil {
 		t.Fatal("comment escaped supplied scope")
 	}
-	s.finishManagedFailure(*next)
+	s.finishManagedFailure(*next, managedModelResult{Requested: true}, managedFailure("provider_timeout"))
 	check(db.Raw(`SELECT charged_fen FROM managed_runs WHERE run_id=?`, next.RunID).Scan(&count).Error)
 	if count != next.Reserved {
 		t.Fatal("unknown provider charge refunded")
@@ -484,6 +506,15 @@ func TestManagedFullSchema(t *testing.T) {
 	if !strings.Contains(overview, `"healthy":true`) || !strings.Contains(overview, `"provider_host":"provider.test"`) || strings.Contains(overview, "test-key-do-not-output") {
 		t.Fatal("health or billing readout incorrect")
 	}
+	check(db.Exec("UPDATE managed_worker_health SET last_seen_at=? WHERE id=1", time.Now().Add(-3*time.Minute).UnixMilli()).Error)
+	if out := string(call("GET", "/managed", nil, session.ID, 200)); !strings.Contains(out, `"healthy":true`) {
+		t.Fatal("bounded model wait incorrectly reported a dead worker")
+	}
+	check(db.Exec("UPDATE managed_worker_health SET last_seen_at=? WHERE id=1", time.Now().Add(-6*time.Minute).UnixMilli()).Error)
+	if out := string(call("GET", "/managed", nil, session.ID, 200)); !strings.Contains(out, `"healthy":false`) {
+		t.Fatal("stalled worker reported healthy")
+	}
+	s.managedBeat("ready")
 
 	// A quiet turn must not call the provider or retain a billing reservation.
 	quiet := *queued
@@ -526,15 +557,25 @@ func TestManagedFullSchema(t *testing.T) {
 	call("POST", "/restore/"+customID, map[string]any{"revision": 2}, session.ID, 200)
 	call("POST", "/login/"+customID, map[string]any{}, session.ID, 200)
 	call("DELETE", "/delete/"+customID, map[string]any{"revision": 3}, session.ID, 200)
-	check(db.Exec("UPDATE managed_members SET profile_version=0 WHERE seed_index<100").Error)
+	check(db.Exec("UPDATE managed_members SET profile_version=2,pending_topic='保留待发选题' WHERE seed_index<100").Error)
 	upgraded := call("POST", "/profiles", map[string]any{}, session.ID, 200)
 	if !strings.Contains(string(upgraded), "100") {
 		t.Fatal("profiles not upgraded")
 	}
+	check(db.Raw("SELECT count(*) FROM managed_members WHERE seed_index<100 AND profile_version=3 AND pending_topic='保留待发选题'").Scan(&count).Error)
+	if count != 100 {
+		t.Fatal("v2 role upgrade dropped queued topics or missed members", count)
+	}
+	check(db.Exec("UPDATE managed_members SET persona=persona || ' 管理员补充：保留阅读偏好。' WHERE seed_index=0").Error)
 	repeated := call("POST", "/profiles", map[string]any{}, session.ID, 200)
 	if !strings.Contains(string(repeated), `"updated":0`) {
 		t.Fatal("profile refresh not idempotent")
 	}
+	check(db.Raw("SELECT count(*) FROM managed_members WHERE seed_index=0 AND persona LIKE '%管理员补充：保留阅读偏好。'").Scan(&count).Error)
+	if count != 1 {
+		t.Fatal("repeat refresh overwrote operator edits")
+	}
+	check(db.Exec("UPDATE managed_members SET pending_topic='' WHERE seed_index<100").Error)
 	var shortest int
 	check(db.Raw("SELECT min(length(persona)) FROM managed_members WHERE deleted_at=0").Scan(&shortest).Error)
 	if shortest < 1001 {

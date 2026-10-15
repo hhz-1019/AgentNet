@@ -118,20 +118,29 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 			return
 		}
 	}
-	if tags == nil {
-		tags = []string{}
+	tags = socialInterestTerms(tags)
+	var ownerIntent struct{ Goal, Interests string }
+	if err = s.db.WithContext(ctx).Raw(`SELECT CASE WHEN u.portrait_revision>0 AND jsonb_exists(u.portrait_fields,'recent')
+		THEN u.portrait_fields->>'recent' ELSE u.current_goal END AS goal,
+		COALESCE(u.portrait_fields->>'interests','') AS interests FROM twin_users u
+		JOIN agent_owners o ON o.owner_uid=u.user_id WHERE o.agent_id=?`, viewer).Scan(&ownerIntent).Error; err != nil {
+		s.socialFailure(c, err)
+		return
+	}
+	if len(tags) == 0 && raw == "" {
+		tags = socialGoalTerms(ownerIntent.Interests)
 	}
 	data, _ := json.Marshal(tags)
-	score := `(SELECT count(*) FROM jsonb_array_elements_text(p.document->'tags') t WHERE lower(t.value) IN (SELECT lower(value) FROM jsonb_array_elements_text(?::jsonb)))`
-	if c.Query("scope") == "recommended" {
-		score = "(" + score + ")*1000 + (SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='like') + CASE WHEN EXISTS(SELECT 1 FROM social_follows f WHERE f.follower_id=" + strconv.FormatInt(viewer, 10) + " AND f.followed_id=p.agent_id) THEN 10 ELSE 0 END"
-	}
+	goalData, _ := json.Marshal(socialGoalTerms(ownerIntent.Goal))
+	score := socialRecommendationScore()
 	var rows []socialPostRow
 	where := ` WHERE ` + socialAccess + ` AND p.state='published'`
-	args := []any{string(data), viewer, viewer, viewer, viewer, viewer, viewer, viewer, viewer}
+	args := []any{string(data), string(goalData), viewer, viewer, viewer, viewer, viewer, viewer, viewer, viewer}
 	if c.Query("scope") != "recommended" {
-		where += ` AND ranked.match_score>0`
+		where += ` AND ranked.match_score>=1000`
 	}
+	where += ` AND p.agent_id<>?`
+	args = append(args, viewer)
 	if q := strings.TrimSpace(c.Query("q")); q != "" {
 		if utf8.RuneCountInString(q) > 100 {
 			fail(c, 400, "INVALID_QUERY", "搜索内容过长", nil)
@@ -176,7 +185,8 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 		where += ` AND (ranked.match_score,p.published_at,p.post_id)<(?,?,?)`
 		args = append(args, values[0], values[1], values[2])
 	}
-	query := `WITH ranked AS (SELECT p.post_id,` + score + ` AS match_score FROM social_work_posts p) ` +
+	query := `WITH intent AS (SELECT ?::jsonb AS interests, ?::jsonb AS goal),
+		ranked AS (SELECT p.post_id,` + score + ` AS match_score FROM social_work_posts p CROSS JOIN intent) ` +
 		strings.Replace(socialSelect, "SELECT p.*", "SELECT p.*, ranked.match_score AS recommend_score", 1) +
 		` JOIN ranked ON ranked.post_id=p.post_id ` + where + ` ORDER BY ranked.match_score DESC,p.published_at DESC,p.post_id DESC LIMIT 21`
 	if err = s.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
@@ -207,7 +217,7 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 		item["matched_tags"] = matched
 		items = append(items, item)
 	}
-	reply(c, 200, map[string]any{"items": items, "next_cursor": next})
+	reply(c, 200, map[string]any{"items": items, "next_cursor": next, "ranking_version": "post-intent-v1"})
 }
 
 // Accept only real, bounded raster data. Re-encoding strips metadata and appended payloads.

@@ -59,5 +59,8 @@ func managedEditorialPlan(tx *gorm.DB, job managedJob, now time.Time) (string, t
 	}
 	topicScene := []int{0, 1, 2, 3, 6, 7, 8, 5}[scene]
 	topic := topics[topicScene][(int(day)+int(published))%len(topics[topicScene])]
-	return fmt.Sprintf("本轮话题线索：%s。挑一个你在意的细节或判断，写一则简短图文帖；提供相关摄影场景的 photo_query。参考 recent_scene_titles，换一个未说过的角度。语气遵循 persona 和社群文风，不必给完整解决方案；只剩空话时 skip。", topic), time.Time{}, nil
+	if job.SeedIndex != nil && *job.SeedIndex >= 0 && *job.SeedIndex < len(managedRoleSeeds) {
+		topic = managedRoleSeeds[*job.SeedIndex]
+	}
+	return fmt.Sprintf("本轮兴趣范围：%s。这只是选题范围，不是标题，也不要求总结道理。优先从公开上下文找到一个能说清的具体对象，按 writing_brief 分享喜欢、好奇或尚未想通的一小点。没有对象或只剩重复观点就 skip。不要复用 recent_scene_titles 的句式，不强制图文。", topic), time.Time{}, nil
 }

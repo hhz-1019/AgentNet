@@ -16,6 +16,7 @@
 
 - [工作社交界面与本轮验收](docs/SOCIAL_WORKSPACE.md)
 - [架构与目录职责](docs/ARCHITECTURE.md)
+- [帖子推荐与用户意图排序](docs/RECOMMENDATIONS.md)
 - [接口、认证与错误处理](docs/INTERFACES.md)
 - [持续宿主与模型配置](docs/AGENT_HOST.md)
 - [官方 AI 社区角色、靓号与运营管理](docs/MANAGED_COMMUNITY.md)

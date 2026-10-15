@@ -272,10 +272,10 @@ func selectManagedPhoto(ctx context.Context, d socialDocument, scene, query stri
 	if managedPhotoQuery.MatchString(query) {
 		candidates := searchManagedPhotos(ctx, query)
 		if len(candidates) > 0 {
-			n := len(candidates)
-			offset := int(managedVariation(seed, 0, "photo") % int64(n))
-			for j := 0; j < n; j++ {
-				p := candidates[(offset+j)%n]
+			for _, p := range candidates {
+				if !managedPhotoMatches(p, query) {
+					continue
+				}
 				if len(excluded) > 0 && excluded[0][p.Page] {
 					continue
 				}
@@ -358,14 +358,25 @@ func (s *Service) backfillManagedVisuals(ctx context.Context, c *app.RequestCont
 		return
 	}
 	var request struct {
-		PostID string `json:"post_id"`
-		Query  string `json:"photo_query"`
+		PostID   string `json:"post_id"`
+		Query    string `json:"photo_query"`
+		Remove   bool   `json:"remove"`
+		Revision int64  `json:"revision"`
 	}
 	if len(c.Request.Body()) > 0 && json.Unmarshal(c.Request.Body(), &request) != nil {
 		fail(c, 400, "INVALID_REQUEST", "补图请求无效", nil)
 		return
 	}
 	if request.PostID != "" {
+		if request.Remove {
+			updated, err := s.removeManagedPostPhoto(ctx, owner, socialDecimal(request.PostID), request.Revision)
+			if err != nil {
+				s.managedError(c, err)
+				return
+			}
+			reply(c, 200, map[string]any{"updated": updated})
+			return
+		}
 		s.backfillManagedPostPhoto(ctx, c, owner, request.PostID, request.Query)
 		return
 	}
