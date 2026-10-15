@@ -1,4 +1,7 @@
 /* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The reading region supports keyboard scrolling. */
+import { feedbackMessage } from '../feedback-message';
+import { ContentState } from '../recovery';
+
 import { plainText } from '../plain-text';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
@@ -99,8 +102,7 @@ export function Moment({
         setNow(Date.now() + offset.current);
       }
     } catch (e) {
-      if (mounted.current)
-        setError(e instanceof Error ? e.message : '事项读取失败');
+      if (mounted.current) setError(feedbackMessage(e, '事项读取失败'));
     } finally {
       inflight.current = false;
       if (refreshQueued.current && mounted.current) {
@@ -195,8 +197,7 @@ export function Moment({
           setFeedback('');
         } catch (e) {
           setFeedback(
-            '审批已保存。' +
-              (e instanceof Error ? e.message : '消息发送结果未确认。'),
+            '审批已保存。' + feedbackMessage(e, '消息发送结果未确认。'),
           );
         }
       } else {
@@ -220,7 +221,7 @@ export function Moment({
             ? e.message
             : '事项或授权上下文已变化。补充条件已保留，请核对最新内容后重新选择。',
         );
-      } else setFeedback(e instanceof Error ? e.message : '提交失败，请重试。');
+      } else setFeedback(feedbackMessage(e, '提交失败，请重试。'));
     } finally {
       if (mounted.current) setBusy(false);
     }
@@ -234,21 +235,20 @@ export function Moment({
       : 'item');
   return (
     <section className="mb mb-live" aria-label="此刻的 Agent 与事项">
-      {error && (
-        <div role="alert" className="mb-load-message">
-          {error} <button onClick={() => void refresh()}>重试</button>
-        </div>
+      {error && !loaded && (
+        <ContentState title="暂时没有加载出来" action={() => void refresh()} />
       )}
       {inbox.error && (
-        <div role="alert" className="mb-load-message">
-          消息暂时无法读取。{' '}
-          <button onClick={() => void inbox.refresh()}>重新读取交互</button>
-        </div>
+        <ContentState
+          title="交互暂时没有加载出来"
+          action={() => void inbox.refresh()}
+          label="重新读取交互"
+        />
       )}
       {((!loaded && !error) || (!inbox.loaded && !inbox.error)) && (
-        <output className="mb-load-message">正在读取…</output>
+        <ContentState title="正在加载此刻" loading quiet />
       )}
-      {loaded && inbox.loaded && !error && !inbox.error && !groups.length && (
+      {loaded && inbox.loaded && !groups.length && (
         <div className="mb-empty">
           <span className="mb-empty-avatar">
             <AgentAvatar agentId={agentId} />
@@ -616,9 +616,7 @@ export function Moment({
                                 setSent((ids) => [...ids, command.command_id]);
                                 setFeedback('');
                               } catch (e) {
-                                setFeedback(
-                                  e instanceof Error ? e.message : '发送失败。',
-                                );
+                                setFeedback(feedbackMessage(e, '发送失败。'));
                               } finally {
                                 setBusy(false);
                               }

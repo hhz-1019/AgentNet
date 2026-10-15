@@ -9,6 +9,7 @@ export interface Media {
   height?: number;
   preview?: string;
   color?: string;
+  credit?: string;
 }
 export interface UnusedMedia {
   url: string;
@@ -21,8 +22,6 @@ export interface WorkDocument {
   body: string;
   kind: Kind;
   tags: string[];
-  source: string;
-  evidence: string;
   media: Media[];
   identity: PublishingIdentity;
   project_name: string;
@@ -58,9 +57,7 @@ export function sameSavedContent(
     body: d.body,
     kind: d.kind,
     tags: d.tags,
-    source: d.source,
-    evidence: d.evidence,
-    media: d.media.map(({ url, alt, kind }) => ({ url, alt, kind })),
+    media: d.media.map(({ url, alt, kind, credit }) => ({ url, alt, kind, credit })),
     identity: d.identity,
     project_name: d.project_name,
     organization_id: d.organization_id,
@@ -198,8 +195,6 @@ export function emptyDocument(): WorkDocument {
     body: '',
     kind: 'result',
     tags: [],
-    source: '',
-    evidence: '',
     media: [],
     identity: 'human',
     project_name: '',
@@ -273,10 +268,6 @@ export function validate(d: WorkDocument): string[] {
     errors.push('摘要需为 10–400 字');
   if (count(d.body) < 30 || count(d.body) > 20000)
     errors.push('正文需为 30–20000 字，请写清过程与结果');
-  if (!d.source.trim() || count(d.source) > 500)
-    errors.push('请说明真实工作来源（最多 500 字）');
-  if (!d.evidence.trim() || count(d.evidence) > 2000)
-    errors.push('请补充结果、证据或待验证问题（最多 2000 字）');
   if (
     !d.tags.length ||
     d.tags.length > 8 ||
@@ -323,18 +314,6 @@ export function qualityCheck(d: WorkDocument): QualityItem[] {
   const items: QualityItem[] = [];
   const add = (key: string, message: string, suggestion: string) =>
     items.push({ key, message, suggestion });
-  if (Array.from(d.source.trim()).length < 12)
-    add(
-      'source',
-      '工作来源还不够具体',
-      '补充任务、项目或实验名称及实际参与范围',
-    );
-  if (Array.from(d.evidence.trim()).length < 20)
-    add(
-      'evidence',
-      '证据或验证边界较简略',
-      '补充复现步骤、对照条件、结果或明确待验证事项',
-    );
   if (
     ['颠覆', '革命性', '震撼', '赋能未来', '敬请期待'].some((x) =>
       (d.title + d.summary).includes(x),

@@ -162,12 +162,9 @@ try {
     });
     await page.goto(origin + 'preview-moment-live');
     await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
-    await page
-      .getByRole('alert')
-      .filter({ hasText: '事项暂时不可用' })
-      .waitFor();
+    await page.getByRole('heading', { name: '暂时没有加载出来' }).waitFor();
     failure = false;
-    await page.getByRole('button', { name: '重试', exact: true }).click();
+    await page.getByRole('button', { name: '再试一次', exact: true }).click();
     const orb = page.getByRole('button', {
       name: '你的 Agent，1 项事项，查看事项',
     });
@@ -237,14 +234,22 @@ try {
       'empty production data is never replaced with demo items',
     );
     failure = true;
-    await page.evaluate(() =>
-      window.dispatchEvent(new Event('agentnet:refresh')),
-    );
-    await page.getByRole('alert').waitFor();
+    await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().endsWith('/console/moment') && r.status() === 503,
+      ),
+      page.evaluate(() => window.dispatchEvent(new Event('agentnet:refresh'))),
+    ]);
+    await page.getByRole('heading', { name: '此刻，还没有新的交互' }).waitFor();
     assert.equal(
-      await page.locator('.mb-empty').count(),
+      await page.getByRole('alert').count(),
       0,
-      'failure must not look like an empty account',
+      'background failure preserves the last verified state',
+    );
+    assert.equal(
+      await page.locator('.mb-orb').count(),
+      0,
+      'background failure must not invent items',
     );
     assert.deepEqual(
       writes.map((w) => w.action || w.action_key),

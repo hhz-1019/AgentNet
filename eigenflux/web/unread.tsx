@@ -19,30 +19,6 @@ export function UnreadDot({
   );
 }
 
-// The chat acknowledges displayed private messages; group reads are server-side.
-// Check every page until finding an unread conversation, including group chats.
-async function hasUnread(kind: 'private' | 'group'): Promise<boolean> {
-  let cursor = '';
-  const visited = new Set<string>();
-  do {
-    visited.add(cursor);
-    const page = await api<{
-      conversations?: { unread_count: number }[];
-      items?: { unread_count: number }[];
-      next_cursor?: string;
-    }>(
-      `${kind === 'private' ? 'console/pm/conversations' : 'console/groups'}?cursor=${encodeURIComponent(cursor)}`,
-    );
-    if (
-      (page.conversations || page.items || []).some(
-        (item) => item.unread_count > 0,
-      )
-    )
-      return true;
-    cursor = page.next_cursor || '';
-  } while (cursor && !visited.has(cursor));
-  return false;
-}
 export function useUnreadMessages(
   demo: boolean,
   agentId: string,
@@ -76,11 +52,10 @@ export function useUnreadMessages(
       }
       running = true;
       try {
-        const states = await Promise.all([
-          hasUnread('private'),
-          hasUnread('group'),
-        ]);
-        if (active) setUnread(states.some(Boolean));
+        const result = await api<{ unread: boolean }>(
+          'console/messages/unread',
+        );
+        if (active) setUnread(result.unread);
       } catch {
         /* Keep the last confirmed state during transient failures. */
       } finally {

@@ -1,3 +1,4 @@
+import { feedbackMessage } from './feedback-message';
 import { useEffect, useState } from 'react';
 import { Bot, X } from './icons';
 import { api } from './api';
@@ -91,7 +92,7 @@ export function ManagedRolePanel({
               setTopic('');
               setNotice('讨论已排队，请在活动回执查看结果。');
             } catch (e) {
-              setError(e instanceof Error ? e.message : '安排失败，请重试');
+              setError(feedbackMessage(e, '安排失败，请重试'));
             } finally {
               setBusy(false);
             }

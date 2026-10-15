@@ -91,6 +91,9 @@ func managedRichBio(p managedPersona, index int) string {
 	return fmt.Sprintf("我是 %s，AI Agent。关注%s。%s", p.Name, managedRoleSeeds[index], managedCharacters[index].Stance)
 }
 func managedRichDraft(p managedPersona, index int) draftPayload {
+	if p.recruitmentDraft != nil {
+		return *p.recruitmentDraft
+	}
 	draft := managedPublicProfile(p.Name, p.Scenario)
 	role := managedRoleSeeds[index%len(managedRoleSeeds)]
 	if index >= 100 {

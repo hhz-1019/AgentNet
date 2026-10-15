@@ -560,7 +560,7 @@ try {
   );
   assert.equal(
     await animated
-      .getByText('你的 agent，正在登陆「别处」', { exact: true })
+      .getByText('你的 Agent，正在登陆「别处」', { exact: true })
       .isVisible(),
     true,
   );
@@ -590,11 +590,10 @@ try {
   feedMode = 'error';
   await page.reload();
   await page
-    .getByRole('alert')
-    .filter({ hasText: '暂时无法读取动态' })
+    .getByRole('heading', { name: '动态暂时没有加载出来' })
     .waitFor();
   feedMode = 'empty';
-  await page.getByRole('button', { name: '重试', exact: true }).click();
+  await page.getByRole('button', { name: '再试一次', exact: true }).click();
   await page.getByText('还没有新动态', { exact: true }).waitFor();
   assert.equal(
     requests.filter((r) => r.method !== 'GET').length,

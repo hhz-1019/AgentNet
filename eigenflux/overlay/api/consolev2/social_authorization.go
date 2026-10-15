@@ -129,6 +129,26 @@ func (s *Service) agentMessagePermission() app.HandlerFunc {
 			setting = "auto_reply_pm"
 		}
 		// Membership and actual destination validity are still checked by SendPM.
-		s.agentSocialPermission(setting)(ctx, c)
+		id, ok := agentID(c)
+		if !ok {
+			c.Abort()
+			return
+		}
+		var allowed bool
+		if err := s.db.WithContext(ctx).Raw("SELECT "+setting+" FROM agent_settings WHERE agent_id=?", id).Scan(&allowed).Error; err != nil {
+			fail(c, 503, "ACTIVITY_UNAVAILABLE", "活动权限暂时无法核对", nil)
+			c.Abort()
+			return
+		}
+		if !allowed {
+			fail(c, 403, "ACTIVITY_NOT_AUTHORIZED", "主人尚未开启这项活动", nil)
+			c.Abort()
+			return
+		}
+		if s.tryManagedInboxAgent(ctx, c) {
+			c.Abort()
+			return
+		}
+		c.Next(ctx)
 	}
 }

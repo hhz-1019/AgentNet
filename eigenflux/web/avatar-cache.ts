@@ -33,6 +33,8 @@ export class AvatarCache {
       image: nextImage,
       expires: now + (value ? 300_000 : 15_000),
     });
+    while (this.entries.size > 512)
+      this.entries.delete(this.entries.keys().next().value!);
     return changed;
   }
   clear() {

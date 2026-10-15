@@ -12,7 +12,6 @@ import (
 	_ "image/jpeg"
 	"image/png"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -123,17 +122,12 @@ func (s *Service) getCustomAvatar(ctx context.Context, c *app.RequestContext) {
 		c.Status(404)
 		return
 	}
-	var encoded string
-	if err := s.db.WithContext(ctx).Raw("SELECT encode(content,'base64') FROM agent_avatars WHERE avatar_id=?", key).Scan(&encoded).Error; err != nil || encoded == "" {
-		c.Status(404)
-		return
-	}
-	content, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(encoded), ""))
-	if err != nil {
+	var row struct{ Content []byte }
+	if err := s.db.WithContext(ctx).Raw("SELECT content FROM agent_avatars WHERE avatar_id=?", key).Scan(&row).Error; err != nil || len(row.Content) == 0 {
 		c.Status(404)
 		return
 	}
 	c.Response.Header.Set("Cache-Control", "public, max-age=31536000, immutable")
 	c.Response.Header.Set("X-Content-Type-Options", "nosniff")
-	c.Data(200, "image/png", content)
+	c.Data(200, "image/png", row.Content)
 }

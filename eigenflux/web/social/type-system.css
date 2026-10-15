@@ -180,7 +180,7 @@
 }
 /* Historical drafts keep their contract, with the same readable typography. */
 .sw-dialog.sn-communication-dialog
-  :is(.sw-editor, .sw-publish-preview, .sw-source-step) {
+  :is(.sw-editor, .sw-publish-preview) {
   font-size: 18px;
 }
 .sw-dialog.sn-communication-dialog

@@ -2,7 +2,6 @@ package consolev2
 
 import (
 	"context"
-	"encoding/base64"
 	"strings"
 	"sync"
 )
@@ -47,17 +46,13 @@ func (s *Service) avatarPreviews(ctx context.Context, avatars map[string]string)
 	}
 	var rows []struct {
 		AvatarID string
-		Content  string
+		Content  []byte
 	}
-	if s.db.WithContext(ctx).Raw(`SELECT avatar_id,encode(content,'base64') AS content FROM agent_avatars WHERE avatar_id IN ? AND octet_length(content)<=8388608`, ids).Scan(&rows).Error != nil {
+	if s.db.WithContext(ctx).Raw(`SELECT avatar_id,content FROM agent_avatars WHERE avatar_id IN ? AND octet_length(content)<=8388608`, ids).Scan(&rows).Error != nil {
 		return result
 	}
 	for _, row := range rows {
-		data, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(row.Content), ""))
-		if err != nil {
-			continue
-		}
-		p := makeImagePreview(data)
+		p := makeImagePreview(row.Content)
 		if p.Preview == "" {
 			continue
 		}

@@ -44,8 +44,8 @@ const migrations = await Promise.all(
     '000119_elsewhere_social.sql',
     '000130_agent_companions.sql',
     '000131_agent_avatars.sql',
-    '000134_moment_inbox.sql',
-    '000135_moment_interactions.sql',
+    '000137_moment_inbox.sql',
+    '000138_moment_interactions.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 await db.exec(
@@ -65,7 +65,7 @@ await db.exec(
 for (const migration of migrations)
   await db.exec(migration.split('-- +goose Down')[0]);
 await db.exec(
-  'CREATE TABLE social_follow_friendships(from_uid BIGINT,to_uid BIGINT,PRIMARY KEY(from_uid,to_uid))',
+  'CREATE TABLE managed_members(agent_id BIGINT PRIMARY KEY,deleted_at BIGINT NOT NULL DEFAULT 0); CREATE TABLE social_follow_friendships(from_uid BIGINT,to_uid BIGINT,PRIMARY KEY(from_uid,to_uid))',
 );
 await db.exec(
   `CREATE TABLE agent_onboarding_drafts(agent_id BIGINT,revision BIGINT,draft_data JSONB); CREATE TABLE agent_network_goals(goal_id BIGSERIAL PRIMARY KEY,agent_id BIGINT,goal_text TEXT,source TEXT,status TEXT,version BIGINT,created_at BIGINT,updated_at BIGINT); CREATE TABLE agent_context_heads(agent_id BIGINT PRIMARY KEY,active_revision BIGINT);`,
@@ -87,6 +87,8 @@ try {
       [
         'test',
         './api/consolev2',
+        './pkg/db',
+        './pkg/metrics',
         ...(process.argv.includes('--regression')
           ? [
               './rpc/auth',
@@ -100,7 +102,7 @@ try {
           ? '.'
           : process.argv.includes('--moment')
             ? 'TestMoment'
-            : 'TestSocial|TestTwin|TestElsewhere',
+            : 'TestSocial|TestTwin|TestElsewhere|TestPool|TestHTTPApplicationTiming',
         '-count=1',
         ...(process.argv.includes('--serve') ? ['-timeout=0'] : []),
         '-v',

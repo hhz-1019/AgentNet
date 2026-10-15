@@ -1,4 +1,6 @@
 import React, { useRef, useState, type ReactNode } from 'react';
+import { feedbackMessage } from './feedback-message';
+import './recovery.css';
 import { normalizeBoundary } from './onboarding';
 import type { Boundary } from './types';
 
@@ -38,9 +40,9 @@ export function ErrorBox({
   retry?: () => void;
 }) {
   return error ? (
-    <div role="alert" className="error">
-      {error}
-      {retry && <button onClick={retry}>重新读取</button>}
+    <div role="alert" className="ew-feedback">
+      <span>{feedbackMessage(error)}</span>
+      {retry && <button onClick={retry}>再试一次</button>}
     </div>
   ) : null;
 }
@@ -143,7 +145,7 @@ export function useAction() {
         await fn();
         setNote(success);
       } catch (e) {
-        setError(e instanceof Error ? e.message : '操作失败');
+        setError(feedbackMessage(e, '操作失败'));
       } finally {
         pending.current = false;
         setBusy(false);

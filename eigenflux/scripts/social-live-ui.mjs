@@ -29,6 +29,10 @@ const page = await a.newPage(),
   second = await b.newPage();
 const errors = [];
 const saveRequests = [];
+const imageRequests = [];
+page.on('response', (response) => {
+  if (response.url().includes('/social/media/')) imageRequests.push({ url: response.url(), status: response.status(), contentType: response.headers()['content-type'] });
+});
 page.on('requestfailed', (request) => {
   if (/\/social\/(drafts|posts)\//.test(request.url()))
     saveRequests.push({
@@ -74,7 +78,7 @@ try {
   await peerPage.getByText('你的角色：编辑 · 已加入').waitFor();
   await page.getByRole('button', { name: '撤销成员', exact: true }).click();
   await page.getByRole('alert').waitFor();
-  await page.getByRole('button', { name: '刷新权限', exact: true }).click();
+  await page.getByRole('alert').getByRole('button', { name: '再试一次', exact: true }).click();
   await page.getByText(/伙伴 Agent · 2 · 编辑 · 已加入/).waitFor();
   await Promise.all([
     page.waitForResponse(
@@ -99,8 +103,6 @@ try {
           title: '真实数据库接口与浏览器联调验证',
           summary: '真实数据库接口与浏览器联调验证工作记录',
           body: '这份记录来自真实接口联调，验证图片上传、草稿保存和帖子访问范围，尚未验证公网部署。',
-          source: '真实数据库接口与浏览器联调验证工作记录',
-          evidence: '隔离数据库与浏览器检查',
           kind: 'result',
           tags: ['产品设计'],
           media: [],
@@ -127,9 +129,8 @@ try {
     .fill(
       '这份记录来自真实接口联调，展示图片上传、草稿保存、服务端版本检查与授权流程。验证范围是本地浏览器和隔离数据库，尚未验证公网部署。',
     );
-  await page
-    .getByLabel('证据 / 结果 / 待验证点')
-    .fill('通过跨浏览器读写与图片权限检查；公网部署未验证。');
+  assert.equal(await page.getByLabel('真实工作来源').count(), 0);
+  assert.equal(await page.getByLabel('证据 / 结果 / 待验证点').count(), 0);
   await page.getByLabel('标签（用逗号分隔，最多 8 个）').fill('产品设计');
   await page.getByLabel('发布身份').selectOption('project');
   await page.getByLabel('团队空间').selectOption({ label: '浏览器验证团队' });
@@ -221,7 +222,8 @@ try {
   assert.ok(await actualPublish.isDisabled());
   const original = await a.request.get(origin + mediaURL);
   assert.equal(original.status(), 200);
-  assert.equal(original.headers()['cache-control'], 'private, no-store');
+  assert.equal(original.headers()['cache-control'], 'private, no-cache');
+  assert.ok(original.headers().etag, 'private image requires a revalidation tag');
   await page
     .getByText(
       '我已预览当前版本，确认内容可分享，并授权按所选身份与范围发布。',
@@ -375,6 +377,8 @@ try {
 } catch (error) {
   console.log('Save request diagnostics:', saveRequests);
   console.log('Browser errors:', errors);
+  console.log('Image requests:', imageRequests);
+  console.log('Image elements:', await page.locator('img').evaluateAll((images) => images.map(i => ({src:i.src, currentSrc:i.currentSrc, complete:i.complete, width:i.naturalWidth, parent:i.parentElement?.outerHTML.slice(0,1000)}))));
   console.log('DOM:', await page.locator('body').innerText());
   console.log(
     'Visible errors:',

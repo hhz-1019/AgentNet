@@ -1,3 +1,5 @@
+import { feedbackMessage } from '../feedback-message';
+import { ContentState } from '../recovery';
 import { useEffect, useRef, useState } from 'react';
 import { api, refreshData } from '../api';
 import type { CompanionSettings, CompanionResponse } from '../companion';
@@ -44,7 +46,7 @@ export function LivePortrait({
         }
       })
       .catch((e: unknown) => {
-        if (active) setError(e instanceof Error ? e.message : '资料读取失败');
+        if (active) setError(feedbackMessage(e, '资料读取失败'));
       });
     return () => {
       active = false;
@@ -70,11 +72,7 @@ export function LivePortrait({
   }
   return (
     <>
-      {error && (
-        <p role="alert">
-          {error} <button onClick={() => retry((n) => n + 1)}>重新载入</button>
-        </p>
-      )}
+      {error && !profile && <ContentState title="资料暂时没有加载出来" action={() => retry((n) => n + 1)} />}
       {profile ? (
         <PortraitEditor
           profile={profile}
@@ -85,7 +83,7 @@ export function LivePortrait({
           focusMemory={focusMemory}
         />
       ) : (
-        !error && <p>正在读取资料…</p>
+        !error && <ContentState title="正在打开资料" loading />
       )}
     </>
   );

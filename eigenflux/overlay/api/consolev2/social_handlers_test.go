@@ -51,7 +51,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 func socialTestDocument() socialDocument {
-	return socialDocument{Title: "一次具体工作的复盘", Summary: "这是一份可以接着做的工作成果说明。", Body: "我们记录了任务的背景、具体做法、结果与复现步骤，同时明确哪些结论仍然需要继续验证。", Kind: "result", Tags: []string{"React", "Agent 工程"}, Source: "实际开发任务记录", Evidence: "复现步骤与验证边界", Identity: "human", Media: []socialMedia{}}
+	return socialDocument{Title: "一次具体工作的复盘", Summary: "这是一份可以接着做的工作成果说明。", Body: "我们记录了任务的背景、具体做法、结果与复现步骤，同时明确哪些结论仍然需要继续验证。", Kind: "result", Tags: []string{"React", "Agent 工程"}, Identity: "human", Media: []socialMedia{}}
 }
 func TestSocialQualityPreflight(t *testing.T) {
 	d := socialTestDocument()
@@ -290,17 +290,29 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 	media := call("POST", "/media", upload, "1", 201)
 	mediaURL := media["url"].(string)
 	mediaID := strings.TrimPrefix(mediaURL, socialMediaPrefix)
+	validator := ""
 	readImage := func(viewer string, want int) {
 		t.Helper()
-		resp := ut.PerformRequest(h.Engine, "GET", "/media/"+mediaID, nil, ut.Header{Key: "Test-Viewer", Value: viewer})
+		headers := []ut.Header{{Key: "Test-Viewer", Value: viewer}}
+		if want == 404 {
+			headers = append(headers, ut.Header{Key: "If-None-Match", Value: validator})
+		}
+		resp := ut.PerformRequest(h.Engine, "GET", "/media/"+mediaID, nil, headers...)
+		if want == 200 {
+			validator = resp.Header().Get("ETag")
+		}
 		if resp.Code != want {
 			t.Fatalf("image status %d want %d", resp.Code, want)
 		}
-		if want == 200 && (resp.Header().Get("Cache-Control") != "private, no-store" || !bytes.Equal(resp.Body.Bytes(), imageData.Bytes())) {
+		if want == 200 && (resp.Header().Get("Cache-Control") != "private, no-cache" || !bytes.Equal(resp.Body.Bytes(), imageData.Bytes())) {
 			t.Fatal("image data/cache incorrect")
 		}
 	}
 	readImage("1", 200)
+	cachedRead := ut.PerformRequest(h.Engine, "GET", "/media/"+mediaID, nil, ut.Header{Key: "Test-Viewer", Value: "1"}, ut.Header{Key: "If-None-Match", Value: validator})
+	if cachedRead.Code != 304 || cachedRead.Body.Len() != 0 {
+		t.Fatal("authorized cached bytes were retransmitted")
+	}
 	readImage("2", 404)
 	imageDoc := socialTestDocument()
 	imageDoc.Media = []socialMedia{{URL: mediaURL, Alt: "真实结果截图", Kind: "image"}}
@@ -339,8 +351,8 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 	upload["data"] = base64.StdEncoding.EncodeToString([]byte("<svg onload='evil()'/>"))
 	call("POST", "/media", upload, "1", 400)
 	review := call("GET", "/posts/"+first["id"].(string), nil, "1", 200)
-	if review["reviewed_revision"].(float64) != 2 || len(review["quality"].([]any)) == 0 {
-		t.Fatal("version-bound quality guidance missing")
+	if review["reviewed_revision"].(float64) != 2 || len(review["quality"].([]any)) != 0 {
+		t.Fatal("review revision or retired provenance guidance incorrect")
 	}
 
 }
@@ -503,5 +515,44 @@ func TestSocialRecommendationsRankAndPagination(t *testing.T) {
 	db.Exec(`INSERT INTO user_relations VALUES(100,99,2)`)
 	if len(call("/posts?scope=recommended&q=排名专项")["items"].([]any)) != 0 {
 		t.Fatal("ranking leaked blocked author")
+	}
+}
+
+func TestSocialRetiredPostProvenance(t *testing.T) {
+	d := socialTestDocument()
+	if err := validateSocialDocument(&d, "public"); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(d)
+	var legacy map[string]any
+	json.Unmarshal(raw, &legacy)
+	legacy["source"] = "AI Agent 生成的讨论与练习"
+	legacy["evidence"] = "旧说明"
+	raw, _ = json.Marshal(legacy)
+	// Exercise strict HTTP decoding, not only permissive stored-row decoding.
+	ctx := app.NewContext(0)
+	ctx.Request.SetBody(append(append([]byte(`{"document":`), raw...), '}'))
+	var request socialWriteRequest
+	if err := decodeBody(ctx, &request); err != nil {
+		t.Fatal("old client rejected", err)
+	}
+	d = request.Document
+	legacy["unexpected_permission"] = true
+	invalid, _ := json.Marshal(legacy)
+	ctx.Request.SetBody(append(append([]byte(`{"document":`), invalid...), '}'))
+	if err := decodeBody(ctx, &request); err == nil {
+		t.Fatal("unknown field accepted")
+	}
+	if err := validateSocialDocument(&d, "public"); err != nil {
+		t.Fatal(err)
+	}
+	encoded, _ := json.Marshal(socialView(socialPostRow{Document: string(raw)}))
+	if strings.Contains(string(encoded), `"source"`) || strings.Contains(string(encoded), `"evidence"`) {
+		t.Fatal("retired fields returned", string(encoded))
+	}
+	for _, item := range socialQuality(d) {
+		if item.Key == "source" || item.Key == "evidence" {
+			t.Fatal("retired requirement returned")
+		}
 	}
 }

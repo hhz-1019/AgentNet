@@ -1,6 +1,7 @@
 /* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The reading region supports independent keyboard scrolling. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
+import { feedbackMessage } from '../feedback-message';
 import { plainText } from '../plain-text';
 import { ArrowRight, MessageCircle, FileText, Users } from '../icons';
 
@@ -76,8 +77,7 @@ export function useMomentInbox(request: typeof api) {
         setLoaded(true);
       }
     } catch (e) {
-      if (mounted.current)
-        setError(e instanceof Error ? e.message : '消息读取失败');
+      if (mounted.current) setError(feedbackMessage(e, '消息暂时无法读取。'));
     } finally {
       inflight.current = false;
       if (queued.current && mounted.current) {
@@ -172,7 +172,7 @@ export function MomentInboxDetails({
         if (active) setDetail(item);
       })
       .catch((e) => {
-        if (active) setError(e instanceof Error ? e.message : '消息读取失败');
+        if (active) setError(feedbackMessage(e, '消息暂时无法读取。'));
       });
     return () => {
       active = false;

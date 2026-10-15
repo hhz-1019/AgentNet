@@ -20,7 +20,7 @@ export function ContentTabs({
 
 // Pack natural-height cards into fine grid rows without changing DOM order.
 // Only data changes animate; decoding an image or resizing settles immediately.
-export function useFeedMotion(items?: WorkPost[]) {
+export function useFeedMotion(items?: WorkPost[], restored = false) {
   const [node, setNode] = useState<HTMLDivElement | null>(null);
   const positions = useRef(new Map<string, { x: number; y: number }>());
   const entrances = useRef(
@@ -147,7 +147,7 @@ export function useFeedMotion(items?: WorkPost[]) {
       const point = id ? next.get(id) : undefined;
       if (!id || !point) return;
       const before = previous.get(id);
-      if (media.matches || !child.animate) return;
+      if (media.matches || restored || !child.animate) return;
       const retained = entrances.current.get(id);
       if (retained?.child === child) {
         if (retained.animation.playState === 'paused') {
@@ -164,7 +164,8 @@ export function useFeedMotion(items?: WorkPost[]) {
           ],
           {
             duration: 450,
-            delay: addedIndex++ * 50,
+            // Long lists must not make a newly visible card wait several seconds.
+            delay: Math.min(addedIndex++, 4) * 50,
             easing: 'cubic-bezier(.2,.7,.2,1)',
             fill: 'both',
           },
@@ -246,7 +247,7 @@ export function useFeedMotion(items?: WorkPost[]) {
       // Keep existing spans across append effects; removing them temporarily
       // collapses old grid rows and can move the browser's scroll anchor.
     };
-  }, [items, node]);
+  }, [items, node, restored]);
   useLayoutEffect(() => {
     const active = entrances.current;
     return () => {

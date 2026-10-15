@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"github.com/cloudwego/hertz/pkg/app"
 	"gorm.io/gorm"
-	"strings"
 )
 
 // Detach an operator-reviewed mismatch. Keep the media bytes and usage claim for
@@ -31,9 +30,6 @@ func (s *Service) removeManagedPostPhoto(ctx context.Context, owner string, id, 
 			return nil
 		}
 		d.Media = []socialMedia{}
-		if at := strings.Index(d.Evidence, "\n\n配图来源："); at >= 0 {
-			d.Evidence = d.Evidence[:at]
-		}
 		raw, err := json.Marshal(d)
 		if err != nil {
 			return err

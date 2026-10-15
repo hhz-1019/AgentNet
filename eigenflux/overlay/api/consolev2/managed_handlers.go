@@ -97,17 +97,17 @@ func (s *Service) getManaged(_ context.Context, c *app.RequestContext) {
 	now := time.Now().UTC().Add(8 * time.Hour)
 	var data string
 	err := s.db.Raw(`SELECT json_build_object('sponsor_number',a.account_number::text,
- 'campaign',COALESCE((SELECT row_to_json(c) FROM (SELECT enabled,monthly_budget_fen,input_fen_per_million,output_fen_per_million,revision FROM managed_campaigns WHERE sponsor_uid=a.uid)c),'null'::json),
+ 'campaign',COALESCE((SELECT row_to_json(c) FROM (SELECT dm_reply_enabled,dm_start_enabled,enabled,monthly_budget_fen,input_fen_per_million,output_fen_per_million,revision FROM managed_campaigns WHERE sponsor_uid=a.uid)c),'null'::json),
  'spent_fen',COALESCE((SELECT sum(charged_fen) FROM managed_runs WHERE sponsor_uid=a.uid AND month=?),0),
- 'members',COALESCE((SELECT json_agg(m ORDER BY seed_index) FROM (SELECT m.agent_id::text AS id,h.account_number::text AS number,m.seed_index,m.name,m.scenario,m.persona,m.enabled,m.daily_limit,m.start_hour,m.end_hour,m.revision,m.next_run_at,m.pending_topic,m.deleted_at,m.profile_version,agent.bio AS public_bio,(SELECT profile_data FROM agent_profiles WHERE agent_id=m.agent_id) AS public_identity,
+ 'members',COALESCE((SELECT json_agg(m ORDER BY seed_index) FROM (SELECT m.agent_id::text AS id,h.account_number::text AS number,m.seed_index,m.name,m.scenario,m.persona,m.enabled,m.daily_limit,m.start_hour,m.end_hour,m.revision,m.next_run_at,m.pending_topic,m.deleted_at,m.profile_version,m.persona_edited,agent.bio AS public_bio,(SELECT profile_data FROM agent_profiles WHERE agent_id=m.agent_id) AS public_identity,
  (SELECT COALESCE(sum(charged_fen),0) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.month=to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai','YYYY-MM')) AS month_spent_fen,
- (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.status IN ('published','commented','liked')) AS successful_runs,
+ (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.status IN ('published','commented','liked','messaged')) AS successful_runs,
  (SELECT count(*) FROM console_v2_sessions cs JOIN managed_delegations d USING(session_id) WHERE cs.agent_id=m.agent_id AND d.sponsor_uid=m.sponsor_uid AND cs.status='active' AND cs.idle_expires_at>extract(epoch FROM now())*1000 AND cs.absolute_expires_at>extract(epoch FROM now())*1000) AS active_sessions,
  (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND day=?::date) AS today_runs,
  (SELECT status FROM managed_runs r WHERE r.agent_id=m.agent_id ORDER BY created_at DESC LIMIT 1) AS last_status,
  (SELECT max(finished_at) FROM managed_runs r WHERE r.agent_id=m.agent_id) AS last_active_at
  FROM managed_members m JOIN human_accounts h ON h.uid=m.owner_uid JOIN agents agent ON agent.agent_id=m.agent_id WHERE m.sponsor_uid=a.uid)m),'[]'::json),
- 'runs',COALESCE((SELECT json_agg(r) FROM (SELECT r.run_id::text AS id,r.agent_id::text AS agent_id,m.name,r.status,r.detail,r.charged_fen,r.input_tokens,r.output_tokens,r.post_id::text AS post_id,r.created_at,r.provider_host,r.model FROM managed_runs r JOIN managed_members m USING(agent_id) WHERE r.sponsor_uid=a.uid ORDER BY r.created_at DESC LIMIT 50)r),'[]'::json),
+ 'runs',COALESCE((SELECT json_agg(r) FROM (SELECT r.run_id::text AS id,r.agent_id::text AS agent_id,m.name,r.status,r.detail,r.charged_fen,r.input_tokens,r.output_tokens,r.post_id::text AS post_id,r.message_id::text AS message_id,r.conversation_id::text AS conversation_id,r.created_at,r.provider_host,r.model FROM managed_runs r JOIN managed_members m USING(agent_id) WHERE r.sponsor_uid=a.uid ORDER BY r.created_at DESC LIMIT 50)r),'[]'::json),
  'audit',COALESCE((SELECT json_agg(r) FROM (SELECT action,agent_id::text AS agent_id,created_at FROM managed_audit WHERE sponsor_uid=a.uid ORDER BY id DESC LIMIT 30)r),'[]'::json))::text FROM human_accounts a WHERE uid=?`, now.Format("2006-01"), now.Format("2006-01-02"), owner).Scan(&data).Error
 	if err != nil {
 		s.managedError(c, err)
@@ -267,6 +267,15 @@ func (s *Service) provisionManagedEntries(ctx context.Context, owner string, ent
 			if err := ensureTwinUser(tx, uid, now); err != nil {
 				return err
 			}
+			if p.recruitmentFields != nil {
+				fields, err := json.Marshal(p.recruitmentFields)
+				if err != nil {
+					return err
+				}
+				if err := tx.Exec(`UPDATE twin_users SET portrait_fields=?::jsonb,portrait_visible='["name","bio","interests","recent","connections"]'::jsonb,portrait_revision=1 WHERE user_id=?`, string(fields), uid).Error; err != nil {
+					return err
+				}
+			}
 			if err := tx.Exec(`UPDATE twin_users SET name=?,current_goal=? WHERE user_id=?`, p.Name, draft.NetworkGoal, uid).Error; err != nil {
 				return err
 			}
@@ -294,6 +303,8 @@ func managedPublicProfile(name, scenario string) draftPayload {
 }
 
 type managedCampaign struct {
+	DMReplyEnabled      *bool `json:"dm_reply_enabled"`
+	DMStartEnabled      *bool `json:"dm_start_enabled"`
 	Enabled             bool  `json:"enabled"`
 	MonthlyBudgetFen    int64 `json:"monthly_budget_fen"`
 	InputFenPerMillion  int64 `json:"input_fen_per_million"`
@@ -312,7 +323,7 @@ func (s *Service) putManagedCampaign(_ context.Context, c *app.RequestContext) {
 		return
 	}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		r := tx.Exec(`UPDATE managed_campaigns SET enabled=?,monthly_budget_fen=?,input_fen_per_million=?,output_fen_per_million=?,revision=revision+1 WHERE sponsor_uid=? AND revision=?`, req.Enabled, req.MonthlyBudgetFen, req.InputFenPerMillion, req.OutputFenPerMillion, owner, req.Revision)
+		r := tx.Exec(`UPDATE managed_campaigns SET dm_reply_enabled=COALESCE(?,dm_reply_enabled),dm_start_enabled=COALESCE(?,dm_start_enabled),enabled=?,monthly_budget_fen=?,input_fen_per_million=?,output_fen_per_million=?,revision=revision+1 WHERE sponsor_uid=? AND revision=?`, req.DMReplyEnabled, req.DMStartEnabled, req.Enabled, req.MonthlyBudgetFen, req.InputFenPerMillion, req.OutputFenPerMillion, owner, req.Revision)
 		if r.Error != nil {
 			return r.Error
 		}
@@ -357,7 +368,7 @@ func (s *Service) putManagedMember(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		r := tx.Exec(`UPDATE managed_members SET name=?,scenario=?,persona=?,enabled=?,daily_limit=?,start_hour=?,end_hour=?,revision=revision+1 WHERE agent_id=? AND sponsor_uid=? AND deleted_at=0 AND revision=?`, req.Name, req.Scenario, req.Persona, req.Enabled, req.DailyLimit, req.StartHour, req.EndHour, id, owner, req.Revision)
+		r := tx.Exec(`UPDATE managed_members SET persona_edited=persona_edited OR persona<>?,name=?,scenario=?,persona=?,enabled=?,daily_limit=?,start_hour=?,end_hour=?,revision=revision+1 WHERE agent_id=? AND sponsor_uid=? AND deleted_at=0 AND revision=?`, req.Persona, req.Name, req.Scenario, req.Persona, req.Enabled, req.DailyLimit, req.StartHour, req.EndHour, id, owner, req.Revision)
 		if r.Error != nil {
 			return r.Error
 		}
@@ -461,7 +472,9 @@ func (s *Service) queueManaged(_ context.Context, c *app.RequestContext) {
 	}
 	id := socialDecimal(c.Param("member_id"))
 	var req struct {
-		Topic string `json:"topic"`
+		Topic           string `json:"topic"`
+		RecipientNumber string `json:"recipient_number"`
+		RecipientID     string `json:"recipient_id"`
 	}
 	if decodeBody(c, &req) != nil || utf8.RuneCountInString(req.Topic) > 600 || socialSecretPattern.MatchString(req.Topic) || managedPrivatePattern.MatchString(req.Topic) {
 		fail(c, 400, "MANAGED_TOPIC_INVALID", "讨论主题限 600 字，不能包含凭证或私人联系方式", nil)
@@ -472,6 +485,7 @@ func (s *Service) queueManaged(_ context.Context, c *app.RequestContext) {
 		return
 	}
 	var blocked string
+	var recipient int64
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec(`SELECT pg_advisory_xact_lock(734817615)`).Error; err != nil {
 			return err
@@ -481,7 +495,46 @@ func (s *Service) queueManaged(_ context.Context, c *app.RequestContext) {
 		if err != nil || blocked != "" {
 			return err
 		}
-		r := tx.Exec(`UPDATE managed_members SET next_run_at=?,pending_topic=? WHERE agent_id=? AND sponsor_uid=? AND enabled=true AND deleted_at=0`, time.Now().UnixMilli(), strings.TrimSpace(req.Topic), id, owner)
+		if req.RecipientNumber != "" && req.RecipientID != "" {
+			blocked = "只填写一个私信对象"
+			return nil
+		}
+		if req.RecipientNumber != "" {
+			if lookupOwnerNumber(req.RecipientNumber) == 0 {
+				blocked = "私信对象UID无效"
+				return nil
+			}
+			if err := tx.Raw("SELECT a.agent_id FROM human_accounts h JOIN agent_owners o ON o.owner_uid=h.uid JOIN agents a USING(agent_id) WHERE h.account_number=? AND a.identity_state='active' ORDER BY o.created_at LIMIT 1", req.RecipientNumber).Scan(&recipient).Error; err != nil {
+				return err
+			}
+		} else if req.RecipientID != "" {
+			recipient = socialDecimal(req.RecipientID)
+		}
+		if req.RecipientNumber != "" || req.RecipientID != "" {
+			if recipient == 0 || recipient == id {
+				blocked = "私信对象不存在或为当前角色"
+				return nil
+			}
+			allowed, err := managedMessagePermission(tx, managedJob{AgentID: id, SponsorUID: owner}, recipient, false)
+			if err != nil {
+				return err
+			}
+			if !allowed {
+				blocked = "请先开启私信权限，或检查对象与屏蔽关系"
+				return nil
+			}
+		}
+		if recipient == 0 && strings.TrimSpace(req.Topic) != "" {
+			var duplicate bool
+			if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM managed_runs WHERE sponsor_uid=? AND topic_key=? AND created_at>? AND (status='published' OR (status='running' AND created_at>?))) OR EXISTS(SELECT 1 FROM managed_members WHERE sponsor_uid=? AND agent_id<>? AND deleted_at=0 AND pending_topic=?)", owner, managedTextKey(req.Topic), time.Now().Add(-24*time.Hour).UnixMilli(), time.Now().Add(-5*time.Minute).UnixMilli(), owner, id, strings.TrimSpace(req.Topic)).Scan(&duplicate).Error; err != nil {
+				return err
+			}
+			if duplicate {
+				blocked = "近期已有相同选题，请换一个具体切口"
+				return nil
+			}
+		}
+		r := tx.Exec(`UPDATE managed_members SET next_run_at=?,pending_topic=?,pending_recipient_id=NULLIF(?,0) WHERE agent_id=? AND sponsor_uid=? AND enabled=true AND deleted_at=0`, time.Now().UnixMilli(), strings.TrimSpace(req.Topic), recipient, id, owner)
 		if r.Error != nil {
 			return r.Error
 		}

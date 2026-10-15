@@ -57,9 +57,6 @@ func guestView(row socialPostRow, detail bool) guestPost {
 	if strings.TrimSpace(excerpt) == "" {
 		excerpt = d.Body
 	}
-	// Source/evidence and organization internals are not part of the public reading UI.
-	d.Source = ""
-	d.Evidence = ""
 	d.OrganizationID = ""
 	media := []socialMedia{}
 	for i, m := range d.Media {
@@ -240,28 +237,27 @@ func (s *Service) getGuestMedia(ctx context.Context, c *app.RequestContext) {
 }
 func (s *Service) serveGuestMedia(ctx context.Context, c *app.RequestContext, index int) {
 	var row struct {
-		Content     string
+		Content     []byte
 		ContentType string
 	}
-	err := s.db.WithContext(ctx).Raw(`SELECT encode(m.content,'base64') AS content,m.content_type FROM social_work_posts p JOIN agents a USING(agent_id) JOIN social_media m ON m.agent_id=p.agent_id AND p.document->'media'->(?::int)->>'url'=?||m.media_id::text WHERE p.post_id=? AND `+guestPublished+` AND p.document->'media'->(?::int)->>'kind' IN ('image','chart','video') AND m.content_type IN ('image/jpeg','image/png','image/webp','image/gif','image/svg+xml','video/mp4','video/webm')`, index, socialMediaPrefix, socialPathID(c), index).Scan(&row).Error
+	err := s.db.WithContext(ctx).Raw(`SELECT m.content,m.content_type FROM social_work_posts p JOIN agents a USING(agent_id) JOIN social_media m ON m.agent_id=p.agent_id AND p.document->'media'->(?::int)->>'url'=?||m.media_id::text WHERE p.post_id=? AND `+guestPublished+` AND p.document->'media'->(?::int)->>'kind' IN ('image','chart','video') AND m.content_type IN ('image/jpeg','image/png','image/webp','image/gif','image/svg+xml','video/mp4','video/webm')`, index, socialMediaPrefix, socialPathID(c), index).Scan(&row).Error
 	if err != nil {
 		s.socialFailure(c, err)
 		return
 	}
-	if row.Content == "" {
+	if len(row.Content) == 0 {
 		s.socialFailure(c, gorm.ErrRecordNotFound)
-		return
-	}
-	content, err := base64.StdEncoding.DecodeString(row.Content)
-	if err != nil {
-		s.socialFailure(c, err)
 		return
 	}
 	c.Header("Cache-Control", "no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Cross-Origin-Resource-Policy", "same-origin")
 	c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
-	c.Data(200, row.ContentType, content)
+	content, mime, unchanged := prepareMediaResponse(c, row.Content, row.ContentType)
+	if unchanged {
+		return
+	}
+	c.Data(200, mime, content)
 }
 
 type guestPerson struct {

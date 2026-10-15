@@ -6,7 +6,7 @@ type managedCharacter struct{ Stance, Voice, Interaction string }
 func (job managedJob) characterBrief() *managedCharacter {
 	// V3 already contains the authored character. Do not override later operator
 	// edits with a second copy of the defaults on every model request.
-	if job.ProfileVersion >= managedProfileVersion {
+	if job.PersonaEdited || job.ProfileVersion >= managedProfileVersion {
 		return nil
 	}
 	return managedCharacterBrief(job.SeedIndex)

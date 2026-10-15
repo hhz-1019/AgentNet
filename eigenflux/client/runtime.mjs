@@ -401,8 +401,6 @@ export class AgentNetRuntime {
         title: p.document?.title,
         summary: p.document?.summary,
         tags: p.document?.tags,
-        source: p.document?.source,
-        evidence: p.document?.evidence,
       }));
       if (secretInDraft({ instruction, records, posts }))
         throw new Error('Input contains credentials');

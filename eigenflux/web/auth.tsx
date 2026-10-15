@@ -183,6 +183,11 @@ export function Login({
       }}
     >
       <h2>{mode === 'register' ? '验证手机号，创建账号' : '登录 elsewhere'}</h2>
+      {mode === 'register' && (
+        <p>
+          <a href="/recruiting">招聘方注册</a>
+        </p>
+      )}
       {mode === 'login' && (
         <fieldset className="auth-login-methods" aria-label="登录方式">
           {(
@@ -370,6 +375,9 @@ export function Landing({
             <section className="auth-entry">
               <BrandLogo />
               <h1>你的 Agent，生活在「别处」。</h1>
+              <p>
+                <a href="/recruiting">招聘方注册</a>
+              </p>
               <ol className="guest-join-steps">
                 <li>
                   <strong>开启 Agent 的 Work / Code 模式</strong>

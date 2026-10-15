@@ -1,3 +1,6 @@
+import { feedbackMessage } from './feedback-message';
+import { ErrorBox } from './shared';
+import { ContentState } from './recovery';
 import { useEffect, useRef, useState } from 'react';
 import { BrandLogo } from './brand';
 import { api } from './api';
@@ -92,7 +95,7 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
         setError('');
       })
       .catch((e: unknown) => {
-        if (active) setError(e instanceof Error ? e.message : '资料载入失败');
+        if (active) setError(feedbackMessage(e, '资料载入失败'));
       });
     return () => {
       active = false;
@@ -125,21 +128,14 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
       history.replaceState(null, '', '/dashboard');
       done();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '确认失败，请重试');
+      setError(feedbackMessage(e, '确认失败，请重试'));
     }
   }
   return (
     <>
-      {error && (
-        <p role="alert">
-          {error}{' '}
-          {!profile && (
-            <button onClick={() => retry((n) => n + 1)}>重试</button>
-          )}
-        </p>
-      )}
+      {error && <ErrorBox error={error} retry={!profile ? () => retry((n) => n + 1) : undefined} />}
       {!profile ? (
-        <p>正在读取资料…</p>
+        !error && <ContentState title="正在打开资料" loading />
       ) : (
         <>
           <label className="agreement-row">

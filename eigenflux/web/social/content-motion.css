@@ -1,3 +1,6 @@
 .ew-social .sw-feed-grid {
   position: relative;
+  /* Grid packing and explicit history restoration already retain position.
+     A second browser anchor adjustment can shift it by a grid gap on return. */
+  overflow-anchor: none;
 }

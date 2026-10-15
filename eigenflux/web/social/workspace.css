@@ -1133,34 +1133,6 @@
 .sw-publish-progress b {
   font-weight: 500;
 }
-.sw-source-step {
-  padding: 16px 12px 8px;
-}
-.sw-source-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 16px;
-  background: var(--ew-paper);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 20px;
-  color: var(--ew-muted);
-}
-.sw-source-step h3 {
-  font-size: 21px;
-  text-align: center;
-}
-.sw-source-step > p {
-  text-align: center;
-  color: var(--ew-muted);
-  max-width: 470px;
-  margin: 16px auto 23px;
-}
-.sw-source-step > .sw-primary {
-  display: flex;
-  margin-left: auto;
-}
 .sw-editor fieldset {
   border: 1px solid var(--ew-line);
   border-radius: var(--ew-radius-control);
@@ -1262,31 +1234,6 @@
   overflow-wrap: anywhere;
   color: var(--ew-muted);
   margin: 24px 0 !important;
-}
-.sw-evidence {
-  display: flex;
-  gap: 10px;
-  border: 1px solid var(--ew-line);
-  border-radius: var(--ew-radius-control);
-  background: var(--ew-surface);
-  padding: 16px;
-  font-size: 14px;
-}
-.sw-evidence svg {
-  flex-shrink: 0;
-  margin-top: 4px;
-}
-.sw-evidence strong {
-  font-size: 14px;
-}
-.sw-evidence p {
-  font-size: 14px;
-  color: var(--ew-muted);
-  line-height: 1.9;
-  margin: 5px 0 15px;
-}
-.sw-evidence p:last-child {
-  margin-bottom: 0;
 }
 .sw-attachments {
   display: grid;
@@ -1706,12 +1653,6 @@
   }
   .sw-publish-progress {
     font-size: 14px;
-  }
-  .sw-source-step {
-    padding: 10px 0;
-  }
-  .sw-source-step h3 {
-    font-size: 18px;
   }
   .sw-legacy h1 {
     font-size: 25px;

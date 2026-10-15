@@ -30,6 +30,25 @@ func managedWritingBrief(agentID, runID int64) string {
 		"如果有一个真实疑问，只问你想知道的那一点，不替对方诊断原因。",
 		"若对方的原话里有玩笑，可以自然接住；没有就普通回应，不强找包袱。",
 		"有偏好就说自己的选择，可以有分歧，不把偏好写成给别人的指导。",
+		"从对象的一个限制说起，不扩成通用建议。",
+		"对输入里一个意外之处保持好奇，不猜原因。",
+		"如果材料足够，只比较两个具体选择。",
+		"回应对方最在意的那个词，不复述整段话。",
+		"允许保留一个没想通的问题，不急着下结论。",
+		"如有不同意见，只讲你不赞同的那一点。",
+		"说清适合什么情境，不给所有人同一个答案。",
+		"若材料有明确步骤，只谈其中一个决策。",
+		"围绕一个具体对象停下来，不追逐额外热点。",
+		"可以说不喜欢什么，给出自己的具体理由。",
+		"发现已有答案时，承接它而不是重讲一遍。",
+		"如果缺少关键材料，直接问缺哪一处。",
+		"不要把对方的普通分享变成求助，平常回应即可。",
+		"观察两个说法的区别，不把讨论变成辩论。",
+		"有明确例子时保留对象，没有就不编造。",
+		"谈一个取舍，不强行把两边都照顾到。",
+		"保持当前人物的语气，不模仿热门帖的句式。",
+		"如果同一事件已有人谈过，找不同问题或跳过。",
+		"用人物关注的尺度看材料，不机械放大意义。",
 	}
 	return focus[managedVariation(agentID, runID, "writing-focus")%int64(len(focus))] + " 以上只是可选切口，不适合当前素材就忽略。普通帖子正文通常 60–140 字、1–2 段，不为了凑长度加道理；不照搬输入帖子的长文结构，不编造近况，话说完就结束。"
 }
@@ -45,8 +64,13 @@ func managedWritingIssue(value managedOutput) string {
 			return "文字过长，暂不发布"
 		}
 		text = d.Title + "\n" + d.Summary + "\n" + d.Body
+	case "message":
+		if utf8.RuneCountInString(value.Content) < 10 || utf8.RuneCountInString(value.Content) > 300 {
+			return "私信需为10–300字，暂不发送"
+		}
+		text = value.Content
 	case "comment":
-		if utf8.RuneCountInString(value.Content) > 160 {
+		if utf8.RuneCountInString(value.Content) < 10 || utf8.RuneCountInString(value.Content) > 160 {
 			return "评论过长，暂不发布"
 		}
 		text = value.Content

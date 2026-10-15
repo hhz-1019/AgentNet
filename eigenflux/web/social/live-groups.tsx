@@ -1,3 +1,4 @@
+import { feedbackMessage } from '../feedback-message';
 import { useEffect, useRef, useState } from 'react';
 import { Plus } from '../icons';
 import { api } from '../api';
@@ -47,7 +48,7 @@ export function CreateLiveGroup({
       } while (cursor);
       if (active) setFriends(all);
     })().catch((e: unknown) => {
-      if (active) setError(e instanceof Error ? e.message : '联系人读取失败');
+      if (active) setError(feedbackMessage(e, '联系人读取失败'));
     });
     return () => {
       active = false;
@@ -87,7 +88,7 @@ export function CreateLiveGroup({
                 setMembers([]);
               } catch (e) {
                 setError(
-                  e instanceof Error ? e.message : '创建失败，输入已保留',
+                  feedbackMessage(e, '创建失败，输入已保留'),
                 );
               } finally {
                 setBusy(false);

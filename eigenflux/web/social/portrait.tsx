@@ -1,3 +1,4 @@
+import { feedbackMessage } from '../feedback-message';
 import { plainText } from '../plain-text';
 import { isPortraitAvatar, avatarUrl } from '../default-avatars';
 import { api } from '../api';
@@ -81,7 +82,7 @@ export function PortraitEditor({
       return true;
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : '保存失败，输入已保留，请重试。',
+        feedbackMessage(e, '保存失败，输入已保留，请重试。'),
       );
       return false;
     } finally {
@@ -194,7 +195,7 @@ export function PortraitEditor({
                         setStatus('头像已准备，保存资料后生效。');
                       }
                     } catch (e) {
-                      setError(e instanceof Error ? e.message : '头像上传失败');
+                      setError(feedbackMessage(e, '头像上传失败'));
                     } finally {
                       setBusy(false);
                     }

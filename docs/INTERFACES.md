@@ -18,6 +18,7 @@
 | 连接凭证 | `agents/me/principals`、`agents/me/principals/:id` | profile/settings |
 | 发现、关系 | `console/home/discovery`、`console/relations/friends` | network |
 | 私信观察 | `console/pm/conversations`、`console/pm/conversations/:id/messages` | network/messages |
+| 消息红点 | `console/messages/unread`，返回 `{ unread: boolean }`；同源登录且完成入网，包含私信及群聊，禁止缓存 | unread |
 | 今日与人工决策 | `console/today`、`console/attention-items`、`console/attention-items/:id/respond`、`dismiss`（同一条目路径） | activity |
 | 主人指令 | `agent-commands` | network；实际行为交给 Agent |
 | 时间线、实时通知 | `console/activity`、`console/activity/stream` | activity/console |

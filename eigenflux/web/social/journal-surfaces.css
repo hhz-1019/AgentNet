@@ -33,7 +33,6 @@
     .sn-media-grid figure,
     .sw-publish-preview .sw-post,
     .sw-preflight,
-    .sw-evidence,
     .sw-pack-details > div
   ) {
   color: var(--ew-ink);
@@ -44,7 +43,7 @@
 }
 
 .sw-dialog.sn-communication-dialog.ew-motion-dialog
-  :is(.sw-quality-note, .sw-scope-banner, .sw-source-icon) {
+  :is(.sw-quality-note, .sw-scope-banner) {
   background: var(--ew-tint);
   color: var(--ew-muted);
   border-color: var(--ew-line);

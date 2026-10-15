@@ -292,9 +292,9 @@ func TestManagedFullSchema(t *testing.T) {
 	if s.commitManaged(context.Background(), *job, value, nil) == nil {
 		t.Fatal("duplicate commit accepted")
 	}
-	check(db.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND document->>'identity'='agent' AND document->>'body' NOT LIKE '【官方 AI%' AND document->>'source'='AI Agent 生成的讨论与练习'`, job.AgentID).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND document->>'identity'='agent' AND document->>'body' NOT LIKE '【官方 AI%' AND NOT (document ? 'source') AND NOT (document ? 'evidence')`, job.AgentID).Scan(&count).Error)
 	if count != 1 {
-		t.Fatal("post/label missing")
+		t.Fatal("post missing or removed boilerplate retained")
 	}
 	var imageURL string
 	check(db.Raw(`SELECT document->'media'->0->>'url' FROM social_work_posts WHERE agent_id=? AND state='published'`, job.AgentID).Scan(&imageURL).Error)
@@ -379,7 +379,7 @@ func TestManagedFullSchema(t *testing.T) {
 	var repairedRaw string
 	check(db.Raw("SELECT document::text FROM social_work_posts WHERE post_id=?", socialDecimal(repairID)).Scan(&repairedRaw).Error)
 	check(json.Unmarshal([]byte(repairedRaw), &repaired))
-	if len(repaired.Media) != 0 || repaired.Body != d.Body || strings.Contains(repaired.Evidence, "配图来源：") {
+	if len(repaired.Media) != 0 || repaired.Body != d.Body || strings.Contains(repairedRaw, "配图来源：") {
 		t.Fatal("repair changed prose or retained attribution", repaired)
 	}
 	call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision}, session.ID, 409)
@@ -639,6 +639,64 @@ func TestManagedFullSchema(t *testing.T) {
 	check(err)
 	if operatorState.State != "completed" || operatorDraft.Revision != 1 {
 		t.Fatal("operator browser session cannot load completed onboarding")
+	}
+	// Recruitment imports use the same real identity/ownership transaction.
+	catalog := RecruiterCatalog{CheckedAt: "2026-10-15"}
+	for _, key := range []string{"tencent", "huawei", "xiaomi", "meituan", "tme"} {
+		catalog.Profiles = append(catalog.Profiles, RecruiterProfile{Key: key, Company: key, Name: key + " · 招聘信息", Summary: "公开岗位摘要", Audience: "应届毕业生", Benefits: "薪酬未公布", Requirements: "按官方岗位核对", Sources: []RecruiterSource{{Title: "官网", URL: "https://example.com/jobs"}}})
+	}
+	if _, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10002", catalog); err == nil {
+		t.Fatal("recruiter import bypassed operator allowlist")
+	}
+	if path := os.Getenv("AGENTNET_RECRUITER_CATALOG_FILE"); path != "" {
+		raw, err := os.ReadFile(path)
+		check(err)
+		check(json.Unmarshal(raw, &catalog))
+	}
+	recruiters, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog)
+	check(err)
+	if len(recruiters) != 5 {
+		t.Fatal("missing recruitment identities")
+	}
+	repeatedRecruiters, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog)
+	check(err)
+	for key, id := range recruiters {
+		if repeatedRecruiters[key] != id {
+			t.Fatal("recruiter identity changed on retry")
+		}
+	}
+	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agents a USING(agent_id) JOIN agent_owners o USING(agent_id) JOIN agent_onboarding_v2 b USING(agent_id) WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND NOT m.enabled AND NOT a.is_official AND o.owner_uid=m.owner_uid AND b.state='completed' AND a.bio LIKE '%公开招聘信息画像%'`).Scan(&count).Error)
+	if count != 5 {
+		t.Fatal("recruitment identity disclosure or pause boundary missing", count)
+	}
+	check(db.Raw(`SELECT count(*) FROM twin_users t JOIN managed_members m ON t.user_id=m.owner_uid WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND t.portrait_fields->>'bio' LIKE '%公开招聘信息画像%' AND t.portrait_revision=1`).Scan(&count).Error)
+	if count != 5 {
+		t.Fatal("recruitment portraits missing", count)
+	}
+	contacts := homeDiscoveryResponse{Items: []homeDiscoveryAgent{{AgentID: recruiters["tencent"]}}}
+	check(s.decorateHomeDiscoveryRelations(context.Background(), 1, &contacts))
+	if len(contacts.Items) != 5 || contacts.Items[0].AgentName == "" || !contacts.Items[0].ShowAddFriend {
+		t.Fatal("recruiters missing from unified contacts", contacts.Items)
+	}
+	// Reusing a cached list cannot expose blocked or archived identities.
+	check(db.Exec(`INSERT INTO user_relations(from_uid,to_uid,rel_type,created_at) VALUES(1,?,2,?)`, recruiters["tencent"], now).Error)
+	check(db.Exec(`UPDATE managed_members SET deleted_at=? WHERE agent_id=?`, now, recruiters["huawei"]).Error)
+	check(s.decorateHomeDiscoveryRelations(context.Background(), 1, &contacts))
+	if len(contacts.Items) != 3 {
+		t.Fatal("blocked or archived recruiter leaked", contacts.Items)
+	}
+	for _, item := range contacts.Items {
+		if item.AgentID == recruiters["tencent"] || item.AgentID == recruiters["huawei"] {
+			t.Fatal("hidden recruiter leaked")
+		}
+	}
+	h.GET("/recruitment-discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
+	if response := ut.PerformRequest(h.Engine, "GET", "/recruitment-discovery", nil); response.Code != 401 {
+		t.Fatal("contacts accessible without login", response.Code)
+	}
+	catalog.Profiles[1] = catalog.Profiles[0]
+	if _, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog); err == nil {
+		t.Fatal("duplicate recruitment keys accepted")
 	}
 }
 

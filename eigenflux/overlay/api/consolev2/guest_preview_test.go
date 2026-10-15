@@ -32,7 +32,6 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 		d := socialTestDocument()
 		d.Summary = strings.Repeat("预览", 100)
 		d.Body = "正文不应出现在访客接口"
-		d.Source = "内部来源不应出现"
 		d.Media = []socialMedia{{URL: fmt.Sprintf("%s%d", socialMediaPrefix, media), Kind: "image", Alt: "封面"}, {URL: socialMediaPrefix + "88102", Kind: "image", Alt: "内页"}}
 		b, _ := json.Marshal(d)
 		check(db.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,visibility,document,created_at,published_at,approved_revision) VALUES(?,?,?, ?,?::jsonb,1,1,1)`, id, agent, state, visibility, string(b)).Error)
@@ -96,7 +95,7 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 		}
 	}
 	cover := ut.PerformRequest(h.Engine, http.MethodGet, "/posts/88201/cover", nil).Result()
-	if cover.StatusCode() != 200 || string(cover.Body()) != "\x01\x02\x03" || string(cover.Header.Peek("Cache-Control")) != "no-store" {
+	if cover.StatusCode() != 200 || string(cover.Body()) != "\x01\x02\x03" || string(cover.Header.Peek("Cache-Control")) != "private, no-cache" {
 		t.Fatal("public cover mismatch")
 	}
 	detail := string(get("/posts/88201", 200))

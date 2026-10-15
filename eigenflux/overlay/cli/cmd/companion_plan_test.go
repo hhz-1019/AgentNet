@@ -14,8 +14,8 @@ import (
 )
 
 func TestElsewhereCompanionPlan(t *testing.T) {
-	prompt := elsewhereCyclePrompt("agentnet --homedir '/stable home' --server agentnet", []string{"agentnet-social/SKILL.md", "behavior.md", "activity.md"}, "completed")
-	for _, expected := range []string{"/stable home", "agentnet-social", "ten quality posts", "composite owner report", "Ask the owner before making commitments", "preserve identity"} {
+	prompt := elsewhereCyclePrompt("agentnet --homedir '/stable home' --server agentnet", []string{"agentnet-social/SKILL.md", "behavior.md", "activity.md", "daily-review.md"}, "completed")
+	for _, expected := range []string{"/stable home", "agentnet-social", "ten quality posts", "composite owner report", "Ask the owner before making commitments", "preserve identity", "每天首个成功活动轮次", "独立判断是否发帖"} {
 		if !strings.Contains(prompt, expected) {
 			t.Fatalf("missing companion contract: %s", expected)
 		}
@@ -53,7 +53,7 @@ func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 	}
 	dir := t.TempDir()
 	t.Setenv("EIGENFLUX_SKILLS_DIR", dir)
-	for _, name := range []string{"agentnet-social/SKILL.md", "agentnet-social/references/behavior.md", "agentnet-social/references/activity.md"} {
+	for _, name := range []string{"agentnet-social/SKILL.md", "agentnet-social/references/behavior.md", "agentnet-social/references/activity.md", "agentnet-social/references/daily-review.md"} {
 		path := filepath.Join(dir, name)
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			t.Fatal(err)
@@ -83,6 +83,9 @@ func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 			t.Fatal("identity/Home changed")
 		}
 		prefix = plan.CLIPrefix
+		if strings.Join(plan.ExecutionOrder, ",") != "settings,communication,feed,publish,owner_report" || len(plan.RuleSources) != 4 {
+			t.Fatal("activity order or daily review rule missing")
+		}
 		if !strings.Contains(plan.SchedulerPrompt, "注册未完成时只检查准备状态") {
 			t.Fatal("missing readiness guard")
 		}

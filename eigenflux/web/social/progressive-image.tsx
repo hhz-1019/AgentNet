@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { Media } from './model';
-import { useEntryPreparation } from '../entry-preparation';
+import { imageLead, imageSources } from './image-loading';
 import './progressive-image.css';
 
 export function imageFrameRatio(media: Media) {
@@ -19,11 +19,13 @@ export function ProgressiveImage({
   alt = media.alt,
   onError,
   standalone = false,
+  detail = false,
 }: {
   media: Media;
   alt?: string;
   onError: () => void;
   standalone?: boolean;
+  detail?: boolean;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const alive = useRef(true);
@@ -32,10 +34,10 @@ export function ProgressiveImage({
   const [failed, setFailed] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [firstScreen, setFirstScreen] = useState(false);
-  useEntryPreparation(
-    firstScreen && started && !loaded && !failed,
-    firstScreen && failed,
-  );
+  const [instant, setInstant] = useState(false);
+  const requestedAt = useRef(0);
+  const original = useRef<HTMLImageElement>(null);
+  const sources = imageSources(media.url, detail || standalone);
   const fail = () => {
     setFailed(true);
     onError();
@@ -51,19 +53,37 @@ export function ProgressiveImage({
     typeof media.color === 'string' && /^#[0-9a-f]{6}$/i.test(media.color)
       ? media.color
       : undefined;
-  useEffect(() => {
+  useLayoutEffect(() => {
     alive.current = true;
     const node = frame.current;
     if (!node) return;
+    const connection = (
+      navigator as Navigator & {
+        connection?: { effectiveType?: string; saveData?: boolean };
+      }
+    ).connection;
+    const lead = connection?.saveData
+      ? 300
+      : imageLead(
+          innerHeight,
+          /(^|-)2g|3g/.test(connection?.effectiveType || ''),
+        );
+    const bounds = node.getBoundingClientRect();
+    const start = () => {
+      const rect = node.getBoundingClientRect();
+      setFirstScreen(rect.top < innerHeight && rect.bottom > 0);
+      requestedAt.current = performance.now();
+      setStarted(true);
+    };
+    // Start visible images during layout; don't wait for an observer callback.
+    if (bounds.top < innerHeight + lead && bounds.bottom > -lead) start();
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
-        const bounds = node.getBoundingClientRect();
-        setFirstScreen(bounds.top < window.innerHeight && bounds.bottom > 0);
-        setStarted(true);
+        if (!requestedAt.current) start();
         observer.disconnect();
       },
-      { rootMargin: '300px 0px' },
+      { rootMargin: `${lead}px 0px` },
     );
     observer.observe(node);
     return () => {
@@ -71,6 +91,13 @@ export function ProgressiveImage({
       observer.disconnect();
     };
   }, []);
+  useLayoutEffect(() => {
+    const image = original.current;
+    if (started && image?.complete && image.naturalWidth) {
+      setInstant(true);
+      setLoaded(true);
+    }
+  }, [started]);
   return (
     <div
       ref={frame}
@@ -81,7 +108,10 @@ export function ProgressiveImage({
           ? { height: 'auto', aspectRatio: imageFrameRatio(media) }
           : {}),
       }}
-      data-image-state={loaded ? 'loaded' : started ? 'loading' : 'waiting'}
+      data-image-state={
+        failed ? 'error' : loaded ? 'loaded' : started ? 'loading' : 'waiting'
+      }
+      data-image-instant={instant || undefined}
     >
       {preview && !previewFailed && (
         <img
@@ -93,8 +123,12 @@ export function ProgressiveImage({
         />
       )}
       <img
+        ref={original}
         className="ew-image-original"
-        src={started ? media.url : undefined}
+        src={started ? sources.src : undefined}
+        srcSet={started ? sources.srcSet : undefined}
+        sizes={sources.sizes}
+        fetchPriority={firstScreen ? 'high' : 'auto'}
         alt={alt}
         referrerPolicy="no-referrer"
         decoding="async"
@@ -104,7 +138,10 @@ export function ProgressiveImage({
           // network-complete image that still needs main-thread decoding.
           void image.decode().then(
             () => {
-              if (alive.current) setLoaded(true);
+              if (alive.current) {
+                setInstant(performance.now() - requestedAt.current < 100);
+                setLoaded(true);
+              }
             },
             () => {
               if (alive.current) fail();

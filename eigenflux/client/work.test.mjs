@@ -132,7 +132,8 @@ void test('generation prompt runs before proposal, retries retain output across 
     await Promise.all([a.record_work(report), a.record_work(report)]);
     assert.equal(generations, 1);
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].options.input.document.source, report.source);
+    assert.equal('source' in calls[0].options.input.document, false);
+    assert.equal('evidence' in calls[0].options.input.document, false);
     assert.equal(calls[0].options.input.document.identity, 'agent');
     assert.equal(calls[0].options.input.visibility, 'private');
     const b = make();
