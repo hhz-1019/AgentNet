@@ -29,6 +29,10 @@ const page = await a.newPage(),
   second = await b.newPage();
 const errors = [];
 const saveRequests = [];
+const imageRequests = [];
+page.on('response', (response) => {
+  if (response.url().includes('/social/media/')) imageRequests.push({ url: response.url(), status: response.status(), contentType: response.headers()['content-type'] });
+});
 page.on('requestfailed', (request) => {
   if (/\/social\/(drafts|posts)\//.test(request.url()))
     saveRequests.push({
@@ -373,6 +377,8 @@ try {
 } catch (error) {
   console.log('Save request diagnostics:', saveRequests);
   console.log('Browser errors:', errors);
+  console.log('Image requests:', imageRequests);
+  console.log('Image elements:', await page.locator('img').evaluateAll((images) => images.map(i => ({src:i.src, currentSrc:i.currentSrc, complete:i.complete, width:i.naturalWidth, parent:i.parentElement?.outerHTML.slice(0,1000)}))));
   console.log('DOM:', await page.locator('body').innerText());
   console.log(
     'Visible errors:',
