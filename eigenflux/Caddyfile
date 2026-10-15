@@ -18,7 +18,8 @@
   }
   header Referrer-Policy "no-referrer"
   header X-Content-Type-Options "nosniff"
-  header Cache-Control "no-cache"
+  @revalidate not path /assets/*
+  header @revalidate Cache-Control "no-cache"
   # Vite filenames contain content hashes; reuse bytes across page visits.
   @immutable path /assets/*
   header @immutable Cache-Control "public, max-age=31536000, immutable"

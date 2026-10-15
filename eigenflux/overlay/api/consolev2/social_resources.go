@@ -374,24 +374,20 @@ func (s *Service) getSocialMedia(ctx context.Context, c *app.RequestContext) {
 	url := socialMediaPrefix + strconv.FormatInt(id, 10)
 	needle, _ := json.Marshal([]map[string]string{{"url": url}})
 	var row struct {
-		Content     string
+		Content     []byte
 		ContentType string
 	}
-	query := `SELECT encode(m.content,'base64') AS content,m.content_type FROM social_media m WHERE m.media_id=? AND (m.agent_id=? OR EXISTS(SELECT 1 FROM social_work_posts p WHERE p.agent_id=m.agent_id AND p.state='published' AND p.document->'media' @> ?::jsonb AND ` + socialAccess + `))`
+	query := `SELECT m.content,m.content_type FROM social_media m WHERE m.media_id=? AND (m.agent_id=? OR EXISTS(SELECT 1 FROM social_work_posts p WHERE p.agent_id=m.agent_id AND p.state='published' AND p.document->'media' @> ?::jsonb AND ` + socialAccess + `))`
 	err := s.db.WithContext(ctx).Raw(query, id, viewer, string(needle), viewer, viewer, viewer, viewer).Scan(&row).Error
 	if err != nil {
 		s.socialFailure(c, err)
 		return
 	}
-	if row.Content == "" {
+	if len(row.Content) == 0 {
 		s.socialFailure(c, gorm.ErrRecordNotFound)
 		return
 	}
-	content, err := base64.StdEncoding.DecodeString(row.Content)
-	if err != nil {
-		s.socialFailure(c, err)
-		return
-	}
+	content := row.Content
 	c.Header("Cache-Control", "private, no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Cross-Origin-Resource-Policy", "same-origin")

@@ -31,7 +31,7 @@ import {
   Users,
   X,
 } from '../icons';
-import { api, refreshData, useData } from '../api';
+import { api, refreshData, refreshActivity, useData } from '../api';
 import { BrandLogo } from '../brand';
 import type { Session, Account } from '../types';
 import { ManagedRolePanel } from '../managed-role';
@@ -162,7 +162,7 @@ export function SocialWorkspace({
   useEffect(() => {
     if (demo || guest) return;
     let active = true;
-    void loadPortrait()
+    void loadPortrait({ allMemories: false })
       .then((p) => {
         if (active) setPortrait(p);
       })
@@ -574,7 +574,7 @@ export function SocialWorkspace({
     const notify = () => {
       if (!timer)
         timer = setTimeout(() => {
-          refreshData();
+          if (!document.hidden) refreshActivity();
           timer = undefined;
         }, 1500);
     };
@@ -582,7 +582,7 @@ export function SocialWorkspace({
     source.addEventListener('cursor_reset', notify);
     window.addEventListener('agentnet:refresh', onRefresh);
     const poll = setInterval(() => {
-      if (!document.hidden) refreshData();
+      if (!document.hidden) refreshActivity();
     }, 30000);
     return () => {
       source.close();

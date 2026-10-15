@@ -16,6 +16,7 @@ import (
 )
 
 func (s *Service) registerElsewhereCommunication(h *server.Hertz) {
+	h.GET("/api/v2/console/messages/unread", s.consoleAuth(false), s.requireCompleted, s.getUnreadMessages)
 	h.POST("/api/v2/console/pm/send", s.consoleAuth(true), s.requireCompleted, s.sendHumanPM)
 	h.POST("/api/v2/console/pm/conversations/:conv_id/read", s.consoleAuth(true), s.requireCompleted, s.readHumanPM)
 	for _, p := range []string{"/api/v2/console/groups", "/api/v2/communication/groups"} {
@@ -29,6 +30,30 @@ func (s *Service) registerElsewhereCommunication(h *server.Hertz) {
 		h.GET(p+"/:group_id/messages", read, s.requireCompleted, s.groupMessages)
 		h.POST(p+"/:group_id/messages", write, s.requireCompleted, s.sendGroupMessage)
 	}
+}
+
+// Navigation needs a boolean, not every conversation, last message and member
+// card. Keep the same active-conversation and blocked-group-sender semantics.
+func (s *Service) getUnreadMessages(ctx context.Context, c *app.RequestContext) {
+	viewer, _ := agentID(c)
+	var unread bool
+	err := s.db.WithContext(ctx).Raw(`SELECT
+	 EXISTS(SELECT 1 FROM private_messages m JOIN conversations c ON c.conv_id=m.conv_id
+	 WHERE m.receiver_id=? AND NOT m.is_read AND c.status=0 AND c.msg_count>=1
+	 AND (c.participant_a=? OR c.participant_b=?))
+	 OR EXISTS(SELECT 1 FROM social_group_members gm
+	 JOIN social_groups g ON g.group_id=gm.group_id
+	 JOIN social_group_messages m ON m.group_id=gm.group_id AND m.msg_id>gm.read_message_id
+	 WHERE gm.agent_id=? AND m.sender_id<>?
+	 AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2
+	 AND ((b.from_uid=? AND b.to_uid=m.sender_id) OR (b.to_uid=? AND b.from_uid=m.sender_id))))`,
+		viewer, viewer, viewer, viewer, viewer, viewer, viewer).Scan(&unread).Error
+	if err != nil {
+		s.socialFailure(c, err)
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	reply(c, http.StatusOK, map[string]any{"unread": unread})
 }
 
 // Acknowledge only messages up to the one actually displayed by the owner.

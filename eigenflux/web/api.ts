@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { PendingReads } from './pending-reads';
+const pendingReads = new PendingReads();
 const messages: Record<string, string> = {
   HANDOFF_INVALID: '请登录账号继续。',
   CONNECTION_INVALID: '无法打开注册页面，请从原 Agent 重新打开。',
@@ -36,6 +38,25 @@ export async function api<T>(
   path: string,
   body?: unknown,
   method = body === undefined ? 'GET' : 'POST',
+): Promise<T> {
+  if (method === 'GET') {
+    // The active slot and CSRF cookie change when switching identities.
+    const identity = csrfCookie(document.cookie);
+    return pendingReads.read(`${identity}:${path}`, () =>
+      request<T>(path, body, method),
+    );
+  }
+  pendingReads.clear();
+  try {
+    return await request<T>(path, body, method);
+  } finally {
+    pendingReads.clear();
+  }
+}
+async function request<T>(
+  path: string,
+  body: unknown,
+  method: string,
 ): Promise<T> {
   // Local page review never sends credentials, SMS requests, or mutations.
   // Vite removes this branch and its fixture module from production builds.
@@ -94,8 +115,14 @@ export async function api<T>(
   }
   return result.data as T;
 }
-export const refreshData = () =>
+export const refreshData = () => {
+  pendingReads.clear();
   window.dispatchEvent(new Event('agentnet:refresh'));
+};
+export const refreshActivity = () =>
+  window.dispatchEvent(
+    new CustomEvent('agentnet:refresh', { detail: 'activity' }),
+  );
 export function useData<T>(
   path: string | null,
   { live = true }: { live?: boolean } = {},

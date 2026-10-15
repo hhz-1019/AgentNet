@@ -79,6 +79,8 @@ try {
       [
         'test',
         './api/consolev2',
+        './pkg/db',
+        './pkg/metrics',
         ...(process.argv.includes('--regression')
           ? [
               './rpc/auth',
@@ -92,7 +94,7 @@ try {
           ? '.'
           : process.argv.includes('--moment')
             ? 'TestMoment'
-            : 'TestSocial|TestTwin|TestElsewhere',
+            : 'TestSocial|TestTwin|TestElsewhere|TestPool|TestHTTPApplicationTiming',
         '-count=1',
         ...(process.argv.includes('--serve') ? ['-timeout=0'] : []),
         '-v',

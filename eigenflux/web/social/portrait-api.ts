@@ -11,7 +11,9 @@ export const blankPortrait = (name = '', bio = ''): SavedPortrait => ({
   memories: [],
   revision: 0,
 });
-export async function loadPortrait(): Promise<SavedPortrait> {
+export async function loadPortrait({
+  allMemories = true,
+} = {}): Promise<SavedPortrait> {
   const first = await api<SavedPortrait>('console/portrait');
   if (
     !first?.fields ||
@@ -21,7 +23,7 @@ export async function loadPortrait(): Promise<SavedPortrait> {
   )
     throw new Error('画像数据格式不完整，请重新载入。');
   let cursor = first.next_cursor;
-  while (cursor) {
+  while (allMemories && cursor) {
     const page = await api<SavedPortrait>(
       `console/portrait?cursor=${encodeURIComponent(cursor)}`,
     );

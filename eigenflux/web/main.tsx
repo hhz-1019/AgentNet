@@ -79,7 +79,8 @@ function AppContent({
   }
   useEffect(() => {
     if (isVisualPreview) return;
-    const update = () => {
+    const update = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail === 'activity') return;
       void refresh();
     };
     window.addEventListener('agentnet:refresh', update);
