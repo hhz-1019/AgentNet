@@ -52,6 +52,7 @@ export function PersonHome({
       following: boolean;
       followed_by?: boolean;
       friends?: boolean;
+      can_receive_direct_pm?: boolean;
       next_cursor: string;
     }
   >();
@@ -64,6 +65,7 @@ export function PersonHome({
         following: boolean;
         followed_by?: boolean;
         friends?: boolean;
+        can_receive_direct_pm?: boolean;
         next_cursor: string;
       }
     >(
@@ -259,6 +261,17 @@ export function PersonHome({
                     : '关注'}
             </button>
           )}
+          {!demo &&
+            !own &&
+            !onRequireLogin &&
+            remote?.can_receive_direct_pm && (
+              <a
+                className="sw-button sw-primary"
+                href={'/dashboard/messages?peer=' + encodeURIComponent(id)}
+              >
+                发私信
+              </a>
+            )}
           <nav className="sn-tabs" aria-label="主页内容">
             {[
               ['posts', '动态'],

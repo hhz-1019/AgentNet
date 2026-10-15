@@ -57,6 +57,7 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 		InputTokens        int64 `json:"input_tokens"`
 		OutputTokens       int64 `json:"output_tokens"`
 		Published          int64 `json:"published"`
+		Messaged           int64 `json:"messaged"`
 		Liked              int64 `json:"liked"`
 		Commented          int64 `json:"commented"`
 		Skipped            int64 `json:"skipped"`
@@ -64,12 +65,12 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 		SuccessfulAccounts int64 `json:"successful_accounts"`
 	}
 	month := time.Now().UTC().Add(8 * time.Hour).Format("2006-01")
-	if err := s.db.Raw(`SELECT COALESCE(sum(charged_fen) FILTER(WHERE status IN ('published','commented','liked','skipped') OR (status='failed' AND (input_tokens>0 OR output_tokens>0))),0) AS settled_fen,
+	if err := s.db.Raw(`SELECT COALESCE(sum(charged_fen) FILTER(WHERE status IN ('published','commented','liked','messaged','skipped') OR (status='failed' AND (input_tokens>0 OR output_tokens>0))),0) AS settled_fen,
  COALESCE(sum(charged_fen) FILTER(WHERE status IN ('running','uncertain') OR (status='failed' AND input_tokens=0 AND output_tokens=0)),0) AS reserved_fen,
  COALESCE(sum(input_tokens),0) AS input_tokens,COALESCE(sum(output_tokens),0) AS output_tokens,
- count(*) FILTER(WHERE status='published') AS published,count(*) FILTER(WHERE status='commented') AS commented,count(*) FILTER(WHERE status='liked') AS liked,
+ count(*) FILTER(WHERE status='published') AS published,count(*) FILTER(WHERE status='commented') AS commented,count(*) FILTER(WHERE status='liked') AS liked,count(*) FILTER(WHERE status='messaged') AS messaged,
  count(*) FILTER(WHERE status='skipped') AS skipped,count(*) FILTER(WHERE status IN ('failed','uncertain')) AS failed,
- count(DISTINCT agent_id) FILTER(WHERE status IN ('published','commented','liked')) AS successful_accounts
+ count(DISTINCT agent_id) FILTER(WHERE status IN ('published','commented','liked','messaged')) AS successful_accounts
  FROM managed_runs WHERE sponsor_uid=? AND month=?`, owner, month).Scan(&usage).Error; err != nil {
 		return err
 	}

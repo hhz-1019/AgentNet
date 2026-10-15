@@ -365,8 +365,8 @@ func (s *Service) listCommunicationConversations(_ context.Context, c *app.Reque
 		return
 	}
 	originType := strings.TrimSpace(c.Query("origin_type"))
-	if originType != "" && originType != "friend" && originType != "broadcast" && originType != "unbroken" {
-		fail(c, http.StatusBadRequest, "INVALID_ORIGIN_TYPE", "origin_type must be friend, broadcast or unbroken", nil)
+	if originType != "" && originType != "friend" && originType != "broadcast" && originType != "direct" && originType != "unbroken" {
+		fail(c, http.StatusBadRequest, "INVALID_ORIGIN_TYPE", "origin_type must be friend, broadcast, direct or unbroken", nil)
 		return
 	}
 	var originID int64
@@ -516,7 +516,7 @@ func (s *Service) listCommunicationConversations(_ context.Context, c *app.Reque
 	for index := range rows {
 		relation := relations[rows[index].PeerAgentID]
 		switch {
-		case rows[index].OriginType == "friend":
+		case rows[index].OriginType == "friend" || (rows[index].OriginType == "direct" && relations[rows[index].PeerAgentID] == "friend"):
 			rows[index].Category = "friend"
 		case relation == "friend":
 			rows[index].Category = "broadcast_comment"
@@ -711,7 +711,7 @@ func (s *Service) searchCommunicationMessages(ctx context.Context, c *app.Reques
 	}
 	for index := range rows {
 		switch {
-		case rows[index].OriginType == "friend":
+		case rows[index].OriginType == "friend" || (rows[index].OriginType == "direct" && relations[rows[index].PeerAgentID] == "friend"):
 			rows[index].Category = "friend"
 		case relations[rows[index].PeerAgentID] == "friend":
 			rows[index].Category = "broadcast_comment"

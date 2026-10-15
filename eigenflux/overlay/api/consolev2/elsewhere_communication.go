@@ -145,7 +145,11 @@ func (s *Service) sendHumanPM(ctx context.Context, c *app.RequestContext) {
 				return e
 			}
 		} else {
-			if e := canCommunicate(tx, viewer, peer, true); e != nil {
+			origin, e := managedInboxOrigin(tx, viewer, peer)
+			if e != nil {
+				return e
+			}
+			if e := canCommunicate(tx, viewer, peer, false); e != nil {
 				return e
 			}
 			a, b := viewer, peer
@@ -156,7 +160,7 @@ func (s *Service) sendHumanPM(ctx context.Context, c *app.RequestContext) {
 			if e != nil {
 				return e
 			}
-			if e = tx.Exec(`INSERT INTO conversations(conv_id,participant_a,participant_b,initiator_id,last_sender_id,origin_type,origin_id,msg_count,status,updated_at,participant_a_name,participant_b_name) SELECT ?,?,?,?,?,'friend',0,0,0,?,a.agent_name,b.agent_name FROM agents a,agents b WHERE a.agent_id=? AND b.agent_id=? ON CONFLICT(participant_a,participant_b,origin_id) DO NOTHING`, next, a, b, viewer, viewer, time.Now().UnixMilli(), a, b).Error; e != nil {
+			if e = tx.Exec(`INSERT INTO conversations(conv_id,participant_a,participant_b,initiator_id,last_sender_id,origin_type,origin_id,msg_count,status,updated_at,participant_a_name,participant_b_name) SELECT ?,?,?,?,?,?,0,0,0,?,a.agent_name,b.agent_name FROM agents a,agents b WHERE a.agent_id=? AND b.agent_id=? ON CONFLICT(participant_a,participant_b,origin_id) DO NOTHING`, next, a, b, viewer, viewer, origin, time.Now().UnixMilli(), a, b).Error; e != nil {
 				return e
 			}
 			if e = tx.Raw(`SELECT conv_id FROM conversations WHERE participant_a=? AND participant_b=? AND origin_id=0 AND status=0 FOR UPDATE`, a, b).Scan(&conv).Error; e != nil {
@@ -164,6 +168,22 @@ func (s *Service) sendHumanPM(ctx context.Context, c *app.RequestContext) {
 			}
 			if conv == 0 {
 				return gorm.ErrRecordNotFound
+			}
+		}
+		managed, e := managedInboxPair(tx, viewer, peer)
+		if e != nil {
+			return e
+		}
+		if managed {
+			var open bool
+			if e := tx.Raw("SELECT EXISTS(SELECT 1 FROM conversations WHERE conv_id=? AND status=0 AND topic_status=1)", conv).Scan(&open).Error; e != nil {
+				return e
+			}
+			if !open {
+				return gorm.ErrRecordNotFound
+			}
+			if e := managedInboxWindow(tx, conv, viewer, peer); e != nil {
+				return e
 			}
 		}
 		now := time.Now().UnixMilli()

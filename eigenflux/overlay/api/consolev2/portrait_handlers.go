@@ -352,13 +352,14 @@ func (s *Service) getPerson(ctx context.Context, c *app.RequestContext) {
 	viewer, _ := agentID(c)
 	id := socialDecimal(c.Param("person_id"))
 	var p struct {
-		AgentID    int64
-		AgentName  string
-		Bio        string
-		IsOfficial bool
-		OwnerUID   string
+		CanReceiveDirectPM bool
+		AgentID            int64
+		AgentName          string
+		Bio                string
+		IsOfficial         bool
+		OwnerUID           string
 	}
-	e := s.db.WithContext(ctx).Raw(`SELECT a.agent_id,a.agent_name,a.bio,a.is_official,COALESCE(o.owner_uid,'') AS owner_uid FROM agents a LEFT JOIN agent_owners o USING(agent_id) WHERE a.agent_id=? AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2 AND ((b.from_uid=? AND b.to_uid=a.agent_id) OR (b.to_uid=? AND b.from_uid=a.agent_id)))`, id, viewer, viewer).Scan(&p).Error
+	e := s.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM managed_members m WHERE m.agent_id=a.agent_id AND m.deleted_at=0 AND a.identity_state='active') AS can_receive_direct_pm,a.agent_id,a.agent_name,a.bio,a.is_official,COALESCE(o.owner_uid,'') AS owner_uid FROM agents a LEFT JOIN agent_owners o USING(agent_id) WHERE a.agent_id=? AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2 AND ((b.from_uid=? AND b.to_uid=a.agent_id) OR (b.to_uid=? AND b.from_uid=a.agent_id)))`, id, viewer, viewer).Scan(&p).Error
 	if e != nil {
 		s.socialFailure(c, e)
 		return
@@ -405,7 +406,7 @@ func (s *Service) getPerson(ctx context.Context, c *app.RequestContext) {
 		s.socialFailure(c, e)
 		return
 	}
-	reply(c, 200, map[string]any{"agent_id": strconv.FormatInt(id, 10), "is_official": p.IsOfficial, "fields": fields, "visible": visible, "memories": memories, "next_cursor": next, "following": following, "followed_by": state.FollowedBy, "friends": state.Friends})
+	reply(c, 200, map[string]any{"agent_id": strconv.FormatInt(id, 10), "is_official": p.IsOfficial, "fields": fields, "visible": visible, "memories": memories, "next_cursor": next, "following": following, "followed_by": state.FollowedBy, "friends": state.Friends, "can_receive_direct_pm": p.CanReceiveDirectPM})
 }
 func (s *Service) putFollow(ctx context.Context, c *app.RequestContext) {
 	viewer, _ := agentID(c)
