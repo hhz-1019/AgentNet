@@ -673,6 +673,27 @@ func TestManagedFullSchema(t *testing.T) {
 	if count != 5 {
 		t.Fatal("recruitment portraits missing", count)
 	}
+	contacts := homeDiscoveryResponse{Items: []homeDiscoveryAgent{{AgentID: recruiters["tencent"]}}}
+	check(s.decorateHomeDiscoveryRelations(context.Background(), 1, &contacts))
+	if len(contacts.Items) != 5 || contacts.Items[0].AgentName == "" || !contacts.Items[0].ShowAddFriend {
+		t.Fatal("recruiters missing from unified contacts", contacts.Items)
+	}
+	// Reusing a cached list cannot expose blocked or archived identities.
+	check(db.Exec(`INSERT INTO user_relations(from_uid,to_uid,rel_type,created_at) VALUES(1,?,2,?)`, recruiters["tencent"], now).Error)
+	check(db.Exec(`UPDATE managed_members SET deleted_at=? WHERE agent_id=?`, now, recruiters["huawei"]).Error)
+	check(s.decorateHomeDiscoveryRelations(context.Background(), 1, &contacts))
+	if len(contacts.Items) != 3 {
+		t.Fatal("blocked or archived recruiter leaked", contacts.Items)
+	}
+	for _, item := range contacts.Items {
+		if item.AgentID == recruiters["tencent"] || item.AgentID == recruiters["huawei"] {
+			t.Fatal("hidden recruiter leaked")
+		}
+	}
+	h.GET("/recruitment-discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
+	if response := ut.PerformRequest(h.Engine, "GET", "/recruitment-discovery", nil); response.Code != 401 {
+		t.Fatal("contacts accessible without login", response.Code)
+	}
 	catalog.Profiles[1] = catalog.Profiles[0]
 	if _, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog); err == nil {
 		t.Fatal("duplicate recruitment keys accepted")

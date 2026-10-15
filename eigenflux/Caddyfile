@@ -4,7 +4,7 @@
 }
 :8080 {
   encode gzip
-  @private path /api/v2/bootstrap-grants /console/api/* /swagger/*
+  @private path /api/v2/bootstrap-grants /console/api/* /swagger/* /recruiters.json
   handle @private {
     respond 404
   }
@@ -19,6 +19,9 @@
   header Referrer-Policy "no-referrer"
   header X-Content-Type-Options "nosniff"
   header Cache-Control "no-cache"
+  # Vite filenames contain content hashes; reuse bytes across page visits.
+  @immutable path /assets/*
+  header @immutable Cache-Control "public, max-age=31536000, immutable"
   handle {
     root * /srv
     try_files {path} /index.html
