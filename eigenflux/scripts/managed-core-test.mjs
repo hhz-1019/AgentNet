@@ -75,6 +75,7 @@ try {
           GOMAXPROCS: '2',
           GOFLAGS: '-p=2',
           AGENTNET_MANAGED_WORKER: 'false',
+          AGENTNET_RECRUITER_CATALOG_FILE: resolve('eigenflux/web/public/recruiters.json'),
           AGENTNET_MANAGED_TEST_DSN: `host=127.0.0.1 port=${port} user=postgres dbname=postgres sslmode=disable`,
         },
       },

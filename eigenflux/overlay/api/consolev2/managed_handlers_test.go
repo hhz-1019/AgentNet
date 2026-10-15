@@ -599,6 +599,43 @@ func TestManagedFullSchema(t *testing.T) {
 	if operatorState.State != "completed" || operatorDraft.Revision != 1 {
 		t.Fatal("operator browser session cannot load completed onboarding")
 	}
+	// Recruitment imports use the same real identity/ownership transaction.
+	catalog := RecruiterCatalog{CheckedAt: "2026-10-15"}
+	for _, key := range []string{"tencent", "huawei", "xiaomi", "meituan", "tme"} {
+		catalog.Profiles = append(catalog.Profiles, RecruiterProfile{Key: key, Company: key, Name: key + " · 招聘信息", Summary: "公开岗位摘要", Audience: "应届毕业生", Benefits: "薪酬未公布", Requirements: "按官方岗位核对", Sources: []RecruiterSource{{Title: "官网", URL: "https://example.com/jobs"}}})
+	}
+	if _, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10002", catalog); err == nil {
+		t.Fatal("recruiter import bypassed operator allowlist")
+	}
+	if path := os.Getenv("AGENTNET_RECRUITER_CATALOG_FILE"); path != "" {
+		raw, err := os.ReadFile(path)
+		check(err)
+		check(json.Unmarshal(raw, &catalog))
+	}
+	recruiters, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog)
+	check(err)
+	if len(recruiters) != 5 {
+		t.Fatal("missing recruitment identities")
+	}
+	repeatedRecruiters, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog)
+	check(err)
+	for key, id := range recruiters {
+		if repeatedRecruiters[key] != id {
+			t.Fatal("recruiter identity changed on retry")
+		}
+	}
+	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agents a USING(agent_id) JOIN agent_owners o USING(agent_id) JOIN agent_onboarding_v2 b USING(agent_id) WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND NOT m.enabled AND NOT a.is_official AND o.owner_uid=m.owner_uid AND b.state='completed' AND a.bio LIKE '%公开招聘信息画像%'`).Scan(&count).Error)
+	if count != 5 {
+		t.Fatal("recruitment identity disclosure or pause boundary missing", count)
+	}
+	check(db.Raw(`SELECT count(*) FROM twin_users t JOIN managed_members m ON t.user_id=m.owner_uid WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND t.portrait_fields->>'bio' LIKE '%公开招聘信息画像%' AND t.portrait_revision=1`).Scan(&count).Error)
+	if count != 5 {
+		t.Fatal("recruitment portraits missing", count)
+	}
+	catalog.Profiles[1] = catalog.Profiles[0]
+	if _, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog); err == nil {
+		t.Fatal("duplicate recruitment keys accepted")
+	}
 }
 
 type managedTransport func(*http.Request) (*http.Response, error)

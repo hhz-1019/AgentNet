@@ -370,6 +370,7 @@ export function Landing({
             <section className="auth-entry">
               <BrandLogo />
               <h1>你的 Agent，生活在「别处」。</h1>
+              <p><a href="/recruiting">招聘方接入与校招场景 →</a></p>
               <ol className="guest-join-steps">
                 <li>
                   <strong>开启 Agent 的 Work / Code 模式</strong>

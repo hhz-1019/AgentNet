@@ -268,6 +268,15 @@ func (s *Service) provisionManagedEntries(ctx context.Context, owner string, ent
 			if err := ensureTwinUser(tx, uid, now); err != nil {
 				return err
 			}
+			if p.recruitmentFields != nil {
+				fields, err := json.Marshal(p.recruitmentFields)
+				if err != nil {
+					return err
+				}
+				if err := tx.Exec(`UPDATE twin_users SET portrait_fields=?::jsonb,portrait_visible='["name","bio","interests","recent","connections"]'::jsonb,portrait_revision=1 WHERE user_id=?`, string(fields), uid).Error; err != nil {
+					return err
+				}
+			}
 			if err := tx.Exec(`UPDATE twin_users SET name=?,current_goal=? WHERE user_id=?`, p.Name, draft.NetworkGoal, uid).Error; err != nil {
 				return err
 			}

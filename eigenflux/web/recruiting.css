@@ -1,0 +1,278 @@
+.recruiting-page {
+  max-width: 1240px;
+  margin: auto;
+  padding: 28px 48px 36px;
+  color: #222426;
+  background: #f7f7f4;
+  line-height: 1.7;
+  min-height: 100vh;
+}
+.recruiting-page a {
+  color: inherit;
+  text-underline-offset: 5px;
+}
+.recruiting-page :focus-visible {
+  outline: 2px solid #222426;
+  outline-offset: 5px;
+}
+.recruiting-page ::selection {
+  background: #222426;
+  color: #fff;
+}
+.recruiting-nav,
+.recruiting-section-title,
+.recruiting-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.recruiting-nav .brand {
+  width: 150px;
+}
+.recruiting-nav > a:last-child {
+  font-size: 15px;
+}
+.recruiting-intro {
+  padding: 68px 0 60px;
+  max-width: 900px;
+}
+.recruiting-intro h1 {
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 550;
+  letter-spacing: -0.025em;
+  margin: 0 0 22px;
+  line-height: 1.25;
+}
+.recruiting-intro p {
+  font-size: 19px;
+  line-height: 1.9;
+  margin: 0 0 28px;
+}
+.recruiting-action {
+  display: inline-block;
+  padding: 12px 22px;
+  background: #222426;
+  color: white !important;
+  text-decoration: none;
+  border-radius: 6px;
+}
+.recruiting-action:hover {
+  background: #414447;
+}
+.recruiting-section-title h2,
+.recruiting-join h2 {
+  font-size: 26px;
+  font-weight: 550;
+  margin: 0;
+}
+.recruiting-section-title span,
+.recruiting-note {
+  color: #585b5d;
+  font-size: 14px;
+}
+.recruiting-note {
+  margin: 12px 0 28px;
+  max-width: 80ch;
+}
+.recruiting-workspace {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  border-top: 1px solid #d9dbd7;
+  border-bottom: 1px solid #d9dbd7;
+  min-height: 650px;
+}
+.recruiting-companies {
+  padding: 20px 24px 20px 0;
+  border-right: 1px solid #d9dbd7;
+}
+.recruiting-companies button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  margin: 0 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  min-height: 85px;
+  color: #222426;
+}
+.recruiting-companies button strong {
+  display: block;
+  font-size: 19px;
+  font-weight: 550;
+}
+.recruiting-companies button span {
+  display: block;
+  font-size: 13px;
+  color: #585b5d;
+  margin-top: 5px;
+}
+.recruiting-companies button[aria-pressed='true'] {
+  background: #e5e7e2;
+}
+.recruiting-companies button:hover {
+  background: #eceee9;
+}
+.recruiting-profile {
+  padding: 30px 0 30px 36px;
+  min-width: 0;
+}
+.recruiting-profile h3 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 550;
+}
+.recruiting-profile header p {
+  font-size: 17px;
+  max-width: 65ch;
+  margin: 10px 0;
+}
+.recruiting-profile header > a {
+  font-size: 14px;
+  display: inline-block;
+  margin-top: 5px;
+}
+.recruiting-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0;
+}
+.recruiting-tags span {
+  font-size: 13px;
+  background: #ebede8;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+.recruiting-profile dl {
+  display: block;
+  margin: 0;
+}
+.recruiting-profile dl > div {
+  display: grid;
+  grid-template-columns: 128px 1fr;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid #e3e4e0;
+}
+.recruiting-profile dt {
+  font-size: 15px;
+  font-weight: 550;
+}
+.recruiting-profile dd {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.85;
+  max-width: 70ch;
+}
+.recruiting-profile footer {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  font-size: 13px;
+}
+.recruiting-profile footer strong {
+  font-weight: 550;
+}
+.recruiting-join {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  padding: 64px 0;
+}
+.recruiting-join p,
+.recruiting-join li,
+.recruiting-join a {
+  font-size: 15px;
+  line-height: 1.9;
+}
+.recruiting-join ol {
+  padding-left: 22px;
+  margin: 22px 0;
+}
+.recruiting-prompt {
+  padding: 24px;
+  background: #edefea;
+  border-radius: 6px;
+}
+.recruiting-prompt p {
+  margin: 0 0 18px;
+  overflow-wrap: anywhere;
+}
+.recruiting-prompt button {
+  background: #222426;
+  color: #fff;
+  border: 0;
+  border-radius: 5px;
+  min-height: 44px;
+  padding: 10px 20px;
+  font-size: 15px;
+}
+.recruiting-prompt button:hover {
+  background: #414447;
+}
+.recruiting-prompt output {
+  display: block;
+  font-size: 13px;
+  margin-top: 8px;
+  min-height: 22px;
+}
+.recruiting-bottom {
+  border-top: 1px solid #d9dbd7;
+  padding-top: 22px;
+  color: #585b5d;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .recruiting-page {
+    padding: 22px;
+  }
+  .recruiting-intro {
+    padding: 48px 0;
+  }
+  .recruiting-intro p {
+    font-size: 17px;
+  }
+  .recruiting-section-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .recruiting-workspace {
+    display: block;
+  }
+  .recruiting-companies {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    border-right: 0;
+    border-bottom: 1px solid #d9dbd7;
+    padding: 14px 0;
+  }
+  .recruiting-companies button {
+    flex: 0 0 145px;
+    margin: 0;
+  }
+  .recruiting-profile {
+    padding: 26px 0;
+  }
+  .recruiting-profile dl > div {
+    display: block;
+  }
+  .recruiting-profile dt {
+    margin-bottom: 6px;
+  }
+  .recruiting-join {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 44px 0;
+  }
+  .recruiting-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+}

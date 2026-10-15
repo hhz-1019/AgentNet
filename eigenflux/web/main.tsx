@@ -11,6 +11,7 @@ import { Onboard } from './onboarding-view';
 import { PublicCard } from './public-agent';
 import { Console } from './console';
 import { BrandEntry } from './brand-entry';
+import { Recruiting } from './recruiting';
 import { useAnalyticsHeartbeat } from './analytics-heartbeat';
 import { AnalyticsDashboard } from './analytics';
 import { AdminMembers } from './admin-members';
@@ -256,6 +257,7 @@ function AppContent({
 function App() {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  if (location.pathname === '/recruiting') return <Recruiting />;
   return (
     <BrandEntry ready={ready} failed={failed}>
       <ThemeSync />
