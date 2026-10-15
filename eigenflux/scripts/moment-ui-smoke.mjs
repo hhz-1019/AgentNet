@@ -25,6 +25,21 @@ try {
     let failure = true,
       empty = false,
       conflict = false;
+    let received = false,
+      inboxFailure = false,
+      detailFailure = false;
+    let seen = false;
+    const message = {
+      id: '91',
+      kind: 'private_message',
+      agent_id: '2',
+      agent_name: '收件伙伴',
+      title: '收到私信',
+      body: '这是 Agent 实际收到的消息。',
+      received_at: Date.now(),
+      truncated: false,
+      conversation_id: '71',
+    };
     const item = {
       attention_id: '1',
       title: '核对这份草稿',
@@ -56,6 +71,38 @@ try {
     const writes = [];
     await page.route('**/api/v2/**', async (route) => {
       const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('/console/moment/inbox'))
+        return route.fulfill(
+          inboxFailure
+            ? { status: 503, json: { error: { message: '收件服务失败' } } }
+            : {
+                json: {
+                  data: {
+                    items: received
+                      ? [{ ...message, viewed_at: seen ? Date.now() : null }]
+                      : [],
+                    next_cursor: '',
+                    server_time: Date.now(),
+                  },
+                },
+              },
+        );
+      if (path.includes('/console/moment/inbox/')) {
+        if (detailFailure)
+          return route.fulfill({
+            status: 404,
+            json: { error: { message: '这条交互已不可访问' } },
+          });
+        if (path.endsWith('/view')) {
+          assert.equal(route.request().method(), 'POST');
+          seen = true;
+        }
+        return route.fulfill({
+          json: {
+            data: { item: { ...message, viewed_at: seen ? Date.now() : null } },
+          },
+        });
+      }
       if (path.endsWith('/console/moment'))
         return route.fulfill(
           failure
@@ -115,9 +162,7 @@ try {
     });
     await page.goto(origin + 'preview-moment-live');
     await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
-    await page
-      .getByRole('heading', { name: '暂时没有加载出来' })
-      .waitFor();
+    await page.getByRole('heading', { name: '暂时没有加载出来' }).waitFor();
     failure = false;
     await page.getByRole('button', { name: '再试一次', exact: true }).click();
     const orb = page.getByRole('button', {
@@ -128,6 +173,10 @@ try {
     assert.ok(field.height > 500 && field.width > 300);
     await orb.click();
     const dialog = page.getByRole('dialog');
+    await dialog
+      .getByRole('button', { name: '查看完整事项', exact: true })
+      .first()
+      .click();
     await dialog.getByRole('button', { name: '搁置', exact: true }).click();
     await dialog.getByText('暂时搁置', { exact: true }).waitFor();
     await dialog.getByRole('button', { name: '重新考虑' }).click();
@@ -178,9 +227,7 @@ try {
     await page.evaluate(() =>
       window.dispatchEvent(new Event('agentnet:refresh')),
     );
-    await page
-      .getByRole('heading', { name: '此刻，还没有待确认的事项' })
-      .waitFor();
+    await page.getByRole('heading', { name: '此刻，还没有新的交互' }).waitFor();
     assert.equal(
       await page.locator('.mb-orb').count(),
       0,
@@ -188,16 +235,87 @@ try {
     );
     failure = true;
     await Promise.all([
-      page.waitForResponse((r) => r.url().endsWith('/console/moment') && r.status() === 503),
+      page.waitForResponse(
+        (r) => r.url().endsWith('/console/moment') && r.status() === 503,
+      ),
       page.evaluate(() => window.dispatchEvent(new Event('agentnet:refresh'))),
     ]);
-    await page.getByRole('heading', { name: '此刻，还没有待确认的事项' }).waitFor();
-    assert.equal(await page.getByRole('alert').count(), 0, 'background failure preserves the last verified state');
-    assert.equal(await page.locator('.mb-orb').count(), 0, 'background failure must not invent items');
+    await page.getByRole('heading', { name: '此刻，还没有新的交互' }).waitFor();
+    assert.equal(
+      await page.getByRole('alert').count(),
+      0,
+      'background failure preserves the last verified state',
+    );
+    assert.equal(
+      await page.locator('.mb-orb').count(),
+      0,
+      'background failure must not invent items',
+    );
     assert.deepEqual(
       writes.map((w) => w.action || w.action_key),
       ['defer', 'reopen', 'yes', 'yes', 'revoke', 'reopen', 'yes'],
     );
+    failure = false;
+    received = true;
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event('agentnet:refresh')),
+    );
+    const receivedOrb = page.getByRole('button', {
+      name: '收件伙伴，1 条交互，查看内容',
+    });
+    await receivedOrb.waitFor();
+    assert.equal(
+      await page.locator('.mb-empty').count(),
+      0,
+      'received messages remain visible with zero approvals',
+    );
+    await receivedOrb.click();
+    await dialog.getByText('查看依据', { exact: true }).click();
+    await dialog.locator('.mb-brief-sources button').first().click();
+    await dialog
+      .getByRole('region', { name: '交互正文' })
+      .getByText(message.body, { exact: true })
+      .waitFor();
+    await dialog.getByText('已查看', { exact: true }).waitFor();
+    assert.equal(
+      await dialog.getByRole('button', { name: '确认', exact: true }).count(),
+      0,
+      'ordinary messages do not grant execution authority',
+    );
+    await page.screenshot({
+      path: '.agentnet-audit/moment-inbox-' + width + '.png',
+    });
+    await page.keyboard.press('Escape');
+    detailFailure = true;
+    await receivedOrb.click();
+    await dialog.getByText('查看依据', { exact: true }).click();
+    await dialog.locator('.mb-brief-sources button').first().click();
+    await dialog.getByRole('alert').waitFor();
+    assert.equal(
+      await dialog
+        .getByRole('region', { name: '交互正文' })
+        .getByText(message.body, { exact: true })
+        .count(),
+      0,
+      'revoked access cannot reuse list preview as full content',
+    );
+    detailFailure = false;
+    await dialog.getByRole('button', { name: '重试读取' }).click();
+    await dialog
+      .getByRole('region', { name: '交互正文' })
+      .getByText(message.body, { exact: true })
+      .waitFor();
+    await page.keyboard.press('Escape');
+    inboxFailure = true;
+    await page.evaluate(() =>
+      window.dispatchEvent(new Event('agentnet:refresh')),
+    );
+    await page.getByRole('button', { name: '重新读取交互' }).waitFor();
+    assert.equal(await page.locator('.mb-empty').count(), 0);
+    inboxFailure = false;
+    received = false;
+    await page.getByRole('button', { name: '重新读取交互' }).click();
+    await page.getByRole('heading', { name: '此刻，还没有新的交互' }).waitFor();
     await page.close();
   }
   assert.deepEqual(errors, []);

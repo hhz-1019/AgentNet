@@ -110,6 +110,10 @@ func TestAccountConnectionRepeatAndOwnerLogin(t *testing.T) {
 	if status != 403 {
 		t.Fatal("runtime session read private Moment approvals", out)
 	}
+	status, out = request("GET", "/api/v2/console/moment/inbox", nil)
+	if status != 403 {
+		t.Fatal("runtime session read owner inbox", out)
+	}
 	status, out = request("POST", "/open", map[string]any{"ticket": key})
 	if status != 200 || out["data"].(map[string]any)["requires_login"] != true || cookies[consoleCookieName] != oldCookie {
 		t.Fatal("registered connection bypassed login or changed session", out)
@@ -136,6 +140,10 @@ func TestAccountConnectionRepeatAndOwnerLogin(t *testing.T) {
 	status, out = request("GET", "/api/v2/console/moment", nil)
 	if status != 200 {
 		t.Fatal("verified owner cannot read Moment approvals", out)
+	}
+	status, out = request("GET", "/api/v2/console/moment/inbox", nil)
+	if status != 200 {
+		t.Fatal("verified owner cannot read inbox", out)
 	}
 	status, out = request("POST", "/create", nil)
 	if status != 200 || !strings.HasSuffix(out["data"].(map[string]any)["handoff_url"].(string), "/dashboard?account=777880011") {

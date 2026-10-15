@@ -19,6 +19,7 @@ try {
     const page = await browser.newPage({ reducedMotion: 'reduce' });
     const errors = [];
     const sends = [];
+    const groupSends = [];
     let sent = false;
     let incoming = false;
     let read = false;
@@ -61,6 +62,11 @@ try {
         read = true;
         data = {};
       }
+      if (path.endsWith('/groups/707/messages')) {
+        if (route.request().method() === 'POST')
+          groupSends.push(route.request().postDataJSON());
+        data = { messages: empty, next_cursor: '' };
+      }
       if (path.endsWith('/activity/stream'))
         return route.fulfill({ contentType: 'text/event-stream', body: ': test\n\n' });
       return route.fulfill({ json: { data } });
@@ -94,6 +100,16 @@ try {
     assert.deepEqual(errors, [], 'empty conversation/group/history lists must not crash');
     await mkdir('.agentnet-audit', { recursive: true });
     await page.screenshot({ path: `.agentnet-audit/messages-empty-${empty === null ? 'null' : 'array'}.png` });
+    // Moment links may carry a group/conv destination. A stray peer parameter
+    // must not redirect their composer into a private message.
+    await page.goto(origin + 'dashboard/messages?group=707&peer=202');
+    await page.getByRole('heading', { name: '群聊', exact: true }).waitFor();
+    await page.getByLabel('输入消息', { exact: true }).fill('这是本地群聊入口验收。');
+    await page.getByRole('button', { name: '发送', exact: true }).click();
+    await page.getByText('已发送。', { exact: true }).waitFor();
+    assert.equal(groupSends.length, 1);
+    assert.equal(sends.length, 3, 'group link must not send a private message');
+    assert.deepEqual(errors, []);
     await page.close();
   }
   console.log('PASS: empty inbox, first send, existing thread, incoming message/read receipt, failed-send draft and idempotent retry');

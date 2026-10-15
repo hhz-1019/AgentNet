@@ -9,7 +9,11 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/ut"
 	"github.com/redis/go-redis/v9"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +64,7 @@ func TestMomentDecisionLifecycle(t *testing.T) {
 	t.Cleanup(func() { _ = rc.Close() })
 	s := &Service{db: db, redisClient: rc, otpPepper: "isolated-test"}
 	previewPort := os.Getenv("AGENTNET_MOMENT_PREVIEW_PORT")
+	browserScript := os.Getenv("AGENTNET_MOMENT_BROWSER_SCRIPT")
 	h := server.New()
 	if previewPort != "" {
 		h = server.New(server.WithHostPorts("127.0.0.1:" + previewPort))
@@ -80,8 +85,11 @@ func TestMomentDecisionLifecycle(t *testing.T) {
 	h.POST("/commands/:command_id/claim", inject, s.claimAgentCommand)
 	h.POST("/commands/:command_id/renew", inject, s.renewMomentCommand)
 	h.POST("/commands/:command_id/complete", inject, s.completeAgentCommand)
-	if previewPort != "" {
+	if previewPort != "" || browserScript != "" {
 		h.GET("/api/v2/console/moment", inject, s.listMoment)
+		h.GET("/api/v2/console/moment/inbox", inject, s.listMomentInbox)
+		h.GET("/api/v2/console/moment/inbox/:kind/:source_id", inject, s.momentInboxItem)
+		h.POST("/api/v2/console/moment/inbox/:kind/:source_id/view", inject, s.momentInboxItem)
 		h.POST("/api/v2/console/attention-items/:attention_id/respond", inject, s.respondAttentionItem)
 		h.POST("/api/v2/console/moment/:attention_id/state", inject, s.changeMomentState)
 		h.GET("/api/v2/console/avatars", inject, func(_ context.Context, c *app.RequestContext) {
@@ -162,9 +170,9 @@ func TestMomentDecisionLifecycle(t *testing.T) {
 	}
 	proof := map[string]any{"runtime_instance_id": "runtime", "claim_token": claim["claim_token"], "claim_epoch": claim["claim_epoch"], "executor_id": "test_host"}
 	call("POST", "/commands/"+command+"/renew", proof, "1", 200)
-	proof["executor_id"]="wrong"
+	proof["executor_id"] = "wrong"
 	call("POST", "/commands/"+command+"/renew", proof, "1", 409)
-	proof["executor_id"]="test_host"
+	proof["executor_id"] = "test_host"
 	call("POST", "/items/"+id+"/state", map[string]any{"action": "revoke", "expected_item_revision": 2}, "1", 409)
 	result := map[string]any{"summary": "已保存草稿。", "execution": map[string]any{"host_id": "test_host", "session_id": "actual-session", "input_hash": strings.Repeat("a", 64), "evidence": "草稿已读回核对。"}}
 	complete := map[string]any{"runtime_instance_id": "runtime", "claim_token": claim["claim_token"], "claim_epoch": claim["claim_epoch"], "status": "completed", "result": result}
@@ -196,9 +204,9 @@ func TestMomentDecisionLifecycle(t *testing.T) {
 	saved = approve(id, 1, "approval-four")
 	command = saved["command_id"].(string)
 	claim = call("POST", "/commands/"+command+"/claim", claimRequest, "1", 200)
-	must("UPDATE agent_attention_items SET expires_at=? WHERE attention_id=?",now-1,id)
-	call("POST","/commands/"+command+"/complete",map[string]any{"runtime_instance_id":"runtime","claim_token":claim["claim_token"],"claim_epoch":claim["claim_epoch"],"status":"completed","result":result},"1",409)
-	must("UPDATE agent_attention_items SET expires_at=? WHERE attention_id=?",now+3600000,id)
+	must("UPDATE agent_attention_items SET expires_at=? WHERE attention_id=?", now-1, id)
+	call("POST", "/commands/"+command+"/complete", map[string]any{"runtime_instance_id": "runtime", "claim_token": claim["claim_token"], "claim_epoch": claim["claim_epoch"], "status": "completed", "result": result}, "1", 409)
+	must("UPDATE agent_attention_items SET expires_at=? WHERE attention_id=?", now+3600000, id)
 	must("UPDATE agent_commands SET claim_until=? WHERE command_id=?", now-1, command)
 	call("GET", "/pending?command_type=attention_response", nil, "1", 200)
 	call("POST", "/commands/"+command+"/claim", claimRequest, "1", 409)
@@ -213,10 +221,12 @@ func TestMomentDecisionLifecycle(t *testing.T) {
 	// Chat approvals are fenced from the old background executor.
 	chatID := publish(7)
 	chatExecutor := "chat_00000000-0000-4000-8000-000000000001"
-	chatRequest := map[string]any{"action_key":"yes", "expected_item_revision":1, "idempotency_key":"chat-approval-one", "condition":"只写草稿", "chat_executor":chatExecutor}
+	chatRequest := map[string]any{"action_key": "yes", "expected_item_revision": 1, "idempotency_key": "chat-approval-one", "condition": "只写草稿", "chat_executor": chatExecutor}
 	chatSaved := call("POST", "/items/"+chatID+"/respond", chatRequest, "1", 202)
 	chatCommand := chatSaved["command_id"].(string)
-	if call("POST", "/items/"+chatID+"/respond", chatRequest, "1", 200)["command_id"] != chatCommand { t.Fatal("chat decision replay lost") }
+	if call("POST", "/items/"+chatID+"/respond", chatRequest, "1", 200)["command_id"] != chatCommand {
+		t.Fatal("chat decision replay lost")
+	}
 	chatRequest["chat_executor"] = "chat_00000000-0000-4000-8000-000000000002"
 	call("POST", "/items/"+chatID+"/respond", chatRequest, "1", 409)
 	chatRequest["chat_executor"] = "arbitrary-thread"
@@ -226,9 +236,11 @@ func TestMomentDecisionLifecycle(t *testing.T) {
 	claimRequest["executor_id"] = chatExecutor
 	chatClaim := call("POST", "/commands/"+chatCommand+"/claim", claimRequest, "1", 200)
 	chatPayload := chatClaim["payload"].(map[string]any)
-	if chatPayload["delivery"] != "current_chat" || chatPayload["condition"] != "只写草稿" || chatPayload["authorization_scope"] != "只写草稿，不公开发送。" { t.Fatal("chat approval grant lost") }
-	call("POST", "/commands/"+chatCommand+"/complete", map[string]any{"runtime_instance_id":"runtime","claim_token":chatClaim["claim_token"],"claim_epoch":chatClaim["claim_epoch"],"status":"completed","result":result}, "1", 200)
-	if previewPort != "" {
+	if chatPayload["delivery"] != "current_chat" || chatPayload["condition"] != "只写草稿" || chatPayload["authorization_scope"] != "只写草稿，不公开发送。" {
+		t.Fatal("chat approval grant lost")
+	}
+	call("POST", "/commands/"+chatCommand+"/complete", map[string]any{"runtime_instance_id": "runtime", "claim_token": chatClaim["claim_token"], "claim_epoch": chatClaim["claim_epoch"], "status": "completed", "result": result}, "1", 200)
+	if previewPort != "" || browserScript != "" {
 		must("UPDATE agent_commands SET status='failed',result='{\"summary\":\"历史联调记录，未再次执行。\"}' WHERE status IN ('pending','notified')")
 		must("UPDATE agent_attention_items SET status='dismissed' WHERE status IN ('pending','open')")
 		fresh := publish(6)
@@ -244,7 +256,50 @@ func TestMomentDecisionLifecycle(t *testing.T) {
  actions_snapshot,'open',1,'none',?,?,?,? FROM agent_attention_items WHERE attention_id=?`,
 				fmt.Sprintf("核对第 %02d 项联调事项？", i+1), "这是一条本地隔离样例，用于检查头像聚合、事项优先级和审批展开。", fmt.Sprint("preview-peer-", i), peer, 100-i*4, now, now+int64(i), now, now+86400000, fresh)
 		}
-		fmt.Println("MOMENT_PREVIEW_READY http://127.0.0.1:" + previewPort)
-		h.Spin()
+		must(`UPDATE agents SET agent_name='收件联调伙伴' WHERE agent_id=3;
+INSERT INTO conversations(conv_id,participant_a,participant_b,initiator_id,last_sender_id,msg_count,status,updated_at) VALUES(78001,1,3,3,3,1,0,?);
+INSERT INTO private_messages(msg_id,conv_id,sender_id,receiver_id,content,created_at) VALUES(78101,78001,3,1,'这是隔离数据库中 Agent 实际收到的私信，读取不会替 Agent 消耗未读消息。',?)`, now, now)
+		must(`INSERT INTO social_work_posts(post_id,agent_id,state,visibility,document,created_at,published_at,approved_revision)
+ VALUES(79101,3,'published','public','{"title":"散步时发现的小书店","body":"沿着河边走，路过一家旧书店。"}',?,?,1);
+ INSERT INTO social_work_comments VALUES(79201,79101,1,'我方留下了评论：下次一起交换书单。','moment-live-comment',?)`, now-3000, now-3000, now-1000)
+		if browserScript != "" {
+			defer db.Exec("DELETE FROM private_messages WHERE msg_id=78101; DELETE FROM conversations WHERE conv_id=78001; DELETE FROM moment_inbox_views WHERE source_id IN(78101,79201); DELETE FROM social_work_posts WHERE post_id=79101")
+			gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					http.Error(w, "body", 400)
+					return
+				}
+				headers := []ut.Header{}
+				for key, values := range r.Header {
+					for _, value := range values {
+						headers = append(headers, ut.Header{Key: key, Value: value})
+					}
+				}
+				response := ut.PerformRequest(h.Engine, r.Method, r.URL.RequestURI(), &ut.Body{Body: strings.NewReader(string(body)), Len: len(body)}, headers...)
+				response.Header().VisitAll(func(k, v []byte) { w.Header().Add(string(k), string(v)) })
+				w.WriteHeader(response.Code)
+				_, _ = w.Write(response.Body.Bytes())
+			}))
+			defer gateway.Close()
+			command := exec.Command("node", browserScript)
+			command.Env = append(os.Environ(), "AGENTNET_SOCIAL_BROWSER_CORE="+gateway.URL)
+			output, err := command.CombinedOutput()
+			t.Log(string(output))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var viewed int64
+			if err := db.Raw("SELECT count(*) FROM moment_inbox_views WHERE agent_id=1 AND source_kind='private_message' AND source_id=78101").Scan(&viewed).Error; err != nil || viewed != 1 {
+				t.Fatalf("missing persistent browser view receipt: %d %v", viewed, err)
+			}
+			var read bool
+			if err := db.Raw("SELECT is_read FROM private_messages WHERE msg_id=78101").Scan(&read).Error; err != nil || read {
+				t.Fatalf("browser consumed Agent unread state: %v %v", read, err)
+			}
+		} else {
+			fmt.Println("MOMENT_PREVIEW_READY http://127.0.0.1:" + previewPort)
+			h.Spin()
+		}
 	}
 }

@@ -59,6 +59,9 @@ func validateMomentContext(m *momentContext, actions []attentionProtocolAction) 
 }
 
 func (s *Service) registerMomentRoutes(h *server.Hertz) {
+	h.GET("/api/v2/console/moment/inbox", s.consoleAuth(false), s.requireCompleted, s.listMomentInbox)
+	h.GET("/api/v2/console/moment/inbox/:kind/:source_id", s.consoleAuth(false), s.requireCompleted, s.momentInboxItem)
+	h.POST("/api/v2/console/moment/inbox/:kind/:source_id/view", s.consoleAuth(true), s.requireCompleted, s.momentInboxItem)
 	if !s.enableAttentionV1 || !s.enableControl {
 		return
 	}

@@ -288,7 +288,7 @@ try {
     await nav
       .locator('a')
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label'))),
-    ['此刻', '发现', '消息', '通讯录'],
+    ['此刻', '发现', '消息'],
   );
   await nav.getByRole('link', { name: '此刻', exact: true }).click();
   await login.waitFor();
@@ -296,7 +296,30 @@ try {
   assert(!requests.some((r) => r.path.endsWith('/console/moment')));
   await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await login.waitFor({ state: 'detached' });
-  await nav.getByRole('link', { name: '通讯录', exact: true }).click();
+  await nav.getByRole('link', { name: '消息', exact: true }).click();
+  const pageTabBounds = async () =>
+    page.locator('.sw-message-sections a').evaluateAll((els) =>
+      els.map((el) => {
+        const { x, y, width, height } = el.getBoundingClientRect();
+        return { x, y, width, height };
+      }),
+    );
+  const pageBefore = await pageTabBounds();
+  await page
+    .getByRole('navigation', { name: '消息与通讯录' })
+    .getByRole('link', { name: '通讯录', exact: true })
+    .click();
+  assert.deepEqual(
+    await pageTabBounds(),
+    pageBefore,
+    'Guest conversation/address-book tabs must stay fixed',
+  );
+  assert.equal(
+    await nav
+      .getByRole('link', { name: '消息', exact: true })
+      .getAttribute('aria-current'),
+    'page',
+  );
   await page.locator('.sw-peer-card').waitFor();
   assert.equal(await login.count(), 0);
   await page
@@ -425,7 +448,7 @@ try {
         .evaluateAll((links) =>
           links.map((link) => link.getAttribute('aria-label')),
         ),
-      ['此刻', '发现', '消息', '通讯录'],
+      ['此刻', '发现', '消息'],
     );
     const guestMetrics = await metrics();
     await page.goto(origin + 'preview#explore');
@@ -473,10 +496,23 @@ try {
     ['此刻', '发现', '发布', '消息', '我的'],
   );
   await mobileNav.getByRole('link', { name: '消息', exact: true }).click();
+  const mobilePageTabBounds = async () =>
+    mobilePage.locator('.sw-message-sections a').evaluateAll((els) =>
+      els.map((el) => {
+        const { x, y, width, height } = el.getBoundingClientRect();
+        return { x, y, width, height };
+      }),
+    );
+  const mobilePageBefore = await mobilePageTabBounds();
   await mobilePage
     .getByRole('navigation', { name: '消息与通讯录' })
     .getByRole('link', { name: '通讯录', exact: true })
     .click();
+  assert.deepEqual(
+    await mobilePageTabBounds(),
+    mobilePageBefore,
+    'Guest conversation/address-book tabs must stay fixed',
+  );
   assert.equal(
     await mobileNav
       .getByRole('link', { name: '消息', exact: true })

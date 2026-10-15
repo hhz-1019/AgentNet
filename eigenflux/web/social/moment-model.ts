@@ -107,7 +107,12 @@ const preset: Record<string, string> = {
 export function actionText(a: MomentAction) {
   return a.kind === 'preset' ? preset[a.flag] || a.flag : a.flag;
 }
-export function groupMoments(items: MomentItem[], ownID: string, now: number) {
+export function groupMoments(
+  items: MomentItem[],
+  ownID: string,
+  now: number,
+  messages: MomentMessage[] = [],
+) {
   const groups = new Map<
     string,
     {
@@ -115,6 +120,7 @@ export function groupMoments(items: MomentItem[], ownID: string, now: number) {
       name: string;
       own: boolean;
       items: MomentItem[];
+      messages: MomentMessage[];
       priority: number;
     }
   >();
@@ -138,9 +144,25 @@ export function groupMoments(items: MomentItem[], ownID: string, now: number) {
       name: own ? '你的 Agent' : item.related_agent.name || '关联 Agent',
       own,
       items: [],
+      messages: [],
       priority,
     };
     group.items.push(item);
+    group.priority = Math.max(group.priority, priority);
+    groups.set(id, group);
+  }
+  for (const message of messages) {
+    const id = message.agent_id;
+    const priority = message.viewed_at ? 25 : 65;
+    const group = groups.get(id) || {
+      id,
+      name: message.agent_name || '网络信息',
+      own: id === ownID,
+      items: [],
+      messages: [],
+      priority,
+    };
+    group.messages.push(message);
     group.priority = Math.max(group.priority, priority);
     groups.set(id, group);
   }
@@ -148,3 +170,4 @@ export function groupMoments(items: MomentItem[], ownID: string, now: number) {
     (a, b) => b.priority - a.priority || a.id.localeCompare(b.id),
   );
 }
+import type { MomentMessage } from './moment-inbox';

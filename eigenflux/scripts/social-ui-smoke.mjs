@@ -34,7 +34,6 @@ try {
     ['此刻', 'crossing'],
     ['发现', 'explore'],
     ['消息', 'messages'],
-    ['通讯录', 'network'],
   ]) {
     const link = mainNav.getByRole('link', { name: label, exact: true });
     await link.click();
@@ -50,7 +49,7 @@ try {
     assert.ok(names.length > 0, label + ' has selection feedback');
     motions.add(names.join(','));
   }
-  assert.equal(motions.size, 4, 'navigation destinations have distinct motion');
+  assert.equal(motions.size, 3, 'navigation destinations have distinct motion');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await mainNav.getByRole('link', { name: '此刻', exact: true }).click();
   assert.equal(
@@ -133,7 +132,7 @@ try {
       .getByRole('navigation', { name: '主导航', exact: true })
       .getByRole('link')
       .count(),
-    4,
+    3,
   );
   assert.equal(await page.locator('.sw-agent-rail').count(), 0);
   assert.equal(await page.locator('.sn-account').count(), 1);

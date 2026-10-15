@@ -885,7 +885,36 @@
   padding: 10px 0 0 !important;
 }
 .sw-message-sections {
-  display: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.sw-message-sections a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 20px;
+  border: 0;
+  border-radius: 24px;
+  color: var(--ew-muted);
+  background: transparent;
+  font-size: 18px;
+  text-decoration: none;
+}
+.sw-message-sections a[aria-current] {
+  background: var(--ew-tint);
+  color: var(--ew-ink);
+}
+.sn-social .sn-message-page > .sn-page-heading,
+.sw-message-heading,
+.sw-network-page > .sw-page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  margin: 0 0 20px;
 }
 .sw-message-heading {
   display: flex;

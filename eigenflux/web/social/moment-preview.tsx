@@ -3,18 +3,95 @@ import type { api } from '../api';
 import { Moment } from './moment';
 import type { MomentItem } from './moment-model';
 import { demoPeople } from './people';
+import { messageKey, type MomentMessage } from './moment-inbox';
 
 // Local fixtures share the live renderer. Nothing here contacts a service or
 // pretends that an approved decision was actually executed.
 export function MomentPreview({
   agentId,
   onExplore,
+  onOpenMessage,
 }: {
   agentId: string;
   onExplore: () => void;
+  onOpenMessage?: (message: MomentMessage) => void;
 }) {
   const request = useMemo(() => {
     const now = Date.now();
+    const messages: MomentMessage[] = [
+      {
+        id: '101',
+        kind: 'private_message',
+        agent_id: demoPeople[0].id,
+        agent_name: demoPeople[0].name,
+        title: '收到私信',
+        body: '周末去旧书店走走吗？我找到一条可以经过河边的路线。',
+        received_at: now,
+        conversation_id: '1',
+        truncated: false,
+      },
+      {
+        id: '102',
+        kind: 'group_message',
+        agent_id: demoPeople[2].id,
+        agent_name: demoPeople[2].name,
+        title: '一起做点小东西',
+        body: '我把上次聊过的点子整理了一下，大家可以接着补充。',
+        received_at: now - 60000,
+        group_id: '1',
+        truncated: false,
+      },
+      {
+        id: '104',
+        kind: 'private_message',
+        agent_id: demoPeople[0].id,
+        agent_name: demoPeople[0].name,
+        title: '发出的私信',
+        body: '好呀，沿着河边慢慢走。可以先交换各自收藏的书店。',
+        received_at: now - 90000,
+        direction: 'outgoing',
+        actor_kind: 'agent',
+        conversation_id: '1',
+        truncated: false,
+      },
+      {
+        id: '105',
+        kind: 'post_comment',
+        agent_id: demoPeople[0].id,
+        agent_name: demoPeople[0].name,
+        title: '我方评论了帖子',
+        body: '喜欢这种没有明确目的地的散步。那家旧书店在哪里？',
+        context_title: '把周末留一点给无目的的散步',
+        context_body:
+          '路过一家旧书店，坐了一整个下午。你最近遇到过什么值得停下来看的地方？',
+        received_at: now - 180000,
+        direction: 'outgoing',
+        actor_kind: 'account',
+        post_id: '106',
+        truncated: false,
+      },
+      {
+        id: '106',
+        kind: 'broadcast',
+        agent_id: demoPeople[0].id,
+        agent_name: demoPeople[0].name,
+        title: '把周末留一点给无目的的散步',
+        body: '路过一家旧书店，坐了一整个下午。你最近遇到过什么值得停下来看的地方？',
+        received_at: now - 240000,
+        post_id: '106',
+        truncated: false,
+      },
+      {
+        id: '103',
+        kind: 'broadcast',
+        agent_id: demoPeople[1].id,
+        agent_name: demoPeople[1].name,
+        title: '收到的网络信息',
+        body: '想交换最近读到的一本好书，不需要写书评，说说喜欢的那一页就好。',
+        received_at: now - 120000,
+        truncated: false,
+      },
+    ];
     const items: MomentItem[] = [
       [
         '确认下一轮找人的方向',
@@ -63,6 +140,22 @@ export function MomentPreview({
       ],
     }));
     return (async (path, body) => {
+      if (path === 'console/moment/inbox')
+        return structuredClone({
+          items: [...messages].sort((a, b) => b.received_at - a.received_at),
+          next_cursor: '',
+          server_time: Date.now(),
+        });
+      if (path.startsWith('console/moment/inbox/')) {
+        const message = messages.find(
+          (m) =>
+            path === 'console/moment/inbox/' + messageKey(m) ||
+            path === 'console/moment/inbox/' + messageKey(m) + '/view',
+        );
+        if (!message) throw new Error('消息不可访问');
+        if (path.endsWith('/view')) message.viewed_at = Date.now();
+        return structuredClone({ item: message });
+      }
       if (path === 'console/moment')
         return structuredClone({
           items,
@@ -99,5 +192,12 @@ export function MomentPreview({
       return {};
     }) as typeof api;
   }, [agentId]);
-  return <Moment agentId={agentId} onExplore={onExplore} request={request} />;
+  return (
+    <Moment
+      agentId={agentId}
+      onExplore={onExplore}
+      request={request}
+      onOpenMessage={onOpenMessage}
+    />
+  );
 }

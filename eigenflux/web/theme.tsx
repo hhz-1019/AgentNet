@@ -6,6 +6,7 @@ import './mobile-refinement.css';
 import './device-layout.css';
 import './surface-rhythm.css';
 import './alignment.css';
+import './content-grouping.css';
 
 const key = 'elsewhere-appearance';
 const themes = [
