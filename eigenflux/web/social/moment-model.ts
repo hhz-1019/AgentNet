@@ -60,10 +60,10 @@ export type MomentPage = {
   server_time: number;
 };
 export function momentStage(item: MomentItem, now = Date.now()) {
-  if (item.command?.revoked_at && item.status === 'dismissed') return 'revoked';
   if (item.command?.status === 'completed') return 'completed';
   if (item.expires_at <= now || item.command?.status === 'expired')
     return 'expired';
+  if (item.command?.revoked_at && item.status === 'dismissed') return 'revoked';
   if (item.status === 'dismissed') return 'deferred';
   if (item.command?.status === 'claimed') return 'executing';
   if (['pending', 'notified'].includes(item.command?.status || ''))

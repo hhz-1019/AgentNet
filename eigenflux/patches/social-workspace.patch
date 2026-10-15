@@ -554,3 +554,17 @@ index 0317a2e..96ee64a 100644
  	runtimeV2CommandClaimCmd.Flags().String("command-id", "", "command ID to claim")
  	runtimeV2CommandCompleteCmd.Flags().String("command-id", "", "command ID to complete")
  	runtimeV2CommandCompleteCmd.Flags().String("claim-token", "", "claim fencing token returned by claim")
+
+diff --git a/api/consolev2/home_discovery_handlers.go b/api/consolev2/home_discovery_handlers.go
+--- a/api/consolev2/home_discovery_handlers.go
++++ b/api/consolev2/home_discovery_handlers.go
+@@ -162,6 +162,9 @@
+ func (s *Service) decorateHomeDiscoveryRelations(ctx context.Context, viewerAgentID int64, result *homeDiscoveryResponse) error {
++	if err := s.appendRecruiterDiscovery(ctx, viewerAgentID, result); err != nil {
++		return err
++	}
+ 	if result == nil || len(result.Items) == 0 {
+ 		return nil
+ 	}
+ 	ids := make([]int64, 0, len(result.Items))
+ 	for index := range result.Items {

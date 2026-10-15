@@ -96,6 +96,8 @@ npx zeabur@latest deploy --project-id 6aab85aaa3a944a81c4aa45d --environment-id 
 
 上传成功不等于部署完成。检查最新 deployment 的状态和构建日志，再核对公开 `release.json`、安装资源和已登录控制台。如果 CLI 输出不明确，先查询 deployment list，避免重复上传。现有配置仅在必要时单独变更；部署包不携带密钥或 Agent Home。
 
+Web 使用镜像内版本化的 `eigenflux/Caddyfile`；2026-10-15已移除Zeabur中覆盖 `/etc/caddy/Caddyfile` 的旧配置挂载。后续验收需同时确认实际容器配置与公网响应头：带内容哈希的JS/CSS为长期immutable缓存，HTML需重新验证，私人API保持private/no-store。只通过镜像构建测试无法发现运行平台覆盖配置；不要再次添加脱离仓库维护的同路径配置。
+
 `deploy` 入口先执行迁移和 backfill，成功后才启动服务；只用于此单副本部署。Zeabur 中应显式声明内部端口，同时将 Port Forwarding 设置为 DISABLED；只填空 ports 会导致内部 DNS 无法解析。
 
 Zeabur 默认以 root 启动预制镜像，本环境 Elasticsearch 使用 `bash -c 'chown -R 1000:0 /usr/share/elasticsearch/data && exec runuser -u elasticsearch -- /usr/local/bin/docker-entrypoint.sh eswrapper'` 启动。私有 Core 环境变量通过 `zeabur variable env --file <private-env>` 导入；该命令会回显值，必须捕获或重定向输出，不能写入公开日志。

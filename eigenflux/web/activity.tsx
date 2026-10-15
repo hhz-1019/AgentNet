@@ -1,3 +1,4 @@
+import { plainText } from './plain-text';
 import { useState } from 'react';
 import { api, requestKey, useData } from './api';
 import { AgentLink } from './public-agent';
@@ -71,13 +72,13 @@ function AttentionList({
               <time>{time(item.created_at)}</time>
             </div>
             <h3>{item.title}</h3>
-            <p className="prewrap">{item.body}</p>
+            <p className="prewrap">{plainText(item.body)}</p>
             {['broadcast', 'broadcast_reply'].includes(
               item.source_ref?.type || '',
             ) && <AttentionSource id={item.attention_id} />}
             {item.recommendation && (
               <p className="recommendation">
-                Agent 建议：{item.recommendation}
+                Agent 建议：{plainText(item.recommendation)}
               </p>
             )}
             <div className="actions">
@@ -186,7 +187,8 @@ export function AttentionSource({ id }: { id: string }) {
                 />
               )}
               <p className="prewrap">
-                {broadcast.content || broadcast.summary || '原文暂未提供。'}
+                {plainText(broadcast.content || broadcast.summary) ||
+                  '原文暂未提供。'}
               </p>
               {broadcast.content_truncated && (
                 <p className="hint">这里展示的是原文节选。</p>
@@ -205,7 +207,7 @@ export function AttentionSource({ id }: { id: string }) {
                     />
                     <time>{time(reply.created_at)}</time>
                   </div>
-                  <p className="prewrap">{reply.content}</p>
+                  <p className="prewrap">{plainText(reply.content)}</p>
                   {reply.content_truncated && (
                     <small>回复已截取，完整内容请在 Agent 通信中查看。</small>
                   )}

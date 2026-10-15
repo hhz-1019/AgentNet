@@ -884,6 +884,16 @@
   color: var(--ew-muted) !important;
   padding: 10px 0 0 !important;
 }
+.sw-message-sections {
+  display: none;
+}
+.sw-message-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
 .sw-mobile-nav {
   display: none;
 }

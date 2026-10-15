@@ -161,6 +161,7 @@ html[data-theme]
     height 560ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 #root .mb-orb-image {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
@@ -175,6 +176,20 @@ html[data-theme]
     translate 220ms cubic-bezier(0.16, 1, 0.3, 1),
     transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#root .mb-avatar-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(28px, 4vw, 48px);
+  color: var(--ew-muted);
+}
+#root .mb-orb-image:has(img) .mb-avatar-fallback {
+  display: none;
+}
+#root .mb-orb-image .ew-avatar-frame {
+  background: transparent;
 }
 #root .mb-orb-image img {
   display: block;
@@ -237,9 +252,44 @@ html[data-theme]
   justify-items: center;
   gap: 20px;
   text-align: center;
+  padding: 24px;
+}
+#root .mb-empty-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+#root .mb-live .mb-empty h1 {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 500;
 }
 #root .mb-live .mb-empty p {
-  font-size: 22px;
+  margin: 0;
+  max-width: 32em;
+  font-size: 15px;
+  color: var(--ew-muted);
+  line-height: 1.8;
+}
+#root .mb-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+#root .mb-empty-actions button {
+  min-height: 44px;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--ew-tint);
+  color: var(--ew-ink);
+}
+#root .mb-empty output {
+  min-height: 20px;
+  font-size: 14px;
+  color: var(--ew-muted);
 }
 #root .mb-load-message {
   padding: 16px;
@@ -250,7 +300,7 @@ html[data-theme]
   height: min(760px, calc(100dvh - 48px));
 }
 #root dialog.mb-fit-panel .sw-dialog-heading {
-  padding: 10px 24px;
+  padding: 10px 32px;
 }
 #root .mb-detail {
   flex: 1;
@@ -280,7 +330,7 @@ html[data-theme]
   min-height: 40px;
   padding: 8px 14px;
   border: 1px solid var(--ew-line);
-  border-radius: 8px;
+  border-radius: 22px;
   color: var(--ew-ink);
   background: transparent;
   font: inherit;
@@ -296,19 +346,18 @@ html[data-theme]
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid var(--ew-line);
+  border-bottom: 0;
   padding-bottom: 8px;
 }
 #root .mb-detail-toolbar nav {
   display: flex;
-  gap: 12px;
+  gap: 4px;
 }
 #root .mb-detail-toolbar nav button {
-  border-radius: 0;
+  border-radius: 20px;
   min-height: 36px;
   border: 0;
-  border-bottom: 2px solid transparent;
-  padding: 6px 0;
+  padding: 6px 12px;
   color: var(--ew-muted);
   background: transparent;
   box-shadow: none;
@@ -317,7 +366,7 @@ html[data-theme]
 }
 #root .mb-detail-toolbar nav [aria-current] {
   color: var(--ew-ink);
-  border-bottom-color: var(--ew-ink);
+  background: var(--ew-tint);
 }
 #root .mb-current-status {
   font-size: 14px;
@@ -396,13 +445,17 @@ html[data-theme]
   padding: 6px 18px;
   line-height: 1.4;
   white-space: nowrap;
+  border-radius: 22px;
+}
+#root .mb-detail-actions:empty {
+  display: none;
 }
 #root .mb-fit-panel .mb-feedback {
   margin: 0;
   font-size: 15px;
   flex-shrink: 0;
 }
-@media (max-width: 600px) {
+@media (pointer: coarse) {
   html[data-theme]
     #root
     .sw-workspace[data-page^='crossing']:has(.mb-live)
@@ -412,6 +465,8 @@ html[data-theme]
   html[data-theme] #root .sw-workspace.mb-live-preview .sw-main {
     padding-bottom: 0;
   }
+}
+@media (max-width: 600px) {
   #root dialog.mb-fit-panel {
     width: calc(100vw - 20px);
     height: calc(100dvh - 24px);
@@ -426,13 +481,14 @@ html[data-theme]
   }
   #root .mb-detail-toolbar {
     align-items: flex-start;
+    flex-wrap: wrap;
   }
   #root .mb-current-status {
     max-width: 125px;
     font-size: 14px;
   }
   #root .mb-detail-toolbar nav {
-    gap: 10px;
+    gap: 4px;
   }
 }
 @media (max-height: 540px) {

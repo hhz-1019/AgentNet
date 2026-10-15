@@ -43,7 +43,15 @@ export async function previewRequest<T>(
   if (page === '/preview/managed' && path === 'console/managed')
     return {
       sponsor_number: 'PREVIEW',
-      campaign: null,
+      campaign: {
+        enabled: false,
+        monthly_budget_fen: 10000,
+        input_fen_per_million: 100,
+        output_fen_per_million: 200,
+        revision: 1,
+        dm_reply_enabled: false,
+        dm_start_enabled: false,
+      },
       spent_fen: 0,
       members: [],
       runs: [],

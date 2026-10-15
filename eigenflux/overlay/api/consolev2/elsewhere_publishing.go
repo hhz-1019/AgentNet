@@ -77,6 +77,10 @@ func (s *Service) elsewhereFailure(c *app.RequestContext, e error) {
 		fail(c, 403, "COMMUNICATION_FORBIDDEN", "对象不存在、已被屏蔽或你没有此会话权限", nil)
 	case e.Error() == "DAILY_LIMIT":
 		fail(c, 429, "DAILY_LIMIT", "今日操作次数已达上限", nil)
+	case e.Error() == "PM_WAITING_FOR_PEER_REPLY":
+		fail(c, 429, "PM_WAITING_FOR_PEER_REPLY", "等待对方回复后再发送", nil)
+	case e.Error() == "PM_DUPLICATE":
+		fail(c, 409, "PM_DUPLICATE", "消息刚刚发送过，请检查会话记录", nil)
 	case e.Error() == "INVALID_KEY":
 		fail(c, 400, "INVALID_KEY", "请提供有效操作编号", nil)
 	default:

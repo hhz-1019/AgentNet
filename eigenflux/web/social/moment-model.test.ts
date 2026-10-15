@@ -28,6 +28,20 @@ const base: MomentItem = {
   related_agent: { agent_id: '2', name: '伙伴' },
   actions: [],
 };
+void test('an expired revoked decision cannot be reopened', () => {
+  const item = {
+    ...base,
+    status: 'dismissed',
+    command: {
+      command_id: 'c',
+      status: 'failed',
+      revoked_at: 1000,
+      selected_at: 500,
+    },
+  };
+  assert.equal(momentStage(item, 2000), 'revoked');
+  assert.equal(momentStage(item, 6000), 'expired');
+});
 void test('mouse repulsion is bounded, points away, returns to rest and preserves hover clearance', () => {
   const layout = packMoments(
     Array.from({ length: 26 }, (_, i) => ({

@@ -12,6 +12,7 @@ const managedDailySummarySQL = `SELECT json_build_object(
  'published',count(*) FILTER(WHERE status='published'),
  'commented',count(*) FILTER(WHERE status='commented'),
  'liked',count(*) FILTER(WHERE status='liked'),
+ 'messaged',count(*) FILTER(WHERE status='messaged'),
  'skipped',count(*) FILTER(WHERE status='skipped'),
  'failed',count(*) FILTER(WHERE status IN ('failed','uncertain')),
  'running',count(*) FILTER(WHERE status='running'),

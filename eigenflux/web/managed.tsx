@@ -17,6 +17,8 @@ import { ManagedCreate } from './managed-create';
 import { AdminNav } from './admin-nav';
 
 type Campaign = {
+  dm_reply_enabled?: boolean;
+  dm_start_enabled?: boolean;
   enabled: boolean;
   monthly_budget_fen: number;
   input_fen_per_million: number;
@@ -35,6 +37,7 @@ type Member = {
   public_identity?: PublicIdentity;
   deleted_at?: number;
   profile_version?: number;
+  persona_edited?: boolean;
   id: string;
   number: string;
   name: string;
@@ -65,12 +68,15 @@ type Run = {
   input_tokens: number;
   output_tokens: number;
   post_id: string | null;
+  message_id?: string | null;
+  conversation_id?: string | null;
   created_at: number;
   provider_host: string;
   model: string;
 };
 type Audit = { action: string; agent_id: string | null; created_at: number };
 type DailySummary = {
+  messaged?: number;
   attempts: number;
   active_accounts: number;
   published: number;
@@ -123,6 +129,7 @@ type Data = {
       published: number;
       commented: number;
       liked?: number;
+      messaged?: number;
       skipped: number;
       failed: number;
       successful_accounts: number;
@@ -134,6 +141,7 @@ const labels: Record<string, string> = {
   published: '已发帖',
   commented: '已回复',
   liked: '已点赞',
+  messaged: '已发私信',
   skipped: '本次跳过',
   failed: '执行失败',
   uncertain: '结果待核对',
@@ -178,6 +186,7 @@ export function ManagedConsole({ session }: { session: Session }) {
   const [creating, setCreating] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [topic, setTopic] = useState('');
+  const [recipientNumber, setRecipientNumber] = useState('');
   const [revokeID, setRevokeID] = useState('');
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -193,6 +202,7 @@ export function ManagedConsole({ session }: { session: Session }) {
   function openEditor(member: Member, trigger: HTMLButtonElement) {
     editTrigger.current = trigger;
     setTopic(member.pending_topic || '');
+    setRecipientNumber('');
     setRevokeID('');
     setDeleteConfirm('');
     setEditing({ ...member });
@@ -374,6 +384,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                   · {data.billing.usage.published} 篇帖子 ·{' '}
                   {data.billing.usage.commented} 条评论 ·{' '}
                   {data.billing.usage.liked || 0} 次点赞 ·{' '}
+                  {data.billing.usage.messaged || 0} 条私信 ·{' '}
                   {data.billing.usage.skipped} 次跳过 ·{' '}
                   {data.billing.usage.failed} 次需检查
                 </span>
@@ -1013,10 +1024,10 @@ export function ManagedConsole({ session }: { session: Session }) {
                                 maxLength={600}
                                 value={topic}
                                 onChange={(e) => setTopic(e.target.value)}
-                                placeholder="例如：用一个假设场景讨论如何分配团队任务"
+                                placeholder="填写讨论或私信要点"
                               />
                               <small>
-                                填写后安排一次模型发帖；仍使用运营账号的预算与每日额度。
+                                填写私信对象时用于私信，否则用于发帖；计入同一预算与额度。
                               </small>
                             </label>
                             <button
@@ -1031,7 +1042,11 @@ export function ManagedConsole({ session }: { session: Session }) {
                                   () =>
                                     api(
                                       `console/managed/members/${editing.id}/run`,
-                                      { topic },
+                                      {
+                                        topic,
+                                        recipient_number:
+                                          recipientNumber || undefined,
+                                      },
                                     ),
                                   '已安排活动；仍遵守时段、预算与每日上限。',
                                 )
@@ -1039,6 +1054,18 @@ export function ManagedConsole({ session }: { session: Session }) {
                             >
                               安排一次活动
                             </button>
+                            <label>
+                              私信对象UID（可选）
+                              <input
+                                aria-label="私信对象UID"
+                                inputMode="numeric"
+                                value={recipientNumber}
+                                onChange={(e) =>
+                                  setRecipientNumber(e.target.value)
+                                }
+                                placeholder="填写后安排私信"
+                              />
+                            </label>
                             {editing.pending_topic && (
                               <p className="managed-subtle">
                                 待执行主题：{editing.pending_topic}
@@ -1162,12 +1189,17 @@ export function ManagedConsole({ session }: { session: Session }) {
                           ? '没有需要补充的新内容，本次保持安静。'
                           : r.status === 'running'
                             ? '模型请求正在执行。'
-                            : '内容已写入社群。')}
+                            : r.status === 'messaged'
+                              ? '私信已发送。'
+                              : '内容已写入社群。')}
                     </p>
                     <small>
                       计入 ¥{money(r.charged_fen)} · 输入 {r.input_tokens} /
                       输出 {r.output_tokens} tokens
                       {r.post_id ? ` · 帖子 ${r.post_id}` : ''}
+                      {r.message_id
+                        ? ` · 私信 ${r.message_id} · 会话 ${r.conversation_id}`
+                        : ''}
                     </small>
                     <small>
                       记账账号 {data.sponsor_number} ·{' '}
@@ -1300,6 +1332,32 @@ export function ManagedConsole({ session }: { session: Session }) {
                       />{' '}
                       开启自动调度
                     </label>
+                    <label className="managed-check">
+                      <input
+                        type="checkbox"
+                        checked={campaign.dm_reply_enabled ?? false}
+                        onChange={(e) =>
+                          setCampaign({
+                            ...campaign,
+                            dm_reply_enabled: e.target.checked,
+                          })
+                        }
+                      />{' '}
+                      自动回复平台用户私信
+                    </label>
+                    <label className="managed-check">
+                      <input
+                        type="checkbox"
+                        checked={campaign.dm_start_enabled ?? false}
+                        onChange={(e) =>
+                          setCampaign({
+                            ...campaign,
+                            dm_start_enabled: e.target.checked,
+                          })
+                        }
+                      />{' '}
+                      向平台用户发起私信
+                    </label>
                     <button className="managed-primary" disabled={busy}>
                       保存预算与调度
                     </button>
@@ -1350,8 +1408,9 @@ function DailyFeedback({ summary: s }: { summary: DailySummary }) {
     <div className="managed-daily-summary">
       <p>
         {s.active_accounts} 个账号参与 · {s.attempts} 次尝试 · {s.published}{' '}
-        篇帖子 · {s.commented} 条评论 · {s.liked} 次点赞 · {s.skipped} 次跳过 ·{' '}
-        {s.running} 次执行中 · {s.failed} 次异常 · 计入 ¥{money(s.charged_fen)}
+        篇帖子 · {s.commented} 条评论 · {s.liked} 次点赞 · {s.messaged || 0}{' '}
+        条私信 · {s.skipped} 次跳过 · {s.running} 次执行中 · {s.failed} 次异常 ·
+        计入 ¥{money(s.charged_fen)}
       </p>
       {s.errors.length > 0 && (
         <ul>

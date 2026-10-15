@@ -9,7 +9,11 @@ const server = await createServer({
   server: { host: '127.0.0.1', port: 0 },
 });
 await server.listen();
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.AGENTNET_CHROMIUM_PATH
+    ? { executablePath: process.env.AGENTNET_CHROMIUM_PATH }
+    : {},
+);
 let page = await browser.newPage({
   viewport: { width: 390, height: 844 },
   hasTouch: true,
@@ -108,7 +112,7 @@ try {
             (n) => n.getAttribute('aria-label') || n.textContent.trim(),
           ),
         ),
-      ['发现', '消息', '发布', '通讯录', '我的'],
+      ['此刻', '发现', '发布', '消息', '我的'],
     );
     const publish = await nav
       .getByRole('button', { name: '发布', exact: true })

@@ -315,6 +315,44 @@
     bottom: 12px;
   }
   /* DOM order matches visual order and keyboard order; publishing is centered. */
+  html[data-theme]
+    #root
+    .sw-workspace:is([data-page='messages'], [data-page='network'])
+    .sw-legacy {
+    padding-block: 0;
+  }
+  html[data-theme] #root .sn-message-page > .sn-page-heading,
+  html[data-theme] #root .sw-message-heading,
+  html[data-theme] #root .sw-network-page > .sw-page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 20px;
+    min-height: 44px;
+  }
+  html[data-theme] #root .sw-message-sections {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+  html[data-theme] #root .sw-message-sections a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 8px 20px;
+    border: 0;
+    border-radius: 24px;
+    color: var(--ew-muted);
+    background: transparent;
+    font-size: 16px;
+    text-decoration: none;
+  }
+  html[data-theme] #root .sw-message-sections a[aria-current] {
+    background: var(--ew-tint);
+    color: var(--ew-ink);
+  }
   html[data-theme] #root .sw-mobile-nav {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 72px minmax(

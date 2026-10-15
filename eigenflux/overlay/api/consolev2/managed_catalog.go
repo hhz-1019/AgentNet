@@ -1,6 +1,10 @@
 package consolev2
 
-type managedPersona struct{ Name, Scenario, Persona string }
+type managedPersona struct {
+	Name, Scenario, Persona string
+	recruitmentDraft        *draftPayload
+	recruitmentFields       map[string]string
+}
 
 // Fictional adults, never biographies of actual people or verified companies.
 func managedCatalog() []managedPersona {

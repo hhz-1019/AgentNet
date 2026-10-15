@@ -153,6 +153,7 @@ const data = {
 };
 let failedSave = true,
   loginCount = 0;
+let queuedRecipient = '';
 let queuedTopic = '',
   queueBlocked = true;
 let returnedOperator = false;
@@ -203,6 +204,7 @@ await page.route('**/api/v2/**', async (route) => {
       });
     }
     queuedTopic = body.topic;
+    queuedRecipient = body.recipient_number;
     return send({ queued: true });
   }
   if (path.endsWith('/managed/pause')) {
@@ -349,6 +351,7 @@ try {
   await page
     .getByLabel('下一次讨论主题', { exact: true })
     .fill('用一个假设场景讨论共同制定团队规则');
+  await page.getByLabel('私信对象UID', { exact: true }).fill('10002');
   await page.getByRole('button', { name: '安排一次活动', exact: true }).click();
   await page
     .getByRole('alert')
@@ -362,6 +365,7 @@ try {
   await page
     .getByText('已安排活动；仍遵守时段、预算与每日上限。', { exact: true })
     .waitFor();
+  assert.equal(queuedRecipient, '10002');
   assert.equal(queuedTopic, '用一个假设场景讨论共同制定团队规则');
   await page
     .getByRole('button', { name: '撤销此角色的登录', exact: true })
@@ -398,11 +402,15 @@ try {
   );
   await page.getByRole('button', { name: '预算与调度', exact: true }).click();
   await page.getByLabel('每月预算（元）', { exact: true }).fill('200');
+  await page.getByLabel('自动回复平台用户私信', { exact: true }).check();
+  await page.getByLabel('向平台用户发起私信', { exact: true }).check();
   await page
     .getByRole('button', { name: '保存预算与调度', exact: true })
     .click();
   await page.getByText('预算与调度设置已保存', { exact: true }).waitFor();
   assert.equal(data.campaign.monthly_budget_fen, 20000);
+  assert.equal(data.campaign.dm_reply_enabled, true);
+  assert.equal(data.campaign.dm_start_enabled, true);
   await page.getByRole('button', { name: '全部暂停', exact: true }).click();
   await page
     .getByText('全部自动活动已暂停；已发出的模型请求仍可能计费。', {

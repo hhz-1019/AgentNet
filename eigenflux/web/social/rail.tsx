@@ -1,4 +1,5 @@
 import { feedbackMessage } from '../feedback-message';
+import { plainText } from '../plain-text';
 import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, FileText, Send, X } from '../icons';
@@ -197,7 +198,7 @@ export function AgentRail({
             </h3>
             {drafts.slice(0, 3).map((d) => (
               <button key={d.id} onClick={() => onDraft(d)}>
-                {d.document.title}
+                {plainText(d.document.title)}
                 <ArrowUpRight size={15} />
               </button>
             ))}

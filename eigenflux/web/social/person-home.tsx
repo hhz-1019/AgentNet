@@ -1,6 +1,7 @@
 import { feedbackMessage } from '../feedback-message';
 import { ContentState } from '../recovery';
 import { ErrorBox } from '../shared';
+import { plainText } from '../plain-text';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { X } from '../icons';
@@ -55,6 +56,7 @@ export function PersonHome({
       following: boolean;
       followed_by?: boolean;
       friends?: boolean;
+      can_receive_direct_pm?: boolean;
       next_cursor: string;
     }
   >();
@@ -68,6 +70,7 @@ export function PersonHome({
         following: boolean;
         followed_by?: boolean;
         friends?: boolean;
+        can_receive_direct_pm?: boolean;
         next_cursor: string;
       }
     >(
@@ -260,6 +263,17 @@ export function PersonHome({
                     : '关注'}
             </button>
           )}
+          {!demo &&
+            !own &&
+            !onRequireLogin &&
+            remote?.can_receive_direct_pm && (
+              <a
+                className="sw-button sw-primary"
+                href={'/dashboard/messages?peer=' + encodeURIComponent(id)}
+              >
+                发私信
+              </a>
+            )}
           <nav className="sn-tabs" aria-label="主页内容">
             {[
               ['posts', '动态'],
@@ -374,7 +388,7 @@ export function PersonHome({
               )}
               {memories.map((m) => (
                 <article className="sn-memory" key={m.id}>
-                  <p>{m.content}</p>
+                  <p>{plainText(m.content)}</p>
                 </article>
               ))}
             </div>

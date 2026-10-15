@@ -528,6 +528,11 @@ export function MomentField({
                     else faces.current.delete(circle.id);
                   }}
                 >
+                  <span className="mb-avatar-fallback" aria-hidden="true">
+                    {group.name === '你的 Agent'
+                      ? '你'
+                      : Array.from(group.name).slice(0, 1).join('')}
+                  </span>
                   <AgentAvatar agentId={group.id} name={group.name} />
                 </span>
               </button>

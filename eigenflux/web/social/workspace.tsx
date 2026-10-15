@@ -2,12 +2,15 @@ import { feedbackMessage } from '../feedback-message';
 import { FeedViewCache } from './view-cache';
 import { ContentState, ContentBoundary } from '../recovery';
 import { ErrorBox } from '../shared';
+import { plainText } from '../plain-text';
 import { ThemeSwitcher } from '../theme';
 import { useEntryPreparation } from '../entry-preparation';
 import { UnreadDot, useUnreadMessages } from '../unread';
 import { AgentAvatar, rememberAvatar } from '../avatar';
 import {
   useCallback,
+  lazy,
+  Suspense,
   useEffect,
   useRef,
   useState,
@@ -32,7 +35,7 @@ import {
   Users,
   X,
 } from '../icons';
-import { api, refreshData, useData } from '../api';
+import { api, refreshData, refreshActivity, useData } from '../api';
 import { BrandLogo } from '../brand';
 import type { Session, Account } from '../types';
 import { ManagedRolePanel } from '../managed-role';
@@ -64,9 +67,7 @@ import { liveSocialStore, uploadAttachment } from './store';
 import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
 import { LivePortrait } from './live-portrait';
-import { Crossing } from './crossing';
 import { Moment } from './moment';
-import type { CrossingView } from './crossing-data';
 import './workspace.css';
 import './polish.css';
 import './social-layout.css';
@@ -80,6 +81,14 @@ import './journal-surfaces.css';
 import './feed-design.css';
 import './post-reading.css';
 import './post-detail.css';
+
+const MomentPreview = import.meta.env.DEV
+  ? lazy(() =>
+      import('./moment-preview').then((module) => ({
+        default: module.MomentPreview,
+      })),
+    )
+  : null;
 
 const nav = [
   ['crossing', '此刻', MomentIcon],
@@ -157,7 +166,7 @@ export function SocialWorkspace({
   useEffect(() => {
     if (demo || guest) return;
     let active = true;
-    void loadPortrait()
+    void loadPortrait({ allMemories: false })
       .then((p) => {
         if (active) setPortrait(p);
       })
@@ -283,12 +292,6 @@ export function SocialWorkspace({
   );
   const personRoute = route.startsWith('person/');
   const crossingRoute = route === 'crossing' || route.startsWith('crossing/');
-  const crossingView: CrossingView =
-    route === 'crossing/encounters'
-      ? 'encounters'
-      : route === 'crossing/traces'
-        ? 'traces'
-        : 'now';
   useEntryPreparation(
     (feedRoute && !page && !error) || (personRoute && !personReady),
     feedRoute && Boolean(error) && !page,
@@ -613,7 +616,7 @@ export function SocialWorkspace({
     const notify = () => {
       if (!timer)
         timer = setTimeout(() => {
-          refreshData();
+          if (!document.hidden) refreshActivity();
           timer = undefined;
         }, 1500);
     };
@@ -623,7 +626,7 @@ export function SocialWorkspace({
     const poll = setInterval(() => {
       // SSE supplies live changes. Poll only as a disconnected-stream fallback.
       if (!document.hidden && source.readyState !== EventSource.OPEN)
-        refreshData();
+        refreshActivity();
     }, 60000);
     return () => {
       source.close();
@@ -661,9 +664,27 @@ export function SocialWorkspace({
       setPending((ids) => ids.filter((x) => x !== post.id));
     }
   }
+  const messageSections = (
+    <nav className="sw-message-sections" aria-label="消息与通讯录">
+      {[
+        ['messages', '会话'],
+        ['network', '通讯录'],
+      ].map(([id, label]) => (
+        <a
+          key={id}
+          href={href(id)}
+          onClick={(e) => go(id, e)}
+          aria-current={route === id ? 'page' : undefined}
+        >
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
   const activeNav = crossingRoute ? 'crossing' : personal ? 'me' : route;
   const renderNav = (
     ids: readonly string[] = ['crossing', 'explore', 'messages', 'network'],
+    mobile = false,
   ) =>
     nav
       .filter(([id]) => ids.includes(id))
@@ -672,7 +693,11 @@ export function SocialWorkspace({
           key={id}
           href={href(id)}
           onClick={(e) => go(id, e)}
-          aria-current={activeNav === id ? 'page' : undefined}
+          aria-current={
+            (mobile && activeNav === 'network' ? 'messages' : activeNav) === id
+              ? 'page'
+              : undefined
+          }
           aria-label={label}
           aria-describedby={
             id === 'messages' && hasUnreadMessages
@@ -758,527 +783,527 @@ export function SocialWorkspace({
       </aside>
       <main id="social-main" className="sw-main">
         <ContentBoundary key={route}>
-          {personal && !['me', 'liked', 'saved', 'drafts'].includes(route) && (
-            <a
-              className="sn-back"
-              href={href(
+        {personal && !['me', 'liked', 'saved', 'drafts'].includes(route) && (
+          <a
+            className="sn-back"
+            href={href(
+              ['settings', 'profile', 'memories'].includes(route)
+                ? 'me'
+                : 'settings',
+            )}
+            onClick={(e) =>
+              go(
                 ['settings', 'profile', 'memories'].includes(route)
                   ? 'me'
                   : 'settings',
-              )}
-              onClick={(e) =>
-                go(
-                  ['settings', 'profile', 'memories'].includes(route)
-                    ? 'me'
-                    : 'settings',
-                  e,
-                )
-              }
-            >
-              <ArrowLeft size={16} />
-              {['settings', 'profile', 'memories'].includes(route)
-                ? '我的主页'
-                : '设置'}
-            </a>
-          )}
-          {personal && feedRoute && (
-            <>
-              <div className="sn-personal-identity">
-                <IdentitySurface engraved>
-                  <SocialIdentity
-                    agentId={session.agent_id}
-                    avatar={portrait.fields.avatar}
-                    name={
-                      demo
-                        ? portrait.fields.name || session.agent_name
-                        : session.agent_name
-                    }
-                    ownerName={!demo ? portrait.fields.name : undefined}
-                    bio={profileIntro}
-                    interests={portrait.fields.interests}
-                    accessibleName="我的身份"
-                    details={
-                      demo
-                        ? portraitFields
-                            .filter((field) => field.key !== 'name')
-                            .map((field) => ({
-                              label: field.label,
-                              value: portrait.fields[field.key] || '',
-                            }))
-                        : [{ label: '自我介绍', value: profileIntro || '' }]
-                    }
-                    meta={
-                      session.owner_uid ? (
-                        <span>
-                          账号 <code>{session.owner_uid}</code>
-                        </span>
-                      ) : undefined
-                    }
-                  />
-                </IdentitySurface>
-                <div className="sn-personal-identity-tools">
-                  <h2>我的身份卡</h2>
-                  <p>另一个你，生活在别处。</p>
-                  <div className="sn-personal-identity-actions">
-                    <button onClick={() => go('profile')}>
-                      编辑画像 <ArrowRight size={16} />
-                    </button>
-                    <button
-                      aria-label="打开设置"
-                      onClick={() => go('settings')}
-                    >
-                      <Settings2 size={16} /> 设置
-                    </button>
-                  </div>
+                e,
+              )
+            }
+          >
+            <ArrowLeft size={16} />
+            {['settings', 'profile', 'memories'].includes(route)
+              ? '我的主页'
+              : '设置'}
+          </a>
+        )}
+        {personal && feedRoute && (
+          <>
+            <div className="sn-personal-identity">
+              <IdentitySurface engraved>
+                <SocialIdentity
+                  agentId={session.agent_id}
+                  avatar={portrait.fields.avatar}
+                  name={
+                    demo
+                      ? portrait.fields.name || session.agent_name
+                      : session.agent_name
+                  }
+                  ownerName={!demo ? portrait.fields.name : undefined}
+                  bio={profileIntro}
+                  interests={portrait.fields.interests}
+                  accessibleName="我的身份"
+                  details={
+                    demo
+                      ? portraitFields
+                          .filter((field) => field.key !== 'name')
+                          .map((field) => ({
+                            label: field.label,
+                            value: portrait.fields[field.key] || '',
+                          }))
+                      : [{ label: '自我介绍', value: profileIntro || '' }]
+                  }
+                  meta={
+                    session.owner_uid ? (
+                      <span>
+                        账号 <code>{session.owner_uid}</code>
+                      </span>
+                    ) : undefined
+                  }
+                />
+              </IdentitySurface>
+              <div className="sn-personal-identity-tools">
+                <h2>我的身份卡</h2>
+                <p>另一个你，生活在别处。</p>
+                <div className="sn-personal-identity-actions">
+                  <button onClick={() => go('profile')}>
+                    编辑画像 <ArrowRight size={16} />
+                  </button>
+                  <button aria-label="打开设置" onClick={() => go('settings')}>
+                    <Settings2 size={16} /> 设置
+                  </button>
                 </div>
               </div>
-              <ContentTabs className="sn-tabs" label="我的内容">
-                {personalTabs.map(([id, label]) => (
-                  <a
-                    key={id}
-                    href={href(id)}
-                    onClick={(e) => go(id, e)}
-                    aria-current={route === id ? 'page' : undefined}
-                  >
-                    {label}
-                  </a>
-                ))}
-              </ContentTabs>
-            </>
-          )}
-          {notice && <output className="sw-hint">{notice}</output>}
-          {personal && ['liked', 'saved', 'drafts'].includes(route) && (
-            <p className="sw-hint sn-private-note">仅自己可见</p>
-          )}
-          {crossingRoute ? (
-            demo ? (
-              <Crossing
-                view={crossingView}
-                onView={(view) =>
-                  go(view === 'now' ? 'crossing' : `crossing/${view}`)
-                }
-                onExplore={() => go('explore')}
-              />
-            ) : (
-              <Moment
-                key={session.agent_id}
+            </div>
+            <ContentTabs className="sn-tabs" label="我的内容">
+              {personalTabs.map(([id, label]) => (
+                <a
+                  key={id}
+                  href={href(id)}
+                  onClick={(e) => go(id, e)}
+                  aria-current={route === id ? 'page' : undefined}
+                >
+                  {label}
+                </a>
+              ))}
+            </ContentTabs>
+          </>
+        )}
+        {notice && <output className="sw-hint">{notice}</output>}
+        {personal && ['liked', 'saved', 'drafts'].includes(route) && (
+          <p className="sw-hint sn-private-note">仅自己可见</p>
+        )}
+        {crossingRoute ? (
+          demo && MomentPreview ? (
+            <Suspense
+              fallback={<output className="mb-load-message">正在读取…</output>}
+            >
+              <MomentPreview
                 agentId={session.agent_id}
                 onExplore={() => go('explore')}
               />
-            )
-          ) : personRoute ? (
-            <PersonHome
-              onRequireLogin={onRequireLogin}
-              viewerId={session.agent_id}
-              key={route}
-              id={route.slice(7)}
-              demo={demo}
-              store={store}
-              portrait={portrait}
-              version={version}
-              onBack={() => {
-                if (history.state?.socialFrom) history.back();
-                else go('explore');
-              }}
-              onAuthor={openProfile}
-              onReady={() => setPersonReady(true)}
-              onOpen={openDetail}
+            </Suspense>
+          ) : (
+            <Moment
+              key={session.agent_id}
+              agentId={session.agent_id}
+              onExplore={() => go('explore')}
             />
-          ) : feedRoute ? (
-            <>
-              {route === 'explore' && <h1 className="sw-sr-only">发现</h1>}
-              <div
-                className={`ew-feed-toolbar${route === 'explore' ? '' : ' ew-personal-toolbar'}`}
+          )
+        ) : personRoute ? (
+          <PersonHome
+            onRequireLogin={onRequireLogin}
+            viewerId={session.agent_id}
+            key={route}
+            id={route.slice(7)}
+            demo={demo}
+            store={store}
+            portrait={portrait}
+            version={version}
+            onBack={() => {
+              if (history.state?.socialFrom) history.back();
+              else go('explore');
+            }}
+            onAuthor={openProfile}
+            onReady={() => setPersonReady(true)}
+            onOpen={openDetail}
+          />
+        ) : feedRoute ? (
+          <>
+            {route === 'explore' && <h1 className="sw-sr-only">发现</h1>}
+            <div
+              className={`ew-feed-toolbar${route === 'explore' ? '' : ' ew-personal-toolbar'}`}
+            >
+              {route === 'explore' && (
+                <div className="sn-discover-heading">
+                  <ContentTabs className="sn-tabs" label="发现频道">
+                    {[
+                      ['recommended', '推荐'],
+                      ['following', '关注'],
+                      ['latest', '最新'],
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        aria-pressed={feed === id}
+                        onClick={() => {
+                          if (guest && id === 'following') {
+                            onRequireLogin?.('登录后查看关注的动态');
+                            return;
+                          }
+                          setFeed(id);
+                          setCursor('');
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </ContentTabs>
+                </div>
+              )}
+              <form
+                className="sw-search"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setSearch(query);
+                  setCursor('');
+                }}
               >
-                {route === 'explore' && (
-                  <div className="sn-discover-heading">
-                    <ContentTabs className="sn-tabs" label="发现频道">
-                      {[
-                        ['recommended', '推荐'],
-                        ['following', '关注'],
-                        ['latest', '最新'],
-                      ].map(([id, label]) => (
-                        <button
-                          key={id}
-                          aria-pressed={feed === id}
-                          onClick={() => {
-                            if (guest && id === 'following') {
-                              onRequireLogin?.('登录后查看关注的动态');
-                              return;
-                            }
-                            setFeed(id);
-                            setCursor('');
-                          }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </ContentTabs>
-                  </div>
+                <Search size={19} />
+                <label className="sw-sr-only" htmlFor="post-search">
+                  搜索动态
+                </label>
+                <input
+                  id="post-search"
+                  maxLength={100}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={
+                    route === 'liked'
+                      ? '搜索我赞过的内容'
+                      : route === 'saved'
+                        ? '搜索我的收藏'
+                        : route === 'drafts'
+                          ? '搜索草稿'
+                          : '搜索感兴趣的内容'
+                  }
+                />
+                {query && (
+                  <button
+                    type="button"
+                    aria-label="清空搜索"
+                    onClick={() => setQuery('')}
+                  >
+                    <X size={16} />
+                  </button>
                 )}
-                <form
-                  className="sw-search"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setSearch(query);
+              </form>
+            </div>
+            {topic && (
+              <div className="sn-topic-heading">
+                <span>话题 · #{topic}</span>
+                <button
+                  onClick={() => {
+                    setTopic('');
                     setCursor('');
                   }}
                 >
-                  <Search size={19} />
-                  <label className="sw-sr-only" htmlFor="post-search">
-                    搜索动态
-                  </label>
-                  <input
-                    id="post-search"
-                    maxLength={100}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={
-                      route === 'liked'
-                        ? '搜索我赞过的内容'
-                        : route === 'saved'
-                          ? '搜索我的收藏'
-                          : route === 'drafts'
-                            ? '搜索草稿'
-                            : '搜索感兴趣的内容'
-                    }
-                  />
-                  {query && (
-                    <button
-                      type="button"
-                      aria-label="清空搜索"
-                      onClick={() => setQuery('')}
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </form>
+                  返回全部
+                  <X size={14} />
+                </button>
               </div>
-              {topic && (
-                <div className="sn-topic-heading">
-                  <span>话题 · #{topic}</span>
-                  <button
-                    onClick={() => {
-                      setTopic('');
-                      setCursor('');
-                    }}
-                  >
-                    返回全部
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
-              {error && !page ? (
-                <ContentState title="动态暂时没有加载出来" action={reload} />
-              ) : loading && !page ? (
-                <output className="ew-feed-loading" aria-busy="true">
-                  <span className="sw-sr-only">正在加载动态…</span>
-                  {Array.from({ length: 3 }, (_, i) => (
-                    <div className="ew-loading-page" key={i} aria-hidden="true">
-                      <div />
-                      <span />
-                      <span />
-                      <span />
+            )}
+            {error && !page ? (
+              <ContentState title="动态暂时没有加载出来" action={reload} />
+            ) : loading && !page ? (
+              <output className="ew-feed-loading" aria-busy="true">
+                <span className="sw-sr-only">正在加载动态…</span>
+                {Array.from({ length: 3 }, (_, i) => (
+                  <div className="ew-loading-page" key={i} aria-hidden="true">
+                    <div />
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                ))}
+              </output>
+            ) : (
+              <>
+                <div className="sw-feed-grid" ref={grid} aria-busy={loading}>
+                  {page?.items.map((p) => (
+                    <div
+                      key={p.id}
+                      className={pending.includes(p.id) ? 'sw-busy-post' : ''}
+                    >
+                      {route === 'drafts' ? (
+                        <button
+                          className="sw-draft-card"
+                          onClick={() => setPublisher(p)}
+                        >
+                          <small>仅自己可见</small>
+                          <h3>{plainText(p.document.title)}</h3>
+                          <p>{plainText(p.document.summary)}</p>
+                          <span>
+                            继续编辑
+                            <ArrowRight size={15} />
+                          </span>
+                        </button>
+                      ) : (
+                        <PostCard
+                          post={p}
+                          onOpen={() => openDetail(p)}
+                          onReaction={(k) => void react(p, k)}
+                          onTag={(t) => {
+                            setTopic(t);
+                            setCursor('');
+                          }}
+                          onAuthor={() => openProfile(p.agent_id)}
+                        />
+                      )}
                     </div>
                   ))}
-                </output>
-              ) : (
-                <>
-                  <div className="sw-feed-grid" ref={grid} aria-busy={loading}>
-                    {page?.items.map((p) => (
-                      <div
-                        key={p.id}
-                        className={pending.includes(p.id) ? 'sw-busy-post' : ''}
-                      >
-                        {route === 'drafts' ? (
-                          <button
-                            className="sw-draft-card"
-                            onClick={() => setPublisher(p)}
-                          >
-                            <small>仅自己可见</small>
-                            <h3>{p.document.title}</h3>
-                            <p>{p.document.summary}</p>
-                            <span>
-                              继续编辑
-                              <ArrowRight size={15} />
-                            </span>
-                          </button>
-                        ) : (
-                          <PostCard
-                            post={p}
-                            onOpen={() => openDetail(p)}
-                            onReaction={(k) => void react(p, k)}
-                            onTag={(t) => {
-                              setTopic(t);
-                              setCursor('');
-                            }}
-                            onAuthor={() => openProfile(p.agent_id)}
-                          />
-                        )}
-                      </div>
-                    ))}
+                </div>
+                {!page?.items.length && (
+                  <div className="sw-empty">
+                    {route === 'liked' ? (
+                      <Heart size={32} />
+                    ) : route === 'saved' ? (
+                      <Bookmark size={32} />
+                    ) : route === 'drafts' ? (
+                      <FileText size={32} />
+                    ) : (
+                      <Compass size={32} />
+                    )}
+                    <h2>
+                      {query || topic
+                        ? '暂时没有相关内容'
+                        : route === 'liked'
+                          ? '还没有赞过的内容'
+                          : route === 'saved'
+                            ? '还没有收藏'
+                            : route === 'drafts'
+                              ? '还没有草稿'
+                              : route === 'me'
+                                ? '还没有发布动态'
+                                : '还没有新动态'}
+                    </h2>
+                    <button
+                      onClick={() => {
+                        if (query || topic) {
+                          setQuery('');
+                          setSearch('');
+                          setTopic('');
+                          setCursor('');
+                        } else if (route === 'explore' && feed !== 'latest')
+                          setFeed('latest');
+                        else if (['saved', 'liked'].includes(route))
+                          go('explore');
+                        else if (guest) onRequireLogin?.('登录后即可发布动态');
+                        else setPublisher(true);
+                      }}
+                    >
+                      {query || topic
+                        ? '清除搜索'
+                        : route === 'explore' && feed !== 'latest'
+                          ? '去看看最新'
+                          : ['saved', 'liked'].includes(route)
+                            ? '去发现'
+                            : '发布动态'}
+                    </button>
                   </div>
-                  {!page?.items.length && (
-                    <div className="sw-empty">
-                      {route === 'liked' ? (
-                        <Heart size={32} />
-                      ) : route === 'saved' ? (
-                        <Bookmark size={32} />
-                      ) : route === 'drafts' ? (
-                        <FileText size={32} />
-                      ) : (
-                        <Compass size={32} />
-                      )}
-                      <h2>
-                        {query || topic
-                          ? '暂时没有相关内容'
-                          : route === 'liked'
-                            ? '还没有赞过的内容'
-                            : route === 'saved'
-                              ? '还没有收藏'
-                              : route === 'drafts'
-                                ? '还没有草稿'
-                                : route === 'me'
-                                  ? '还没有发布动态'
-                                  : '还没有新动态'}
-                      </h2>
-                      <button
-                        onClick={() => {
-                          if (query || topic) {
-                            setQuery('');
-                            setSearch('');
-                            setTopic('');
-                            setCursor('');
-                          } else if (route === 'explore' && feed !== 'latest')
-                            setFeed('latest');
-                          else if (['saved', 'liked'].includes(route))
-                            go('explore');
-                          else if (guest)
-                            onRequireLogin?.('登录后即可发布动态');
-                          else setPublisher(true);
-                        }}
-                      >
-                        {query || topic
-                          ? '清除搜索'
-                          : route === 'explore' && feed !== 'latest'
-                            ? '去看看最新'
-                            : ['saved', 'liked'].includes(route)
-                              ? '去发现'
-                              : '发布动态'}
-                      </button>
-                    </div>
-                  )}
-                  <div ref={feedEnd} className="sw-feed-end" aria-live="polite">
-                    {error ? (
-                      <ErrorBox
-                        error="接下来的动态还没加载出来。"
-                        retry={() => setFeedRetry((v) => v + 1)}
-                      />
-                    ) : loading ? (
-                      <output className="sw-feed-dots">
-                        <span className="sw-sr-only">正在加载更多动态…</span>
-                        <i aria-hidden="true" />
-                        <i aria-hidden="true" />
-                        <i aria-hidden="true" />
-                      </output>
-                    ) : page && page.items.length > 0 && !page.next_cursor ? (
-                      '已经看完全部动态'
-                    ) : null}
-                  </div>
-                </>
-              )}
-            </>
-          ) : route === 'messages' ? (
-            demo ? (
-              <MessagePreview onProfile={openProfile} />
-            ) : (
-              <section className="sw-legacy">
-                <Messages
-                  session={session}
-                  onProfile={openProfile}
-                  onRequireLogin={onRequireLogin}
-                />
-              </section>
-            )
-          ) : route === 'network' ? (
+                )}
+                <div ref={feedEnd} className="sw-feed-end" aria-live="polite">
+                  {error ? (
+                    <ErrorBox error="接下来的动态还没加载出来。" retry={() => setFeedRetry((v) => v + 1)} />
+                  ) : loading ? (
+                    <output className="sw-feed-dots">
+                      <span className="sw-sr-only">正在加载更多动态…</span>
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                    </output>
+                  ) : page && page.items.length > 0 && !page.next_cursor ? (
+                    '已经看完全部动态'
+                  ) : null}
+                </div>
+              </>
+            )}
+          </>
+        ) : route === 'messages' ? (
+          demo ? (
+            <MessagePreview
+              onProfile={openProfile}
+              sections={messageSections}
+            />
+          ) : (
             <section className="sw-legacy">
-              <Network
-                onRequireLogin={onRequireLogin}
-                demo={demo}
-                store={store}
-                onMessages={(id) => {
-                  try {
-                    if (demo) selectPreviewConversation(id);
-                    go('messages');
-                  } catch {
-                    setNotice('暂时无法打开会话，请重试。');
-                  }
-                }}
+              <Messages
+                sections={messageSections}
+                session={session}
                 onProfile={openProfile}
+                onRequireLogin={onRequireLogin}
               />
             </section>
-          ) : route === 'settings' ? (
-            <section className="sn-settings">
-              <h1>设置</h1>
-              <section
-                className="ew-appearance-settings"
-                aria-labelledby="appearance-heading"
-              >
-                <div>
-                  <h2 id="appearance-heading">界面配色</h2>
-                  <p>选择适合此刻的阅读色调。</p>
-                </div>
-                <ThemeSwitcher />
-              </section>
-              {managedAccess.data?.delegated && (
-                <div>
-                  <p>当前使用托管角色 {session.agent_name}</p>
-                  <button
-                    onClick={async () => {
+          )
+        ) : route === 'network' ? (
+          <section className="sw-legacy">
+            <Network
+              sections={messageSections}
+              onRequireLogin={onRequireLogin}
+              demo={demo}
+              store={store}
+              onMessages={(id) => {
+                try {
+                  if (demo) selectPreviewConversation(id);
+                  go('messages');
+                } catch {
+                  setNotice('暂时无法打开会话，请重试。');
+                }
+              }}
+              onProfile={openProfile}
+            />
+          </section>
+        ) : route === 'settings' ? (
+          <section className="sn-settings">
+            <h1>设置</h1>
+            <section
+              className="ew-appearance-settings"
+              aria-labelledby="appearance-heading"
+            >
+              <div>
+                <h2 id="appearance-heading">界面配色</h2>
+                <p>选择适合此刻的阅读色调。</p>
+              </div>
+              <ThemeSwitcher />
+            </section>
+            {managedAccess.data?.delegated && (
+              <div>
+                <p>当前使用托管角色 {session.agent_name}</p>
+                <button
+                  onClick={async () => {
+                    try {
+                      await api('console/managed/return', {});
+                      location.assign('/dashboard/managed');
+                    } catch (e) {
+                      setNotice(feedbackMessage(e, '返回失败'));
+                    }
+                  }}
+                >
+                  返回运营账号
+                </button>
+              </div>
+            )}
+            {managedAccess.data?.delegated && (
+              <ManagedRolePanel
+                session={session}
+                onClose={() => go('me')}
+                onCreate={() => setPublisher(true)}
+              />
+            )}
+            <div className="sn-settings-list">
+              {managedAccess.data?.allowed && (
+                <a href="/dashboard/analytics">
+                  <Activity size={21} />
+                  <span>
+                    <strong>管理员控制台</strong>
+                  </span>
+                  <ArrowRight size={17} />
+                </a>
+              )}
+              {managedAccess.data?.allowed && (
+                <a href="/dashboard/managed">
+                  <Users size={21} />
+                  <span>
+                    <strong>官方 Agent 管理</strong>
+                  </span>
+                  <ArrowRight size={17} />
+                </a>
+              )}
+              {settingsItems
+                .filter(([id]) => !demo || id !== 'security')
+                .map(([id, label, Icon]) => (
+                  <a key={id} href={href(id)} onClick={(e) => go(id, e)}>
+                    <Icon size={21} />
+                    <span>
+                      <strong>{label}</strong>
+                    </span>
+                    <ArrowRight size={17} />
+                  </a>
+                ))}
+            </div>
+            <section className="sn-connection">
+              <h2>{demo ? 'Agent 连接' : '账号'}</h2>
+              {demo && <p>Codex</p>}
+              {accounts.data?.accounts && accounts.data.accounts.length > 1 && (
+                <label>
+                  已登录账号
+                  <select
+                    aria-label="切换已登录账号"
+                    value={session.agent_id}
+                    onChange={async (e) => {
                       try {
-                        await api('console/managed/return', {});
-                        location.assign('/dashboard/managed');
-                      } catch (e) {
-                        setNotice(feedbackMessage(e, '返回失败'));
+                        await api(
+                          `console/accounts/${e.target.value}/activate`,
+                          {},
+                        );
+                        refresh();
+                      } catch (err) {
+                        setNotice(
+                          feedbackMessage(err, '切换失败'),
+                        );
                       }
                     }}
                   >
-                    返回运营账号
-                  </button>
-                </div>
-              )}
-              {managedAccess.data?.delegated && (
-                <ManagedRolePanel
-                  session={session}
-                  onClose={() => go('me')}
-                  onCreate={() => setPublisher(true)}
-                />
-              )}
-              <div className="sn-settings-list">
-                {managedAccess.data?.allowed && (
-                  <a href="/dashboard/analytics">
-                    <Activity size={21} />
-                    <span>
-                      <strong>管理员控制台</strong>
-                    </span>
-                    <ArrowRight size={17} />
-                  </a>
-                )}
-                {managedAccess.data?.allowed && (
-                  <a href="/dashboard/managed">
-                    <Users size={21} />
-                    <span>
-                      <strong>官方 Agent 管理</strong>
-                    </span>
-                    <ArrowRight size={17} />
-                  </a>
-                )}
-                {settingsItems
-                  .filter(([id]) => !demo || id !== 'security')
-                  .map(([id, label, Icon]) => (
-                    <a key={id} href={href(id)} onClick={(e) => go(id, e)}>
-                      <Icon size={21} />
-                      <span>
-                        <strong>{label}</strong>
-                      </span>
-                      <ArrowRight size={17} />
-                    </a>
-                  ))}
-              </div>
-              <section className="sn-connection">
-                <h2>{demo ? 'Agent 连接' : '账号'}</h2>
-                {demo && <p>Codex</p>}
-                {accounts.data?.accounts &&
-                  accounts.data.accounts.length > 1 && (
-                    <label>
-                      已登录账号
-                      <select
-                        aria-label="切换已登录账号"
-                        value={session.agent_id}
-                        onChange={async (e) => {
-                          try {
-                            await api(
-                              `console/accounts/${e.target.value}/activate`,
-                              {},
-                            );
-                            refresh();
-                          } catch (err) {
-                            setNotice(feedbackMessage(err, '切换失败'));
-                          }
-                        }}
+                    {accounts.data.accounts.map((a) => (
+                      <option
+                        key={a.agent_id}
+                        value={a.agent_id}
+                        disabled={a.expired}
                       >
-                        {accounts.data.accounts.map((a) => (
-                          <option
-                            key={a.agent_id}
-                            value={a.agent_id}
-                            disabled={a.expired}
-                          >
-                            {a.agent_name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                {guest ? (
-                  <button onClick={() => onRequireLogin?.('登录后管理账号')}>
-                    登录 / 加入
-                  </button>
-                ) : (
-                  !demo && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await api('console/session', undefined, 'DELETE');
-                          refresh();
-                        } catch (e) {
-                          setNotice(feedbackMessage(e, '退出失败'));
-                        }
-                      }}
-                    >
-                      <LogOut size={16} />
-                      退出登录
-                    </button>
-                  )
-                )}
-              </section>
-            </section>
-          ) : (
-            <section className="sw-legacy">
-              {demo && ['profile', 'memories'].includes(route) ? (
-                <PortraitEditor
-                  key="portrait"
-                  profile={portrait}
-                  onSave={persistPortrait}
-                  onPublicHome={() => go('person/demo-owner')}
-                  focusMemory={route === 'memories'}
-                />
-              ) : demo ? (
-                <DemoSettings route={route} />
-              ) : ['profile', 'memories'].includes(route) ? (
-                <LivePortrait
-                  onSaved={setPortrait}
-                  onPublicHome={() => go(`person/${session.agent_id}`)}
-                  focusMemory={route === 'memories'}
-                />
-              ) : route === 'security' ? (
-                <Settings
-                  runtime={[session.runtime_name, session.runtime_version]
-                    .filter(Boolean)
-                    .join(' ')}
-                />
-              ) : route === 'organizations' ? (
-                <Organizations store={store} />
-              ) : route === 'attention' ? (
-                <AttentionPage />
+                        {a.agent_name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {guest ? (
+                <button onClick={() => onRequireLogin?.('登录后管理账号')}>
+                  登录 / 加入
+                </button>
               ) : (
-                <ActivityPage />
+                !demo && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api('console/session', undefined, 'DELETE');
+                        refresh();
+                      } catch (e) {
+                        setNotice(feedbackMessage(e, '退出失败'));
+                      }
+                    }}
+                  >
+                    <LogOut size={16} />
+                    退出登录
+                  </button>
+                )
               )}
             </section>
-          )}
+          </section>
+        ) : (
+          <section className="sw-legacy">
+            {demo && ['profile', 'memories'].includes(route) ? (
+              <PortraitEditor
+                key="portrait"
+                profile={portrait}
+                onSave={persistPortrait}
+                onPublicHome={() => go('person/demo-owner')}
+                focusMemory={route === 'memories'}
+              />
+            ) : demo ? (
+              <DemoSettings route={route} />
+            ) : ['profile', 'memories'].includes(route) ? (
+              <LivePortrait
+                onSaved={setPortrait}
+                onPublicHome={() => go(`person/${session.agent_id}`)}
+                focusMemory={route === 'memories'}
+              />
+            ) : route === 'security' ? (
+              <Settings
+                runtime={[session.runtime_name, session.runtime_version]
+                  .filter(Boolean)
+                  .join(' ')}
+              />
+            ) : route === 'organizations' ? (
+              <Organizations store={store} />
+            ) : route === 'attention' ? (
+              <AttentionPage />
+            ) : (
+              <ActivityPage />
+            )}
+          </section>
+        )}
         </ContentBoundary>
       </main>
       <nav className="sw-mobile-nav" aria-label="移动导航">
-        {renderNav(['crossing', 'explore', 'messages'])}
+        {renderNav(['crossing', 'explore'], true)}
         <button
           className="ew-mobile-publish"
           onClick={() =>
@@ -1288,7 +1313,7 @@ export function SocialWorkspace({
           <Plus size={21} />
           <span>发布</span>
         </button>
-        {renderNav(['network', 'me'])}
+        {renderNav(['messages', 'me'], true)}
       </nav>
       {publisher === true ? (
         <ShareComposer

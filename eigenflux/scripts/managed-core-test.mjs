@@ -76,6 +76,7 @@ try {
           GOMAXPROCS: '2',
           GOFLAGS: '-p=2',
           AGENTNET_MANAGED_WORKER: 'false',
+          AGENTNET_RECRUITER_CATALOG_FILE: resolve('eigenflux/data/recruiters.json'),
           AGENTNET_MANAGED_TEST_DSN: `host=127.0.0.1 port=${port} user=postgres dbname=postgres sslmode=disable`,
         },
       },
@@ -105,7 +106,7 @@ try {
     await verifyManagedLabelMigration(
       db,
       (await readFile(
-        `${dir}/migrations/000135_remove_post_provenance.sql`, 'utf8',
+        `${dir}/migrations/000136_remove_post_provenance.sql`, 'utf8',
       )).split('-- +goose Down')[0],
     );
     const down = (

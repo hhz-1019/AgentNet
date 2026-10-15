@@ -264,6 +264,11 @@ func TestManagedFullSchema(t *testing.T) {
 	if job == nil {
 		t.Fatal("nothing claimed")
 	}
+	var claimedSeed int
+	check(db.Raw("SELECT seed_index FROM managed_members WHERE agent_id=?", job.AgentID).Scan(&claimedSeed).Error)
+	if job.SeedIndex == nil || *job.SeedIndex != claimedSeed || managedCharacterBrief(job.SeedIndex) == nil {
+		t.Fatal("claimed role lost its stable character mapping")
+	}
 	other, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
 	if other != nil {
@@ -352,15 +357,32 @@ func TestManagedFullSchema(t *testing.T) {
 	})
 	func() {
 		defer func() { http.DefaultTransport = originalTransport }()
-		out := call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants test"}, session.ID, 200)
+		out := call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants"}, session.ID, 200)
 		if !strings.Contains(string(out), `"updated":1`) {
 			t.Fatal("targeted photo collection failed", string(out))
 		}
-		out = call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants test"}, session.ID, 200)
+		out = call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants"}, session.ID, 200)
 		if !strings.Contains(string(out), `"updated":0`) {
 			t.Fatal("existing photo overwritten")
 		}
 	}()
+	var repairRevision int64
+	check(db.Raw("SELECT revision FROM social_work_posts WHERE post_id=?", socialDecimal(repairID)).Scan(&repairRevision).Error)
+	if _, err := s.removeManagedPostPhoto(context.Background(), "another-sponsor", socialDecimal(repairID), repairRevision); err == nil {
+		t.Fatal("cross-sponsor removal accepted")
+	}
+	call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision - 1}, session.ID, 409)
+	if out := string(call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision}, session.ID, 200)); !strings.Contains(out, `"updated":1`) {
+		t.Fatal("mismatched photo not detached", out)
+	}
+	var repaired socialDocument
+	var repairedRaw string
+	check(db.Raw("SELECT document::text FROM social_work_posts WHERE post_id=?", socialDecimal(repairID)).Scan(&repairedRaw).Error)
+	check(json.Unmarshal([]byte(repairedRaw), &repaired))
+	if len(repaired.Media) != 0 || repaired.Body != d.Body || strings.Contains(repairedRaw, "配图来源：") {
+		t.Fatal("repair changed prose or retained attribution", repaired)
+	}
+	call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision}, session.ID, 409)
 	next, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
 	if next != nil {
@@ -406,7 +428,7 @@ func TestManagedFullSchema(t *testing.T) {
 	if s.commitManaged(context.Background(), *next, bad, map[int64]bool{}) == nil {
 		t.Fatal("comment escaped supplied scope")
 	}
-	s.finishManagedFailure(*next)
+	s.finishManagedFailure(*next, managedModelResult{Requested: true}, managedFailure("provider_timeout"))
 	check(db.Raw(`SELECT charged_fen FROM managed_runs WHERE run_id=?`, next.RunID).Scan(&count).Error)
 	if count != next.Reserved {
 		t.Fatal("unknown provider charge refunded")
@@ -484,6 +506,15 @@ func TestManagedFullSchema(t *testing.T) {
 	if !strings.Contains(overview, `"healthy":true`) || !strings.Contains(overview, `"provider_host":"provider.test"`) || strings.Contains(overview, "test-key-do-not-output") {
 		t.Fatal("health or billing readout incorrect")
 	}
+	check(db.Exec("UPDATE managed_worker_health SET last_seen_at=? WHERE id=1", time.Now().Add(-3*time.Minute).UnixMilli()).Error)
+	if out := string(call("GET", "/managed", nil, session.ID, 200)); !strings.Contains(out, `"healthy":true`) {
+		t.Fatal("bounded model wait incorrectly reported a dead worker")
+	}
+	check(db.Exec("UPDATE managed_worker_health SET last_seen_at=? WHERE id=1", time.Now().Add(-6*time.Minute).UnixMilli()).Error)
+	if out := string(call("GET", "/managed", nil, session.ID, 200)); !strings.Contains(out, `"healthy":false`) {
+		t.Fatal("stalled worker reported healthy")
+	}
+	s.managedBeat("ready")
 
 	// A quiet turn must not call the provider or retain a billing reservation.
 	quiet := *queued
@@ -526,15 +557,25 @@ func TestManagedFullSchema(t *testing.T) {
 	call("POST", "/restore/"+customID, map[string]any{"revision": 2}, session.ID, 200)
 	call("POST", "/login/"+customID, map[string]any{}, session.ID, 200)
 	call("DELETE", "/delete/"+customID, map[string]any{"revision": 3}, session.ID, 200)
-	check(db.Exec("UPDATE managed_members SET profile_version=0 WHERE seed_index<100").Error)
+	check(db.Exec("UPDATE managed_members SET profile_version=2,pending_topic='保留待发选题' WHERE seed_index<100").Error)
 	upgraded := call("POST", "/profiles", map[string]any{}, session.ID, 200)
 	if !strings.Contains(string(upgraded), "100") {
 		t.Fatal("profiles not upgraded")
 	}
+	check(db.Raw("SELECT count(*) FROM managed_members WHERE seed_index<100 AND profile_version=3 AND pending_topic='保留待发选题'").Scan(&count).Error)
+	if count != 100 {
+		t.Fatal("v2 role upgrade dropped queued topics or missed members", count)
+	}
+	check(db.Exec("UPDATE managed_members SET persona=persona || ' 管理员补充：保留阅读偏好。' WHERE seed_index=0").Error)
 	repeated := call("POST", "/profiles", map[string]any{}, session.ID, 200)
 	if !strings.Contains(string(repeated), `"updated":0`) {
 		t.Fatal("profile refresh not idempotent")
 	}
+	check(db.Raw("SELECT count(*) FROM managed_members WHERE seed_index=0 AND persona LIKE '%管理员补充：保留阅读偏好。'").Scan(&count).Error)
+	if count != 1 {
+		t.Fatal("repeat refresh overwrote operator edits")
+	}
+	check(db.Exec("UPDATE managed_members SET pending_topic='' WHERE seed_index<100").Error)
 	var shortest int
 	check(db.Raw("SELECT min(length(persona)) FROM managed_members WHERE deleted_at=0").Scan(&shortest).Error)
 	if shortest < 1001 {
@@ -598,6 +639,64 @@ func TestManagedFullSchema(t *testing.T) {
 	check(err)
 	if operatorState.State != "completed" || operatorDraft.Revision != 1 {
 		t.Fatal("operator browser session cannot load completed onboarding")
+	}
+	// Recruitment imports use the same real identity/ownership transaction.
+	catalog := RecruiterCatalog{CheckedAt: "2026-10-15"}
+	for _, key := range []string{"tencent", "huawei", "xiaomi", "meituan", "tme"} {
+		catalog.Profiles = append(catalog.Profiles, RecruiterProfile{Key: key, Company: key, Name: key + " · 招聘信息", Summary: "公开岗位摘要", Audience: "应届毕业生", Benefits: "薪酬未公布", Requirements: "按官方岗位核对", Sources: []RecruiterSource{{Title: "官网", URL: "https://example.com/jobs"}}})
+	}
+	if _, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10002", catalog); err == nil {
+		t.Fatal("recruiter import bypassed operator allowlist")
+	}
+	if path := os.Getenv("AGENTNET_RECRUITER_CATALOG_FILE"); path != "" {
+		raw, err := os.ReadFile(path)
+		check(err)
+		check(json.Unmarshal(raw, &catalog))
+	}
+	recruiters, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog)
+	check(err)
+	if len(recruiters) != 5 {
+		t.Fatal("missing recruitment identities")
+	}
+	repeatedRecruiters, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog)
+	check(err)
+	for key, id := range recruiters {
+		if repeatedRecruiters[key] != id {
+			t.Fatal("recruiter identity changed on retry")
+		}
+	}
+	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agents a USING(agent_id) JOIN agent_owners o USING(agent_id) JOIN agent_onboarding_v2 b USING(agent_id) WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND NOT m.enabled AND NOT a.is_official AND o.owner_uid=m.owner_uid AND b.state='completed' AND a.bio LIKE '%公开招聘信息画像%'`).Scan(&count).Error)
+	if count != 5 {
+		t.Fatal("recruitment identity disclosure or pause boundary missing", count)
+	}
+	check(db.Raw(`SELECT count(*) FROM twin_users t JOIN managed_members m ON t.user_id=m.owner_uid WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND t.portrait_fields->>'bio' LIKE '%公开招聘信息画像%' AND t.portrait_revision=1`).Scan(&count).Error)
+	if count != 5 {
+		t.Fatal("recruitment portraits missing", count)
+	}
+	contacts := homeDiscoveryResponse{Items: []homeDiscoveryAgent{{AgentID: recruiters["tencent"]}}}
+	check(s.decorateHomeDiscoveryRelations(context.Background(), 1, &contacts))
+	if len(contacts.Items) != 5 || contacts.Items[0].AgentName == "" || !contacts.Items[0].ShowAddFriend {
+		t.Fatal("recruiters missing from unified contacts", contacts.Items)
+	}
+	// Reusing a cached list cannot expose blocked or archived identities.
+	check(db.Exec(`INSERT INTO user_relations(from_uid,to_uid,rel_type,created_at) VALUES(1,?,2,?)`, recruiters["tencent"], now).Error)
+	check(db.Exec(`UPDATE managed_members SET deleted_at=? WHERE agent_id=?`, now, recruiters["huawei"]).Error)
+	check(s.decorateHomeDiscoveryRelations(context.Background(), 1, &contacts))
+	if len(contacts.Items) != 3 {
+		t.Fatal("blocked or archived recruiter leaked", contacts.Items)
+	}
+	for _, item := range contacts.Items {
+		if item.AgentID == recruiters["tencent"] || item.AgentID == recruiters["huawei"] {
+			t.Fatal("hidden recruiter leaked")
+		}
+	}
+	h.GET("/recruitment-discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
+	if response := ut.PerformRequest(h.Engine, "GET", "/recruitment-discovery", nil); response.Code != 401 {
+		t.Fatal("contacts accessible without login", response.Code)
+	}
+	catalog.Profiles[1] = catalog.Profiles[0]
+	if _, err := ProvisionRecruiters(context.Background(), db, s.idgen, "10001", catalog); err == nil {
+		t.Fatal("duplicate recruitment keys accepted")
 	}
 }
 

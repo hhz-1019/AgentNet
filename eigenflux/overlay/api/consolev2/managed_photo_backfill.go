@@ -7,6 +7,45 @@ import (
 	"gorm.io/gorm"
 )
 
+// Detach an operator-reviewed mismatch. Keep the media bytes and usage claim for
+// rollback and deduplication; require the exact revision reviewed by the operator.
+func (s *Service) removeManagedPostPhoto(ctx context.Context, owner string, id, revision int64) (int, error) {
+	updated := 0
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row struct {
+			AgentID, Revision int64
+			Document          string
+		}
+		if err := tx.Raw(`SELECT p.agent_id,p.revision,p.document::text AS document FROM social_work_posts p JOIN managed_members m USING(agent_id) WHERE p.post_id=? AND m.sponsor_uid=? AND m.deleted_at=0 AND p.state='published' AND p.visibility='public' FOR UPDATE OF p`, id, owner).Scan(&row).Error; err != nil {
+			return err
+		}
+		if row.AgentID == 0 || revision <= 0 || row.Revision != revision {
+			return errConflict
+		}
+		var d socialDocument
+		if err := json.Unmarshal([]byte(row.Document), &d); err != nil {
+			return err
+		}
+		if len(d.Media) == 0 {
+			return nil
+		}
+		d.Media = []socialMedia{}
+		raw, err := json.Marshal(d)
+		if err != nil {
+			return err
+		}
+		if err = tx.Exec(`UPDATE social_work_posts SET document=?::jsonb,revision=revision+1,approved_revision=revision+1 WHERE post_id=?`, string(raw), id).Error; err != nil {
+			return err
+		}
+		if err = managedAudit(tx, owner, "detach_photo", row.AgentID); err != nil {
+			return err
+		}
+		updated = 1
+		return nil
+	})
+	return updated, err
+}
+
 // Operator-selected subjects repair the existing feed without rewriting prose.
 func (s *Service) backfillManagedPostPhoto(ctx context.Context, c *app.RequestContext, owner, postID, query string) {
 	id := socialDecimal(postID)

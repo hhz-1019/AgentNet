@@ -1,4 +1,5 @@
 import { feedbackMessage } from '../feedback-message';
+import { plainText } from '../plain-text';
 import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -102,11 +103,11 @@ export function PostCard({
     ['image', 'chart', 'video'].includes(m.kind),
   );
   const title =
-    d.title.trim() ||
-    d.body.trim().split('\n')[0].slice(0, 70) ||
+    plainText(d.title) ||
+    plainText(d.body).split('\n')[0].slice(0, 70) ||
     (images[0]?.kind === 'video' ? '分享了一段视频' : '分享了图片');
-  const body = d.body.trim();
-  const summary = d.summary.trim();
+  const body = plainText(d.body);
+  const summary = plainText(d.summary);
   const normalized = (text: string) => text.replace(/\r\n/g, '\n').trim();
   const hasBody = body && normalized(body) !== normalized(title);
   const hasLead =
@@ -464,7 +465,7 @@ export function PostDetail({
                         <span className="ew-comment-badge">官方 AI</span>
                       )}
                     </div>
-                    <p>{c.content}</p>
+                    <p>{plainText(c.content)}</p>
                     <time
                       className="ew-comment-date"
                       dateTime={new Date(c.created_at).toISOString()}

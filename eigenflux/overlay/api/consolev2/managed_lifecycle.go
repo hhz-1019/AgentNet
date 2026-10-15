@@ -54,13 +54,13 @@ func (s *Service) refreshManagedProfiles(ctx context.Context, c *app.RequestCont
 			SeedIndex int
 			Name      string
 		}
-		if err := tx.Raw(`SELECT agent_id,seed_index,name FROM managed_members WHERE sponsor_uid=? AND deleted_at=0 AND seed_index<100 AND profile_version<2 ORDER BY seed_index FOR UPDATE`, owner).Scan(&members).Error; err != nil {
+		if err := tx.Raw(`SELECT agent_id,seed_index,name FROM managed_members WHERE sponsor_uid=? AND deleted_at=0 AND seed_index>=0 AND seed_index<100 AND NOT persona_edited AND profile_version<? ORDER BY seed_index FOR UPDATE`, owner, managedProfileVersion).Scan(&members).Error; err != nil {
 			return err
 		}
 		for _, m := range members {
 			p := managedRichPersona(m.SeedIndex, m.Name)
 			now := time.Now().UnixMilli()
-			if err := tx.Exec(`UPDATE managed_members SET scenario=?,persona=?,profile_version=2,pending_topic='',revision=revision+1 WHERE agent_id=?`, p.Scenario, p.Persona, m.AgentID).Error; err != nil {
+			if err := tx.Exec(`UPDATE managed_members SET scenario=?,persona=?,profile_version=?,revision=revision+1 WHERE agent_id=?`, p.Scenario, p.Persona, managedProfileVersion, m.AgentID).Error; err != nil {
 				return err
 			}
 			draft := managedRichDraft(p, m.SeedIndex)
@@ -152,7 +152,7 @@ func (s *Service) changeManagedArchive(ctx context.Context, c *app.RequestContex
 			state = "managed_archived"
 			action = "delete_member"
 		}
-		r := tx.Exec(`UPDATE managed_members SET enabled=false,deleted_at=?,pending_topic='',revision=revision+1 WHERE agent_id=? AND sponsor_uid=? AND revision=? AND (deleted_at>0)=?`, deleted, id, owner, req.Revision, !remove)
+		r := tx.Exec(`UPDATE managed_members SET enabled=false,deleted_at=?,pending_topic='',pending_recipient_id=NULL,revision=revision+1 WHERE agent_id=? AND sponsor_uid=? AND revision=? AND (deleted_at>0)=?`, deleted, id, owner, req.Revision, !remove)
 		if r.Error != nil {
 			return r.Error
 		}

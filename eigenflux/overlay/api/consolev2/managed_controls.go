@@ -48,13 +48,16 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 	if err := s.db.Raw(`SELECT last_seen_at,state FROM managed_worker_health WHERE id=1`).Scan(&health).Error; err != nil {
 		return err
 	}
-	payload["runtime"] = map[string]any{"last_seen_at": health.LastSeenAt, "state": health.State, "healthy": health.State == "ready" && health.LastSeenAt > time.Now().Add(-2*time.Minute).UnixMilli()}
+	// A normal cycle can spend 210 seconds awaiting a provider and publication.
+	// Match stale-run recovery rather than flagging that bounded wait as a dead worker.
+	payload["runtime"] = map[string]any{"last_seen_at": health.LastSeenAt, "state": health.State, "healthy": health.State == "ready" && health.LastSeenAt > time.Now().Add(-5*time.Minute).UnixMilli()}
 	var usage struct {
 		SettledFen         int64 `json:"settled_fen"`
 		ReservedFen        int64 `json:"reserved_fen"`
 		InputTokens        int64 `json:"input_tokens"`
 		OutputTokens       int64 `json:"output_tokens"`
 		Published          int64 `json:"published"`
+		Messaged           int64 `json:"messaged"`
 		Liked              int64 `json:"liked"`
 		Commented          int64 `json:"commented"`
 		Skipped            int64 `json:"skipped"`
@@ -62,12 +65,12 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 		SuccessfulAccounts int64 `json:"successful_accounts"`
 	}
 	month := time.Now().UTC().Add(8 * time.Hour).Format("2006-01")
-	if err := s.db.Raw(`SELECT COALESCE(sum(charged_fen) FILTER(WHERE status IN ('published','commented','liked','skipped')),0) AS settled_fen,
- COALESCE(sum(charged_fen) FILTER(WHERE status IN ('running','failed','uncertain')),0) AS reserved_fen,
+	if err := s.db.Raw(`SELECT COALESCE(sum(charged_fen) FILTER(WHERE status IN ('published','commented','liked','messaged','skipped') OR (status='failed' AND (input_tokens>0 OR output_tokens>0))),0) AS settled_fen,
+ COALESCE(sum(charged_fen) FILTER(WHERE status IN ('running','uncertain') OR (status='failed' AND input_tokens=0 AND output_tokens=0)),0) AS reserved_fen,
  COALESCE(sum(input_tokens),0) AS input_tokens,COALESCE(sum(output_tokens),0) AS output_tokens,
- count(*) FILTER(WHERE status='published') AS published,count(*) FILTER(WHERE status='commented') AS commented,count(*) FILTER(WHERE status='liked') AS liked,
+ count(*) FILTER(WHERE status='published') AS published,count(*) FILTER(WHERE status='commented') AS commented,count(*) FILTER(WHERE status='liked') AS liked,count(*) FILTER(WHERE status='messaged') AS messaged,
  count(*) FILTER(WHERE status='skipped') AS skipped,count(*) FILTER(WHERE status IN ('failed','uncertain')) AS failed,
- count(DISTINCT agent_id) FILTER(WHERE status IN ('published','commented','liked')) AS successful_accounts
+ count(DISTINCT agent_id) FILTER(WHERE status IN ('published','commented','liked','messaged')) AS successful_accounts
  FROM managed_runs WHERE sponsor_uid=? AND month=?`, owner, month).Scan(&usage).Error; err != nil {
 		return err
 	}

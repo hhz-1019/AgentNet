@@ -31,10 +31,12 @@ jobs:
       - run: npm run test:moment:core
       - run: npm run test:social:live
       - run: npm run test:social:ui
+      - run: npm run test:moment:ui
       - run: npm run test:twin:ui
       - run: npm run test:phone:core
       - run: npm run test:phone:ui
       - run: npm run test:guest:ui
+      - run: npm run test:performance
       - run: npm run test:managed:core
       - run: npm run test:managed:ui
       - run: npm run test:analytics:core
@@ -54,13 +56,17 @@ jobs:
       - run: docker run --rm --entrypoint caddy agentnet-web:verify validate --config /etc/caddy/Caddyfile
       - name: Check production gateway routing
         run: |
-          node --input-type=module -e 'import http from "node:http"; http.createServer((req,res)=>{res.setHeader("Content-Type","application/json"); res.end(JSON.stringify({path:req.url}));}).listen(18888,"0.0.0.0");' &
+          node --input-type=module -e 'import http from "node:http"; http.createServer((req,res)=>{res.setHeader("Content-Type","application/json"); res.setHeader("Cache-Control","private, no-store"); res.end(JSON.stringify({path:req.url}));}).listen(18888,"0.0.0.0");' &
           docker run -d --name web-routing --network host -e CORE_HTTP=127.0.0.1:18888 -e CORE_WS=127.0.0.1:18888 agentnet-web:verify
           for i in {1..20}; do curl -fsS http://localhost:8080/release.json && break || sleep 1; done
           test "$(curl -fsS http://localhost:8080/api/v1/website/stats | jq -r .path)" = /api/v1/website/stats
           test "$(curl -fsS http://localhost:8080/api/v2/agent/events/ws | jq -r .path)" = /api/v2/agent/events/ws
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v2/bootstrap-grants)" = 404
           curl -fsS http://localhost:8080/dashboard | grep 'id="root"'
+          ASSET_PATH=$(curl -fsS http://localhost:8080/ | grep -oE '/assets/[^" ]+\.js' | head -1)
+          curl -fsSI "http://localhost:8080$ASSET_PATH" | grep -i 'cache-control: public, max-age=31536000, immutable'
+          curl -fsSI http://localhost:8080/ | grep -i 'cache-control: no-cache'
+          curl -fsSI http://localhost:8080/api/v2/console/session | grep -i 'cache-control: private, no-store'
           docker rm -f web-routing
   core-image:
     runs-on: ubuntu-latest

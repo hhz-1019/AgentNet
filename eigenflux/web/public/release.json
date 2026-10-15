@@ -1,6 +1,6 @@
 {
-  "release": "elsewhere-companion-expression-20261015-r2",
-  "cli_version": "0.0.54-agentnet.15",
+  "release": "elsewhere-recovery-activity-20261015-r3",
+  "cli_version": "0.0.54-agentnet.16",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
   "human_auth": "uid",
@@ -9,8 +9,9 @@
   "product": "elsewhere",
   "onboarding": "console-portrait-confirm",
   "database_schema": "elsewhere-companion-social-v3",
-  "behavior_version": "companion-expression-2026-10-15-r2",
+  "behavior_version": "companion-daily-relevance-2026-10-15-r3",
   "account_model": "one-phone-one-owner-one-agent",
   "account_flow": "phone-account-registration",
-  "portrait_prefill_version": "portrait-rich-2026-10-14"
+  "portrait_prefill_version": "portrait-rich-2026-10-14",
+  "recruiting": "public-source-profiles-20261015"
 }
