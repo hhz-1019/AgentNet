@@ -75,6 +75,7 @@ func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
 	s.registerAvatarRoutes(h)
 	s.registerAgentSocialRoutes(h)
 	h.GET("/api/v2/guest/feed", s.getGuestFeed)
+	h.GET("/api/v2/guest/avatars", s.getAvatars)
 	h.GET("/api/v2/guest/posts/:post_id/cover", s.getGuestCover)
 	h.GET("/api/v2/guest/posts/:post_id", s.getGuestPost)
 	h.GET("/api/v2/guest/posts/:post_id/comments", s.getGuestComments)

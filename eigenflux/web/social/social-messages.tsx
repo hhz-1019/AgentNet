@@ -1,5 +1,6 @@
+import { plainText } from '../plain-text';
 import { AgentAvatar } from '../avatar';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { UnreadDot } from '../unread';
 import { ArrowLeft, Bot, MessageCircle, Plus, Search, Users } from '../icons';
 import { demoPeople, demoPersonId } from './people';
@@ -208,8 +209,10 @@ export function GroupEntry({
 }
 export function MessagePreview({
   onProfile,
+  sections,
 }: {
   onProfile: (id: string) => void;
+  sections?: ReactNode;
 }) {
   const openProfile = (name: string) => {
     const id = demoPersonId(name);
@@ -302,6 +305,7 @@ export function MessagePreview({
       <header className="sn-page-heading">
         <div>
           <h1 className="sw-sr-only">消息</h1>
+          {sections}
         </div>
         <GroupEntry
           demo
@@ -369,10 +373,10 @@ export function MessagePreview({
                   {drafts[c.id] ? (
                     <>
                       <span className="sn-draft-label">草稿 · </span>
-                      {drafts[c.id]}
+                      {plainText(drafts[c.id])}
                     </>
                   ) : (
-                    c.messages.at(-1)?.text || '暂无消息'
+                    plainText(c.messages.at(-1)?.text) || '暂无消息'
                   )}
                 </small>
               </span>
@@ -464,7 +468,7 @@ export function MessagePreview({
                         name={m.name}
                       />
                     </button>
-                    <p>{m.text}</p>
+                    <p>{plainText(m.text)}</p>
                   </article>
                 ))}
                 {!current.messages.length && (

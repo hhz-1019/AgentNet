@@ -1,6 +1,7 @@
 package consolev2
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -46,6 +47,7 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 	h := server.New()
 	s := &Service{db: db}
 	h.GET("/feed", s.getGuestFeed)
+	h.GET("/avatars", s.getAvatars)
 	h.GET("/posts/:post_id/cover", s.getGuestCover)
 	h.GET("/posts/:post_id", s.getGuestPost)
 	h.GET("/posts/:post_id/comments", s.getGuestComments)
@@ -129,6 +131,32 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 	// Public profiles honor owner-selected fields and never expose private memories.
 	check(db.Exec(`INSERT INTO human_accounts VALUES('guest-owner','fixture','fixture',1); INSERT INTO agent_owners VALUES(88001,'guest-owner',1); INSERT INTO twin_users(user_id,created_at,last_active_at,portrait_fields,portrait_visible) VALUES('guest-owner',1,1,'{"name":"公开昵称","bio":"私密介绍","interests":"公开兴趣","role":"私人身份","avatar":"tide"}','["name","interests"]')`).Error)
 	defer db.Exec(`DELETE FROM twin_users WHERE user_id='guest-owner';DELETE FROM agent_owners WHERE owner_uid='guest-owner';DELETE FROM human_accounts WHERE uid='guest-owner'`)
+	avatars := string(get("/avatars?ids=88001,88002,999999", 200))
+	if !strings.Contains(avatars, `"88001":"tide"`) || strings.Contains(avatars, "88002") || strings.Contains(avatars, "guest-owner") || strings.Contains(avatars, "私密介绍") {
+		t.Fatal("invalid anonymous avatar projection", avatars)
+	}
+	check(db.Exec(`UPDATE agents SET identity_state='managed_archived' WHERE agent_id=88001`).Error)
+	if strings.Contains(string(get("/avatars?ids=88001", 200)), "tide") {
+		t.Fatal("archived avatar exposed")
+	}
+	check(db.Exec(`UPDATE agents SET identity_state='active' WHERE agent_id=88001`).Error)
+	get("/avatars?ids=invalid", 400)
+	get("/avatars?ids="+strings.Repeat("88001,", 100)+"88001", 400)
+	avatarID := strings.Repeat("b", 32)
+	avatarPath := avatarPrefix + avatarID
+	check(db.Exec(`INSERT INTO agent_avatars(avatar_id,agent_id,content,created_at) VALUES(?,88001,decode(?,'base64'),1)`, avatarID, base64.StdEncoding.EncodeToString(previewTestImage(t, 256, 256))).Error)
+	defer db.Exec(`DELETE FROM agent_avatars WHERE avatar_id=?`, avatarID)
+	check(db.Exec(`UPDATE twin_users SET portrait_fields=jsonb_set(portrait_fields,'{avatar}',to_jsonb(?::text)) WHERE user_id='guest-owner'`, avatarPath).Error)
+	withPreview := string(get("/avatars?ids=88001,88002", 200))
+	if !strings.Contains(withPreview, `"color":"#2878b4"`) || !strings.Contains(withPreview, `data:image/jpeg;base64,`) || !strings.Contains(withPreview, avatarPath) || strings.Contains(withPreview, "88002") {
+		t.Fatal("public avatar missing matching tiny preview", withPreview)
+	}
+	check(db.Exec(`UPDATE agents SET identity_state='managed_archived' WHERE agent_id=88001`).Error)
+	if strings.Contains(string(get("/avatars?ids=88001", 200)), "base64") {
+		t.Fatal("cached preview leaked archived identity")
+	}
+	check(db.Exec(`UPDATE agents SET identity_state='active' WHERE agent_id=88001`).Error)
+	check(db.Exec(`UPDATE twin_users SET portrait_fields=jsonb_set(portrait_fields,'{avatar}','"tide"') WHERE user_id='guest-owner'`).Error)
 	profile := string(get("/people/88001", 200))
 	if !strings.Contains(profile, "公开兴趣") || strings.Contains(profile, "私密介绍") || strings.Contains(profile, "私人身份") || strings.Contains(profile, "guest-owner") {
 		t.Fatal("profile visibility not respected", profile)

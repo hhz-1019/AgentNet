@@ -315,3 +315,44 @@ void test('direct sharing needs authorization and preserves an idempotent genera
     await rm(home, { recursive: true, force: true });
   }
 });
+
+void test('companion expression reaches draft generation without becoming document metadata', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'agentnet-voice-'));
+  const voice = {
+    agent_name: '木尺',
+    profile: '短句、干脆，少用表情；清爽的物件摄影。',
+  };
+  const client = new AgentNet({
+    home,
+    binary: '/unused/cli',
+    endpoint: 'http://127.0.0.1',
+    draftGenerator: async ({ work }) => {
+      assert.deepEqual(work.companion_voice, voice);
+      assert.equal(work.companion_voice.memories, undefined);
+      return documentFromWork(work);
+    },
+  });
+  let document;
+  client.command = async (_args, options) => {
+    document = options.input.document;
+    return { id: '123', state: 'draft' };
+  };
+  try {
+    await client.record_work({
+      ...report,
+      companion_voice: { ...voice, memories: ['private-only'] },
+    });
+    assert.equal(document.companion_voice, undefined);
+    assert(!JSON.stringify(document).includes('private-only'));
+    assert.throws(
+      () =>
+        workRecord({
+          ...report,
+          companion_voice: { profile: 'password=private-secret-example' },
+        }),
+      /credentials/,
+    );
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});

@@ -1,35 +1,85 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { api } from './api';
-import { avatarUrl } from './default-avatars';
+import { avatarUrl, isPortraitAvatar, defaultAvatars } from './default-avatars';
+import { AvatarCache, type AvatarPreview } from './avatar-cache';
+import { ProgressiveImage } from './social/progressive-image';
+import { useEntryPreparation } from './entry-preparation';
 import './avatar.css';
 
-const cache = new Map<string, string>();
-export const AvatarLookupContext = createContext(true);
+const cache = new AvatarCache();
+export const AvatarLookupContext = createContext<boolean | 'guest'>(true);
 const pending = new Set<string>();
 const inFlight = new Set<string>();
 let generation = 0;
 const listeners = new Set<() => void>();
+const lookups = new Set<() => void>();
+let refreshTimer: number | undefined;
+const refreshLookups = () => lookups.forEach((lookup) => lookup());
+function watchLookup(lookup: () => void) {
+  lookups.add(lookup);
+  if (refreshTimer === undefined) {
+    refreshTimer = window.setInterval(refreshLookups, 15_000);
+    window.addEventListener('focus', refreshLookups);
+  }
+  return () => {
+    lookups.delete(lookup);
+    if (!lookups.size) {
+      window.clearInterval(refreshTimer);
+      refreshTimer = undefined;
+      window.removeEventListener('focus', refreshLookups);
+    }
+  };
+}
 let scheduled = false;
 async function flushAvatars() {
   scheduled = false;
-  const ids = [...pending].slice(0, 100);
+  const scope = [...pending][0]?.split(':')[0];
+  const keys = [...pending]
+    .filter((key) => key.startsWith(scope + ':'))
+    .slice(0, 100);
+  const ids = keys.map((key) => key.split(':')[1]);
   const startedAt = generation;
-  ids.forEach((id) => {
-    pending.delete(id);
-    inFlight.add(id);
+  keys.forEach((key) => {
+    pending.delete(key);
+    inFlight.add(key);
   });
   if (!ids.length) return;
   try {
-    const response = await api<{ avatars: Record<string, string> }>(
-      `console/avatars?ids=${ids.join(',')}`,
-    );
+    const response = await api<{
+      avatars: Record<string, string>;
+      previews?: Record<string, AvatarPreview>;
+    }>(`${scope}/avatars?ids=${ids.join(',')}`);
     if (startedAt !== generation) return;
-    ids.forEach((id) => cache.set(id, response.avatars[id] || ''));
-    listeners.forEach((notify) => notify());
+    let changed = false;
+    keys.forEach((key, i) => {
+      if (
+        cache.set(
+          key,
+          response.avatars[ids[i]] || '',
+          Date.now(),
+          response.previews?.[ids[i]],
+        )
+      )
+        changed = true;
+    });
+    if (changed) listeners.forEach((notify) => notify());
   } catch {
-    // Keep the stable local default; a later mount can retry a failed lookup.
+    // Keep the last image; mounted avatars retry without refreshing the page.
+    if (startedAt === generation) {
+      keys.forEach((key) => {
+        if (cache.get(key) === undefined) cache.set(key, '');
+      });
+      listeners.forEach((notify) => notify());
+    }
   } finally {
-    ids.forEach((id) => inFlight.delete(id));
+    if (startedAt === generation) keys.forEach((key) => inFlight.delete(key));
   }
   if (pending.size) schedule();
 }
@@ -39,20 +89,24 @@ function schedule() {
   queueMicrotask(() => void flushAvatars());
 }
 export function rememberAvatar(agentId: string, avatar: string) {
-  if (cache.get(agentId) === avatar) return;
-  cache.set(agentId, avatar);
+  const key = `console:${agentId}`;
+  if (cache.get(key) === avatar) return;
+  // Show the known URL immediately, but still fetch its tiny preview.
+  cache.set(key, avatar, Date.now() - 300_001);
   listeners.forEach((notify) => notify());
+  refreshLookups();
 }
 export function clearAvatarCache() {
   generation++;
   cache.clear();
+  pending.clear();
   inFlight.clear();
   listeners.forEach((notify) => notify());
+  refreshLookups();
 }
 export function AgentAvatar({
   agentId = '',
   avatar,
-  name = '',
   className = '',
 }: {
   agentId?: string;
@@ -62,31 +116,61 @@ export function AgentAvatar({
 }) {
   const [, update] = useState(0);
   const allowLookup = useContext(AvatarLookupContext);
-  const known = cache.get(agentId);
+  const key = `${allowLookup === 'guest' ? 'guest' : 'console'}:${agentId}`;
+  const known = cache.get(key);
+  const frame = useRef<HTMLSpanElement>(null);
+  const [firstScreen, setFirstScreen] = useState(false);
+  const canLookup = Boolean(allowLookup && /^\d+$/.test(agentId));
+  useLayoutEffect(() => {
+    const bounds = frame.current?.getBoundingClientRect();
+    setFirstScreen(
+      Boolean(bounds && bounds.top < window.innerHeight && bounds.bottom > 0),
+    );
+  }, []);
+  useEntryPreparation(
+    firstScreen && canLookup && !avatar && known === undefined,
+  );
   useEffect(() => {
-    if (avatar || !agentId || !allowLookup) return;
+    if (!canLookup) return;
     const notify = () => update((n) => n + 1);
     listeners.add(notify);
-    if (
-      /^\d+$/.test(agentId) &&
-      !cache.has(agentId) &&
-      !inFlight.has(agentId)
-    ) {
-      pending.add(agentId);
-      schedule();
-    }
+    const lookup = () => {
+      if (/^\d+$/.test(agentId) && !cache.fresh(key) && !inFlight.has(key)) {
+        pending.add(key);
+        schedule();
+      }
+    };
+    lookup();
+    const unwatch = watchLookup(lookup);
     return () => {
       listeners.delete(notify);
+      unwatch();
     };
-  }, [agentId, avatar, known, allowLookup]);
+  }, [agentId, canLookup, key]);
+  const value = avatar || known;
+  const metadata = cache.image(key);
+  const image = metadata?.avatar === value ? metadata : undefined;
+  const color =
+    image?.color || defaultAvatars.find((item) => item.id === value)?.colors[0];
   return (
-    <img
-      className={`ew-avatar-image ${className}`}
-      src={avatarUrl(avatar || known, agentId || name)}
-      alt=""
+    <span
+      ref={frame}
+      className={`ew-avatar-image ew-avatar-frame ${className}`}
       aria-hidden="true"
-      width={48}
-      height={48}
-    />
+    >
+      {isPortraitAvatar(value) && (
+        <ProgressiveImage
+          key={value}
+          media={{
+            url: avatarUrl(value),
+            kind: 'image',
+            alt: '',
+            preview: image?.preview,
+            color,
+          }}
+          onError={() => {}}
+        />
+      )}
+    </span>
   );
 }

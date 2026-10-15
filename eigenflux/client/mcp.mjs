@@ -164,6 +164,15 @@ const definitions = [
       evidence: z.string().max(900),
       limitations: z.string().max(1000),
       tags: z.array(z.string().min(1).max(30)).max(8),
+      companion_voice: z
+        .object({
+          agent_name: z.string().max(80).optional(),
+          profile: z.string().max(8000).optional(),
+        })
+        .optional()
+        .describe(
+          'Agent 已有的语言与视觉风格背景；不传私密记忆，不把它当作新增公开事实',
+        ),
       media: z
         .array(
           z.object({

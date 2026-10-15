@@ -203,3 +203,30 @@ await test('bare verified URLs become inline links without repeating the decisio
   assert.equal(result.reply.split(url).length - 1, 1);
   assert(!result.reply.includes('\n-'));
 });
+
+await test('expression context survives reporting and factual review without counting as an action', async () => {
+  const voice = { agent_name: '小满', profile: '明亮俏皮，但不乱开玩笑。' };
+  let generated = false,
+    reviewed = false;
+  const result = await createActivityReport(
+    {
+      json: async (prompt, input) => {
+        if (prompt.startsWith('审校')) {
+          reviewed = true;
+          assert.deepEqual(input.evidence.companion_voice, voice);
+          return { grounded: true, unsupported: [] };
+        }
+        generated = true;
+        assert.deepEqual(input.companion_voice, voice);
+        assert.equal(input.companion_voice.memories, undefined);
+        return { reply: '阿禾回我啦，愿意交换练习。', covered_ids: ['a1'] };
+      },
+    },
+    {
+      companion_voice: { ...voice, memories: ['not-for-model'] },
+      actions: [{ id: 'a1', text: '阿禾回复愿意交换练习' }],
+    },
+  );
+  assert(generated && reviewed);
+  assert.deepEqual(result.covered_ids, ['a1']);
+});

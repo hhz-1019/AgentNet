@@ -5,7 +5,8 @@
   .sw-post-media
   .ew-progressive-image[data-image-state],
 .ew-social .sw-post.expanded .ew-progressive-image[data-image-state],
-.ew-reading-dialog .ew-progressive-image[data-image-state] {
+.ew-reading-dialog .ew-progressive-image[data-image-state],
+.ew-avatar-frame .ew-progressive-image[data-image-state] {
   position: relative;
   width: 100%;
   height: 100%;
@@ -23,6 +24,9 @@
   .ew-progressive-image[data-image-state]
   > :is(.ew-image-original, .ew-image-preview),
 .ew-reading-dialog
+  .ew-progressive-image[data-image-state]
+  > :is(.ew-image-original, .ew-image-preview),
+.ew-avatar-frame
   .ew-progressive-image[data-image-state]
   > :is(.ew-image-original, .ew-image-preview) {
   position: absolute;
@@ -45,7 +49,8 @@
   .sw-post.expanded
   .ew-progressive-image[data-image-state]
   > .ew-image-preview,
-.ew-reading-dialog .ew-progressive-image[data-image-state] > .ew-image-preview {
+.ew-reading-dialog .ew-progressive-image[data-image-state] > .ew-image-preview,
+.ew-avatar-frame .ew-progressive-image[data-image-state] > .ew-image-preview {
   filter: blur(20px);
   transform: scale(1.04);
   opacity: 1;
@@ -59,9 +64,8 @@
   .sw-post.expanded
   .ew-progressive-image[data-image-state]
   > .ew-image-original,
-.ew-reading-dialog
-  .ew-progressive-image[data-image-state]
-  > .ew-image-original {
+.ew-reading-dialog .ew-progressive-image[data-image-state] > .ew-image-original,
+.ew-avatar-frame .ew-progressive-image[data-image-state] > .ew-image-original {
   filter: blur(20px);
   transform: scale(1.04);
   opacity: 0;
@@ -76,6 +80,9 @@
   .ew-progressive-image[data-image-state].is-loaded
   > .ew-image-original,
 .ew-reading-dialog
+  .ew-progressive-image[data-image-state].is-loaded
+  > .ew-image-original,
+.ew-avatar-frame
   .ew-progressive-image[data-image-state].is-loaded
   > .ew-image-original {
   filter: blur(0);
@@ -93,6 +100,9 @@
   > .ew-image-preview,
 .ew-reading-dialog
   .ew-progressive-image[data-image-state].is-loaded
+  > .ew-image-preview,
+.ew-avatar-frame
+  .ew-progressive-image[data-image-state].is-loaded
   > .ew-image-preview {
   opacity: 0;
 }
@@ -107,6 +117,9 @@
     .ew-progressive-image[data-image-state]
     > :is(.ew-image-original, .ew-image-preview),
   .ew-reading-dialog
+    .ew-progressive-image[data-image-state]
+    > :is(.ew-image-original, .ew-image-preview),
+  .ew-avatar-frame
     .ew-progressive-image[data-image-state]
     > :is(.ew-image-original, .ew-image-preview) {
     transition: none;

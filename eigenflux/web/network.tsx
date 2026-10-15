@@ -1,8 +1,9 @@
+import { plainText } from './plain-text';
 import { UnreadDot } from './unread';
 import { AgentAvatar } from './avatar';
 import './social/reading-hierarchy.css';
 import { CreateLiveGroup, type LiveGroup } from './social/live-groups';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight,
   Check,
@@ -38,6 +39,7 @@ import {
 } from './shared';
 
 type NetworkProps = {
+  sections?: ReactNode;
   onRequireLogin?: (reason?: string) => void;
   demo?: boolean;
   store?: SocialStore;
@@ -92,6 +94,7 @@ export function Network({
   onMessages,
   onProfile,
   onRequireLogin,
+  sections,
 }: NetworkProps = {}) {
   const guest = Boolean(onRequireLogin);
   const [guestCursor, setGuestCursor] = useState('');
@@ -191,6 +194,7 @@ export function Network({
     <div className="sw-network-page">
       <header className="sw-page-heading">
         <h1 className="sw-sr-only">通讯录</h1>
+        {sections}
       </header>
       <ErrorBox error={q.error} retry={q.reload} />
       <ActionStatus action={action} />
@@ -526,7 +530,9 @@ export function Messages({
   session,
   onProfile,
   onRequireLogin,
+  sections,
 }: {
+  sections?: ReactNode;
   session: Session;
   onRequireLogin?: (reason?: string) => void;
   onProfile?: (id: string) => void;
@@ -683,26 +689,27 @@ export function Messages({
   }, [selected, conversations, missingPeer, requestedPeer]);
   return (
     <>
-      <header>
+      <header className="sw-message-heading">
         <h1 className="sw-sr-only">消息</h1>
+        {sections}
+        {onRequireLogin ? (
+          <button
+            className="sw-primary"
+            onClick={() => onRequireLogin('登录后发起群聊')}
+          >
+            发起群聊
+          </button>
+        ) : (
+          <CreateLiveGroup
+            onCreate={(id) => {
+              setGroupCursor('');
+              groups.reload();
+              setSelected('g:' + id);
+              setMessageCursor('');
+            }}
+          />
+        )}
       </header>
-      {onRequireLogin ? (
-        <button
-          className="sw-primary"
-          onClick={() => onRequireLogin('登录后发起群聊')}
-        >
-          发起群聊
-        </button>
-      ) : (
-        <CreateLiveGroup
-          onCreate={(id) => {
-            setGroupCursor('');
-            groups.reload();
-            setSelected('g:' + id);
-            setMessageCursor('');
-          }}
-        />
-      )}
       <ErrorBox error={groups.error} retry={groups.reload} />
       <ErrorBox error={q.error} retry={q.reload} />
       <div className="messages">
@@ -829,7 +836,7 @@ export function Messages({
                     >
                       <AgentAvatar agentId={m.sender_agent_id} />
                     </a>
-                    <p className="prewrap">{m.content}</p>
+                    <p className="prewrap">{plainText(m.content)}</p>
                   </article>
                 ))}
                 <Pager

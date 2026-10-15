@@ -1,5 +1,7 @@
+import { plainText } from '../plain-text';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
+import { useEntryPreparation } from '../entry-preparation';
 import { AgentAvatar } from '../avatar';
 import { AttentionSource } from '../activity';
 import { Dialog } from './dialog';
@@ -23,9 +25,11 @@ import './moment.css';
 export function Moment({
   agentId,
   onExplore,
+  request: sendRequest = api,
 }: {
   agentId: string;
   onExplore: () => void;
+  request?: typeof api;
 }) {
   const chat = useMomentChat();
   const [sent, setSent] = useState<string[]>([]);
@@ -40,6 +44,7 @@ export function Moment({
   const [conditions, setConditions] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false),
     [choice, setChoice] = useState('');
+  const [copyStatus, setCopyStatus] = useState('');
   const [view, setView] = useState<
     '' | 'item' | 'approval' | 'result' | 'evidence'
   >('');
@@ -50,15 +55,20 @@ export function Moment({
   const offset = useRef(0);
   const chosenRevision = useRef(0);
   const requestedPage = useRef(0);
+  const refreshQueued = useRef(false);
+  const latestRefresh = useRef<() => Promise<void>>(async () => {});
   const attempt = useRef<DecisionAttempt | undefined>(undefined);
   const refresh = useCallback(async () => {
-    if (inflight.current) return;
+    if (inflight.current) {
+      refreshQueued.current = true;
+      return;
+    }
     inflight.current = true;
     try {
       const all: MomentItem[] = [];
       let cursor = '';
       for (let n = 0; n < pages; n++) {
-        const page = await api<MomentPage>(
+        const page = await sendRequest<MomentPage>(
           'console/moment' +
             (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''),
         );
@@ -79,8 +89,14 @@ export function Moment({
         setError(e instanceof Error ? e.message : '事项读取失败');
     } finally {
       inflight.current = false;
+      if (refreshQueued.current && mounted.current) {
+        refreshQueued.current = false;
+        void latestRefresh.current();
+      }
     }
-  }, [pages]);
+  }, [pages, sendRequest]);
+  latestRefresh.current = refresh;
+  useEntryPreparation(!loaded && !error, Boolean(error) && !loaded);
   useEffect(() => {
     mounted.current = true;
     void refresh();
@@ -94,10 +110,12 @@ export function Moment({
       if (!document.hidden) void refresh();
     };
     document.addEventListener('visibilitychange', visible);
+    window.addEventListener('agentnet:refresh', visible);
     return () => {
       mounted.current = false;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', visible);
+      window.removeEventListener('agentnet:refresh', visible);
     };
   }, [refresh]);
   const groups = groupMoments(items, agentId, now),
@@ -139,7 +157,7 @@ export function Moment({
           chat.executor,
         );
         attempt.current = request;
-        const saved = await api<{ command_id: string }>(
+        const saved = await sendRequest<{ command_id: string }>(
           'console/attention-items/' + item.attention_id + '/respond',
           {
             ...request.body,
@@ -161,7 +179,7 @@ export function Moment({
           );
         }
       } else {
-        await api('console/moment/' + item.attention_id + '/state', {
+        await sendRequest('console/moment/' + item.attention_id + '/state', {
           action: kind,
           expected_item_revision: item.item_revision,
         });
@@ -197,16 +215,37 @@ export function Moment({
     <section className="mb mb-live" aria-label="此刻的 Agent 与事项">
       {error && (
         <div role="alert" className="mb-load-message">
-          {error} <button onClick={() => void refresh()}>重新读取</button>
+          {error} <button onClick={() => void refresh()}>重试</button>
         </div>
       )}
       {!loaded && !error && (
         <output className="mb-load-message">正在读取…</output>
       )}
-      {loaded && !items.length && (
+      {loaded && !error && !items.length && (
         <div className="mb-empty">
-          <p>此刻，没有待处理的事项。</p>
-          <button onClick={onExplore}>去发现看看</button>
+          <span className="mb-empty-avatar">
+            <AgentAvatar agentId={agentId} />
+          </span>
+          <h1>此刻，还没有待确认的事项</h1>
+          <p>Agent 提交需要你决定的事情后，会出现在这里。</p>
+          <div className="mb-empty-actions">
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(
+                    '请检查当前是否有需要我确认的真实事项。如有，请通过 elsewhere 的 network_request_decision（或 SDK request_decision）提交，写清事实、建议、选项和授权范围；如无，直接说明，不要生成示例事项。',
+                  );
+                  setCopyStatus('已复制');
+                } catch {
+                  setCopyStatus('复制失败，请重试');
+                }
+              }}
+            >
+              {copyStatus === '已复制' ? '已复制' : '复制给 Agent'}
+            </button>
+            <button onClick={onExplore}>去发现看看</button>
+          </div>
+          <output>{copyStatus}</output>
         </div>
       )}
       {items.length > 0 && (
@@ -262,7 +301,7 @@ export function Moment({
                         resetChoice();
                       }}
                     >
-                      {i.title}
+                      {plainText(i.title)}
                     </button>
                   ))}
                 </div>
@@ -322,11 +361,11 @@ export function Moment({
                 <h3>
                   {activeView === 'approval' && action
                     ? actionText(action)
-                    : item.title}
+                    : plainText(item.title)}
                 </h3>
                 {activeView === 'item' && (
                   <>
-                    <p>{item.body}</p>
+                    <p>{plainText(item.body)}</p>
                     {['broadcast', 'broadcast_reply'].includes(
                       item.source_ref?.type || '',
                     ) && (
@@ -338,7 +377,7 @@ export function Moment({
                     {item.recommendation && (
                       <>
                         <h4>建议</h4>
-                        <p>{item.recommendation}</p>
+                        <p>{plainText(item.recommendation)}</p>
                       </>
                     )}
                     {['open', 'failed'].includes(stage) && (
@@ -351,7 +390,10 @@ export function Moment({
                 )}
                 {activeView === 'approval' && action && (
                   <>
-                    <p>{scope || '仅执行所选操作及原事项中明确说明的范围。'}</p>
+                    <p>
+                      {plainText(scope) ||
+                        '仅执行所选操作及原事项中明确说明的范围。'}
+                    </p>
                     <p className="mb-deadline">
                       有效至 {new Date(item.expires_at).toLocaleString('zh-CN')}
                     </p>
@@ -360,7 +402,7 @@ export function Moment({
                 {activeView === 'result' && item.command && (
                   <>
                     {item.command.result?.summary && (
-                      <p>{item.command.result.summary}</p>
+                      <p>{plainText(item.command.result.summary)}</p>
                     )}
                     {stage === 'failed' && (
                       <p>再次确认前，请先核对已有影响。</p>
@@ -368,13 +410,13 @@ export function Moment({
                     {item.command.condition && (
                       <>
                         <h4>附加条件</h4>
-                        <p>{item.command.condition}</p>
+                        <p>{plainText(item.command.condition)}</p>
                       </>
                     )}
                     {item.command.authorization_scope && (
                       <>
                         <h4>授权范围</h4>
-                        <p>{item.command.authorization_scope}</p>
+                        <p>{plainText(item.command.authorization_scope)}</p>
                       </>
                     )}
                   </>
@@ -382,7 +424,7 @@ export function Moment({
                 {activeView === 'evidence' &&
                   item.command?.result?.execution && (
                     <>
-                      <p>{item.command.result.execution.evidence}</p>
+                      <p>{plainText(item.command.result.execution.evidence)}</p>
                       <h4>承接宿主</h4>
                       <p>{item.command.result.execution.host_id}</p>
                       <h4>Codex 会话</h4>

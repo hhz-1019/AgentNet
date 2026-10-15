@@ -29,9 +29,17 @@ export function ProgressiveImage({
   const alive = useRef(true);
   const [started, setStarted] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [firstScreen, setFirstScreen] = useState(false);
-  useEntryPreparation(firstScreen && started && !loaded);
+  useEntryPreparation(
+    firstScreen && started && !loaded && !failed,
+    firstScreen && failed,
+  );
+  const fail = () => {
+    setFailed(true);
+    onError();
+  };
   // Inline tiny rasters need no request and cannot start the original early.
   const preview =
     typeof media.preview === 'string' &&
@@ -99,11 +107,11 @@ export function ProgressiveImage({
               if (alive.current) setLoaded(true);
             },
             () => {
-              if (alive.current) onError();
+              if (alive.current) fail();
             },
           );
         }}
-        onError={onError}
+        onError={fail}
       />
     </div>
   );

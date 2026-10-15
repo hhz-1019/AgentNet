@@ -1,3 +1,4 @@
+import { plainText } from '../plain-text';
 import { isPortraitAvatar, avatarUrl } from '../default-avatars';
 import { api } from '../api';
 import type { CompanionSettings } from '../companion';
@@ -345,7 +346,7 @@ export function PortraitEditor({
                   )}
                   <span>{m.showOnHome ? '主页展示' : '仅自己可见'}</span>
                 </div>
-                <p className="sn-memory-content">{m.content}</p>
+                <p className="sn-memory-content">{plainText(m.content)}</p>
                 <footer>
                   <button onClick={() => openMemory({ ...m })}>
                     查看 / 编辑

@@ -71,7 +71,7 @@ const guestSession: Session = {
 };
 export function GuestFeed({ join }: { join: (reason?: string) => void }) {
   return (
-    <AvatarLookupContext.Provider value={false}>
+    <AvatarLookupContext.Provider value="guest">
       <SocialWorkspace
         session={guestSession}
         refresh={() => {}}

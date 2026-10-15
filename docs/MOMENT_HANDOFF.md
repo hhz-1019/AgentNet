@@ -1,6 +1,6 @@
 # 「此刻」前后端与 Codex 执行
 
-协作分支：`codex/moment-agent-bubbles`。真实入口是 `/dashboard/crossing`；`/preview#crossing` 单独保留视觉演示。此文描述分支实现，发布到线上还需要部署同一版本的 Web、Core 和 CLI，并在 Codex 中启用当前版本 MCP 面板。
+真实入口是 `/dashboard/crossing`；`/preview#crossing` 使用同一组件与本地演示适配器。Web、Core 和 CLI 必须保持协议兼容；当前聊天执行还需在 Codex 中启用 MCP 面板。
 
 ## 网页审批进入当前聊天
 
@@ -19,7 +19,7 @@
 3. 在当前聊天打开 `network_open_moment` 面板，并在其中登录同一 Agent 的主人账户。插件使用正式的 thread entrypoint 元数据；宿主必须支持 MCP Apps 面板和消息能力。仅注册 CLI 工具不等于宿主已提供 UI 能力。
 4. HTTPS 嵌入页请求带 `X-Console-Embedded: 1`，登录使用 `Secure; SameSite=None; Partitioned` Cookie，仍执行主人认证和 CSRF 验证。普通浏览器继续使用原 Cookie 策略；不能通过 HTTP 为真实账号开启嵌入登录。隔离预览的测试认证不代表生产登录已验证。
 
-这是分支实现和协议测试说明，不是当前桌面已安装、线上已部署或真实当前聊天已验收的证明。普通 `/preview-moment-live` 仍是隔离网页，不会因为部署前端便自动获得聊天权限。
+协议测试通过不代表当前桌面已安装 MCP 面板，或真实当前聊天执行已验收。普通 `/preview-moment-live` 仍是隔离网页，不会因为部署前端便自动获得聊天权限。
 
 ## 界面与状态
 
@@ -91,9 +91,18 @@ AGENTNET_CODEX_SANDBOX=read-only
 ## 检查与联调
 
 - `npm test`：状态区分、归组、绑定、期限、中断恢复、幂等回执、Codex 子进程输入和会话解析。
+- `npm run test:moment:ui`：正式组件的桌面与手机回归，覆盖空态、错误恢复、事项、条件、版本冲突、确认、撤回、回执与边界布局。
 - `npm run test:moment:core`：隔离 PGlite/PostgreSQL 协议、真实 Go handler、生产 Attention CHECK 约束；覆盖发布、所有权、确认、条件冲突、领取、续租、回执、撤回、上下文冲突、过期和中断隔离。
 - `npm run test:host:protocol`：实际补丁 CLI 与 SDK/宿主协议，服务器和模型为隔离 fixture。
 - `node eigenflux/scripts/social-core-test.mjs --moment --serve`：仅本机 4320 端口的隔离 Go 服务。开发页 `/preview-moment-live` 使用真实 Moment 组件与这些 API，额外创建 24 个联调身份以检查密集头像和二维拖拽；这些样例不会进入正式后端。
 - 确认联调事项后运行 `node eigenflux/scripts/moment-preview-worker.mjs --codex --once`：由当前安装的 Codex 在临时目录完成文件写入，不使用真实 Agent 凭证。不加 `--codex` 时为明确标识的确定性执行器。
 
 实现入口：`web/social/moment*`、`overlay/api/consolev2/moment*`、`overlay/cli/cmd/moment.go`、`client/decisions.mjs`、`client/codex-executor.mjs`。对上游的修改留在 `patches/social-workspace.patch`，未修改固定的 submodule。
+
+## 2026-10-15：空态与移动导航修正验收
+
+- 修正 `ced56db`，与协作者正文显示修正整合后发布源码为 `61f0af2`。完整 CI [38693643862](https://github.com/hhz-1019/AgentNet/actions/runs/38693643862) 通过。
+- 线上已登录账号的 Moment 请求为 200、事项为空；不能将本地原型人物作为真实事项补入。现在预览复用正式组件，空态提供简短说明与复制给 Agent 的整理指令；初次读取纳入入场准备，刷新不再吞掉请求，已撤回且过期的事项不再提供重新考虑。
+- 真实 Go 隔离服务验证了网页选择、条件保存、后台领取、临时草稿写入及回执自动显示；这不是生产账号已执行任务或当前聊天 MCP 面板已接通的证明。
+- 手机导航为「此刻、发现、发布、消息、我的」，发布居中；消息页内「会话 / 通讯录」共享头部和左边距，通讯录沿用消息选中状态。桌面保留独立通讯录。桌面/手机、游客、状态冲突和 320px 窄屏检查通过。
+- Web 部署 `6ad076d8ea06c8de70fdc284` 已于 2026-10-15 14:51（北京时间）进入 RUNNING；只更新 Web。公网 `index-qw4WhCA2.js`、`index-C1YZHHYt.css` 的 SHA-256 与本地已验证构建一致。Core 与数据库未变更。

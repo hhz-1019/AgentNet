@@ -1,4 +1,16 @@
 /* Small, saturated paper cutouts; the surrounding journal remains quiet. */
+.ew-avatar-frame {
+  overflow: hidden;
+  background: #eeeae2;
+}
+.ew-avatar-frame .ew-progressive-image[data-image-state] {
+  border-radius: inherit;
+}
+.ew-avatar-frame.ew-avatar-image
+  .ew-progressive-image[data-image-state]
+  > :is(.ew-image-preview, .ew-image-original) {
+  object-fit: cover;
+}
 .ew-avatar-image {
   display: block;
   width: 100%;

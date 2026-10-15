@@ -111,7 +111,7 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
     'utf8',
   );
   for (const value of [shell, powershell]) {
-    assert.match(value, /0\.0\.54-agentnet\.14/);
+    assert(value.includes(JSON.parse(publicFile('release.json')).cli_version));
     assert.match(value, /agentnet-handoff/);
     assert.match(value, /agentnet-social/);
     assert(value.includes('references/behavior.md'));
