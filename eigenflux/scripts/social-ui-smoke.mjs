@@ -170,7 +170,11 @@ try {
       i + 1,
     );
   }
-  assert.equal(await page.locator('.ew-comment-avatar img').count(), 2);
+  // Preview authors have no uploaded portraits. Keep their avatar frames,
+  // without inventing an image or falling back to the numeric Agent ID.
+  const commentAvatars = page.locator('.ew-comment-avatar');
+  assert.equal(await commentAvatars.count(), 2);
+  assert.deepEqual(await commentAvatars.allTextContents(), ['', '']);
   assert.equal(await page.getByLabel('你的评论').inputValue(), '');
   assert.equal(
     await page.getByRole('button', { name: '发送', exact: true }).isVisible(),
