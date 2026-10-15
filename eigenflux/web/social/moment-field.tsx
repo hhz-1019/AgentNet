@@ -17,7 +17,13 @@ import {
 
 /* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The spatial viewport is focusable so keyboard users can pan with arrows and Home, just like a scroll region. */
 
-type Group = { id: string; name: string; priority: number; items: unknown[] };
+type Group = {
+  id: string;
+  name: string;
+  priority: number;
+  items: unknown[];
+  messages?: unknown[];
+};
 type Point = { x: number; y: number };
 const clamp = (n: number, low: number, high: number) =>
   Math.max(low, Math.min(high, n));
@@ -512,7 +518,11 @@ export function MomentField({
                   height: diameter,
                   transform: `translate3d(${(circle.x - circle.radius) * scale}px, ${(circle.y - circle.radius) * scale}px, 0)`,
                 }}
-                aria-label={`${group.name}，${group.items.length} 项事项，查看事项`}
+                aria-label={
+                  group.messages?.length
+                    ? `${group.name}，${group.messages.length} 条消息${group.items.length ? `，${group.items.length} 项事项` : ''}，查看内容`
+                    : `${group.name}，${group.items.length} 项事项，查看事项`
+                }
                 onFocus={(e) => {
                   if (e.currentTarget.matches(':focus-visible')) reveal(circle);
                 }}

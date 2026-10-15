@@ -295,6 +295,9 @@ html[data-theme]
   width: min(960px, calc(100vw - 48px));
   height: min(760px, calc(100dvh - 48px));
 }
+#root dialog.mb-fit-panel:focus {
+  outline: none;
+}
 #root dialog.mb-fit-panel .sw-dialog-heading {
   padding: 10px 32px;
 }
@@ -373,6 +376,7 @@ html[data-theme]
   flex: 1;
 }
 #root .mb-reader {
+  border: 0;
   height: 100%;
   width: 100%;
   columns: 1;
@@ -442,9 +446,6 @@ html[data-theme]
   line-height: 1.4;
   white-space: nowrap;
   border-radius: 22px;
-}
-#root .mb-detail-actions:empty {
-  display: none;
 }
 #root .mb-fit-panel .mb-feedback {
   margin: 0;
@@ -525,4 +526,17 @@ html[data-theme]
   #root .mb-reader {
     animation: mb-detail-change 220ms ease-out;
   }
+}
+
+#root .mb-unseen-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--ew-ink);
+  vertical-align: middle;
+}
+#root .mb-inbox-detail .mb-reader p {
+  white-space: pre-wrap;
 }

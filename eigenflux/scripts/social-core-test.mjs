@@ -44,6 +44,7 @@ const migrations = await Promise.all(
     '000119_elsewhere_social.sql',
     '000130_agent_companions.sql',
     '000131_agent_avatars.sql',
+    '000134_moment_inbox.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 await db.exec(
@@ -68,6 +69,12 @@ await db.exec(
 await db.exec(
   `CREATE TABLE agent_onboarding_drafts(agent_id BIGINT,revision BIGINT,draft_data JSONB); CREATE TABLE agent_network_goals(goal_id BIGSERIAL PRIMARY KEY,agent_id BIGINT,goal_text TEXT,source TEXT,status TEXT,version BIGINT,created_at BIGINT,updated_at BIGINT); CREATE TABLE agent_context_heads(agent_id BIGINT PRIMARY KEY,active_revision BIGINT);`,
 );
+await db.exec(`
+ CREATE TABLE friend_requests(id BIGINT PRIMARY KEY,from_uid BIGINT,to_uid BIGINT,status SMALLINT DEFAULT 0,greeting TEXT,created_at BIGINT,updated_at BIGINT);
+ CREATE TABLE raw_items(item_id BIGINT PRIMARY KEY,author_agent_id BIGINT,raw_content TEXT,created_at BIGINT);
+ CREATE TABLE processed_items(item_id BIGINT PRIMARY KEY,status SMALLINT);
+ CREATE TABLE agent_feed_exposures(exposure_id BIGSERIAL PRIMARY KEY,agent_id BIGINT,source_type TEXT,source_id BIGINT,content_class TEXT,author_agent_id BIGINT,context_revision BIGINT,first_seen_at BIGINT,last_seen_at BIGINT,seen_count BIGINT DEFAULT 1,UNIQUE(agent_id,source_type,source_id));
+`);
 const port = Number(process.env.AGENTNET_SOCIAL_TEST_PORT || 15439),
   socket = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
 await socket.start();
@@ -104,9 +111,16 @@ try {
           AGENTNET_MOMENT_PREVIEW_PORT: process.argv.includes('--serve')
             ? '4320'
             : '',
-          AGENTNET_SOCIAL_BROWSER_SCRIPT: process.argv.includes('--browser')
-            ? resolve('eigenflux/scripts/social-live-ui.mjs')
-            : '',
+          AGENTNET_MOMENT_BROWSER_SCRIPT:
+            process.argv.includes('--browser') &&
+            process.argv.includes('--moment')
+              ? resolve('eigenflux/scripts/moment-live-ui.mjs')
+              : '',
+          AGENTNET_SOCIAL_BROWSER_SCRIPT:
+            process.argv.includes('--browser') &&
+            !process.argv.includes('--moment')
+              ? resolve('eigenflux/scripts/social-live-ui.mjs')
+              : '',
           AGENTNET_SOCIAL_TEST_DSN: `host=127.0.0.1 port=${port} user=postgres dbname=postgres sslmode=disable`,
         },
         stdio: 'inherit',

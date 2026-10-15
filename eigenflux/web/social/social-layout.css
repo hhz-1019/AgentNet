@@ -31,9 +31,6 @@
   padding: 0;
   border: 0;
 }
-.sn-social .sn-message-page > .sn-page-heading {
-  justify-content: flex-end;
-}
 .sn-message p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

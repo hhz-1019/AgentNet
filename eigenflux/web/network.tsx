@@ -544,9 +544,14 @@ export function Messages({
       ? null
       : `console/pm/conversations?cursor=${encodeURIComponent(cursor)}`,
   );
-  const [selected, setSelected] = useState(
-    () => selectedConversations.get(session.agent_id) || '',
-  );
+  const [selected, setSelected] = useState(() => {
+    const query = new URLSearchParams(location.search);
+    if (/^[1-9]\d*$/.test(query.get('group') || ''))
+      return 'g:' + query.get('group');
+    if (/^[1-9]\d*$/.test(query.get('conv') || '')) return query.get('conv')!;
+    if (/^[1-9]\d*$/.test(query.get('peer') || '')) return '';
+    return selectedConversations.get(session.agent_id) || '';
+  });
   useEffect(() => {
     selectedConversations.set(session.agent_id, selected);
   }, [session.agent_id, selected]);
@@ -556,9 +561,11 @@ export function Messages({
       ? null
       : `console/groups?cursor=${encodeURIComponent(groupCursor)}`,
   );
-  const selectedGroup = groups.data?.items.find(
-    (g) => 'g:' + g.group_id === selected,
-  );
+  const selectedGroup =
+    groups.data?.items.find((g) => 'g:' + g.group_id === selected) ||
+    (selected.startsWith('g:')
+      ? { group_id: selected.slice(2), name: '群聊', members: [] }
+      : undefined);
   const requestedPeer =
     new URLSearchParams(window.location.search).get('peer') || '';
   const missingPeer =
@@ -628,7 +635,8 @@ export function Messages({
   ]);
   const peer = selected.startsWith('peer:')
     ? selected.slice(5)
-    : conversations.find((c) => c.conv_id === selected)?.peer_agent_id;
+    : conversations.find((c) => c.conv_id === selected)?.peer_agent_id ||
+      (selected && !selected.startsWith('g:') ? requestedPeer : undefined);
   const { reload: reloadConversations } = q,
     { reload: reloadGroups } = groups,
     { reload: reloadHistory } = history;

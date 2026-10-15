@@ -64,6 +64,7 @@ import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
 import { LivePortrait } from './live-portrait';
 import { Moment } from './moment';
+import type { MomentMessage } from './moment-inbox';
 import './workspace.css';
 import './polish.css';
 import './social-layout.css';
@@ -374,6 +375,26 @@ export function SocialWorkspace({
     else
       go(id === session.agent_id ? 'me' : `person/${encodeURIComponent(id)}`);
   }
+  function openMomentMessage(message: MomentMessage) {
+    if (message.kind === 'friend_request') {
+      openProfile(message.agent_id);
+      return;
+    }
+    if (demo) {
+      go('messages');
+      return;
+    }
+    go('messages');
+    const url = new URL(location.href);
+    url.search = '';
+    if (message.kind === 'group_message')
+      url.searchParams.set('group', message.group_id || '');
+    else {
+      url.searchParams.set('conv', message.conversation_id || '');
+      url.searchParams.set('peer', message.agent_id);
+    }
+    history.replaceState(history.state, '', url);
+  }
   useEffect(() => {
     const sync = () => {
       if (hashRouting && location.hash === '#social-main') return;
@@ -639,8 +660,7 @@ export function SocialWorkspace({
   );
   const activeNav = crossingRoute ? 'crossing' : personal ? 'me' : route;
   const renderNav = (
-    ids: readonly string[] = ['crossing', 'explore', 'messages', 'network'],
-    mobile = false,
+    ids: readonly string[] = ['crossing', 'explore', 'messages'],
   ) =>
     nav
       .filter(([id]) => ids.includes(id))
@@ -650,7 +670,7 @@ export function SocialWorkspace({
           href={href(id)}
           onClick={(e) => go(id, e)}
           aria-current={
-            (mobile && activeNav === 'network' ? 'messages' : activeNav) === id
+            (activeNav === 'network' ? 'messages' : activeNav) === id
               ? 'page'
               : undefined
           }
@@ -835,6 +855,7 @@ export function SocialWorkspace({
               <MomentPreview
                 agentId={session.agent_id}
                 onExplore={() => go('explore')}
+                onOpenMessage={openMomentMessage}
               />
             </Suspense>
           ) : (
@@ -842,6 +863,7 @@ export function SocialWorkspace({
               key={session.agent_id}
               agentId={session.agent_id}
               onExplore={() => go('explore')}
+              onOpenMessage={openMomentMessage}
             />
           )
         ) : personRoute ? (
@@ -1266,7 +1288,7 @@ export function SocialWorkspace({
         )}
       </main>
       <nav className="sw-mobile-nav" aria-label="移动导航">
-        {renderNav(['crossing', 'explore'], true)}
+        {renderNav(['crossing', 'explore'])}
         <button
           className="ew-mobile-publish"
           onClick={() =>
@@ -1276,7 +1298,7 @@ export function SocialWorkspace({
           <Plus size={21} />
           <span>发布</span>
         </button>
-        {renderNav(['messages', 'me'], true)}
+        {renderNav(['messages', 'me'])}
       </nav>
       {publisher === true ? (
         <ShareComposer

@@ -28,6 +28,31 @@ const base: MomentItem = {
   related_agent: { agent_id: '2', name: '伙伴' },
   actions: [],
 };
+void test('received messages stand alone and merge by author without becoming approvals', () => {
+  const message = {
+    id: '9007199254740993',
+    kind: 'private_message' as const,
+    agent_id: '2',
+    agent_name: '收件伙伴',
+    title: '收到私信',
+    body: '内容',
+    received_at: 1000,
+    truncated: false,
+  };
+  const alone = groupMoments([], '1', 1000, [message]);
+  assert.equal(alone.length, 1);
+  assert.equal(alone[0].items.length, 0);
+  assert.equal(alone[0].messages[0].id, message.id);
+  const grouped = groupMoments([base], '1', 1000, [
+    message,
+    { ...message, kind: 'group_message' },
+  ]);
+  assert.equal(grouped.length, 1);
+  assert.equal(grouped[0].items.length, 1);
+  assert.equal(grouped[0].messages.length, 2);
+  const viewed = groupMoments([], '1', 1000, [{ ...message, viewed_at: 1000 }]);
+  assert.ok(alone[0].priority > viewed[0].priority);
+});
 void test('an expired revoked decision cannot be reopened', () => {
   const item = {
     ...base,
