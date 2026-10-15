@@ -34,8 +34,19 @@
   font-size: 15px;
 }
 .recruiting-intro {
-  padding: 68px 0 60px;
+  padding: 60px 0 0;
   max-width: 900px;
+}
+.recruiting-examples {
+  margin-bottom: 40px;
+}
+.recruiting-examples summary {
+  cursor: pointer;
+  padding: 16px 0;
+  font-size: 16px;
+}
+.recruiting-examples[open] summary {
+  margin-bottom: 20px;
 }
 .recruiting-intro h1 {
   font-size: clamp(32px, 4vw, 52px);
@@ -231,7 +242,7 @@
     padding: 22px;
   }
   .recruiting-intro {
-    padding: 48px 0;
+    padding: 40px 0 0;
   }
   .recruiting-intro p {
     font-size: 17px;

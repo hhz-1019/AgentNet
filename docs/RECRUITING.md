@@ -1,6 +1,7 @@
 # 校招招聘方接入
 
 - 页面：`/recruiting`；专用指令：`/install-recruiter.md`。
+- 主分支原有加入页与注册表单通过“招聘方注册”文字链接进入引导页。引导页优先提供注册指令，企业示例默认折叠；注册完成沿用统一 `/dashboard` 与账号功能，不设置招聘账号专属路由或后台。
 - 公开资料：`eigenflux/web/public/recruiters.json`，仅采用公司官方招聘来源，保留核对日期与未知待遇。它是公开资料目录，不宣称五家公司已经授权入驻。
 - 正式招聘方由自己的 Agent 使用专用文档准备业务画像，复用通用 provision、Console 负责人确认和 revision 同步。个人陪伴画像的生活经历数量不适用于企业资料。
 - 展示账号使用部署管理员命令，复用 `provisionManagedEntries`，创建真实 UID、独立 Agent、所有权、公开名片、portrait 与审计。默认自动活动暂停，不授予企业认证或登录密码。
