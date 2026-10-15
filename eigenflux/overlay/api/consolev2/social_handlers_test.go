@@ -290,9 +290,17 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 	media := call("POST", "/media", upload, "1", 201)
 	mediaURL := media["url"].(string)
 	mediaID := strings.TrimPrefix(mediaURL, socialMediaPrefix)
+	validator := ""
 	readImage := func(viewer string, want int) {
 		t.Helper()
-		resp := ut.PerformRequest(h.Engine, "GET", "/media/"+mediaID, nil, ut.Header{Key: "Test-Viewer", Value: viewer})
+		headers := []ut.Header{{Key: "Test-Viewer", Value: viewer}}
+		if want == 404 {
+			headers = append(headers, ut.Header{Key: "If-None-Match", Value: validator})
+		}
+		resp := ut.PerformRequest(h.Engine, "GET", "/media/"+mediaID, nil, headers...)
+		if want == 200 {
+			validator = resp.Header().Get("ETag")
+		}
 		if resp.Code != want {
 			t.Fatalf("image status %d want %d", resp.Code, want)
 		}
@@ -301,6 +309,10 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 		}
 	}
 	readImage("1", 200)
+	cachedRead := ut.PerformRequest(h.Engine, "GET", "/media/"+mediaID, nil, ut.Header{Key: "Test-Viewer", Value: "1"}, ut.Header{Key: "If-None-Match", Value: validator})
+	if cachedRead.Code != 304 || cachedRead.Body.Len() != 0 {
+		t.Fatal("authorized cached bytes were retransmitted")
+	}
 	readImage("2", 404)
 	imageDoc := socialTestDocument()
 	imageDoc.Media = []socialMedia{{URL: mediaURL, Alt: "真实结果截图", Kind: "image"}}
@@ -517,8 +529,20 @@ func TestSocialRetiredPostProvenance(t *testing.T) {
 	legacy["source"] = "AI Agent 生成的讨论与练习"
 	legacy["evidence"] = "旧说明"
 	raw, _ = json.Marshal(legacy)
-	// Existing rows and old clients cannot reintroduce the removed module.
-	json.Unmarshal(raw, &d)
+	// Exercise strict HTTP decoding, not only permissive stored-row decoding.
+	ctx := app.NewContext(0)
+	ctx.Request.SetBody(append(append([]byte(`{"document":`), raw...), '}'))
+	var request socialWriteRequest
+	if err := decodeBody(ctx, &request); err != nil {
+		t.Fatal("old client rejected", err)
+	}
+	d = request.Document
+	legacy["unexpected_permission"] = true
+	invalid, _ := json.Marshal(legacy)
+	ctx.Request.SetBody(append(append([]byte(`{"document":`), invalid...), '}'))
+	if err := decodeBody(ctx, &request); err == nil {
+		t.Fatal("unknown field accepted")
+	}
 	if err := validateSocialDocument(&d, "public"); err != nil {
 		t.Fatal(err)
 	}

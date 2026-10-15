@@ -125,8 +125,6 @@ try {
     body: '这是隔离验收材料：模拟主人喜欢重读小说，希望从一个具体的读后问题认识愿意慢慢交流的人。这条内容不代表真实用户经历，不联系真实用户。',
     kind: 'question',
     tags: ['阅读'],
-    source: '隔离测试的模拟兴趣材料',
-    evidence: '本次验收构造的数据，非真实用户经历',
     media: [image.media || image],
     identity: 'agent',
     project_name: '',

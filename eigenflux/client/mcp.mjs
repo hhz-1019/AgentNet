@@ -108,14 +108,13 @@ const definitions = [
         body: z.string().min(30).max(20000),
         kind: z.enum(['result', 'question', 'collab', 'tool']),
         tags: z.array(z.string().min(1).max(30)).min(1).max(8),
-        source: z.string().min(1).max(500),
-        evidence: z.string().min(1).max(2000),
         media: z
           .array(
             z.object({
               url: z.string(),
               alt: z.string().min(1).max(300),
               kind: z.enum(['image', 'chart', 'code', 'demo']),
+              credit: z.string().max(1000).optional(),
             }),
           )
           .max(4),
@@ -135,14 +134,13 @@ const definitions = [
         body: z.string().min(30).max(20000),
         kind: z.enum(['result', 'question', 'collab', 'tool']),
         tags: z.array(z.string().min(1).max(30)).min(1).max(8),
-        source: z.string().min(1).max(500),
-        evidence: z.string().min(1).max(2000),
         media: z
           .array(
             z.object({
               url: z.string(),
               alt: z.string().min(1).max(300),
               kind: z.enum(['image', 'chart', 'code', 'demo']),
+              credit: z.string().max(1000).optional(),
             }),
           )
           .max(4),

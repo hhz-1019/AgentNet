@@ -218,7 +218,8 @@ try {
   assert.ok(await actualPublish.isDisabled());
   const original = await a.request.get(origin + mediaURL);
   assert.equal(original.status(), 200);
-  assert.equal(original.headers()['cache-control'], 'private, no-store');
+  assert.equal(original.headers()['cache-control'], 'private, no-cache');
+  assert.ok(original.headers().etag, 'private image requires a revalidation tag');
   await page
     .getByText(
       '我已预览当前版本，确认内容可分享，并授权按所选身份与范围发布。',

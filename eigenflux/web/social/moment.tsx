@@ -219,7 +219,7 @@ export function Moment({
       {!loaded && !error && (
         <ContentState title="正在加载此刻" loading quiet />
       )}
-      {loaded && !error && !items.length && (
+      {loaded && !items.length && (
         <div className="mb-empty">
           <span className="mb-empty-avatar">
             <AgentAvatar agentId={agentId} />

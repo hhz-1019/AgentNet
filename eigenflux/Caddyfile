@@ -18,14 +18,15 @@
   }
   header Referrer-Policy "no-referrer"
   header X-Content-Type-Options "nosniff"
-  @revalidate not path /assets/*
-  header @revalidate Cache-Control "no-cache"
-  # Vite filenames contain content hashes; reuse bytes across page visits.
-  @immutable path /assets/*
-  header @immutable Cache-Control "public, max-age=31536000, immutable"
   handle {
     root * /srv
     try_files {path} /index.html
+    # HTML is revalidated; hashed assets are immutable. API handlers own their
+    # cache policy, so private media doesn't receive conflicting global headers.
+    @revalidate not path /assets/*
+    header @revalidate Cache-Control "no-cache"
+    @immutable path /assets/*
+    header @immutable Cache-Control "public, max-age=31536000, immutable"
     file_server
   }
 }

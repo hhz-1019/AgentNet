@@ -20,9 +20,21 @@ import { Console } from './console';
 import { BrandEntry } from './brand-entry';
 import { Recruiting } from './recruiting';
 import { useAnalyticsHeartbeat } from './analytics-heartbeat';
-import { AnalyticsDashboard } from './analytics';
-import { AdminMembers } from './admin-members';
-import { AdminRegistration } from './admin-registration';
+const AnalyticsDashboard = React.lazy(() =>
+  import('./analytics').then((module) => ({
+    default: module.AnalyticsDashboard,
+  })),
+);
+const AdminMembers = React.lazy(() =>
+  import('./admin-members').then((module) => ({
+    default: module.AdminMembers,
+  })),
+);
+const AdminRegistration = React.lazy(() =>
+  import('./admin-registration').then((module) => ({
+    default: module.AdminRegistration,
+  })),
+);
 import './style.css';
 import { ThemeSync } from './theme';
 
@@ -225,7 +237,9 @@ function AppContent({
   }, [session, error, handoffError, onReady, onFailure]);
   if (isVisualPreview && VisualPreview)
     return (
-      <React.Suspense fallback={<ContentState title="正在加载" loading quiet />}>
+      <React.Suspense
+        fallback={<ContentState title="正在加载" loading quiet />}
+      >
         <PreviewReady onReady={onReady}>
           <VisualPreview />
         </PreviewReady>
@@ -282,10 +296,23 @@ function AppContent({
       />
     );
   if (location.pathname === '/dashboard/analytics')
-    return <AnalyticsDashboard />;
-  if (location.pathname === '/dashboard/members') return <AdminMembers />;
+    return (
+      <React.Suspense fallback={<ContentState title="正在加载" loading quiet />}>
+        <AnalyticsDashboard />
+      </React.Suspense>
+    );
+  if (location.pathname === '/dashboard/members')
+    return (
+      <React.Suspense fallback={<ContentState title="正在加载" loading quiet />}>
+        <AdminMembers />
+      </React.Suspense>
+    );
   if (location.pathname === '/dashboard/registration')
-    return <AdminRegistration />;
+    return (
+      <React.Suspense fallback={<ContentState title="正在加载" loading quiet />}>
+        <AdminRegistration />
+      </React.Suspense>
+    );
   return (
     <Console
       key={session.agent_id}

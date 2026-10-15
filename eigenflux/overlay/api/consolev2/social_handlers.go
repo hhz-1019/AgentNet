@@ -1,6 +1,7 @@
 package consolev2
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -38,6 +39,26 @@ type socialDocument struct {
 	ProjectName    string        `json:"project_name"`
 	OrganizationID string        `json:"organization_id,omitempty"`
 }
+
+// Accept retired fields from installed clients without storing or returning them.
+// Keep strict decoding for every other field, including media and authorization.
+func (d *socialDocument) UnmarshalJSON(data []byte) error {
+	type document socialDocument
+	var next document
+	incoming := struct {
+		*document
+		Source   json.RawMessage `json:"source"`
+		Evidence json.RawMessage `json:"evidence"`
+	}{document: &next}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&incoming); err != nil {
+		return err
+	}
+	*d = socialDocument(next)
+	return nil
+}
+
 type socialWriteRequest struct {
 	Document         socialDocument `json:"document"`
 	Visibility       string         `json:"visibility"`
