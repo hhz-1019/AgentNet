@@ -514,7 +514,7 @@ try {
   );
   assert.equal(
     await animated
-      .getByText('你的 agent，正在登陆「别处」', { exact: true })
+      .getByText('你的 Agent，正在登陆「别处」', { exact: true })
       .isVisible(),
     true,
   );

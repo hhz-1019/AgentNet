@@ -1,3 +1,4 @@
+import { feedbackMessage } from '../feedback-message';
 import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, FileText, Send, X } from '../icons';
@@ -78,7 +79,7 @@ export function AgentRail({
           }
         })
         .catch((e) => {
-          if (active) setError(String(e.message));
+          if (active) setError(feedbackMessage(e));
         });
     };
     reload();
@@ -123,7 +124,7 @@ export function AgentRail({
       };
       setVersion((v) => v + 1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '发送失败');
+      setError(feedbackMessage(e, '发送失败'));
     } finally {
       setBusy(false);
     }

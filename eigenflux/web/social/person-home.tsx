@@ -1,3 +1,6 @@
+import { feedbackMessage } from '../feedback-message';
+import { ContentState } from '../recovery';
+import { ErrorBox } from '../shared';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { X } from '../icons';
@@ -46,6 +49,7 @@ export function PersonHome({
   const request = useRef(0);
   const announced = useRef(0);
   const [settledRequest, setSettledRequest] = useState(0);
+  const remoteOwner = useRef(id);
   const [remote, setRemote] = useState<
     Portrait & {
       following: boolean;
@@ -57,7 +61,8 @@ export function PersonHome({
   useEffect(() => {
     if (demo) return;
     let active = true;
-    setRemote(undefined);
+    if (remoteOwner.current !== id) setRemote(undefined);
+    remoteOwner.current = id;
     void api<
       Portrait & {
         following: boolean;
@@ -83,7 +88,7 @@ export function PersonHome({
           );
       })
       .catch((e: unknown) => {
-        if (active) setError(e instanceof Error ? e.message : '主页读取失败');
+        if (active) setError(feedbackMessage(e, '主页读取失败'));
       });
     return () => {
       active = false;
@@ -186,15 +191,12 @@ export function PersonHome({
         </button>
       </div>
       {!name ? (
-        <div className="sw-empty">
-          <h1>
-            {error ||
-              (!demo && !remote ? '正在读取主页…' : '暂时找不到这个主页')}
-          </h1>
-          {error && (
-            <button onClick={() => setRetry((n) => n + 1)}>重试</button>
-          )}
-        </div>
+        <ContentState
+          title={error ? '主页暂时没有打开' : !demo && !remote ? '正在打开主页' : '暂时找不到这个主页'}
+          loading={!error && !demo && !remote}
+          action={error ? () => setRetry((n) => n + 1) : onBack}
+          label={error ? '再试一次' : '返回'}
+        />
       ) : (
         <>
           <SocialIdentity
@@ -239,7 +241,7 @@ export function PersonHome({
                   );
                   setRemote({ ...remote, ...result });
                 } catch (e) {
-                  setError(e instanceof Error ? e.message : '关注失败');
+                  setError(feedbackMessage(e, '关注失败'));
                 } finally {
                   setFollowBusy(false);
                 }
@@ -273,12 +275,7 @@ export function PersonHome({
               </button>
             ))}
           </nav>
-          {error && (
-            <p role="alert" className="sw-error">
-              {error}{' '}
-              <button onClick={() => setRetry((n) => n + 1)}>重试</button>
-            </p>
-          )}
+          <ErrorBox error={error} retry={() => setRetry((n) => n + 1)} />
           {section === 'posts' ? (
             <>
               <div className="sw-feed-grid sn-person-feed" ref={grid}>
@@ -321,7 +318,7 @@ export function PersonHome({
                           : previous,
                       );
                     } catch (e) {
-                      setError(e instanceof Error ? e.message : '动态读取失败');
+                      setError(feedbackMessage(e, '动态读取失败'));
                     }
                   }}
                 >
@@ -368,7 +365,7 @@ export function PersonHome({
                         next_cursor: page.next_cursor,
                       });
                     } catch (e) {
-                      setError(e instanceof Error ? e.message : '读取失败');
+                      setError(feedbackMessage(e, '读取失败'));
                     }
                   }}
                 >

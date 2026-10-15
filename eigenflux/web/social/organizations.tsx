@@ -1,7 +1,11 @@
+import { feedbackMessage } from '../feedback-message';
+import { ContentState } from '../recovery';
+import { ErrorBox } from '../shared';
 import { useEffect, useRef, useState } from 'react';
 import type { Organization, SocialStore } from './model';
 const roles = { owner: '负责人', editor: '编辑', viewer: '只读' };
 export function Organizations({ store }: { store: SocialStore }) {
+  const [loaded, setLoaded] = useState(false);
   const [items, setItems] = useState<Organization[]>([]);
   const [name, setName] = useState(''),
     [target, setTarget] = useState('');
@@ -11,16 +15,18 @@ export function Organizations({ store }: { store: SocialStore }) {
   const creation = useRef({ name: '', key: crypto.randomUUID() });
   async function reload() {
     setItems(await store.organizations());
+    setLoaded(true);
+    setError('');
   }
   useEffect(() => {
     let active = true;
     void store
       .organizations()
       .then((items) => {
-        if (active) setItems(items);
+        if (active) { setItems(items); setLoaded(true); }
       })
       .catch((e) => {
-        if (active) setError(e.message);
+        if (active) setError(feedbackMessage(e));
       });
     return () => {
       active = false;
@@ -32,7 +38,7 @@ export function Organizations({ store }: { store: SocialStore }) {
     try {
       setItems(await action());
     } catch (e) {
-      setError(e instanceof Error ? e.message : '操作失败');
+      setError(feedbackMessage(e, '操作失败'));
     } finally {
       setBusy(false);
     }
@@ -89,22 +95,9 @@ export function Organizations({ store }: { store: SocialStore }) {
           </select>
         </label>
       </div>
-      {error ? (
-        <p className="sw-error" role="alert">
-          {error}{' '}
-          <button
-            disabled={busy}
-            onClick={() =>
-              void reload()
-                .then(() => setError(''))
-                .catch((e) => setError(e.message))
-            }
-          >
-            刷新权限
-          </button>
-        </p>
-      ) : null}
-      {!items.length ? <p>暂无团队或邀请。</p> : null}
+      <ErrorBox error={error} retry={busy ? undefined : () => { void reload().catch((e: Error) => setError(feedbackMessage(e))); }} />
+      {loaded && !items.length && !error && <ContentState title="还没有团队或邀请" />}
+      {!loaded && !error && <ContentState title="正在打开团队" loading />}
       {items.map((o) => (
         <article className="sw-org-card" key={o.id}>
           <h2>{o.name}</h2>

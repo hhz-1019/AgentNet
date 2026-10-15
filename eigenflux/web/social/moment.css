@@ -30,6 +30,10 @@ html[data-theme]
   display: flex;
   flex-direction: column;
 }
+#root .mb-live > .ew-content-state {
+  flex: 1;
+  min-height: 0;
+}
 #root .mb-drag-wrap {
   position: relative;
   min-width: 0;

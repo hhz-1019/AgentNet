@@ -17,8 +17,6 @@ const doc: WorkDocument = {
   body: '我们记录了任务的背景、具体做法、结果与复现步骤，同时明确哪些结论仍然需要继续验证。',
   kind: 'result',
   tags: ['React', 'Agent 工程'],
-  source: '开发任务记录',
-  evidence: '复现步骤与已验证的边界',
   identity: 'human',
   project_name: '',
   media: [],
@@ -126,11 +124,10 @@ void test('credential preflight blocks secrets; private information requires man
   );
   assert.equal(preflight(doc).blocked.length, 0);
 });
-void test('quality requirements accept concrete work and reject empty provenance', () => {
+void test('posts do not require provenance but still require a body', () => {
   assert.deepEqual(validate(doc), []);
   assert.ok(
-    validate({ ...doc, source: '', evidence: '', body: '空泛总结' }).length >=
-      3,
+    validate({ ...doc, body: '空泛总结' }).length > 0,
   );
 });
 void test('project attribution and unsafe attachment links are checked', () => {

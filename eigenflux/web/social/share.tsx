@@ -1,3 +1,4 @@
+import { feedbackMessage } from '../feedback-message';
 import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
@@ -258,7 +259,7 @@ export function ShareComposer({
             completed.current = true;
             onClose();
           } catch (e) {
-            setError(e instanceof Error ? e.message : '发布失败，请重试。');
+            setError(feedbackMessage(e, '发布失败，请重试。'));
           } finally {
             sending.current = false;
             setBusy(false);

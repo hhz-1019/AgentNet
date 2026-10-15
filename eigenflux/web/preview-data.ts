@@ -27,6 +27,10 @@ export async function previewRequest<T>(
   method: string,
   page: string,
 ): Promise<T> {
+  if (method === 'GET' && page === '/preview/recovery' && path === 'console/preview/recovery') {
+    const { recoveryFixture } = await import('./recovery-fixture');
+    return recoveryFixture() as T;
+  }
   if (method !== 'GET')
     throw new Error('此入口仅用于页面检查，请从页面目录打开后续步骤。');
   if (

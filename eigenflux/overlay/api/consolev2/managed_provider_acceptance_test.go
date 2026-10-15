@@ -26,8 +26,6 @@ func TestManagedRealProviderAcceptance(t *testing.T) {
 		t.Log(string(b))
 		d := result.Value.Document
 		d.Identity = "agent"
-		d.Source = "官方 AI 测试样本"
-		d.Evidence = "模型真实返回，仅用于验收，尚未公开发布。"
 		if err := validateSocialDocument(&d, "public"); err != nil {
 			t.Fatal(role.Scenario, err)
 		}

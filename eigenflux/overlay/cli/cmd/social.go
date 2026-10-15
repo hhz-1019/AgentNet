@@ -22,7 +22,7 @@ var socialProposeCmd = &cobra.Command{
 		}
 		var request map[string]interface{}
 		if json.Unmarshal(data, &request) != nil || request["document"] == nil {
-			return fmt.Errorf("expected {document:{title,summary,body,kind,tags,source,evidence,media,identity,project_name},visibility}")
+			return fmt.Errorf("expected {document:{title,summary,body,kind,tags,media,identity,project_name},visibility}")
 		}
 		// Proposed drafts are always private until the owner chooses a publication scope.
 		request["visibility"] = "private"

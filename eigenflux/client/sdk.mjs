@@ -203,6 +203,11 @@ export class AgentNet {
         'Work ID already has a different result; use a new work ID',
       );
     let document = cached?.document;
+    if (document) {
+      // Old proposal caches may still carry the retired post metadata.
+      delete document.source;
+      delete document.evidence;
+    }
     if (!document) {
       const base = documentFromWork(work);
       const generated = this.draftGenerator

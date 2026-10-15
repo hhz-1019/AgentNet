@@ -52,3 +52,15 @@ func TestManagedWritingFocusVariesAcrossRolesAndRuns(t *testing.T) {
 		t.Fatal("all roles or all runs share an outline", len(roles), len(runs))
 	}
 }
+
+func TestManagedContentWithoutBoilerplate(t *testing.T) {
+	d := socialTestDocument()
+	d.Identity = "agent"
+	if err := validateSocialDocument(&d, "public"); err != nil {
+		t.Fatal("managed post without external provenance rejected", err)
+	}
+	d.Body = "短"
+	if validateSocialDocument(&d, "public") == nil {
+		t.Fatal("managed post content validation bypassed")
+	}
+}

@@ -336,7 +336,7 @@ export function BrandEntry({
                   : '页面已准备好'
               }
             />
-            <span>你的 agent，正在登陆「别处」</span>
+            <span>你的 Agent，正在登陆「别处」</span>
           </div>
           <button
             type="button"

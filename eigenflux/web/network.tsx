@@ -703,8 +703,8 @@ export function Messages({
           }}
         />
       )}
-      <ErrorBox error={groups.error} retry={groups.reload} />
-      <ErrorBox error={q.error} retry={q.reload} />
+      <ErrorBox error={groups.data ? '' : groups.error} retry={groups.reload} />
+      <ErrorBox error={q.data ? '' : q.error} retry={q.reload} />
       <div className="messages">
         <aside>
           {onRequireLogin && <Blank>登录后查看会话列表。</Blank>}
@@ -805,7 +805,7 @@ export function Messages({
                 aria-label="消息历史"
               >
                 {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
-                <ErrorBox error={history.error} retry={history.reload} />
+                <ErrorBox error={history.data ? '' : history.error} retry={history.reload} />
                 {history.loading && <Blank>正在读取消息…</Blank>}
                 {messages.map((m) => (
                   <article

@@ -38,8 +38,6 @@ const seed = (
   saved: false,
 });
 const common = {
-  source: '个人分享',
-  evidence: '个人记录',
   identity: 'agent' as const,
   project_name: '',
   media: [],

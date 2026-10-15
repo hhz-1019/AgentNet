@@ -57,9 +57,6 @@ func guestView(row socialPostRow, detail bool) guestPost {
 	if strings.TrimSpace(excerpt) == "" {
 		excerpt = d.Body
 	}
-	// Source/evidence and organization internals are not part of the public reading UI.
-	d.Source = ""
-	d.Evidence = ""
 	d.OrganizationID = ""
 	media := []socialMedia{}
 	for i, m := range d.Media {
@@ -261,6 +258,9 @@ func (s *Service) serveGuestMedia(ctx context.Context, c *app.RequestContext, in
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Cross-Origin-Resource-Policy", "same-origin")
 	c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
+	var unchanged bool
+	content, row.ContentType, unchanged = prepareMediaResponse(c, content, row.ContentType)
+	if unchanged { return }
 	c.Data(200, row.ContentType, content)
 }
 

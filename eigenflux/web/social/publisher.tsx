@@ -1,8 +1,8 @@
+import { feedbackMessage } from '../feedback-message';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
-  FileText,
   Plus,
   ShieldCheck,
   Trash2,
@@ -55,7 +55,7 @@ export function Publisher({
   const pendingCreate = useRef<{ document: WorkDocument; visibility: Visibility } | undefined>(undefined);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [review, setReview] = useState<Review>();
-  const [step, setStep] = useState(initial ? 'edit' : 'source');
+  const [step, setStep] = useState('edit');
   const [post, setPost] = useState(initial);
   const [doc, setDoc] = useState<WorkDocument>(
     initial?.document || emptyDocument(),
@@ -160,7 +160,7 @@ export function Publisher({
       }
       if (!basePost && e instanceof ApiError && e.status >= 400 && e.status !== 409)
         pendingCreate.current = undefined;
-      setError(e instanceof Error ? e.message : '保存失败');
+      setError(feedbackMessage(e, '保存失败'));
     } finally {
       setBusy(false);
     }
@@ -170,7 +170,7 @@ export function Publisher({
     try {
       setUnusedMedia(await store.unusedMedia());
     } catch (e) {
-      setError(e instanceof Error ? e.message : '无法读取未使用的图片');
+      setError(feedbackMessage(e, '无法读取未使用的图片'));
     } finally {
       setMediaLoading(false);
     }
@@ -178,20 +178,16 @@ export function Publisher({
   return (
     <Dialog
       title={
-        step === 'source'
-          ? '工作来源'
-          : step === 'edit'
-            ? '编辑成果与发布范围'
-            : '确认这份内容的发布'
+        step === 'edit' ? '编辑成果与发布范围' : '确认这份内容的发布'
       }
       onClose={onClose}
       wide
     >
       <div className="sw-publish-progress">
-        {['工作来源', '编辑与范围', '预览与授权'].map((label, i) => (
+        {['编辑与范围', '预览与授权'].map((label, i) => (
           <span
             className={
-              ['source', 'edit', 'preview'].indexOf(step) >= i ? 'active' : ''
+              ['edit', 'preview'].indexOf(step) >= i ? 'active' : ''
             }
             key={label}
           >
@@ -199,33 +195,6 @@ export function Publisher({
           </span>
         ))}
       </div>
-      {step === 'source' ? (
-        <div className="sw-source-step">
-          <div className="sw-source-icon">
-            <FileText size={30} />
-          </div>
-          <label>
-            这次工作的来源
-            <textarea
-              rows={4}
-              value={doc.source}
-              maxLength={500}
-              onChange={(e) => patch({ source: e.target.value })}
-              placeholder="例如：一次前端改造、实验记录或已获授权的公开项目"
-            />
-          </label>
-          <p className="sw-hint">
-            请粘贴可分享的工作说明；私聊全文和账号信息无需带入。
-          </p>
-          <button
-            className="sw-primary"
-            disabled={!doc.source.trim()}
-            onClick={() => setStep('edit')}
-          >
-            开始整理 <ArrowRight size={16} />
-          </button>
-        </div>
-      ) : null}
       {step === 'edit' ? (
         <fieldset disabled={busy} style={{ border: 0, padding: 0, minWidth: 0 }}>
         <div className="sw-editor">
@@ -336,29 +305,6 @@ export function Publisher({
               placeholder="背景 → 做法 → 结果 → 适用范围；提问请给出尝试与卡点。支持保留代码结果。"
             />
           </label>
-          <div className="sw-form-row">
-            <label>
-              真实工作来源
-              <textarea
-                aria-label="真实工作来源"
-                rows={2}
-                value={doc.source}
-                maxLength={500}
-                onChange={(e) => patch({ source: e.target.value })}
-              />
-            </label>
-            <label>
-              证据 / 结果 / 待验证点
-              <textarea
-                aria-label="证据 / 结果 / 待验证点"
-                rows={2}
-                value={doc.evidence}
-                maxLength={2000}
-                onChange={(e) => patch({ evidence: e.target.value })}
-                placeholder="例如：复现步骤、截图说明、对照条件；未验证结论请说明"
-              />
-            </label>
-          </div>
           <label>
             标签（用逗号分隔，最多 8 个）
             <input
@@ -467,7 +413,7 @@ export function Publisher({
                     setSaved(false);
                   })
                   .catch((e) =>
-                    setError(e instanceof Error ? e.message : '上传失败'),
+                    setError(feedbackMessage(e, '上传失败')),
                   )
                   .finally(() => setBusy(false));
               }}
@@ -494,7 +440,7 @@ export function Publisher({
                     <button onClick={() => {
                       void store.deleteMedia(m.url)
                         .then(() => loadUnusedMedia())
-                        .catch((e) => setError(e instanceof Error ? e.message : '删除失败'));
+                        .catch((e) => setError(feedbackMessage(e, '删除失败')));
                     }}>删除这张图片</button>
                   </div>
                 ))}
@@ -616,61 +562,59 @@ export function Publisher({
           基于最新版本继续编辑
         </button>
       ) : null}
-      {step !== 'source' ? (
-        <footer className="sw-dialog-footer">
-          <button
-            disabled={busy}
-            onClick={() => {
-              if (step === 'preview') {
-                setStep('edit');
-                setApproved(false);
-              } else onClose();
-            }}
-          >
-            {step === 'preview' ? '返回修改' : '关闭'}
-          </button>
-          {step === 'edit' ? (
-            <>
-              <button disabled={busy} onClick={() => void save(false)}>
-                {busy ? '保存中…' : '保存草稿'}
-              </button>
-              <button
-                className="sw-primary"
-                disabled={busy}
-                onClick={() => void save(true)}
-              >
-                保存并预览 <ArrowRight size={16} />
-              </button>
-            </>
-          ) : (
+      <footer className="sw-dialog-footer">
+        <button
+          disabled={busy}
+          onClick={() => {
+            if (step === 'preview') {
+              setStep('edit');
+              setApproved(false);
+            } else onClose();
+          }}
+        >
+          {step === 'preview' ? '返回修改' : '关闭'}
+        </button>
+        {step === 'edit' ? (
+          <>
+            <button disabled={busy} onClick={() => void save(false)}>
+              {busy ? '保存中…' : '保存草稿'}
+            </button>
             <button
               className="sw-primary"
-              disabled={
-                busy ||
-                !approved ||
-                checks.blocked.length > 0 ||
-                (post?.document.identity === 'project' && !projectAuthorized)
-              }
-              onClick={async () => {
-                if (!post) return;
-                setBusy(true);
-                setError('');
-                try {
-                  await store.publish(post, projectAuthorized);
-                  onPublished();
-                  onClose();
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : '发布失败');
-                } finally {
-                  setBusy(false);
-                }
-              }}
+              disabled={busy}
+              onClick={() => void save(true)}
             >
-              {busy ? '提交中…' : '确认发布'}
+              保存并预览 <ArrowRight size={16} />
             </button>
-          )}
-        </footer>
-      ) : null}
+          </>
+        ) : (
+          <button
+            className="sw-primary"
+            disabled={
+              busy ||
+              !approved ||
+              checks.blocked.length > 0 ||
+              (post?.document.identity === 'project' && !projectAuthorized)
+            }
+            onClick={async () => {
+              if (!post) return;
+              setBusy(true);
+              setError('');
+              try {
+                await store.publish(post, projectAuthorized);
+                onPublished();
+                onClose();
+              } catch (e) {
+                setError(feedbackMessage(e, '发布失败'));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? '提交中…' : '确认发布'}
+          </button>
+        )}
+      </footer>
     </Dialog>
   );
 }

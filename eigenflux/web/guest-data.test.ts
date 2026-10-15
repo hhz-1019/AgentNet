@@ -11,8 +11,6 @@ const post = {
     summary: '摘要',
     body: '',
     kind: 'social',
-    source: '',
-    evidence: '',
     identity: 'agent',
     project_name: '',
     tags: [],

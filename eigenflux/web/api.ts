@@ -1,4 +1,16 @@
+import { feedbackMessage, transientFailure } from './feedback-message';
 import { useCallback, useEffect, useState } from 'react';
+import { ReadCache } from './read-cache';
+const reads = new ReadCache();
+let readScope = '';
+function readKey(path: string) {
+  const scope = csrfCookie(document.cookie);
+  if (scope !== readScope) {
+    reads.clear();
+    readScope = scope;
+  }
+  return `${scope}:${path}`;
+}
 const messages: Record<string, string> = {
   HANDOFF_INVALID: '请登录账号继续。',
   CONNECTION_INVALID: '无法打开注册页面，请从原 Agent 重新打开。',
@@ -17,7 +29,15 @@ export class ApiError extends Error {
     public code?: string,
     public details?: Record<string, unknown>,
   ) {
-    super(messages[code || ''] || message);
+    super(
+      messages[code || ''] ||
+        feedbackMessage(
+          message,
+          status >= 500
+            ? '服务暂时繁忙，请稍后重试。'
+            : '这次操作未完成，请重试。',
+        ),
+    );
   }
 }
 export function csrfCookie(cookie: string): string {
@@ -63,9 +83,11 @@ export async function api<T>(
       ['TimeoutError', 'AbortError'].includes(error.name);
     throw new ApiError(
       0,
-      timeout
-        ? '请求超时，提交可能已保存。请重试，系统会先核对最新进度。'
-        : '暂时无法连接服务，请检查网络后重试。',
+      method !== 'GET'
+        ? '结果暂未确认，请先查看最新状态再重试。'
+        : timeout
+          ? '等待时间有些长，请稍后重试。'
+          : '连接暂时中断，请稍后重试。',
       timeout ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
     );
   });
@@ -85,6 +107,7 @@ export async function api<T>(
         result.error?.code === 'OWNER_BINDING_REQUIRED')
     )
       refreshData();
+    if ([401, 403].includes(response.status)) reads.clear();
     throw new ApiError(
       response.status,
       result.error?.message || result.msg || '请求失败',
@@ -92,6 +115,7 @@ export async function api<T>(
       result.error?.details,
     );
   }
+  if (method !== 'GET') reads.clear();
   return result.data as T;
 }
 export const refreshData = () =>
@@ -100,8 +124,11 @@ export function useData<T>(
   path: string | null,
   { live = true }: { live?: boolean } = {},
 ) {
+  const key = path ? readKey(path) : '';
+  const cached = path ? reads.peek<T>(key) : undefined;
   const [result, setResult] = useState<{
     path: string | null;
+    key?: string;
     data?: T;
     error: string;
   }>({ path: null, error: '' });
@@ -113,28 +140,71 @@ export function useData<T>(
     return () => window.removeEventListener('agentnet:refresh', reload);
   }, [live, reload]);
   useEffect(() => {
+    if (!path) return;
     let active = true;
-    if (path)
-      api<T>(path)
-        .then((d) => {
-          if (active) setResult({ path, data: d, error: '' });
-        })
-        .catch((e) => {
-          if (active)
-            setResult((previous) => ({
-              path,
-              data: previous.path === path ? previous.data : undefined,
-              error: String(e.message),
-            }));
+    let running = false;
+    let retryable = false;
+    let delay = 5000;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const load = async () => {
+      if (!active || running) return;
+      running = true;
+      clearTimeout(timer);
+      try {
+        const data = await reads.read<T>(key, () => api<T>(path), version > 0);
+        if (active) {
+          retryable = false;
+          setResult((previous) => ({
+            path,
+            key,
+            data:
+              previous.key === key &&
+              JSON.stringify(previous.data) === JSON.stringify(data)
+                ? previous.data
+                : data,
+            error: '',
+          }));
+        }
+      } catch (error) {
+        if (!active) return;
+        retryable = transientFailure(error);
+        setResult((previous) => {
+          const denied =
+            error instanceof ApiError && [401, 403].includes(error.status);
+          const data =
+            previous.key === key && !denied ? previous.data : undefined;
+          return {
+            path,
+            key,
+            data,
+            error:
+              data !== undefined && retryable ? '' : feedbackMessage(error),
+          };
         });
+        if (retryable) {
+          timer = setTimeout(() => void load(), delay);
+          delay = Math.min(delay * 2, 30000);
+        }
+      } finally {
+        running = false;
+      }
+    };
+    const reconnect = () => {
+      if (retryable) void load();
+    };
+    void load();
+    window.addEventListener('online', reconnect);
     return () => {
       active = false;
+      clearTimeout(timer);
+      window.removeEventListener('online', reconnect);
     };
-  }, [path, version]);
+  }, [path, key, version]);
+  const data = result.key === key ? result.data : cached;
   return {
-    data: result.path === path ? result.data : undefined,
-    error: result.path === path ? result.error : '',
-    loading: !!path && result.path !== path,
+    data: path ? data : undefined,
+    error: result.key === key ? result.error : '',
+    loading: !!path && data === undefined && result.key !== key,
     reload,
   };
 }

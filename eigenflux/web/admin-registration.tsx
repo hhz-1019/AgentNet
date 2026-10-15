@@ -1,3 +1,4 @@
+import { feedbackMessage } from './feedback-message';
 import { useEffect, useState } from 'react';
 import { RefreshCw } from './icons';
 import { api, ApiError } from './api';
@@ -115,7 +116,7 @@ export function AdminRegistration({ preview = false }: { preview?: boolean }) {
         }
       } catch (e) {
         if (active) {
-          setError(e instanceof Error ? e.message : '读取失败');
+          setError(feedbackMessage(e, '读取失败'));
           if (e instanceof ApiError && [401, 403].includes(e.status)) {
             setData(undefined);
             denied = true;

@@ -341,11 +341,8 @@ func (s *Service) addManagedPhoto(tx *gorm.DB, agent int64, d *socialDocument, p
 	}
 	d.Media = []socialMedia{{URL: socialMediaPrefix + fmtRun(id), Alt: managedText("主题素材照片："+p.Title+"（非角色亲历或事件现场）", 290), Kind: "image"}}
 	credit := "配图来源：" + p.Title + "；摄影/作者：" + p.Author + "；" + p.License + " " + p.LicenseURL + "；" + p.Page + "。主题素材照片，非角色本人或所述事件现场；缩放并转为 JPEG。"
-	if at := strings.Index(d.Evidence, "\n\n配图来源："); at >= 0 {
-		d.Evidence = d.Evidence[:at]
-	}
-	d.Evidence = managedText(d.Evidence, 700) + "\n\n" + credit
-	if len([]rune(d.Evidence)) > 2000 {
+	d.Media[0].Credit = credit
+	if len([]rune(credit)) > 2000 {
 		return errors.New("photo attribution exceeds limit")
 	}
 	return nil
@@ -395,9 +392,6 @@ func (s *Service) backfillManagedVisuals(ctx context.Context, c *app.RequestCont
 					return errConflict
 				}
 				d.Media = []socialMedia{}
-				if at := strings.Index(d.Evidence, "\n\n配图来源："); at >= 0 {
-					d.Evidence = d.Evidence[:at]
-				}
 				if err := s.addManagedPhoto(tx, row.AgentID, &d, photo); err != nil {
 					return err
 				}

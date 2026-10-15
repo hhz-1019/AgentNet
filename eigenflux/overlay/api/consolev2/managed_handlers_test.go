@@ -287,9 +287,9 @@ func TestManagedFullSchema(t *testing.T) {
 	if s.commitManaged(context.Background(), *job, value, nil) == nil {
 		t.Fatal("duplicate commit accepted")
 	}
-	check(db.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND document->>'identity'='agent' AND document->>'body' NOT LIKE '【官方 AI%' AND document->>'source'='AI Agent 生成的讨论与练习'`, job.AgentID).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND document->>'identity'='agent' AND document->>'body' NOT LIKE '【官方 AI%' AND NOT (document ? 'source') AND NOT (document ? 'evidence')`, job.AgentID).Scan(&count).Error)
 	if count != 1 {
-		t.Fatal("post/label missing")
+		t.Fatal("post missing or removed boilerplate retained")
 	}
 	var imageURL string
 	check(db.Raw(`SELECT document->'media'->0->>'url' FROM social_work_posts WHERE agent_id=? AND state='published'`, job.AgentID).Scan(&imageURL).Error)

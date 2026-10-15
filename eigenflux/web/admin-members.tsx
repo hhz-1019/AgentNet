@@ -1,3 +1,4 @@
+import { feedbackMessage } from './feedback-message';
 import { useEffect, useState } from 'react';
 import { api, ApiError } from './api';
 import { AdminNav } from './admin-nav';
@@ -56,7 +57,7 @@ export function AdminMembers({ preview = false }: { preview?: boolean }) {
       })
       .catch((e) => {
         if (active) {
-          setError(e instanceof Error ? e.message : '成员读取失败');
+          setError(feedbackMessage(e, '成员读取失败'));
           if (e instanceof ApiError && [401, 403].includes(e.status)) {
             setResult(undefined);
             setDenied(true);

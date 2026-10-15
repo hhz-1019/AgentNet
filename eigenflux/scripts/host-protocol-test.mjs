@@ -284,7 +284,8 @@ try {
           assert.equal(body.command_id, command.command_id);
           assert.equal(body.claim_token, proof);
           assert.equal(body.claim_epoch, 1);
-          assert.equal(body.document.source, record.source);
+          assert.equal('source' in body.document, false);
+          assert.equal('evidence' in body.document, false);
           shared = body;
           data = {
             id: '9007199254740995',
@@ -295,7 +296,8 @@ try {
         case '/api/v2/social/drafts':
           assert.equal(body.visibility, 'private');
           assert.equal(body.document.identity, 'agent');
-          assert.equal(body.document.source, record.source);
+          assert.equal('source' in body.document, false);
+          assert.equal('evidence' in body.document, false);
           assert.ok(body.document.body.includes(record.limitations));
           proposal = body;
           data = {

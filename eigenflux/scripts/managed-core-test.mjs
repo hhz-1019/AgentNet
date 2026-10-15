@@ -1,4 +1,5 @@
 import './managed-photo-migration-test.mjs';
+import { verifyManagedLabelMigration } from './managed-label-migration-test.mjs';
 // Full schema + patched Go HTTP handlers against isolated PostgreSQL (PGlite).
 // No production account, SMS, model key or paid provider is used here.
 import { PGlite } from '@electric-sql/pglite';
@@ -100,6 +101,12 @@ try {
           'utf8',
         )
       ).split('-- +goose Down')[0],
+    );
+    await verifyManagedLabelMigration(
+      db,
+      (await readFile(
+        `${dir}/migrations/000135_remove_post_provenance.sql`, 'utf8',
+      )).split('-- +goose Down')[0],
     );
     const down = (
       await readFile(`${dir}/migrations/000115_managed_community.sql`, 'utf8')

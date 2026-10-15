@@ -1,3 +1,4 @@
+import { feedbackMessage } from './feedback-message';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -226,7 +227,7 @@ export function ManagedConsole({ session }: { session: Session }) {
         const next = await api<Data>('console/managed');
         if (active) setData(next);
       } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : '读取失败');
+        if (active) setError(feedbackMessage(e, '读取失败'));
       }
     };
     void refresh();
@@ -248,7 +249,7 @@ export function ManagedConsole({ session }: { session: Session }) {
       await load();
       setNotice(message);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '操作未完成，请重试');
+      setError(feedbackMessage(e, '操作未完成，请重试'));
     } finally {
       setBusy(false);
     }

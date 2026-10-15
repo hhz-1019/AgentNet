@@ -1,3 +1,5 @@
+import { feedbackMessage } from '../feedback-message';
+import { ContentState } from '../recovery';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import { AgentAvatar } from '../avatar';
@@ -76,7 +78,7 @@ export function Moment({
       }
     } catch (e) {
       if (mounted.current)
-        setError(e instanceof Error ? e.message : '事项读取失败');
+        setError(feedbackMessage(e, '事项读取失败'));
     } finally {
       inflight.current = false;
     }
@@ -157,7 +159,7 @@ export function Moment({
         } catch (e) {
           setFeedback(
             '审批已保存。' +
-              (e instanceof Error ? e.message : '消息发送结果未确认。'),
+              (feedbackMessage(e, '消息发送结果未确认。')),
           );
         }
       } else {
@@ -181,7 +183,7 @@ export function Moment({
             ? e.message
             : '事项或授权上下文已变化。补充条件已保留，请核对最新内容后重新选择。',
         );
-      } else setFeedback(e instanceof Error ? e.message : '提交失败，请重试。');
+      } else setFeedback(feedbackMessage(e, '提交失败，请重试。'));
     } finally {
       if (mounted.current) setBusy(false);
     }
@@ -195,13 +197,9 @@ export function Moment({
       : 'item');
   return (
     <section className="mb mb-live" aria-label="此刻的 Agent 与事项">
-      {error && (
-        <div role="alert" className="mb-load-message">
-          {error} <button onClick={() => void refresh()}>重新读取</button>
-        </div>
-      )}
+      {error && !loaded && <ContentState title="暂时没有加载出来" action={() => void refresh()} />}
       {!loaded && !error && (
-        <output className="mb-load-message">正在读取…</output>
+        <ContentState title="正在加载此刻" loading quiet />
       )}
       {loaded && !items.length && (
         <div className="mb-empty">
@@ -482,7 +480,7 @@ export function Moment({
                             setFeedback('');
                           } catch (e) {
                             setFeedback(
-                              e instanceof Error ? e.message : '发送失败。',
+                              feedbackMessage(e, '发送失败。'),
                             );
                           } finally {
                             setBusy(false);

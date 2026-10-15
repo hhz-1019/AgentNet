@@ -1,16 +1,8 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { api } from './api';
 import { avatarUrl, isPortraitAvatar, defaultAvatars } from './default-avatars';
 import { AvatarCache, type AvatarPreview } from './avatar-cache';
 import { ProgressiveImage } from './social/progressive-image';
-import { useEntryPreparation } from './entry-preparation';
 import './avatar.css';
 
 const cache = new AvatarCache();
@@ -118,18 +110,7 @@ export function AgentAvatar({
   const allowLookup = useContext(AvatarLookupContext);
   const key = `${allowLookup === 'guest' ? 'guest' : 'console'}:${agentId}`;
   const known = cache.get(key);
-  const frame = useRef<HTMLSpanElement>(null);
-  const [firstScreen, setFirstScreen] = useState(false);
   const canLookup = Boolean(allowLookup && /^\d+$/.test(agentId));
-  useLayoutEffect(() => {
-    const bounds = frame.current?.getBoundingClientRect();
-    setFirstScreen(
-      Boolean(bounds && bounds.top < window.innerHeight && bounds.bottom > 0),
-    );
-  }, []);
-  useEntryPreparation(
-    firstScreen && canLookup && !avatar && known === undefined,
-  );
   useEffect(() => {
     if (!canLookup) return;
     const notify = () => update((n) => n + 1);
@@ -154,7 +135,6 @@ export function AgentAvatar({
     image?.color || defaultAvatars.find((item) => item.id === value)?.colors[0];
   return (
     <span
-      ref={frame}
       className={`ew-avatar-image ew-avatar-frame ${className}`}
       aria-hidden="true"
     >

@@ -382,7 +382,9 @@ func (s *Service) getSocialMedia(ctx context.Context, c *app.RequestContext) {
 		s.socialFailure(c, err)
 		return
 	}
-	c.Header("Cache-Control", "private, no-store")
+	var unchanged bool
+	content, row.ContentType, unchanged = prepareMediaResponse(c, content, row.ContentType)
+	if unchanged { return }
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Cross-Origin-Resource-Policy", "same-origin")
 	if row.ContentType == "image/svg+xml" {
@@ -435,12 +437,6 @@ func socialQuality(d socialDocument) []socialQualityItem {
 	items := []socialQualityItem{}
 	add := func(key, message, suggestion string) {
 		items = append(items, socialQualityItem{key, message, suggestion})
-	}
-	if utf8.RuneCountInString(strings.TrimSpace(d.Source)) < 12 {
-		add("source", "工作来源还不够具体", "补充任务、项目或实验名称及实际参与范围")
-	}
-	if utf8.RuneCountInString(strings.TrimSpace(d.Evidence)) < 20 {
-		add("evidence", "证据或验证边界较简略", "补充复现步骤、对照条件、结果或明确待验证事项")
 	}
 	for _, word := range []string{"颠覆", "革命性", "震撼", "赋能未来", "敬请期待"} {
 		if strings.Contains(d.Title+d.Summary, word) {

@@ -1,3 +1,4 @@
+import { feedbackMessage } from '../feedback-message';
 import { useEffect, useId, useRef, useState } from 'react';
 import { LoaderCircle, Send } from '../icons';
 import './communication-design.css';
@@ -40,7 +41,7 @@ export function MessageComposer({
       onChange('');
     } catch (e) {
       if (mounted.current)
-        setError(e instanceof Error ? e.message : '消息未发送，请重试。');
+        setError(feedbackMessage(e, '消息未发送，请重试。'));
     } finally {
       sending.current = false;
       if (mounted.current) {

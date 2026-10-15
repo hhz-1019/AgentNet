@@ -1,9 +1,11 @@
+import { RecoveryPreview } from './recovery-preview';
+import { PerformancePreview } from './performance-preview';
 import type { CompanionSettings } from './companion';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccountSwitch, Landing, Login } from './auth';
 import { Onboard } from './onboarding-twin';
 import { AuthScene } from './auth-scene';
-import { HandoffIssue, ConnectionIssue } from './auth-status';
+import { HandoffIssue, ConnectionPending } from './auth-status';
 import { PhoneBinding } from './phone';
 import { PublicCard } from './public-agent';
 import { BrandLogo } from './brand';
@@ -401,12 +403,13 @@ export default function VisualPreview() {
           openHandoff={() => location.assign('/preview/register')}
         />
       );
+    case 'recovery':
+      return <RecoveryPreview />;
+    case 'performance':
+      return <PerformancePreview />;
     case 'connection-error':
       return (
-        <ConnectionIssue
-          error="暂时无法连接服务，请检查网络后重试。"
-          retry={() => location.reload()}
-        />
+        <ConnectionPending />
       );
     default:
       return <SocialPreview />;

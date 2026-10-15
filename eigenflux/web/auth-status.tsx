@@ -1,7 +1,8 @@
 import { BrandLogo } from './brand';
 import { ApiError } from './api';
 import type { Session } from './types';
-import { ErrorBox } from './shared';
+import { RecoveryPage } from './recovery';
+import { feedbackMessage } from './feedback-message';
 import { AuthScene } from './auth-scene';
 import './auth-design.css';
 
@@ -26,10 +27,10 @@ export function HandoffIssue({
           <BrandLogo />
         </a>
         <h1>登录 elsewhere</h1>
-        <ErrorBox error={error.message} />
+        <p className="hint">{feedbackMessage(error.message)}</p>
         {session?.owner_bound && (
           <section>
-            <h2>此浏览器已有登录会话</h2>
+            <h2>继续使用已登录的 Agent</h2>
             <p>{session.agent_name}</p>
             <button disabled={connecting} onClick={() => leaveHandoff()}>
               继续使用 {session.agent_name}
@@ -44,7 +45,7 @@ export function HandoffIssue({
               disabled={connecting}
               onClick={() => openHandoff(a.agent_id)}
             >
-              退出 {a.agent_name || a.agent_id} 的浏览器会话并继续
+              退出 {a.agent_name || '这位 Agent'} 并继续
             </button>
           ))}
         <button
@@ -61,29 +62,17 @@ export function HandoffIssue({
               {connecting ? '正在连接…' : '重新连接'}
             </button>
           )}
-        <a href="/install.md">查看接入与恢复说明</a>
       </main>
     </AuthScene>
   );
 }
 
-export function ConnectionIssue({
-  error,
-  retry,
+// There is no previous content on a first visit. Keep a quiet loading shell
+// while AppContent retries; never replace an already mounted workspace.
+export function ConnectionPending({
+  retry = () => location.reload(),
 }: {
-  error: string;
-  retry: () => void;
+  retry?: () => void;
 }) {
-  return (
-    <AuthScene>
-      <main className="onboarding auth-state">
-        <a className="brand" href="/">
-          <BrandLogo />
-        </a>
-        <h1>暂时无法连接网络</h1>
-        <ErrorBox error={error} retry={retry} />
-        <p>请检查网络连接后重试。</p>
-      </main>
-    </AuthScene>
-  );
+  return <RecoveryPage loading retry={retry} />;
 }

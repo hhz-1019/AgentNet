@@ -192,7 +192,7 @@ article {
   overflow-wrap: anywhere;
 }
 .empty {
-  border: 1px dashed var(--ew-line);
+  border: 0;
   color: var(--muted);
   padding: 34px;
   line-height: 1.8;
@@ -200,8 +200,8 @@ article {
   border-radius: var(--ew-radius-control);
 }
 .error {
-  border-left: 1px solid #9c4138;
-  background: #faeeea;
+  border-left: 0;
+  background: transparent;
   padding: 16px;
   line-height: 1.7;
   overflow-wrap: anywhere;

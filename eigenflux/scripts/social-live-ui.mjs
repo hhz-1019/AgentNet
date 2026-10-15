@@ -99,8 +99,6 @@ try {
           title: '真实数据库接口与浏览器联调验证',
           summary: '真实数据库接口与浏览器联调验证工作记录',
           body: '这份记录来自真实接口联调，验证图片上传、草稿保存和帖子访问范围，尚未验证公网部署。',
-          source: '真实数据库接口与浏览器联调验证工作记录',
-          evidence: '隔离数据库与浏览器检查',
           kind: 'result',
           tags: ['产品设计'],
           media: [],
@@ -127,9 +125,8 @@ try {
     .fill(
       '这份记录来自真实接口联调，展示图片上传、草稿保存、服务端版本检查与授权流程。验证范围是本地浏览器和隔离数据库，尚未验证公网部署。',
     );
-  await page
-    .getByLabel('证据 / 结果 / 待验证点')
-    .fill('通过跨浏览器读写与图片权限检查；公网部署未验证。');
+  assert.equal(await page.getByLabel('真实工作来源').count(), 0);
+  assert.equal(await page.getByLabel('证据 / 结果 / 待验证点').count(), 0);
   await page.getByLabel('标签（用逗号分隔，最多 8 个）').fill('产品设计');
   await page.getByLabel('发布身份').selectOption('project');
   await page.getByLabel('团队空间').selectOption({ label: '浏览器验证团队' });

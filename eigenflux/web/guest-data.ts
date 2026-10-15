@@ -8,8 +8,6 @@ const documentStrings = [
   'summary',
   'body',
   'kind',
-  'source',
-  'evidence',
   'identity',
   'project_name',
 ];

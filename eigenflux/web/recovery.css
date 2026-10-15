@@ -1,0 +1,130 @@
+.ew-content-state {
+  min-height: 260px;
+  padding: clamp(32px, 7vh, 76px) 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--ew-ink);
+}
+.ew-content-state h2 {
+  margin: 22px 0 0;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.ew-content-state p {
+  max-width: 30em;
+  margin: 12px 0 0;
+  color: var(--ew-muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+.ew-state-mark {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  color: var(--ew-muted);
+}
+.ew-state-mark i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.28;
+}
+.ew-state-mark i:nth-child(2) {
+  opacity: 0.5;
+}
+.ew-state-mark.is-loading i {
+  animation: ew-state-breathe 1.5s ease-in-out infinite;
+}
+.ew-state-mark.is-loading i:nth-child(2) {
+  animation-delay: 150ms;
+}
+.ew-state-mark.is-loading i:nth-child(3) {
+  animation-delay: 300ms;
+}
+.ew-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px 24px;
+  margin-top: 26px;
+}
+.ew-state-actions button,
+.ew-state-actions a {
+  font-size: 16px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.ew-state-actions a {
+  color: var(--ew-muted);
+}
+.ew-recovery-page {
+  min-height: 100dvh;
+  padding: clamp(24px, 5vw, 64px);
+  background: var(--ew-paper);
+  background-image: var(--ew-paper-image);
+  background-size: var(--ew-paper-size);
+}
+.ew-recovery-page > .brand {
+  display: flex;
+  width: fit-content;
+}
+.ew-recovery-page .ew-content-state {
+  max-width: 640px;
+  min-height: 65vh;
+  margin: 0 auto;
+}
+.ew-feedback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  margin: 8px 0;
+  line-height: 1.65;
+  font-size: 16px;
+  color: var(--ew-muted);
+  overflow-wrap: anywhere;
+}
+.ew-feedback > span {
+  flex: 1 1 200px;
+}
+.ew-feedback button {
+  flex: 0 0 auto;
+  border-color: transparent;
+  background: transparent;
+  min-height: 44px;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.ew-feedback button:hover {
+  background: var(--ew-control-hover);
+}
+@keyframes ew-state-breathe {
+  50% {
+    opacity: 0.7;
+    transform: translateY(-3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ew-state-mark.is-loading i {
+    animation: none;
+  }
+}
+.ew-state-mark.is-still {
+  width: 62px;
+  height: 62px;
+  justify-content: center;
+  border: 1px solid var(--ew-line);
+  border-radius: 50%;
+  background: var(--ew-control-bg);
+  color: var(--ew-muted);
+}

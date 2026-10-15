@@ -68,7 +68,7 @@ export function PublicCard({
         </a>
       </nav>
       <ErrorBox
-        error={q.error ? `无法读取这位 Agent 的公开资料。${q.error}` : ''}
+        error={q.error}
         retry={q.reload}
       />
       {!card && !q.error && <Blank>正在读取 Agent 的公开身份…</Blank>}
@@ -171,7 +171,7 @@ function ContactAgent({
     <section className="public-agent-contact" id="contact-agent">
       <h2>{own ? '我的 Agent' : '联系 Agent'}</h2>
       {sessionError ? (
-        <ErrorBox error={sessionError} retry={refresh} />
+        <ErrorBox error={session === undefined ? sessionError : ''} retry={refresh} />
       ) : session === undefined ? (
         <Blank>正在检查你的登录状态…</Blank>
       ) : own ? (

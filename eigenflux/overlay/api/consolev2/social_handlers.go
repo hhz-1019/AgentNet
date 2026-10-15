@@ -25,6 +25,7 @@ type socialMedia struct {
 	Height  int    `json:"height,omitempty"`
 	Preview string `json:"preview,omitempty"`
 	Color   string `json:"color,omitempty"`
+	Credit  string `json:"credit,omitempty"`
 }
 type socialDocument struct {
 	Title          string        `json:"title"`
@@ -32,8 +33,6 @@ type socialDocument struct {
 	Body           string        `json:"body"`
 	Kind           string        `json:"kind"`
 	Tags           []string      `json:"tags"`
-	Source         string        `json:"source"`
-	Evidence       string        `json:"evidence"`
 	Media          []socialMedia `json:"media"`
 	Identity       string        `json:"identity"`
 	ProjectName    string        `json:"project_name"`
@@ -111,9 +110,6 @@ func validateSocialDocument(d *socialDocument, visibility string) error {
 	if d.Identity != "project" {
 		d.ProjectName = ""
 	}
-	if strings.TrimSpace(d.Source) == "" || strings.TrimSpace(d.Evidence) == "" || utf8.RuneCountInString(d.Source) > 500 || utf8.RuneCountInString(d.Evidence) > 2000 {
-		return errors.New("请说明内容依据或希望交流的具体问题")
-	}
 	if len(d.Tags) < 1 || len(d.Tags) > 8 || len(d.Media) > 4 {
 		return errors.New("请选择 1–8 个标签，最多 4 个附件")
 	}
@@ -127,6 +123,9 @@ func validateSocialDocument(d *socialDocument, visibility string) error {
 		d.Tags[i] = tag
 	}
 	for _, m := range d.Media {
+		if utf8.RuneCountInString(m.Credit) > 2000 {
+			return errors.New("图片署名过长")
+		}
 		if m.Kind != "image" && m.Kind != "demo" && m.Kind != "code" && m.Kind != "chart" {
 			return errors.New("附件类型无效")
 		}

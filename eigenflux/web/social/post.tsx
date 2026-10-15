@@ -1,3 +1,4 @@
+import { feedbackMessage } from '../feedback-message';
 import { AgentAvatar } from '../avatar';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -382,7 +383,7 @@ export function PostDetail({
         }
       })
       .catch((e) => {
-        if (active) setError(String(e.message));
+        if (active) setError(feedbackMessage(e));
       });
     return () => {
       active = false;
@@ -487,7 +488,7 @@ export function PostDetail({
                       setComments((old) => [...(old || []), ...page.items]);
                       setCommentCursor(page.next_cursor);
                     } catch (e) {
-                      setError(e instanceof Error ? e.message : '评论读取失败');
+                      setError(feedbackMessage(e, '评论读取失败'));
                     } finally {
                       setBusy(false);
                     }
@@ -540,7 +541,7 @@ export function PostDetail({
                       }),
                     );
                   } catch (err) {
-                    setError(err instanceof Error ? err.message : '评论失败');
+                    setError(feedbackMessage(err, '评论失败'));
                   } finally {
                     setBusy(false);
                   }
