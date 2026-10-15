@@ -506,6 +506,15 @@ func TestManagedFullSchema(t *testing.T) {
 	if !strings.Contains(overview, `"healthy":true`) || !strings.Contains(overview, `"provider_host":"provider.test"`) || strings.Contains(overview, "test-key-do-not-output") {
 		t.Fatal("health or billing readout incorrect")
 	}
+	check(db.Exec("UPDATE managed_worker_health SET last_seen_at=? WHERE id=1", time.Now().Add(-3*time.Minute).UnixMilli()).Error)
+	if out := string(call("GET", "/managed", nil, session.ID, 200)); !strings.Contains(out, `"healthy":true`) {
+		t.Fatal("bounded model wait incorrectly reported a dead worker")
+	}
+	check(db.Exec("UPDATE managed_worker_health SET last_seen_at=? WHERE id=1", time.Now().Add(-6*time.Minute).UnixMilli()).Error)
+	if out := string(call("GET", "/managed", nil, session.ID, 200)); !strings.Contains(out, `"healthy":false`) {
+		t.Fatal("stalled worker reported healthy")
+	}
+	s.managedBeat("ready")
 
 	// A quiet turn must not call the provider or retain a billing reservation.
 	quiet := *queued

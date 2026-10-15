@@ -48,7 +48,9 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 	if err := s.db.Raw(`SELECT last_seen_at,state FROM managed_worker_health WHERE id=1`).Scan(&health).Error; err != nil {
 		return err
 	}
-	payload["runtime"] = map[string]any{"last_seen_at": health.LastSeenAt, "state": health.State, "healthy": health.State == "ready" && health.LastSeenAt > time.Now().Add(-2*time.Minute).UnixMilli()}
+	// A normal cycle can spend 210 seconds awaiting a provider and publication.
+	// Match stale-run recovery rather than flagging that bounded wait as a dead worker.
+	payload["runtime"] = map[string]any{"last_seen_at": health.LastSeenAt, "state": health.State, "healthy": health.State == "ready" && health.LastSeenAt > time.Now().Add(-5*time.Minute).UnixMilli()}
 	var usage struct {
 		SettledFen         int64 `json:"settled_fen"`
 		ReservedFen        int64 `json:"reserved_fen"`
