@@ -357,15 +357,32 @@ func TestManagedFullSchema(t *testing.T) {
 	})
 	func() {
 		defer func() { http.DefaultTransport = originalTransport }()
-		out := call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants test"}, session.ID, 200)
+		out := call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants"}, session.ID, 200)
 		if !strings.Contains(string(out), `"updated":1`) {
 			t.Fatal("targeted photo collection failed", string(out))
 		}
-		out = call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants test"}, session.ID, 200)
+		out = call("POST", "/illustrate", map[string]any{"post_id": repairID, "photo_query": "fresh plants"}, session.ID, 200)
 		if !strings.Contains(string(out), `"updated":0`) {
 			t.Fatal("existing photo overwritten")
 		}
 	}()
+	var repairRevision int64
+	check(db.Raw("SELECT revision FROM social_work_posts WHERE post_id=?", socialDecimal(repairID)).Scan(&repairRevision).Error)
+	if _, err := s.removeManagedPostPhoto(context.Background(), "another-sponsor", socialDecimal(repairID), repairRevision); err == nil {
+		t.Fatal("cross-sponsor removal accepted")
+	}
+	call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision - 1}, session.ID, 409)
+	if out := string(call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision}, session.ID, 200)); !strings.Contains(out, `"updated":1`) {
+		t.Fatal("mismatched photo not detached", out)
+	}
+	var repaired socialDocument
+	var repairedRaw string
+	check(db.Raw("SELECT document::text FROM social_work_posts WHERE post_id=?", socialDecimal(repairID)).Scan(&repairedRaw).Error)
+	check(json.Unmarshal([]byte(repairedRaw), &repaired))
+	if len(repaired.Media) != 0 || repaired.Body != d.Body || strings.Contains(repaired.Evidence, "配图来源：") {
+		t.Fatal("repair changed prose or retained attribution", repaired)
+	}
+	call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision}, session.ID, 409)
 	next, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
 	if next != nil {
@@ -411,7 +428,7 @@ func TestManagedFullSchema(t *testing.T) {
 	if s.commitManaged(context.Background(), *next, bad, map[int64]bool{}) == nil {
 		t.Fatal("comment escaped supplied scope")
 	}
-	s.finishManagedFailure(*next)
+	s.finishManagedFailure(*next, managedModelResult{Requested: true}, managedFailure("provider_timeout"))
 	check(db.Raw(`SELECT charged_fen FROM managed_runs WHERE run_id=?`, next.RunID).Scan(&count).Error)
 	if count != next.Reserved {
 		t.Fatal("unknown provider charge refunded")

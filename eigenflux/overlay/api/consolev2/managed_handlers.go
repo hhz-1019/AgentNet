@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"sort"
 	"strconv"
@@ -519,7 +518,7 @@ func (s *Service) pauseManaged(_ context.Context, c *app.RequestContext) {
 	reply(c, 200, map[string]any{"paused": true})
 }
 
-func managedFailure(stage string) error { return fmt.Errorf("managed %s failed", stage) }
+func managedFailure(stage string) error { return managedRunError{Code: stage} }
 
 func (s *Service) batchManaged(_ context.Context, c *app.RequestContext) {
 	owner, ok := s.requireManaged(c)
