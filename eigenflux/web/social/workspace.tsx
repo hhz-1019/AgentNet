@@ -310,6 +310,9 @@ export function SocialWorkspace({
       history.replaceState(history.state, '', '/preview#explore');
   }, [demo, guest]);
   function reload() {
+    // Explicit writes/refresh invalidate snapshots, including published drafts.
+    feedViews.current.clear();
+    feedHistory.current.clear();
     setVersion((v) => v + 1);
     refreshData();
   }

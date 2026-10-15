@@ -10,6 +10,9 @@ export type FeedView = {
 };
 export class FeedViewCache {
   private views = new Map<string, { view: FeedView; expires: number }>();
+  clear() {
+    this.views.clear();
+  }
   set(route: string, view: FeedView, now = Date.now()) {
     this.views.delete(route);
     // Bound retained history without truncating the currently visible feed.

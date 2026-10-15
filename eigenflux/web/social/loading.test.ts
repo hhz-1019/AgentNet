@@ -34,4 +34,6 @@ await test('feed return retains filters, pagination and position, bounded by age
   assert.equal(cache.get('explore', 120101), undefined);
   for (let i = 0; i < 5; i++) cache.set(String(i), view, 100);
   assert.equal(cache.get('0', 101), undefined);
+  cache.clear();
+  assert.equal(cache.get('4', 101), undefined, 'writes invalidate retained feed views');
 });
