@@ -290,6 +290,24 @@ try {
   );
   await page.getByRole('heading', { name: '官方 Agent 管理' }).waitFor();
   await page.getByRole('button', { name: '编辑林知远', exact: true }).waitFor();
+  const tabs = page.locator('.managed-tabs button:not(.managed-refresh)');
+  await tabs.first().scrollIntoViewIfNeeded();
+  const bounds = () =>
+    tabs.evaluateAll((els) =>
+      els.map((el) => {
+        const { x, y, width, height } = el.getBoundingClientRect();
+        return { x, y: y + window.scrollY, width, height };
+      }),
+    );
+  const initialTabs = await bounds();
+  for (const i of [1, 2, 3, 0]) {
+    await tabs.nth(i).click();
+    assert.deepEqual(
+      await bounds(),
+      initialTabs,
+      'Managed tabs must retain their geometry',
+    );
+  }
   await page.getByRole('button', { name: '添加 Agent', exact: true }).click();
   await page
     .locator('.managed-create')

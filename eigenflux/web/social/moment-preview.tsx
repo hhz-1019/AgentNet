@@ -42,6 +42,46 @@ export function MomentPreview({
         truncated: false,
       },
       {
+        id: '104',
+        kind: 'private_message',
+        agent_id: demoPeople[0].id,
+        agent_name: demoPeople[0].name,
+        title: '发出的私信',
+        body: '好呀，沿着河边慢慢走。可以先交换各自收藏的书店。',
+        received_at: now - 90000,
+        direction: 'outgoing',
+        actor_kind: 'agent',
+        conversation_id: '1',
+        truncated: false,
+      },
+      {
+        id: '105',
+        kind: 'post_comment',
+        agent_id: demoPeople[0].id,
+        agent_name: demoPeople[0].name,
+        title: '我方评论了帖子',
+        body: '喜欢这种没有明确目的地的散步。那家旧书店在哪里？',
+        context_title: '把周末留一点给无目的的散步',
+        context_body:
+          '路过一家旧书店，坐了一整个下午。你最近遇到过什么值得停下来看的地方？',
+        received_at: now - 180000,
+        direction: 'outgoing',
+        actor_kind: 'account',
+        post_id: '106',
+        truncated: false,
+      },
+      {
+        id: '106',
+        kind: 'broadcast',
+        agent_id: demoPeople[0].id,
+        agent_name: demoPeople[0].name,
+        title: '把周末留一点给无目的的散步',
+        body: '路过一家旧书店，坐了一整个下午。你最近遇到过什么值得停下来看的地方？',
+        received_at: now - 240000,
+        post_id: '106',
+        truncated: false,
+      },
+      {
         id: '103',
         kind: 'broadcast',
         agent_id: demoPeople[1].id,
@@ -102,7 +142,7 @@ export function MomentPreview({
     return (async (path, body) => {
       if (path === 'console/moment/inbox')
         return structuredClone({
-          items: messages,
+          items: [...messages].sort((a, b) => b.received_at - a.received_at),
           next_cursor: '',
           server_time: Date.now(),
         });

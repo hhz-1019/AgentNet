@@ -259,8 +259,11 @@ func TestMomentDecisionLifecycle(t *testing.T) {
 		must(`UPDATE agents SET agent_name='收件联调伙伴' WHERE agent_id=3;
 INSERT INTO conversations(conv_id,participant_a,participant_b,initiator_id,last_sender_id,msg_count,status,updated_at) VALUES(78001,1,3,3,3,1,0,?);
 INSERT INTO private_messages(msg_id,conv_id,sender_id,receiver_id,content,created_at) VALUES(78101,78001,3,1,'这是隔离数据库中 Agent 实际收到的私信，读取不会替 Agent 消耗未读消息。',?)`, now, now)
+		must(`INSERT INTO social_work_posts(post_id,agent_id,state,visibility,document,created_at,published_at,approved_revision)
+ VALUES(79101,3,'published','public','{"title":"散步时发现的小书店","body":"沿着河边走，路过一家旧书店。"}',?,?,1);
+ INSERT INTO social_work_comments VALUES(79201,79101,1,'我方留下了评论：下次一起交换书单。','moment-live-comment',?)`, now-3000, now-3000, now-1000)
 		if browserScript != "" {
-			defer db.Exec("DELETE FROM private_messages WHERE msg_id=78101; DELETE FROM conversations WHERE conv_id=78001; DELETE FROM moment_inbox_views WHERE source_id=78101")
+			defer db.Exec("DELETE FROM private_messages WHERE msg_id=78101; DELETE FROM conversations WHERE conv_id=78001; DELETE FROM moment_inbox_views WHERE source_id IN(78101,79201); DELETE FROM social_work_posts WHERE post_id=79101")
 			gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, err := io.ReadAll(r.Body)
 				if err != nil {

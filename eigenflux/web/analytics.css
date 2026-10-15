@@ -93,8 +93,11 @@
   align-items: center;
   gap: 28px;
 }
+.analytics-nav a {
+  border-bottom: 2px solid transparent;
+}
 .analytics-nav a[aria-current='page'] {
-  border-bottom: 2px solid var(--an-ink);
+  border-bottom-color: var(--an-ink);
 }
 .analytics-main {
   max-width: 1500px;

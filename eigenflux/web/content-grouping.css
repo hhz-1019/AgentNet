@@ -1,0 +1,106 @@
+/* Restore local grouping without boxing the entire page or shrinking the type. */
+html[data-theme] #root .sn-settings-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+html[data-theme] #root .sn-settings-list > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  min-height: 58px;
+  width: auto;
+  background: var(--ew-input-tint);
+  border: 0;
+  border-radius: 20px;
+  transition: background-color 160ms ease;
+  text-decoration: none;
+}
+html[data-theme] #root .sn-settings-list > a:hover {
+  background: var(--ew-tint);
+}
+html[data-theme] #root .sn-settings-list > a > span {
+  flex: 0 1 auto;
+}
+html[data-theme] #root .sn-settings-list > a > svg:last-child {
+  width: 22px;
+  height: 22px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+html[data-theme] #root .sn-settings-list strong {
+  font-size: 18px;
+  font-weight: 500;
+}
+html[data-theme] #root :is(.sn-public-fields > div, .ew-identity-fragment) {
+  border: 0;
+  background: var(--ew-input-tint);
+  border-radius: 22px;
+  padding: 22px 24px;
+}
+html[data-theme] #root .sn-public-fields {
+  gap: 18px;
+}
+html[data-theme] #root .sn-public-fields dt {
+  margin: 0 0 12px;
+}
+html[data-theme] #root .sn-public-fields dd {
+  margin: 0;
+  line-height: 1.85;
+}
+html[data-theme] #root :is(article.event, .attention-item) {
+  border: 0;
+  background: var(--ew-input-tint);
+  border-radius: 22px;
+  padding: 22px 24px;
+  margin: 16px 0;
+}
+html[data-theme] #root article.event {
+  column-gap: 24px;
+}
+html[data-theme] #root article.event p {
+  margin: 12px 0 0;
+  line-height: 1.85;
+}
+html[data-theme] #root article.event time {
+  font-size: 14px;
+  color: var(--ew-muted);
+}
+html[data-theme] #root .attention-item h2 {
+  margin-bottom: 18px;
+}
+@media (min-width: 681px) {
+  html[data-theme] #root :is(.sn-conversations, .messages > aside) {
+    border-right: 1px solid var(--ew-line);
+    padding-right: 20px;
+  }
+}
+@media (max-width: 680px) {
+  html[data-theme] #root .sn-settings-list > a {
+    padding: 14px 16px;
+  }
+  html[data-theme] #root .sn-settings-list strong {
+    font-size: 16px;
+  }
+  html[data-theme]
+    #root
+    :is(
+      .sn-public-fields > div,
+      .ew-identity-fragment,
+      article.event,
+      .attention-item
+    ) {
+    padding: 18px;
+    border-radius: 18px;
+  }
+  html[data-theme] #root article.event {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+}

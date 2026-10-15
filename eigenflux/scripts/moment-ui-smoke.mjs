@@ -91,7 +91,7 @@ try {
         if (detailFailure)
           return route.fulfill({
             status: 404,
-            json: { error: { message: '这条消息已不可访问' } },
+            json: { error: { message: '这条交互已不可访问' } },
           });
         if (path.endsWith('/view')) {
           assert.equal(route.request().method(), 'POST');
@@ -176,6 +176,10 @@ try {
     assert.ok(field.height > 500 && field.width > 300);
     await orb.click();
     const dialog = page.getByRole('dialog');
+    await dialog
+      .getByRole('button', { name: '查看完整事项', exact: true })
+      .first()
+      .click();
     await dialog.getByRole('button', { name: '搁置', exact: true }).click();
     await dialog.getByText('暂时搁置', { exact: true }).waitFor();
     await dialog.getByRole('button', { name: '重新考虑' }).click();
@@ -226,9 +230,7 @@ try {
     await page.evaluate(() =>
       window.dispatchEvent(new Event('agentnet:refresh')),
     );
-    await page
-      .getByRole('heading', { name: '此刻，还没有收到新的消息' })
-      .waitFor();
+    await page.getByRole('heading', { name: '此刻，还没有新的交互' }).waitFor();
     assert.equal(
       await page.locator('.mb-orb').count(),
       0,
@@ -254,7 +256,7 @@ try {
       window.dispatchEvent(new Event('agentnet:refresh')),
     );
     const receivedOrb = page.getByRole('button', {
-      name: '收件伙伴，1 条消息，查看内容',
+      name: '收件伙伴，1 条交互，查看内容',
     });
     await receivedOrb.waitFor();
     assert.equal(
@@ -263,7 +265,12 @@ try {
       'received messages remain visible with zero approvals',
     );
     await receivedOrb.click();
-    await dialog.getByText(message.body, { exact: true }).waitFor();
+    await dialog.getByText('查看依据', { exact: true }).click();
+    await dialog.locator('.mb-brief-sources button').first().click();
+    await dialog
+      .getByRole('region', { name: '交互正文' })
+      .getByText(message.body, { exact: true })
+      .waitFor();
     await dialog.getByText('已查看', { exact: true }).waitFor();
     assert.equal(
       await dialog.getByRole('button', { name: '确认', exact: true }).count(),
@@ -276,28 +283,34 @@ try {
     await page.keyboard.press('Escape');
     detailFailure = true;
     await receivedOrb.click();
+    await dialog.getByText('查看依据', { exact: true }).click();
+    await dialog.locator('.mb-brief-sources button').first().click();
     await dialog.getByRole('alert').waitFor();
     assert.equal(
-      await dialog.getByText(message.body, { exact: true }).count(),
+      await dialog
+        .getByRole('region', { name: '交互正文' })
+        .getByText(message.body, { exact: true })
+        .count(),
       0,
       'revoked access cannot reuse list preview as full content',
     );
     detailFailure = false;
     await dialog.getByRole('button', { name: '重试读取' }).click();
-    await dialog.getByText(message.body, { exact: true }).waitFor();
+    await dialog
+      .getByRole('region', { name: '交互正文' })
+      .getByText(message.body, { exact: true })
+      .waitFor();
     await page.keyboard.press('Escape');
     inboxFailure = true;
     await page.evaluate(() =>
       window.dispatchEvent(new Event('agentnet:refresh')),
     );
-    await page.getByRole('button', { name: '重新读取消息' }).waitFor();
+    await page.getByRole('button', { name: '重新读取交互' }).waitFor();
     assert.equal(await page.locator('.mb-empty').count(), 0);
     inboxFailure = false;
     received = false;
-    await page.getByRole('button', { name: '重新读取消息' }).click();
-    await page
-      .getByRole('heading', { name: '此刻，还没有收到新的消息' })
-      .waitFor();
+    await page.getByRole('button', { name: '重新读取交互' }).click();
+    await page.getByRole('heading', { name: '此刻，还没有新的交互' }).waitFor();
     await page.close();
   }
   assert.deepEqual(errors, []);

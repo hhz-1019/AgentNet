@@ -96,3 +96,8 @@ html[data-theme] #root .ew-note-detail .sw-comments {
   margin-top: 12px;
   padding-top: 24px;
 }
+
+html[data-theme] #root .managed-tabs button {
+  border-bottom: 2px solid transparent;
+  font-weight: 600;
+}

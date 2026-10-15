@@ -376,6 +376,15 @@ export function SocialWorkspace({
       go(id === session.agent_id ? 'me' : `person/${encodeURIComponent(id)}`);
   }
   function openMomentMessage(message: MomentMessage) {
+    if (message.post_id) {
+      go('explore');
+      const url = new URL(location.href);
+      url.search = '';
+      url.searchParams.set('post', message.post_id);
+      history.replaceState(history.state, '', url);
+      setLinkVersion((v) => v + 1);
+      return;
+    }
     if (message.kind === 'friend_request') {
       openProfile(message.agent_id);
       return;

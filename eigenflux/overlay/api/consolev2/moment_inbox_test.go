@@ -69,8 +69,8 @@ func TestMomentInboxReceiptIsolationAndPaging(t *testing.T) {
 	}
 	page := call("GET", "/inbox", "1", 200)
 	rows := page["items"].([]any)
-	if len(rows) != 4 {
-		t.Fatalf("want 4 received sources, got %v", rows)
+	if len(rows) != 5 {
+		t.Fatalf("want 4 received sources and 1 outgoing message, got %v", rows)
 	}
 	for _, kind := range []string{"private_message", "group_message", "friend_request", "broadcast"} {
 		detail := call("GET", "/inbox/"+kind+"/70101", "1", 200)["item"].(map[string]any)
@@ -103,13 +103,53 @@ func TestMomentInboxReceiptIsolationAndPaging(t *testing.T) {
 	call("GET", "/inbox/broadcast/70103", "1", 404)
 	call("GET", "/inbox?cursor=invalid", "1", 400)
 	call("GET", "/inbox/unknown/70101", "1", 400)
+	// A comment joins the two participating accounts, not every reader of a post.
+	must(`INSERT INTO social_work_posts(post_id,agent_id,state,visibility,document,created_at,published_at,approved_revision)
+ VALUES(72001,1,'published','public','{"title":"我方的帖子","body":"原文一"}',?,?,1),
+ (72002,2,'published','public','{"title":"对方的帖子","body":"原文二"}',?,?,1),
+ (72003,2,'published','friends','{"title":"好友帖子"}',?,?,1);
+ INSERT INTO social_work_comments VALUES(72101,72001,2,'对方给我方的评论','moment-comment-in',?),
+ (72102,72002,1,'我方给对方的评论','moment-comment-out',?),
+ (72103,72002,3,'第三方路过评论','moment-comment-unrelated',?),
+ (72104,72003,1,'过去的好友评论','moment-comment-friends',?)`, now, now, now, now, now, now, now, now, now, now)
+	for _, id := range []string{"72101", "72102"} {
+		detail := call("GET", "/inbox/post_comment/"+id, "1", 200)["item"].(map[string]any)
+		if detail["agent_id"] != "2" || detail["context_title"] == "" || detail["post_id"] == nil {
+			t.Fatal("comment lost counterpart/post context", detail)
+		}
+		if (id == "72102") != (detail["direction"] == "outgoing") {
+			t.Fatal("wrong comment direction", detail)
+		}
+		call("POST", "/inbox/post_comment/"+id+"/view", "1", 200)
+	}
+	call("GET", "/inbox/post_comment/72101", "3", 404)
+	call("GET", "/inbox/post_comment/72103", "1", 404)
+	call("GET", "/inbox/post_comment/72104", "1", 404)
+	must("INSERT INTO user_relations VALUES(1,2,1)")
+	call("GET", "/inbox/post_comment/72104", "1", 200)
+	must("DELETE FROM user_relations WHERE from_uid=1 AND to_uid=2 AND rel_type=1")
+	call("POST", "/inbox/post_comment/72104/view", "1", 404)
+	must("UPDATE social_work_posts SET visibility='private' WHERE post_id=72002")
+	call("GET", "/inbox/post_comment/72102", "1", 404)
+	call("POST", "/inbox/post_comment/72102/view", "1", 404)
+	// A received broadcast mirrored as a post must honor the post's current visibility.
+	must(`INSERT INTO social_work_posts(post_id,agent_id,state,visibility,document,created_at,published_at,approved_revision)
+ VALUES(70101,2,'published','private','{"title":"已转为私密的帖子"}',?,?,1)`, now, now)
+	call("GET", "/inbox/broadcast/70101", "1", 404)
+	must("UPDATE social_work_posts SET visibility='public' WHERE post_id=70101")
+	post := call("GET", "/inbox/broadcast/70101", "1", 200)["item"].(map[string]any)
+	if post["post_id"] != "70101" {
+		t.Fatal("received post cannot link to original", post)
+	}
 	must("INSERT INTO user_relations VALUES(2,1,2)")
 	if len(call("GET", "/inbox", "1", 200)["items"].([]any)) != 0 {
 		t.Fatal("blocked sender leaked")
 	}
 	call("GET", "/inbox/private_message/70101", "1", 404)
 	call("POST", "/inbox/private_message/70101/view", "1", 404)
+	call("GET", "/inbox/post_comment/72101", "1", 404)
 	must("DELETE FROM user_relations WHERE from_uid=2 AND to_uid=1 AND rel_type=2")
+	must("DELETE FROM social_work_comments WHERE comment_id BETWEEN 72101 AND 72104; DELETE FROM social_work_posts WHERE post_id IN(70101,72001,72002,72003)")
 	must("DELETE FROM social_group_members WHERE group_id=70001 AND agent_id=1")
 	call("GET", "/inbox/group_message/70101", "1", 404)
 	// Equal timestamps and overlapping IDs across kinds must page without loss.
@@ -131,7 +171,7 @@ func TestMomentInboxReceiptIsolationAndPaging(t *testing.T) {
 		}
 		seen[key] = true
 	}
-	if len(seen) != 58 || second["next_cursor"] != "" {
+	if len(seen) != 59 || second["next_cursor"] != "" {
 		t.Fatalf("paging lost sources: %d", len(seen))
 	}
 }

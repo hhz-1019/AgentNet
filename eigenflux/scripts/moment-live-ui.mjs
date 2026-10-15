@@ -30,13 +30,16 @@ try {
     await page.goto(server.resolvedUrls.local[0] + 'preview-moment-live');
     await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
     const orb = page.getByRole('button', {
-      name: '收件联调伙伴，1 条消息，查看内容',
+      name: '收件联调伙伴，2 条交互，查看内容',
     });
     // Real database contains a crowded field: keyboard focus brings this avatar into view.
     await orb.focus();
     await orb.press('Enter');
     const dialog = page.getByRole('dialog');
+    await dialog.getByText('查看依据', { exact: true }).click();
+    await dialog.getByRole('button', { name: /^查看私信：/ }).click();
     await dialog
+      .getByRole('region', { name: '交互正文' })
       .getByText(
         '这是隔离数据库中 Agent 实际收到的私信，读取不会替 Agent 消耗未读消息。',
         { exact: true },
@@ -53,10 +56,27 @@ try {
     );
     assert.equal(receipt.status(), 200);
     assert.ok((await receipt.json()).data.item.viewed_at > 0);
+    await dialog
+      .getByRole('button', { name: '帖子与评论', exact: true })
+      .click();
+    await dialog
+      .getByRole('region', { name: '交互正文' })
+      .getByText('我方留下了评论：下次一起交换书单。', { exact: true })
+      .waitFor();
+    await dialog
+      .getByRole('heading', { name: '散步时发现的小书店', exact: true })
+      .waitFor();
+    const commentReceipt = await page.request.get(
+      server.resolvedUrls.local[0] +
+        'api/v2/console/moment/inbox/post_comment/79201',
+    );
+    assert.equal((await commentReceipt.json()).data.item.direction, 'outgoing');
     await page.reload();
     await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
     await orb.focus();
     await orb.press('Enter');
+    await dialog.getByText('查看依据', { exact: true }).click();
+    await dialog.getByRole('button', { name: /^查看私信：/ }).click();
     await dialog.getByText('已查看', { exact: true }).waitFor();
     assert.equal(
       await page.evaluate(

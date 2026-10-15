@@ -360,6 +360,7 @@ nav {
   gap: 5px;
 }
 nav a {
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -375,7 +376,7 @@ nav a:hover {
 nav a[aria-current] {
   color: var(--ew-ink);
   background: var(--ew-tint);
-  font-weight: 600;
+  font-weight: 500;
 }
 .owner {
   margin-top: auto;

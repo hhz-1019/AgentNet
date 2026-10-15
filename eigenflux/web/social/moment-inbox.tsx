@@ -1,11 +1,17 @@
+/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The reading region supports independent keyboard scrolling. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { plainText } from '../plain-text';
-import { DragRail } from './drag-rail';
+import { ArrowRight, MessageCircle, FileText, Users } from '../icons';
 
 export type MomentMessage = {
   id: string;
-  kind: 'private_message' | 'group_message' | 'friend_request' | 'broadcast';
+  kind:
+    | 'private_message'
+    | 'group_message'
+    | 'friend_request'
+    | 'broadcast'
+    | 'post_comment';
   agent_id: string;
   agent_name: string;
   title: string;
@@ -15,6 +21,11 @@ export type MomentMessage = {
   conversation_id?: string;
   group_id?: string;
   truncated: boolean;
+  direction?: 'incoming' | 'outgoing';
+  actor_kind?: 'human' | 'agent' | 'account';
+  post_id?: string;
+  context_title?: string;
+  context_body?: string;
 };
 export type MomentInboxPage = {
   items: MomentMessage[];
@@ -26,7 +37,8 @@ export const messageLabels = {
   private_message: '私信',
   group_message: '群消息',
   friend_request: '好友申请',
-  broadcast: '网络信息',
+  broadcast: '帖子',
+  post_comment: '评论',
 };
 
 export function useMomentInbox(request: typeof api) {
@@ -114,31 +126,47 @@ export function useMomentInbox(request: typeof api) {
 }
 
 export function MomentInboxDetails({
+  initialSelected,
   messages,
   request,
   onViewed,
   onOpen,
-  onDecisions,
+  onMore,
 }: {
+  initialSelected?: string;
   messages: MomentMessage[];
   request: typeof api;
   onViewed: (message: MomentMessage) => void;
   onOpen?: (message: MomentMessage) => void;
-  onDecisions?: () => void;
+  onMore?: () => void;
 }) {
-  const [selected, setSelected] = useState(messageKey(messages[0]));
+  const [filter, setFilter] = useState<'all' | 'conversation' | 'content'>(
+    'all',
+  );
+  const filtered = messages.filter(
+    (m) =>
+      filter === 'all' ||
+      (filter === 'content') === ['broadcast', 'post_comment'].includes(m.kind),
+  );
+  const [selected, setSelected] = useState(
+    initialSelected || messageKey(messages[0]),
+  );
   const current =
-    messages.find((m) => messageKey(m) === selected) || messages[0];
+    filtered.find((m) => messageKey(m) === selected) ||
+    filtered[0] ||
+    messages[0];
   const key = messageKey(current);
   const [detail, setDetail] = useState<MomentMessage>();
   const [error, setError] = useState(''),
     [viewError, setViewError] = useState('');
   const [retry, setRetry] = useState(0);
+  const hasCurrent = filtered.length > 0;
   useEffect(() => {
     let active = true;
     setDetail(undefined);
     setError('');
     setViewError('');
+    if (!hasCurrent) return;
     void request<{ item: MomentMessage }>('console/moment/inbox/' + key)
       .then(({ item }) => {
         if (active) setDetail(item);
@@ -149,11 +177,17 @@ export function MomentInboxDetails({
     return () => {
       active = false;
     };
-  }, [key, request, retry]);
+  }, [key, request, retry, hasCurrent]);
   // Only acknowledge after full content has loaded and the visible dialog has
   // committed. This never consumes the Agent's PM/Feed processing queue.
   useEffect(() => {
-    if (!detail || detail.viewed_at || messageKey(detail) !== key) return;
+    if (
+      !hasCurrent ||
+      !detail ||
+      detail.viewed_at ||
+      messageKey(detail) !== key
+    )
+      return;
     let active = true;
     const mark = () => {
       if (document.hidden) return;
@@ -178,83 +212,164 @@ export function MomentInboxDetails({
       active = false;
       document.removeEventListener('visibilitychange', mark);
     };
-  }, [detail, key, onViewed, request]);
+  }, [detail, key, onViewed, request, hasCurrent]);
+  const canOpen = onOpen && (detail?.kind !== 'broadcast' || detail?.post_id);
   return (
-    <div className="mb-detail mb-inbox-detail">
-      {messages.length > 1 && (
-        <DragRail
-          label="收到的消息"
-          className="mb-task-rail"
-          resetKey={current.agent_id}
-        >
-          <div className="mb-task-strip">
-            {messages.map((m) => (
+    <div className="mb-interaction-view">
+      <div className="mb-interaction-columns">
+        <aside className="mb-interaction-index" aria-label="交互时间线">
+          <fieldset className="mb-interaction-filters" aria-label="交互类型">
+            {(
+              [
+                ['all', '全部'],
+                ['conversation', '交流'],
+                ['content', '帖子与评论'],
+              ] as const
+            ).map(([value, label]) => (
               <button
-                key={messageKey(m)}
-                aria-pressed={key === messageKey(m)}
-                onClick={() => setSelected(messageKey(m))}
+                key={value}
+                aria-pressed={filter === value}
+                onClick={() => setFilter(value)}
               >
-                {messageLabels[m.kind]} ·{' '}
-                {new Date(m.received_at).toLocaleDateString('zh-CN', {
-                  month: 'numeric',
-                  day: 'numeric',
-                })}
-                {!m.viewed_at && (
-                  <span className="mb-unseen-dot" aria-label="未查看" />
-                )}
+                {label}
               </button>
             ))}
+          </fieldset>
+          <div className="mb-interaction-list">
+            {filtered.map((m) => {
+              const Icon =
+                m.kind === 'broadcast'
+                  ? FileText
+                  : m.kind === 'friend_request'
+                    ? Users
+                    : MessageCircle;
+              return (
+                <button
+                  className="mb-interaction-row"
+                  key={messageKey(m)}
+                  aria-pressed={key === messageKey(m)}
+                  onClick={() => setSelected(messageKey(m))}
+                >
+                  <span className="mb-interaction-row-meta">
+                    <Icon size={17} aria-hidden="true" />
+                    {messageLabels[m.kind]}
+                    <time>
+                      {new Date(m.received_at).toLocaleDateString('zh-CN', {
+                        month: 'numeric',
+                        day: 'numeric',
+                      })}
+                    </time>
+                  </span>
+                  <strong>
+                    {plainText(
+                      m.kind === 'post_comment'
+                        ? m.context_title || m.title
+                        : m.body || m.title,
+                    )}
+                  </strong>
+                  <span className="mb-interaction-row-direction">
+                    {interactionDirection(m)}
+                    {!m.viewed_at && (
+                      <i className="mb-unseen-dot" aria-label="未查看" />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+            {!filtered.length && (
+              <p className="mb-interaction-empty">暂无这类交互</p>
+            )}
+            {onMore && (
+              <button className="mb-interaction-more" onClick={onMore}>
+                查看更早的交互
+              </button>
+            )}
           </div>
-        </DragRail>
-      )}
-      <div className="mb-detail-toolbar">
-        <nav aria-label="消息内容">
-          <button aria-current="page">消息</button>
-          {onDecisions && <button onClick={onDecisions}>待确认事项</button>}
-        </nav>
-        <span className="mb-current-status">
-          {detail?.viewed_at ? '已查看' : '收到的消息'}
-        </span>
+        </aside>
+        <section className="mb-interaction-reading" aria-label="交互详情">
+          {!filtered.length ? (
+            <div className="mb-interaction-empty">选择其他类型继续查看</div>
+          ) : error ? (
+            <div role="alert">
+              {error}{' '}
+              <button onClick={() => setRetry((v) => v + 1)}>重试读取</button>
+            </div>
+          ) : !detail || messageKey(detail) !== key ? (
+            <output>正在读取交互…</output>
+          ) : (
+            <>
+              <header className="mb-interaction-heading">
+                <h3>{plainText(detail.title)}</h3>
+                <div className="mb-interaction-meta">
+                  <time>
+                    {new Date(detail.received_at).toLocaleString('zh-CN')}
+                  </time>
+                  <span>{detail.viewed_at ? '已查看' : '未查看'}</span>
+                </div>
+              </header>
+              {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Keyboard users can scroll the independently sized reading region. */}
+              <section
+                className="mb-interaction-scroll"
+                tabIndex={0}
+                aria-label="交互正文"
+              >
+                <div className="mb-interaction-paper">
+                  <p>{plainText(detail.body) || '未填写附言。'}</p>
+                  {detail.truncated && (
+                    <p className="mb-interaction-meta">
+                      内容较长，当前展示前 12 万字。
+                    </p>
+                  )}
+                </div>
+                {detail.context_title && (
+                  <div className="mb-interaction-context">
+                    <span>关联帖子</span>
+                    <h4>{plainText(detail.context_title)}</h4>
+                    {detail.context_body && (
+                      <p>{plainText(detail.context_body)}</p>
+                    )}
+                  </div>
+                )}
+              </section>
+              {(canOpen || viewError) && (
+                <footer className="mb-interaction-actions">
+                  {viewError && (
+                    <button onClick={() => setRetry((v) => v + 1)}>
+                      {viewError} · 重试
+                    </button>
+                  )}
+                  {canOpen && (
+                    <button
+                      className="mb-secondary"
+                      onClick={() => onOpen(detail)}
+                    >
+                      {detail.post_id
+                        ? '查看帖子'
+                        : detail.kind === 'friend_request'
+                          ? '查看对方主页'
+                          : '进入对话'}
+                      <ArrowRight size={18} aria-hidden="true" />
+                    </button>
+                  )}
+                </footer>
+              )}
+            </>
+          )}
+        </section>
       </div>
-      {error ? (
-        <div role="alert">
-          {error}{' '}
-          <button onClick={() => setRetry((v) => v + 1)}>重试读取</button>
-        </div>
-      ) : !detail || messageKey(detail) !== key ? (
-        <output>正在读取消息…</output>
-      ) : (
-        <>
-          <DragRail
-            label="消息正文"
-            className="mb-reader-rail"
-            pageGap={32}
-            resetKey={key}
-          >
-            <article className="mb-reader">
-              <h3>{plainText(detail.title)}</h3>
-              <p className="mb-deadline">
-                {messageLabels[detail.kind]} ·{' '}
-                {new Date(detail.received_at).toLocaleString('zh-CN')}
-              </p>
-              <p>{plainText(detail.body) || '对方未填写附言。'}</p>
-              {detail.truncated && <p>内容较长，当前展示前 12 万字。</p>}
-            </article>
-          </DragRail>
-          <div className="mb-detail-actions">
-            {onOpen && detail.kind !== 'broadcast' && (
-              <button className="mb-secondary" onClick={() => onOpen(detail)}>
-                {detail.kind === 'friend_request' ? '查看对方主页' : '进入对话'}
-              </button>
-            )}
-            {viewError && (
-              <button onClick={() => setRetry((v) => v + 1)}>
-                {viewError} · 重试
-              </button>
-            )}
-          </div>
-        </>
-      )}
     </div>
   );
+}
+
+export function interactionDirection(m: MomentMessage) {
+  if (m.kind === 'broadcast') return 'Agent 收到';
+  if (m.kind === 'post_comment')
+    return m.direction === 'outgoing' ? '我方评论' : '对方评论';
+  if (m.direction === 'outgoing')
+    return m.actor_kind === 'human'
+      ? '我发出'
+      : m.actor_kind === 'agent'
+        ? '我的 Agent 发出'
+        : '我方发出';
+  return '对方发来';
 }

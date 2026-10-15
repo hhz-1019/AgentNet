@@ -1,3 +1,4 @@
+/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The reading region supports keyboard scrolling. */
 import { plainText } from '../plain-text';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
@@ -7,6 +8,8 @@ import { AttentionSource } from '../activity';
 import { Dialog } from './dialog';
 import { DragRail } from './drag-rail';
 import { MomentField } from './moment-field';
+import { MomentReport } from './moment-report';
+import { ArrowLeft } from '../icons';
 import { useMomentChat } from './moment-chat';
 import { prepareDecision, type DecisionAttempt } from './moment-decision';
 import {
@@ -40,7 +43,10 @@ export function Moment({
 }) {
   const chat = useMomentChat();
   const inbox = useMomentInbox(sendRequest);
-  const [showMessages, setShowMessages] = useState(true);
+  const [reportView, setReportView] = useState<'report' | 'message' | 'item'>(
+    'report',
+  );
+  const [messageId, setMessageId] = useState('');
   const [sent, setSent] = useState<string[]>([]);
   const [items, setItems] = useState<MomentItem[]>([]),
     [loaded, setLoaded] = useState(false);
@@ -145,7 +151,11 @@ export function Moment({
     setFeedback('');
     attempt.current = undefined;
   };
-  async function mutate(kind: 'confirm' | 'defer' | 'reopen' | 'revoke') {
+  async function mutate(
+    kind: 'confirm' | 'defer' | 'reopen' | 'revoke',
+    target = item,
+  ) {
+    const item = target;
     if (!item || busy || (kind === 'confirm' && !action)) return;
     if (kind === 'confirm' && chosenRevision.current !== item.item_revision) {
       setChoice('');
@@ -232,7 +242,7 @@ export function Moment({
       {inbox.error && (
         <div role="alert" className="mb-load-message">
           消息暂时无法读取。{' '}
-          <button onClick={() => void inbox.refresh()}>重新读取消息</button>
+          <button onClick={() => void inbox.refresh()}>重新读取交互</button>
         </div>
       )}
       {((!loaded && !error) || (!inbox.loaded && !inbox.error)) && (
@@ -243,8 +253,8 @@ export function Moment({
           <span className="mb-empty-avatar">
             <AgentAvatar agentId={agentId} />
           </span>
-          <h1>此刻，还没有收到新的消息</h1>
-          <p>收到的消息与需要你决定的事项，会在这里相遇。</p>
+          <h1>此刻，还没有新的交互</h1>
+          <p>与其他 Agent 的交流和需要你决定的事项，会出现在这里。</p>
           <div className="mb-empty-actions">
             <button onClick={onExplore}>去发现看看</button>
           </div>
@@ -260,7 +270,7 @@ export function Moment({
             origin.current = element;
             setSelected(id);
             setItemId(chosen.items[0]?.attention_id || '');
-            setShowMessages(chosen.messages.length > 0);
+            setReportView('report');
             resetChoice();
           }}
           onReachEdge={() => {
@@ -287,12 +297,64 @@ export function Moment({
           busy={busy}
           className="mb-panel mb-fit-panel"
         >
-          {group.messages.length > 0 && (showMessages || !item) ? (
+          <div className="mb-report-bar">
+            <button
+              disabled={busy || reportView === 'report'}
+              onClick={() => {
+                setReportView('report');
+                resetChoice();
+              }}
+            >
+              <ArrowLeft size={18} aria-hidden="true" />
+              <span>交互报告</span>
+            </button>
+            <span>
+              {reportView === 'item' ? momentLabels[stage] : '往来简报'}
+            </span>
+          </div>
+          {reportView === 'report' ? (
+            <MomentReport
+              agentId={agentId}
+              peerId={group.id}
+              peerName={group.name}
+              messages={group.messages}
+              items={group.items}
+              now={now}
+              busy={busy}
+              feedback={feedback}
+              onDefer={(next) => void mutate('defer', next)}
+              onReopen={(next) => void mutate('reopen', next)}
+              onAction={(next, selectedAction) => {
+                setItemId(next.attention_id);
+                resetChoice();
+                setChoice(selectedAction.action_key);
+                chosenRevision.current = next.item_revision;
+                setView('approval');
+                setReportView('item');
+              }}
+              more={inbox.more || more}
+              onMore={() => {
+                inbox.loadMore();
+                if (more && !inflight.current) setPages((p) => p + 1);
+              }}
+              onMessage={(message) => {
+                setMessageId(message.kind + '/' + message.id);
+                setReportView('message');
+              }}
+              onItem={(next) => {
+                setItemId(next.attention_id);
+                resetChoice();
+                setReportView('item');
+              }}
+            />
+          ) : reportView === 'message' && group.messages.length > 0 ? (
             <MomentInboxDetails
-              key={group.id}
+              key={group.id + messageId}
+              initialSelected={messageId}
               messages={group.messages}
               request={sendRequest}
               onViewed={inbox.viewed}
+              onMore={inbox.more ? inbox.loadMore : undefined}
               onOpen={
                 onOpenMessage
                   ? (message) => {
@@ -301,12 +363,55 @@ export function Moment({
                     }
                   : undefined
               }
-              onDecisions={item ? () => setShowMessages(false) : undefined}
             />
           ) : (
             item && (
               <div className="mb-detail">
-                {group.items.length > 1 && activeView !== 'approval' && (
+                {(action || item.command) && (
+                  <div className="mb-detail-toolbar">
+                    <nav aria-label="事项内容">
+                      <button
+                        aria-current={
+                          activeView === 'item' ? 'page' : undefined
+                        }
+                        onClick={() => setView('item')}
+                      >
+                        内容
+                      </button>
+                      {action && (
+                        <button
+                          aria-current={
+                            activeView === 'approval' ? 'page' : undefined
+                          }
+                          onClick={() => setView('approval')}
+                        >
+                          授权
+                        </button>
+                      )}
+                      {item.command && (
+                        <button
+                          aria-current={
+                            activeView === 'result' ? 'page' : undefined
+                          }
+                          onClick={() => setView('result')}
+                        >
+                          结果
+                        </button>
+                      )}
+                      {item.command?.result?.execution && (
+                        <button
+                          aria-current={
+                            activeView === 'evidence' ? 'page' : undefined
+                          }
+                          onClick={() => setView('evidence')}
+                        >
+                          依据
+                        </button>
+                      )}
+                    </nav>
+                  </div>
+                )}
+                {group.items.length > 1 && (
                   <DragRail
                     label="这位 Agent 的事项"
                     className="mb-task-rail"
@@ -329,59 +434,12 @@ export function Moment({
                     </div>
                   </DragRail>
                 )}
-                <div className="mb-detail-toolbar">
-                  <nav aria-label="事项内容">
-                    {group.messages.length > 0 && (
-                      <button onClick={() => setShowMessages(true)}>
-                        消息
-                      </button>
-                    )}
-                    <button
-                      aria-current={activeView === 'item' ? 'page' : undefined}
-                      onClick={() => setView('item')}
-                    >
-                      事项
-                    </button>
-                    {action && (
-                      <button
-                        aria-current={
-                          activeView === 'approval' ? 'page' : undefined
-                        }
-                        onClick={() => setView('approval')}
-                      >
-                        授权
-                      </button>
-                    )}
-                    {item.command && (
-                      <button
-                        aria-current={
-                          activeView === 'result' ? 'page' : undefined
-                        }
-                        onClick={() => setView('result')}
-                      >
-                        结果
-                      </button>
-                    )}
-                    {item.command?.result?.execution && (
-                      <button
-                        aria-current={
-                          activeView === 'evidence' ? 'page' : undefined
-                        }
-                        onClick={() => setView('evidence')}
-                      >
-                        依据
-                      </button>
-                    )}
-                  </nav>
-                  <output className="mb-current-status">
-                    {momentLabels[stage]}
-                  </output>
-                </div>
-                <DragRail
-                  label="事项正文"
+
+                <section
+                  aria-label="事项正文"
                   className="mb-reader-rail"
-                  pageGap={32}
-                  resetKey={item.attention_id + activeView}
+                  key={item.attention_id + activeView}
+                  tabIndex={0}
                 >
                   <article
                     key={item.attention_id + activeView}
@@ -467,7 +525,7 @@ export function Moment({
                       <p>本次授权已过期，需要 Agent 重新提出事项。</p>
                     )}
                   </article>
-                </DragRail>
+                </section>
                 {activeView === 'approval' &&
                   action &&
                   ['open', 'failed'].includes(stage) && (

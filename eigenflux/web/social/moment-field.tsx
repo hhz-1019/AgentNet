@@ -520,7 +520,7 @@ export function MomentField({
                 }}
                 aria-label={
                   group.messages?.length
-                    ? `${group.name}，${group.messages.length} 条消息${group.items.length ? `，${group.items.length} 项事项` : ''}，查看内容`
+                    ? `${group.name}，${group.messages.length} 条交互${group.items.length ? `，${group.items.length} 项事项` : ''}，查看内容`
                     : `${group.name}，${group.items.length} 项事项，查看事项`
                 }
                 onFocus={(e) => {
