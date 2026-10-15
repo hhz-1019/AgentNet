@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import {
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { EntryReadyContext } from '../brand-entry';
 import { X } from '../icons';
 import './communication-design.css';
 import './reading-motion.css';
@@ -44,6 +52,7 @@ export function Dialog({
   hideTitle?: boolean;
 }) {
   const titleId = useId();
+  const entryReady = useContext(EntryReadyContext);
   const ref = useRef<HTMLDialogElement>(null);
   const animation = useRef<Animation | undefined>(undefined);
   const compact = useRef('translate3d(0, 18px, 0) scale(0.98)');
@@ -66,6 +75,7 @@ export function Dialog({
   const closePending = useRef(false);
   const [closing, setClosing] = useState(false);
   useEffect(() => {
+    if (!entryReady) return;
     const el = ref.current;
     const motion = initialMotion.current;
     if (!el) return;
@@ -142,7 +152,7 @@ export function Dialog({
       )
         previous.focus({ preventScroll: true });
     };
-  }, []);
+  }, [entryReady]);
   function requestClose() {
     if (busy || closePending.current) return;
     closePending.current = true;
@@ -207,7 +217,11 @@ export function Dialog({
   const body = (
     <>
       <div className="sw-dialog-heading">
-        <div className={hideTitle ? 'sn-dialog-title sw-sr-only' : 'sn-dialog-title'}>
+        <div
+          className={
+            hideTitle ? 'sn-dialog-title sw-sr-only' : 'sn-dialog-title'
+          }
+        >
           <h2 id={titleId}>{title}</h2>
         </div>
         <button

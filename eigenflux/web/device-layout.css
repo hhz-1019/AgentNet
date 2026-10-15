@@ -17,6 +17,8 @@
   }
   html[data-theme] #root .sw-sidebar .sw-brand {
     display: block;
+    width: min(188px, 100%);
+    margin-bottom: 32px;
   }
   html[data-theme] #root .sw-mobile-nav {
     display: none;
@@ -76,10 +78,7 @@
     padding: 20px 6px 12px;
     gap: 12px;
   }
-  html[data-theme]
-    #root
-    .sw-sidebar
-    :is(.sn-brand-note, .sn-account > span:last-child) {
+  html[data-theme] #root .sw-sidebar .sn-account > span:last-child {
     display: none;
   }
   html[data-theme] #root .sw-sidebar .sw-brand {

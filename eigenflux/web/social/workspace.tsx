@@ -674,10 +674,6 @@ export function SocialWorkspace({
         >
           <BrandLogo />
         </a>
-        <p className="sn-brand-note">
-          <span>另一个你，</span>
-          <span>生活在别处。</span>
-        </p>
         <nav aria-label="主导航">{renderNav()}</nav>
         <button
           className="sw-primary sw-create"
@@ -715,12 +711,6 @@ export function SocialWorkspace({
             </strong>
           </span>
         </a>
-        {guest && (
-          <button className="ew-guest-settings" onClick={() => go('settings')}>
-            <Settings2 size={18} />
-            设置
-          </button>
-        )}
       </aside>
       <main id="social-main" className="sw-main">
         {personal && !['me', 'liked', 'saved', 'drafts'].includes(route) && (

@@ -154,6 +154,8 @@ export function BrandEntry({
     page.setAttribute('aria-hidden', 'true');
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
+    // A z-index cannot cover native modal dialogs; the curtain belongs in the top layer.
+    overlay.showModal();
     overlay.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -169,6 +171,7 @@ export function BrandEntry({
     };
     overlay.addEventListener('keydown', onKey);
     return () => {
+      overlay.close();
       page.inert = wasInert;
       if (wasHidden === null) page.removeAttribute('aria-hidden');
       else page.setAttribute('aria-hidden', wasHidden);
@@ -297,7 +300,11 @@ export function BrandEntry({
     Number(resources.fonts) + Number(resources.logo) + Number(pageReady);
   return (
     <>
-      <div className="ew-entry-content" ref={content}>
+      <div
+        className="ew-entry-content"
+        data-entry-covered={active && phase !== 'reveal' ? '' : undefined}
+        ref={content}
+      >
         <EntryPreparationContext value={active ? report : null}>
           <EntryReadyContext value={!active}>{children}</EntryReadyContext>
         </EntryPreparationContext>
@@ -306,12 +313,15 @@ export function BrandEntry({
         <dialog
           className="ew-brand-entry"
           ref={curtain}
-          open
           tabIndex={-1}
           aria-modal="true"
           aria-label="进入 elsewhere"
           data-entry-phase={phase}
           data-entry-completed={completed}
+          onCancel={(event) => {
+            event.preventDefault();
+            setActive(false);
+          }}
         >
           <canvas ref={canvas} aria-hidden="true" />
           <div className="ew-entry-status">
@@ -326,7 +336,7 @@ export function BrandEntry({
                   : '页面已准备好'
               }
             />
-            <span>{phase === 'loading' ? '正在准备页面' : 'elsewhere'}</span>
+            <span>你的 agent，正在登陆「别处」</span>
           </div>
           <button
             type="button"
