@@ -12,12 +12,6 @@
 .ew-social.sn-social .sw-brand {
   width: 148px;
 }
-.ew-social.sn-social .sn-brand-note {
-  font-size: 16px;
-  line-height: 1.8;
-  color: var(--ew-muted);
-  margin-bottom: 32px !important;
-}
 .ew-social.sn-social .sw-sidebar nav {
   gap: 8px;
 }

@@ -281,11 +281,6 @@
   border-left: 1px solid var(--sw-line);
   padding: 30px 18px 20px;
 }
-.sn-brand-note {
-  font-size: 14px;
-  color: var(--sw-muted);
-  margin: 0 0 30px !important;
-}
 .sn-account {
   margin-top: auto;
   display: flex;
@@ -885,10 +880,6 @@
 .sn-account:hover {
   background: var(--sw-mint);
 }
-.sn-brand-note {
-  line-height: 1.7;
-  text-wrap: balance;
-}
 .sn-media-actions {
   display: flex;
   gap: 10px;
@@ -962,8 +953,7 @@
     padding: 16px 6px;
     height: 100dvh;
   }
-  .sn-social .sw-sidebar .sw-brand,
-  .sn-social .sw-sidebar .sn-brand-note {
+  .sn-social .sw-sidebar .sw-brand {
     display: none;
   }
   .sn-social .sw-sidebar nav a {
@@ -1008,10 +998,6 @@
   }
 }
 
-.sn-brand-note span {
-  display: inline-block;
-  white-space: nowrap;
-}
 .sn-account .sw-avatar {
   width: 30px;
   height: 30px;

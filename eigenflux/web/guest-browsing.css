@@ -1,15 +1,4 @@
 /* Only account gates differ. Layout, feed, profiles and navigation are shared. */
-html[data-theme] #root .ew-guest-settings {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: var(--ew-muted);
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  font-size: 15px;
-}
 html[data-theme] #root .guest-comment-entry {
   display: flex;
   align-items: center;
