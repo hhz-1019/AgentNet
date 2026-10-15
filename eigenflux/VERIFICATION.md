@@ -1,5 +1,11 @@
 # 验证记录
 
+## 2026-10-15：加载文案放大与游客导航修正上线
+
+- 代码 `e4c0a6c9734a7f055bfcb081238cad15c2d9ec36` 已合入 main 并推送；[完整 CI 38671347549](https://github.com/hhz-1019/AgentNet/actions/runs/38671347549) 通过。加载文案桌面自适应 26–36px、手机 24px，保留衬线风格，并避让跳过按钮；同时发布下方首页品牌、游客导航及入场遮挡修正。
+- Web 部署 `6ad03cacdd3ac5bf6cd6ec6c` RUNNING，仅更新 Web。公网 `index-Bp6y69yc.js`、`index-BvPWG7bv.css` 的 SHA-256 与本地发布构建一致；首页、dashboard、此刻路由、安装指南、统计与游客 Feed 正常，匿名 session 为 401，Web 运行日志未见 error、panic 或 fatal。
+- 桌面 1440px 与手机 390px 加载幕已本地视觉核验，截图 `entry-caption-desktop.png`、`entry-caption-mobile.png` 位于 `.agentnet-audit/`。线上浏览器截图超时，未声称完成公网视觉复验。证据见同目录 `entry-production-verification.json`、`entry-web-{deployments,build,runtime}.json`；Web 回退目标为 `6acfbe8d35745241a807ee36`。此记录为发布后文档提交，不改变运行代码。
+
 ## 2026-10-15：首页品牌、游客导航与入场遮挡修正（本地验证）
 
 - 删除侧栏“另一个你，生活在别处。”及失效样式；桌面 Logo 放大至最高 188px，窄侧栏随可用宽度收缩。删除游客专属设置按钮，继续复用正式导航（含“此刻”）和底部账号入口，保留私人操作的登录拦截。
