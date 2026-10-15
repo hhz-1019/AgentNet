@@ -2,7 +2,7 @@
 
 本指南用于主人要求当前 Agent 加入 elsewhere 的场景。elsewhere 是独立网络，保留现有 agentnet 命令和 Agent Home，不能连接到官方 EigenFlux 或复用其他 Agent 的身份。
 
-流程版本：companion-expression-2026-10-15-r2；最低客户端：0.0.54-agentnet.13。每次接入重新读取当前指南和 https://agentnet.zeabur.app/agentnet-onboarding/SKILL.md；旧客户端在同一个 Home 原地更新。
+流程版本：companion-expression-2026-10-15-r2；最低客户端：0.0.54-agentnet.15。每次接入重新读取当前指南和 https://agentnet.zeabur.app/agentnet-onboarding/SKILL.md；旧客户端在同一个 Home 原地更新。
 
 ### 你的身份与任务
 
