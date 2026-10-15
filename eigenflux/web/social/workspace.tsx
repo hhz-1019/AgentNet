@@ -4,6 +4,8 @@ import { UnreadDot, useUnreadMessages } from '../unread';
 import { AgentAvatar, rememberAvatar } from '../avatar';
 import {
   useCallback,
+  lazy,
+  Suspense,
   useEffect,
   useRef,
   useState,
@@ -60,9 +62,7 @@ import { liveSocialStore, uploadAttachment } from './store';
 import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
 import { LivePortrait } from './live-portrait';
-import { Crossing } from './crossing';
 import { Moment } from './moment';
-import type { CrossingView } from './crossing-data';
 import './workspace.css';
 import './polish.css';
 import './social-layout.css';
@@ -76,6 +76,14 @@ import './journal-surfaces.css';
 import './feed-design.css';
 import './post-reading.css';
 import './post-detail.css';
+
+const MomentPreview = import.meta.env.DEV
+  ? lazy(() =>
+      import('./moment-preview').then((module) => ({
+        default: module.MomentPreview,
+      })),
+    )
+  : null;
 
 const nav = [
   ['crossing', '此刻', MomentIcon],
@@ -277,12 +285,6 @@ export function SocialWorkspace({
   );
   const personRoute = route.startsWith('person/');
   const crossingRoute = route === 'crossing' || route.startsWith('crossing/');
-  const crossingView: CrossingView =
-    route === 'crossing/encounters'
-      ? 'encounters'
-      : route === 'crossing/traces'
-        ? 'traces'
-        : 'now';
   useEntryPreparation(
     (feedRoute && !page && !error) || (personRoute && !personReady),
     feedRoute && Boolean(error) && !page,
@@ -617,9 +619,27 @@ export function SocialWorkspace({
       setPending((ids) => ids.filter((x) => x !== post.id));
     }
   }
+  const messageSections = (
+    <nav className="sw-message-sections" aria-label="消息与通讯录">
+      {[
+        ['messages', '会话'],
+        ['network', '通讯录'],
+      ].map(([id, label]) => (
+        <a
+          key={id}
+          href={href(id)}
+          onClick={(e) => go(id, e)}
+          aria-current={route === id ? 'page' : undefined}
+        >
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
   const activeNav = crossingRoute ? 'crossing' : personal ? 'me' : route;
   const renderNav = (
     ids: readonly string[] = ['crossing', 'explore', 'messages', 'network'],
+    mobile = false,
   ) =>
     nav
       .filter(([id]) => ids.includes(id))
@@ -628,7 +648,11 @@ export function SocialWorkspace({
           key={id}
           href={href(id)}
           onClick={(e) => go(id, e)}
-          aria-current={activeNav === id ? 'page' : undefined}
+          aria-current={
+            (mobile && activeNav === 'network' ? 'messages' : activeNav) === id
+              ? 'page'
+              : undefined
+          }
           aria-label={label}
           aria-describedby={
             id === 'messages' && hasUnreadMessages
@@ -803,14 +827,15 @@ export function SocialWorkspace({
           <p className="sw-hint sn-private-note">仅自己可见</p>
         )}
         {crossingRoute ? (
-          demo ? (
-            <Crossing
-              view={crossingView}
-              onView={(view) =>
-                go(view === 'now' ? 'crossing' : `crossing/${view}`)
-              }
-              onExplore={() => go('explore')}
-            />
+          demo && MomentPreview ? (
+            <Suspense
+              fallback={<output className="mb-load-message">正在读取…</output>}
+            >
+              <MomentPreview
+                agentId={session.agent_id}
+                onExplore={() => go('explore')}
+              />
+            </Suspense>
           ) : (
             <Moment
               key={session.agent_id}
@@ -1047,10 +1072,14 @@ export function SocialWorkspace({
           </>
         ) : route === 'messages' ? (
           demo ? (
-            <MessagePreview onProfile={openProfile} />
+            <MessagePreview
+              onProfile={openProfile}
+              sections={messageSections}
+            />
           ) : (
             <section className="sw-legacy">
               <Messages
+                sections={messageSections}
                 session={session}
                 onProfile={openProfile}
                 onRequireLogin={onRequireLogin}
@@ -1060,6 +1089,7 @@ export function SocialWorkspace({
         ) : route === 'network' ? (
           <section className="sw-legacy">
             <Network
+              sections={messageSections}
               onRequireLogin={onRequireLogin}
               demo={demo}
               store={store}
@@ -1235,7 +1265,7 @@ export function SocialWorkspace({
         )}
       </main>
       <nav className="sw-mobile-nav" aria-label="移动导航">
-        {renderNav(['crossing', 'explore', 'messages'])}
+        {renderNav(['crossing', 'explore'], true)}
         <button
           className="ew-mobile-publish"
           onClick={() =>
@@ -1245,7 +1275,7 @@ export function SocialWorkspace({
           <Plus size={21} />
           <span>发布</span>
         </button>
-        {renderNav(['network', 'me'])}
+        {renderNav(['messages', 'me'], true)}
       </nav>
       {publisher === true ? (
         <ShareComposer

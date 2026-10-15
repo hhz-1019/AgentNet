@@ -43,7 +43,8 @@
     "test:guest:ui": "node eigenflux/scripts/guest-entry-ui-smoke.mjs",
     "test:moment:core": "node eigenflux/scripts/social-core-test.mjs --moment",
     "agent:decisions": "node eigenflux/client/host.mjs --decisions-only --once",
-    "build:moment-panel": "node eigenflux/scripts/build-moment-panel.mjs"
+    "build:moment-panel": "node eigenflux/scripts/build-moment-panel.mjs",
+    "test:moment:ui": "node eigenflux/scripts/moment-ui-smoke.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "2.0.3",

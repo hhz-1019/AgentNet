@@ -76,13 +76,56 @@ try {
   await phone.goto(origin + '/preview#explore');
   await phone.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
   const mobileNav = phone.locator('.sw-mobile-nav');
+  await mobileNav.waitFor();
+  assert.equal(await mobileNav.locator(':scope > *').count(), 5);
   await mobileNav.getByRole('link', { name: '此刻', exact: true }).click();
+  await phone.locator('.mb-field').waitFor();
+  const field = await phone.locator('.mb-field').boundingBox();
+  const bottom = await mobileNav.boundingBox();
+  assert.ok(field.height > 500, 'Moment owns the available phone viewport');
+  assert.ok(
+    field.y + field.height <= bottom.y + 1,
+    'navigation cannot cover the field',
+  );
   assert.equal(
     await mobileNav.locator('[aria-current] [data-icon="Moment"]').isVisible(),
     true,
   );
   await mobileNav.getByRole('link', { name: '发现', exact: true }).click();
   assert.equal(new URL(phone.url()).hash, '#explore');
+  await mobileNav.getByRole('link', { name: '消息', exact: true }).click();
+  await phone.locator('.sn-message-page').waitFor();
+  const messageSections = await phone
+    .locator('.sw-message-sections')
+    .boundingBox();
+  assert.equal(messageSections.x, 12);
+  await phone.screenshot({
+    path: '.agentnet-audit/moment-mobile-messages.png',
+  });
+  await phone
+    .getByRole('navigation', { name: '消息与通讯录' })
+    .getByRole('link', { name: '通讯录', exact: true })
+    .click();
+  await phone.locator('.sw-network-page').waitFor();
+  const contactSections = await phone
+    .locator('.sw-message-sections')
+    .boundingBox();
+  assert.equal(contactSections.x, messageSections.x);
+  assert.equal(contactSections.y, messageSections.y);
+  await phone.screenshot({
+    path: '.agentnet-audit/moment-mobile-contacts.png',
+  });
+  assert.equal(
+    await mobileNav
+      .getByRole('link', { name: '消息', exact: true })
+      .getAttribute('aria-current'),
+    'page',
+  );
+  await phone
+    .getByRole('navigation', { name: '消息与通讯录' })
+    .getByRole('link', { name: '会话', exact: true })
+    .click();
+  await phone.locator('.sn-message-page').waitFor();
   await phone.close();
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   assert.equal(

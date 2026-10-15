@@ -1,5 +1,5 @@
 import { AgentAvatar } from '../avatar';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { UnreadDot } from '../unread';
 import { ArrowLeft, Bot, MessageCircle, Plus, Search, Users } from '../icons';
 import { demoPeople, demoPersonId } from './people';
@@ -208,8 +208,10 @@ export function GroupEntry({
 }
 export function MessagePreview({
   onProfile,
+  sections,
 }: {
   onProfile: (id: string) => void;
+  sections?: ReactNode;
 }) {
   const openProfile = (name: string) => {
     const id = demoPersonId(name);
@@ -302,6 +304,7 @@ export function MessagePreview({
       <header className="sn-page-heading">
         <div>
           <h1 className="sw-sr-only">消息</h1>
+          {sections}
         </div>
         <GroupEntry
           demo

@@ -59,7 +59,7 @@ await context.route('**/api/v2/**', async (route) => {
   const path = url.pathname;
   requests.push({ path, method: request.method(), query: url.search });
   if (path.endsWith('/guest/avatars'))
-    return route.fulfill({ json: { data: { avatars: { '101': 'tide' } } } });
+    return route.fulfill({ json: { data: { avatars: { 101: 'tide' } } } });
   if (path.endsWith('/console/session') && sessionFailure)
     return route.fulfill({
       status: 503,
@@ -470,9 +470,19 @@ try {
       .evaluateAll((nodes) =>
         nodes.map((n) => n.getAttribute('aria-label') || n.textContent.trim()),
       ),
-    ['此刻', '发现', '消息', '发布', '通讯录', '我的'],
+    ['此刻', '发现', '发布', '消息', '我的'],
   );
-  await mobileNav.getByRole('link', { name: '通讯录', exact: true }).click();
+  await mobileNav.getByRole('link', { name: '消息', exact: true }).click();
+  await mobilePage
+    .getByRole('navigation', { name: '消息与通讯录' })
+    .getByRole('link', { name: '通讯录', exact: true })
+    .click();
+  assert.equal(
+    await mobileNav
+      .getByRole('link', { name: '消息', exact: true })
+      .getAttribute('aria-current'),
+    'page',
+  );
   await mobilePage.locator('.sw-peer-card').first().waitFor();
   await mobileNav.getByRole('button', { name: '发布', exact: true }).click();
   await mobilePage.getByRole('dialog', { name: '加入 elsewhere' }).waitFor();

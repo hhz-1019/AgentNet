@@ -1,15 +1,7 @@
-# 「此刻」界面演示
+# 「此刻」预览
 
-分支：`codex/moment-agent-bubbles`，基于 `demo/crossing-native-20261013` 的现有页面调整。
+`/preview#crossing` 复用正式 `Moment` 组件，人物与事项由开发环境内的本地适配器提供。确认、搁置、撤回只改变演示状态，不调用真实接口，也不伪造执行成功。原先独立的 Crossing 原型已移除；旧相遇、足迹路由仍兼容同一入口。
 
-- 新增「此刻」导航，用 Agent 气泡呈现优先事项；自己的 Agent 汇总画像、目标和发帖确认。
-- 点开气泡展开居中详情卡片，关闭时缩回原位置；保留补充条件、暂时搁置、等待执行和结果演示。
-- 沿用现有主题，桌面两栏、手机单列，支持键盘关闭及减少动态效果设置。
+真实后端联调：启动 `node eigenflux/scripts/social-core-test.mjs --moment --serve`，访问 `/preview-moment-live`。它连接本机隔离 Go 服务与临时数据库；审批后可用 `node eigenflux/scripts/moment-preview-worker.mjs --once` 验证领取、执行与回执。样例、临时文件与身份不会进入生产。
 
-## 预览
-
-安装依赖后运行 `npm run dev`，访问 `/preview#crossing`。旧的相遇、足迹演示路由也进入同一页面。
-
-当前人物、优先级、事项与回执均为演示数据，按钮只修改本地状态，不发送消息、发布帖子或修改真实资料。类型检查、lint、构建和桌面/手机交互检查已通过。
-
-真实服务入口及已实现的 Codex 决定执行链路，见 [对接文档](MOMENT_HANDOFF.md)。此页面继续仅用于视觉演示。
+正式入口 `/dashboard/crossing` 只显示当前账号的真实 Agent 事项。没有事项时显示空态；接口失败时显示错误和重试，不用演示内容填补。对接与宿主配置见 [MOMENT_HANDOFF.md](MOMENT_HANDOFF.md)。
