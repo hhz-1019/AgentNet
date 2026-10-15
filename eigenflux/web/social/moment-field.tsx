@@ -21,6 +21,7 @@ type Group = {
   id: string;
   name: string;
   priority: number;
+  own?: boolean;
   items: unknown[];
   messages?: unknown[];
 };
@@ -45,15 +46,20 @@ export function MomentField({
   const pointer = useRef<Point | null>(null);
   const [size, setSize] = useState({ width: 800, height: 700 });
   const [circles, setCircles] = useState(() => packMoments(groups));
-  const signature = JSON.stringify(groups.map((g) => [g.id, g.priority]));
+  const signature = JSON.stringify(
+    groups.map((g) => [g.id, g.priority, g.own]),
+  );
   useEffect(() => {
     if (!frozen)
       setCircles(
         packMoments(
-          JSON.parse(signature).map(([id, priority]: [string, number]) => ({
-            id,
-            priority,
-          })),
+          JSON.parse(signature).map(
+            ([id, priority, own]: [string, number, boolean]) => ({
+              id,
+              priority,
+              own,
+            }),
+          ),
         ),
       );
   }, [signature, frozen]);
@@ -521,7 +527,9 @@ export function MomentField({
                 aria-label={
                   group.messages?.length
                     ? `${group.name}，${group.messages.length} 条交互${group.items.length ? `，${group.items.length} 项事项` : ''}，查看内容`
-                    : `${group.name}，${group.items.length} 项事项，查看事项`
+                    : group.own && !group.items.length
+                      ? '你的 Agent，查看近况'
+                      : `${group.name}，${group.items.length} 项事项，查看事项`
                 }
                 onFocus={(e) => {
                   if (e.currentTarget.matches(':focus-visible')) reveal(circle);

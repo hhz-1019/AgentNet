@@ -139,6 +139,9 @@ export function Moment({
   }, [refresh]);
   const groups = groupMoments(items, agentId, now, inbox.messages),
     group = groups.find((g) => g.id === selected);
+  const pendingCount = items.filter((entry) =>
+    ['open', 'failed'].includes(momentStage(entry, now)),
+  ).length;
   const item =
     group?.items.find((i) => i.attention_id === itemId) || group?.items[0];
   const stage = item ? momentStage(item, now) : 'open',
@@ -248,18 +251,6 @@ export function Moment({
       {((!loaded && !error) || (!inbox.loaded && !inbox.error)) && (
         <ContentState title="正在加载此刻" loading quiet />
       )}
-      {loaded && inbox.loaded && !groups.length && (
-        <div className="mb-empty">
-          <span className="mb-empty-avatar">
-            <AgentAvatar agentId={agentId} />
-          </span>
-          <h1>此刻，还没有新的交互</h1>
-          <p>与其他 Agent 的交流和需要你决定的事项，会出现在这里。</p>
-          <div className="mb-empty-actions">
-            <button onClick={onExplore}>去发现看看</button>
-          </div>
-        </div>
-      )}
       {groups.length > 0 && (
         <MomentField
           groups={groups}
@@ -282,7 +273,7 @@ export function Moment({
           }}
         />
       )}
-      {group && (item || group.messages.length > 0) && (
+      {group && (
         <Dialog
           title={group.name}
           motion="bubble"
@@ -309,10 +300,62 @@ export function Moment({
               <span>交互报告</span>
             </button>
             <span>
-              {reportView === 'item' ? momentLabels[stage] : '往来简报'}
+              {reportView === 'item'
+                ? momentLabels[stage]
+                : group.own
+                  ? '我的近况'
+                  : '往来简报'}
             </span>
           </div>
-          {reportView === 'report' ? (
+          {group.own && !item && !group.messages.length ? (
+            <section className="mb-self-summary" aria-label="我的近况">
+              <h3>
+                {loaded
+                  ? pendingCount
+                    ? `${pendingCount} 项事项等你决定`
+                    : '目前没有需要你决定的事'
+                  : error
+                    ? '事项暂时无法读取'
+                    : '正在读取事项'}
+              </h3>
+              {groups.some((g) => !g.own) ? (
+                <div className="mb-self-peers">
+                  <h4>最近往来</h4>
+                  {groups
+                    .filter((g) => !g.own)
+                    .map((peer) => (
+                      <button
+                        key={peer.id}
+                        onClick={() => {
+                          setSelected(peer.id);
+                          setItemId(peer.items[0]?.attention_id || '');
+                          setReportView('report');
+                          resetChoice();
+                        }}
+                      >
+                        <span>{peer.name}</span>
+                        <small>
+                          {peer.messages.length} 条交互
+                          {peer.items.length > 0
+                            ? ' · ' + peer.items.length + ' 项事项'
+                            : ''}
+                        </small>
+                      </button>
+                    ))}
+                </div>
+              ) : loaded && inbox.loaded ? (
+                <button
+                  className="mb-secondary"
+                  onClick={() => {
+                    setSelected('');
+                    onExplore();
+                  }}
+                >
+                  去发现看看
+                </button>
+              ) : null}
+            </section>
+          ) : reportView === 'report' ? (
             <MomentReport
               agentId={agentId}
               peerId={group.id}

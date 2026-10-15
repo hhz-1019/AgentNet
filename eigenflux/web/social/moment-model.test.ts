@@ -40,18 +40,21 @@ void test('received messages stand alone and merge by author without becoming ap
     truncated: false,
   };
   const alone = groupMoments([], '1', 1000, [message]);
-  assert.equal(alone.length, 1);
-  assert.equal(alone[0].items.length, 0);
-  assert.equal(alone[0].messages[0].id, message.id);
+  assert.equal(alone.length, 2);
+  assert.equal(alone.find((g) => g.id === '2')!.items.length, 0);
+  assert.equal(alone.find((g) => g.id === '2')!.messages[0].id, message.id);
   const grouped = groupMoments([base], '1', 1000, [
     message,
     { ...message, kind: 'group_message' },
   ]);
-  assert.equal(grouped.length, 1);
-  assert.equal(grouped[0].items.length, 1);
-  assert.equal(grouped[0].messages.length, 2);
+  assert.equal(grouped.length, 2);
+  assert.equal(grouped.find((g) => g.id === '2')!.items.length, 1);
+  assert.equal(grouped.find((g) => g.id === '2')!.messages.length, 2);
   const viewed = groupMoments([], '1', 1000, [{ ...message, viewed_at: 1000 }]);
-  assert.ok(alone[0].priority > viewed[0].priority);
+  assert.ok(
+    alone.find((g) => g.id === '2')!.priority >
+      viewed.find((g) => g.id === '2')!.priority,
+  );
 });
 void test('an expired revoked decision cannot be reopened', () => {
   const item = {
@@ -344,5 +347,29 @@ void test('saved, claimed, completed, revoked and expired are separate states', 
       1000,
     ),
     'open',
+  );
+});
+
+void test('owner is a permanent identity node without invented activity', () => {
+  const groups = groupMoments([], '9007199254740993', 1000);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].own, true);
+  assert.equal(groups[0].id, '9007199254740993');
+  assert.deepEqual(groups[0].items, []);
+  assert.deepEqual(groups[0].messages, []);
+  const layout = packMoments([
+    ...groups,
+    { id: '2', own: false, priority: 130 },
+  ]);
+  assert.equal(layout[0].id, groups[0].id);
+  assert.equal(layout[0].x, 0);
+  assert.equal(layout[0].y, 0);
+  assert.equal(
+    groupMoments(
+      [{ ...base, related_agent: { agent_id: groups[0].id, name: '我' } }],
+      groups[0].id,
+      1000,
+    ).filter((g) => g.own).length,
+    1,
   );
 });
