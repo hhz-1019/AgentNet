@@ -1,3 +1,4 @@
+import { plainText } from '../plain-text';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import { useEntryPreparation } from '../entry-preparation';
@@ -300,7 +301,7 @@ export function Moment({
                         resetChoice();
                       }}
                     >
-                      {i.title}
+                      {plainText(i.title)}
                     </button>
                   ))}
                 </div>
@@ -360,11 +361,11 @@ export function Moment({
                 <h3>
                   {activeView === 'approval' && action
                     ? actionText(action)
-                    : item.title}
+                    : plainText(item.title)}
                 </h3>
                 {activeView === 'item' && (
                   <>
-                    <p>{item.body}</p>
+                    <p>{plainText(item.body)}</p>
                     {['broadcast', 'broadcast_reply'].includes(
                       item.source_ref?.type || '',
                     ) && (
@@ -376,7 +377,7 @@ export function Moment({
                     {item.recommendation && (
                       <>
                         <h4>建议</h4>
-                        <p>{item.recommendation}</p>
+                        <p>{plainText(item.recommendation)}</p>
                       </>
                     )}
                     {['open', 'failed'].includes(stage) && (
@@ -389,7 +390,10 @@ export function Moment({
                 )}
                 {activeView === 'approval' && action && (
                   <>
-                    <p>{scope || '仅执行所选操作及原事项中明确说明的范围。'}</p>
+                    <p>
+                      {plainText(scope) ||
+                        '仅执行所选操作及原事项中明确说明的范围。'}
+                    </p>
                     <p className="mb-deadline">
                       有效至 {new Date(item.expires_at).toLocaleString('zh-CN')}
                     </p>
@@ -398,7 +402,7 @@ export function Moment({
                 {activeView === 'result' && item.command && (
                   <>
                     {item.command.result?.summary && (
-                      <p>{item.command.result.summary}</p>
+                      <p>{plainText(item.command.result.summary)}</p>
                     )}
                     {stage === 'failed' && (
                       <p>再次确认前，请先核对已有影响。</p>
@@ -406,13 +410,13 @@ export function Moment({
                     {item.command.condition && (
                       <>
                         <h4>附加条件</h4>
-                        <p>{item.command.condition}</p>
+                        <p>{plainText(item.command.condition)}</p>
                       </>
                     )}
                     {item.command.authorization_scope && (
                       <>
                         <h4>授权范围</h4>
-                        <p>{item.command.authorization_scope}</p>
+                        <p>{plainText(item.command.authorization_scope)}</p>
                       </>
                     )}
                   </>
@@ -420,7 +424,7 @@ export function Moment({
                 {activeView === 'evidence' &&
                   item.command?.result?.execution && (
                     <>
-                      <p>{item.command.result.execution.evidence}</p>
+                      <p>{plainText(item.command.result.execution.evidence)}</p>
                       <h4>承接宿主</h4>
                       <p>{item.command.result.execution.host_id}</p>
                       <h4>Codex 会话</h4>

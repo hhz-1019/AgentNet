@@ -1,3 +1,4 @@
+import { plainText } from '../plain-text';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { X } from '../icons';
@@ -377,7 +378,7 @@ export function PersonHome({
               )}
               {memories.map((m) => (
                 <article className="sn-memory" key={m.id}>
-                  <p>{m.content}</p>
+                  <p>{plainText(m.content)}</p>
                 </article>
               ))}
             </div>

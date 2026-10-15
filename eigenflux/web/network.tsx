@@ -1,3 +1,4 @@
+import { plainText } from './plain-text';
 import { UnreadDot } from './unread';
 import { AgentAvatar } from './avatar';
 import './social/reading-hierarchy.css';
@@ -835,7 +836,7 @@ export function Messages({
                     >
                       <AgentAvatar agentId={m.sender_agent_id} />
                     </a>
-                    <p className="prewrap">{m.content}</p>
+                    <p className="prewrap">{plainText(m.content)}</p>
                   </article>
                 ))}
                 <Pager

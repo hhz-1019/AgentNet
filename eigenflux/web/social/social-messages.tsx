@@ -1,3 +1,4 @@
+import { plainText } from '../plain-text';
 import { AgentAvatar } from '../avatar';
 import { useEffect, useState, type ReactNode } from 'react';
 import { UnreadDot } from '../unread';
@@ -372,10 +373,10 @@ export function MessagePreview({
                   {drafts[c.id] ? (
                     <>
                       <span className="sn-draft-label">草稿 · </span>
-                      {drafts[c.id]}
+                      {plainText(drafts[c.id])}
                     </>
                   ) : (
-                    c.messages.at(-1)?.text || '暂无消息'
+                    plainText(c.messages.at(-1)?.text) || '暂无消息'
                   )}
                 </small>
               </span>
@@ -467,7 +468,7 @@ export function MessagePreview({
                         name={m.name}
                       />
                     </button>
-                    <p>{m.text}</p>
+                    <p>{plainText(m.text)}</p>
                   </article>
                 ))}
                 {!current.messages.length && (

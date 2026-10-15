@@ -1,3 +1,4 @@
+import { plainText } from '../plain-text';
 import { ThemeSwitcher } from '../theme';
 import { useEntryPreparation } from '../entry-preparation';
 import { UnreadDot, useUnreadMessages } from '../unread';
@@ -977,8 +978,8 @@ export function SocialWorkspace({
                           onClick={() => setPublisher(p)}
                         >
                           <small>仅自己可见</small>
-                          <h3>{p.document.title}</h3>
-                          <p>{p.document.summary}</p>
+                          <h3>{plainText(p.document.title)}</h3>
+                          <p>{plainText(p.document.summary)}</p>
                           <span>
                             继续编辑
                             <ArrowRight size={15} />
