@@ -8,6 +8,8 @@ await test('responsive images only use permission-checked hosted media', () => {
   assert.equal(imageSources(url).src, url + '?w=640');
   assert.equal(imageSources(url, true).src, url + '?w=1440');
   assert.match(imageSources(url).srcSet!, /960w/);
+  assert.deepEqual(imageSources(url, false, 2), { src: url }, 'do not advertise enlarged widths for a tiny original');
+  assert.doesNotMatch(imageSources(url, true, 800).srcSet!, /960w|1440w/);
   assert.deepEqual(imageSources('https://example.com/a.jpg'), {
     src: 'https://example.com/a.jpg',
   });

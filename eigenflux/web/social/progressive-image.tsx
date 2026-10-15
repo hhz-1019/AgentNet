@@ -37,7 +37,7 @@ export function ProgressiveImage({
   const [instant, setInstant] = useState(false);
   const requestedAt = useRef(0);
   const original = useRef<HTMLImageElement>(null);
-  const sources = imageSources(media.url, detail || standalone);
+  const sources = imageSources(media.url, detail || standalone, media.width);
   const fail = () => {
     setFailed(true);
     onError();
