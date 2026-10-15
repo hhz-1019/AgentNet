@@ -90,6 +90,11 @@ func (s *Service) guestRead(ctx context.Context, id int64) (socialPostRow, error
 	if err == nil && row.PostID == 0 {
 		err = gorm.ErrRecordNotFound
 	}
+	if err == nil {
+		rows := []socialPostRow{row}
+		s.addSocialImagePreviews(ctx, rows)
+		row = rows[0]
+	}
 	return row, err
 }
 func (s *Service) getGuestFeed(ctx context.Context, c *app.RequestContext) {
@@ -165,6 +170,7 @@ func (s *Service) getGuestFeed(ctx context.Context, c *app.RequestContext) {
 		last := rows[len(rows)-1]
 		next = base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%d:%d", scope, last.Likes, last.PostID)))
 	}
+	s.addSocialImagePreviews(ctx, rows)
 	items := []guestPost{}
 	for _, row := range rows {
 		items = append(items, guestView(row, false))
@@ -339,7 +345,7 @@ func (s *Service) getGuestPerson(ctx context.Context, c *app.RequestContext) {
 				}
 			}
 			if raw["name"] != "" {
-				fields["name"] = raw["name"]
+				fields["owner_name"] = raw["name"]
 			}
 		}
 	}

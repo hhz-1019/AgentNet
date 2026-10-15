@@ -6,7 +6,7 @@ import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 import { cp, mkdir, mkdtemp, readFile, readdir } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { resolve, basename } from 'node:path';
 import assert from 'node:assert/strict';
 import { verifyManagedIdentityMigration } from './managed-identity-migration-test.mjs';
 import { verifyManagedWritingMigration } from './managed-writing-migration-test.mjs';
@@ -14,14 +14,17 @@ await mkdir('.agentnet-audit', { recursive: true });
 const dir = await mkdtemp(resolve('.agentnet-audit/managed-core-'));
 await cp('upstream/eigenflux', dir, {
   recursive: true,
-  filter: (s) => !s.endsWith('/.git'),
+  filter: (s) => basename(s) !== '.git',
 });
+// Apply patches relative to this isolated checkout, not the parent repository.
+execFileSync('git', ['init', '--quiet'], { cwd: dir });
 for (const patch of [
   'domestic-providers',
   'uid-deepseek',
   'official-assistant',
   'community-activation',
   'social-workspace',
+  'account-connection',
 ])
   execFileSync(
     'git',
@@ -58,7 +61,9 @@ try {
         'test',
         './api/consolev2',
         '-run',
-        process.argv.includes('--analytics') ? '^TestAnalytics' : 'TestManaged',
+        process.argv.includes('--analytics')
+          ? '^TestAnalytics'
+          : 'TestManaged|TestAccountConnection',
         '-count=1',
         '-v',
       ],

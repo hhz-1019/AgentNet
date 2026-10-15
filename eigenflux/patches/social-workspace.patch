@@ -1,6 +1,372 @@
+diff --git a/api/consolev2/account_session_handlers.go b/api/consolev2/account_session_handlers.go
+index 3f49b1b..293275c 100644
+--- a/api/consolev2/account_session_handlers.go
++++ b/api/consolev2/account_session_handlers.go
+@@ -67,11 +67,17 @@ func consoleCredential(c *app.RequestContext, slot int) (consoleCookieCredential
+ }
+ 
+ func (s *Service) setConsoleCookieAtSlot(c *app.RequestContext, slot int, value string, maxAge int) {
++	if s.setEmbeddedConsoleCookie(c, consoleSessionCookieName(slot), value, maxAge, true) {
++		return
++	}
+ 	c.SetCookie(consoleSessionCookieName(slot), value, maxAge, "/", "", protocol.CookieSameSiteLaxMode, s.secureCookie, true)
+ 	c.Header("Referrer-Policy", "no-referrer")
+ }
+ 
+ func (s *Service) setCSRFCookieAtSlot(c *app.RequestContext, slot int, value string, maxAge int) {
++	if s.setEmbeddedConsoleCookie(c, consoleCSRFCookieName(slot), value, maxAge, false) {
++		return
++	}
+ 	c.SetCookie(consoleCSRFCookieName(slot), value, maxAge, "/", "", protocol.CookieSameSiteStrictMode, s.secureCookie, false)
+ }
+ 
+@@ -80,6 +86,9 @@ func (s *Service) setActiveConsoleSlot(c *app.RequestContext, slot int, maxAge i
+ 	if maxAge >= 0 {
+ 		value = strconv.Itoa(slot)
+ 	}
++	if s.setEmbeddedConsoleCookie(c, activeConsoleSlotCookieName, value, maxAge, false) {
++		return
++	}
+ 	c.SetCookie(activeConsoleSlotCookieName, value, maxAge, "/", "", protocol.CookieSameSiteStrictMode, s.secureCookie, false)
+ }
+ 
+diff --git a/api/consolev2/attention_publish_handlers.go b/api/consolev2/attention_publish_handlers.go
+index 8e43c23..d91d365 100644
+--- a/api/consolev2/attention_publish_handlers.go
++++ b/api/consolev2/attention_publish_handlers.go
+@@ -45,10 +45,11 @@ type attentionSourceRef struct {
+ }
+ 
+ type attentionContextRef struct {
+-	ContextRevision     *int64  `json:"context_revision,omitempty"`
+-	NetworkGoalRevision *int64  `json:"network_goal_revision,omitempty"`
+-	IntentID            *string `json:"intent_id,omitempty"`
+-	Operation           string  `json:"operation,omitempty"`
++	Moment              *momentContext `json:"moment,omitempty"`
++	ContextRevision     *int64         `json:"context_revision,omitempty"`
++	NetworkGoalRevision *int64         `json:"network_goal_revision,omitempty"`
++	IntentID            *string        `json:"intent_id,omitempty"`
++	Operation           string         `json:"operation,omitempty"`
+ }
+ 
+ type attentionProtocolAction struct {
+@@ -324,8 +325,11 @@ func validateAttentionPublish(req *attentionPublishRequest, now int64) error {
+ 			item.Category == "relationship_feedback") && item.SourceRef == nil {
+ 			return fmt.Errorf("items[%d].source_ref is required", index)
+ 		}
++		if err := validateMomentContext(item.ContextRef.Moment, item.Actions); err != nil {
++			return err
++		}
+ 		refPresent := item.ContextRef.ContextRevision != nil || item.ContextRef.NetworkGoalRevision != nil ||
+-			item.ContextRef.IntentID != nil || item.ContextRef.Operation != ""
++			item.ContextRef.IntentID != nil || item.ContextRef.Operation != "" || item.ContextRef.Moment != nil
+ 		if refPresent {
+ 			if item.ContextRef.ContextRevision == nil || *item.ContextRef.ContextRevision <= 0 ||
+ 				(item.ContextRef.Operation != "" && item.ContextRef.Operation != "add" && item.ContextRef.Operation != "update") {
+@@ -414,7 +418,7 @@ func validateAttentionPrefill(req *attentionPublishRequest) error {
+ 			return fmt.Errorf("items[%d].source_ref must identify an exposed baseline Feed broadcast", index)
+ 		}
+ 		if item.ContextRef.ContextRevision != nil || item.ContextRef.NetworkGoalRevision != nil ||
+-			item.ContextRef.IntentID != nil || item.ContextRef.Operation != "" {
++			item.ContextRef.IntentID != nil || item.ContextRef.Operation != "" || item.ContextRef.Moment != nil {
+ 			return fmt.Errorf("items[%d].context_ref is not allowed in Attention Prefill", index)
+ 		}
+ 		for actionIndex, action := range item.Actions {
+@@ -637,6 +641,17 @@ func uniqueInt64(values []int64) []int64 {
+ }
+ 
+ func validateAttentionContextRefs(tx *gorm.DB, agentID int64, items []attentionPublishItem) error {
++	for _, item := range items {
++		if m := item.ContextRef.Moment; m != nil && m.RelatedAgentID != "" {
++			var ok bool
++			if e := tx.Raw(`SELECT EXISTS(SELECT 1 FROM agents a WHERE a.agent_id::text=? AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2 AND ((b.from_uid=? AND b.to_uid=a.agent_id) OR (b.to_uid=? AND b.from_uid=a.agent_id))))`, m.RelatedAgentID, agentID, agentID).Scan(&ok).Error; e != nil {
++				return e
++			}
++			if !ok {
++				return errConflict
++			}
++		}
++	}
+ 	contextRevisions := make([]int64, 0, len(items))
+ 	goalRevisions := make([]int64, 0, len(items))
+ 	intentIDs := make([]int64, 0, len(items))
+diff --git a/api/consolev2/attention_response_handlers.go b/api/consolev2/attention_response_handlers.go
+index 7055a3c..a5818cf 100644
+--- a/api/consolev2/attention_response_handlers.go
++++ b/api/consolev2/attention_response_handlers.go
+@@ -7,13 +7,17 @@ import (
+ 	"fmt"
+ 	"net/http"
+ 	"strconv"
++	"strings"
+ 	"time"
++	"unicode/utf8"
+ 
+ 	"github.com/cloudwego/hertz/pkg/app"
+ 	"gorm.io/gorm"
+ )
+ 
+ type respondAttentionRequest struct {
++	ChatExecutor         string `json:"chat_executor,omitempty"`
++	Condition            string `json:"condition,omitempty"`
+ 	ActionKey            string `json:"action_key"`
+ 	ExpectedItemRevision int64  `json:"expected_item_revision"`
+ 	IdempotencyKey       string `json:"idempotency_key"`
+@@ -87,11 +91,17 @@ func (s *Service) respondAttentionItem(_ context.Context, c *app.RequestContext)
+ 	attentionID, parseErr := strconv.ParseInt(c.Param("attention_id"), 10, 64)
+ 	var req respondAttentionRequest
+ 	if parseErr != nil || attentionID <= 0 || decodeBody(c, &req) != nil ||
+-		!attentionActionKeyPattern.MatchString(req.ActionKey) || req.ExpectedItemRevision <= 0 || !validAttentionID(req.IdempotencyKey) {
++		!validChatExecutor(req.ChatExecutor) || utf8.RuneCountInString(req.Condition) > 1000 || !attentionActionKeyPattern.MatchString(req.ActionKey) || req.ExpectedItemRevision <= 0 || !validAttentionID(req.IdempotencyKey) {
+ 		fail(c, http.StatusBadRequest, "INVALID_ATTENTION_RESPONSE", "attention response is invalid", nil)
+ 		return
+ 	}
+ 	requestHash := hashString(fmt.Sprintf("%d\x00%d\x00%s", attentionID, req.ExpectedItemRevision, req.ActionKey))
++	if req.Condition != "" {
++		requestHash = hashString(fmt.Sprintf("%d\x00%d\x00%s\x00%s", attentionID, req.ExpectedItemRevision, req.ActionKey, req.Condition))
++	}
++	if req.ChatExecutor != "" {
++		requestHash = hashString(requestHash + "\x00" + req.ChatExecutor)
++	}
+ 	now := time.Now().UnixMilli()
+ 	var commandID, itemRevision int64
+ 	var itemStatus, commandStatus, selectedFlag string
+@@ -227,6 +237,23 @@ func (s *Service) respondAttentionItem(_ context.Context, c *app.RequestContext)
+ 			},
+ 			"context_ref": contextRef, "selected_at": now, "terminal": terminal,
+ 		}
++		payload["condition"] = req.Condition
++		payload["expires_at"] = item.ExpiresAt
++		if contextRef.Moment != nil {
++			payload["authorization_scope"] = contextRef.Moment.Scopes[req.ActionKey]
++			payload["related_agent_id"] = contextRef.Moment.RelatedAgentID
++		}
++		if req.ChatExecutor != "" {
++			if contextRef.Moment == nil || strings.TrimSpace(contextRef.Moment.Scopes[req.ActionKey]) == "" {
++				return errConflict
++			}
++			chatContext := contextRef
++			chatMoment := *contextRef.Moment
++			chatMoment.ExecutorID = req.ChatExecutor
++			chatContext.Moment = &chatMoment
++			payload["context_ref"] = chatContext
++			payload["delivery"] = "current_chat"
++		}
+ 		payloadBytes, marshalErr := json.Marshal(payload)
+ 		if marshalErr != nil {
+ 			return marshalErr
+diff --git a/api/consolev2/capability_registry.go b/api/consolev2/capability_registry.go
+index 371798b..77ca489 100644
+--- a/api/consolev2/capability_registry.go
++++ b/api/consolev2/capability_registry.go
+@@ -82,6 +82,33 @@ func capabilitySeeds() []capabilitySeed {
+ 		capability("identity.legacy_login", "eigenflux auth login", "identity", "write", "旧版邮箱登录", "Legacy email login"),
+ 		capability("identity.legacy_verify", "eigenflux auth verify", "identity", "write", "验证旧版邮箱登录", "Verify legacy email login"),
+ 		capability("identity.logout", "eigenflux auth logout", "identity", "write", "退出旧版登录", "Log out of legacy authentication"),
++		capability("elsewhere.post", "eigenflux elsewhere post", "network", "read", "读取可见帖子", "post"),
++		capability("elsewhere.comments", "eigenflux elsewhere comments", "network", "read", "读取可见评论", "comments"),
++		capability("elsewhere.comment", "eigenflux elsewhere comment", "network", "write", "按授权评论", "comment"),
++		capability("elsewhere.react", "eigenflux elsewhere react", "network", "write", "点赞与收藏", "react"),
++		capability("elsewhere.person", "eigenflux elsewhere person", "network", "read", "读取公开主页", "person"),
++		capability("elsewhere.follow", "eigenflux elsewhere follow", "network", "write", "按授权关注", "follow"),
++		capability("elsewhere.avatar", "eigenflux elsewhere avatar", "profile", "write", "上传个人头像供主人确认", "Upload a personal avatar for owner review"),
++		capability("elsewhere.companion", "eigenflux elsewhere companion", "profile", "read", "读取伙伴身份与连接目标", "Read companion identity and connection goal"),
++		capability("elsewhere.name", "eigenflux elsewhere name", "profile", "write", "仅为工具名身份自取个人名字", "Repair a legacy tool name while preserving identity"),
++		capability("elsewhere.portrait", "eigenflux elsewhere portrait", "profile", "read", "读取私有画像", "Read private portrait"),
++		capability("elsewhere.sync_portrait", "eigenflux elsewhere sync-portrait", "profile", "write", "增量同步私有画像", "Sync private portrait"),
++		capability("elsewhere.groups", "eigenflux elsewhere groups", "network", "read", "读取群列表", "Read groups"),
++		capability("elsewhere.create_group", "eigenflux elsewhere create-group", "network", "write", "按主人授权创建群", "Create an owner-authorized group"),
++		capability("elsewhere.messages", "eigenflux elsewhere messages", "network", "read", "读取群消息", "Read group messages"),
++		capability("elsewhere.send", "eigenflux elsewhere send", "network", "write", "按主人授权发送群消息", "Send owner-authorized group messages"),
++		capability("twin.show", "eigenflux twin show", "profile", "read", "读取旧版孪生资料", "Read legacy private twin"),
++		capability("twin.policy", "eigenflux twin policy", "profile", "read", "读取每日活动额度", "Read daily activity limits"),
++		capability("handoff.notify", "eigenflux handoff notify", "runtime", "read", "读取交接提醒", "Read handoff notifications"),
++		capability("handoff.setup_codex", "eigenflux handoff setup-codex", "runtime", "write", "配置授权的本地提醒", "Configure authorized local reminders"),
++		capability("social.share", "eigenflux social share", "network", "write", "按主人授权分享帖子", "Share an owner-authorized post"),
++		capability("social.upload", "eigenflux social upload", "network", "write", "上传真实可公开配图", "Upload publishable images"),
++		capability("social.posts", "eigenflux social posts", "network", "read", "阅读可见交流帖子", "Read visible social posts"),
++		capability("social.propose", "eigenflux social propose", "network", "write", "提交私有成果草稿供主人确认", "Propose a private work draft for owner approval"),
++		capability("handoff.send", "eigenflux handoff send", "network", "write", "私密交接项目给联系人", "Send a private project handoff"),
++		capability("handoff.inbox", "eigenflux handoff inbox", "network", "read", "查看项目交接收件箱", "Read project handoff inbox"),
++		capability("handoff.get", "eigenflux handoff get", "network", "read", "读取交接说明", "Read private handoff details"),
++		capability("handoff.acknowledge", "eigenflux handoff acknowledge", "network", "write", "确认已知悉交接，不执行", "Acknowledge a handoff without execution"),
+ 		capability("profile.read", "eigenflux profile show", "profile", "read", "查看 Agent 资料", "View Agent profile"),
+ 		capability("profile.update", "eigenflux profile patch", "profile", "write", "修改 Agent Card", "Update Agent Card"),
+ 		capability("profile.legacy_update", "eigenflux profile update", "profile", "write", "兼容更新 Agent 资料", "Update the Agent profile through the compatibility command"),
+@@ -157,6 +184,7 @@ func capabilitySeeds() []capabilitySeed {
+ 		capability("runtime.heartbeat", "eigenflux runtime heartbeat", "runtime", "write", "上报 Runtime 心跳", "Report a runtime heartbeat"),
+ 		capability("runtime.commands.pending", "eigenflux runtime command pending", "runtime", "read", "查看待执行命令", "List pending runtime commands"),
+ 		capability("runtime.commands.claim", "eigenflux runtime command claim", "runtime", "write", "认领 Runtime 命令", "Claim a runtime command"),
++		capability("runtime.commands.renew", "eigenflux runtime command renew", "runtime", "write", "延长 Runtime 命令租约", "Renew a runtime command lease"),
+ 		capability("runtime.commands.complete", "eigenflux runtime command complete", "runtime", "write", "完成 Runtime 命令", "Complete a runtime command"),
+ 		capability("migration.run", "eigenflux migrate", "local", "write", "迁移本地 CLI 数据", "Migrate local CLI data"),
+ 		capability("diagnostics.run", "eigenflux doctor", "local", "read", "运行诊断", "Run diagnostics"),
+@@ -203,6 +231,14 @@ func capabilitySeeds() []capabilitySeed {
+ 		if seed.id == "attention.prefill" {
+ 			seed.availability = "pre_onboarding"
+ 		}
++		if strings.HasPrefix(seed.id, "elsewhere.") { seed.minCLI = "0.0.54-agentnet.9" }
++		if seed.id == "elsewhere.companion" || seed.id == "elsewhere.name" || seed.id == "elsewhere.avatar" || seed.id == "elsewhere.post" || seed.id == "elsewhere.comments" || seed.id == "elsewhere.comment" || seed.id == "elsewhere.react" || seed.id == "elsewhere.person" || seed.id == "elsewhere.follow" { seed.minCLI = "0.0.54-agentnet.11" }
++		if seed.id == "elsewhere.avatar" { seed.availability = "pre_onboarding" }
++		if seed.id == "runtime.commands.renew" { seed.minCLI = "0.0.54-agentnet.14" }
++		if strings.HasPrefix(seed.id, "twin.") { seed.minCLI = "0.0.54-agentnet.8" }
++		if strings.HasPrefix(seed.id, "social.") { seed.minCLI = "0.0.54-agentnet.3" }
++		if seed.id == "social.share" || seed.id == "social.upload" { seed.minCLI = "0.0.54-agentnet.5" }
++		if strings.HasPrefix(seed.id, "handoff.") { seed.minCLI = "0.0.54-agentnet.6" }
+ 		if seed.category == "runtime" || seed.id == "heartbeat.plan" || seed.id == "settings.report" ||
+ 			seed.id == "settings.sync" ||
+ 			seed.id == "skills.sync" || strings.HasPrefix(seed.id, "feed.event.") || seed.id == "feed.feedback" ||
+diff --git a/api/consolev2/command_handlers.go b/api/consolev2/command_handlers.go
+index 702bd82..201df5e 100644
+--- a/api/consolev2/command_handlers.go
++++ b/api/consolev2/command_handlers.go
+@@ -188,7 +188,18 @@ func commandResponse(row commandView) map[string]interface{} {
+ }
+ 
+ func (s *Service) listPendingCommands(_ context.Context, c *app.RequestContext) {
++	owner, _ := agentID(c)
++	if e := expireMomentCommands(s.db, owner); e != nil {
++		s.socialFailure(c, e)
++		return
++	}
+ 	agentIDValue, _ := agentID(c)
++	executor := c.Query("executor_id")
++	commandType := c.Query("command_type")
++	if commandType != "" && commandType != "attention_response" && !validCommandType(commandType) {
++		fail(c, http.StatusBadRequest, "INVALID_COMMAND_TYPE", "command_type is invalid", nil)
++		return
++	}
+ 	limit := 20
+ 	if raw := c.Query("limit"); raw != "" {
+ 		parsed, err := strconv.Atoi(raw)
+@@ -205,6 +216,8 @@ func (s *Service) listPendingCommands(_ context.Context, c *app.RequestContext)
+ 				claim_owner_runtime_id, claim_epoch, claim_until, attempt_count, created_at
+ 			FROM agent_commands
+ 			WHERE agent_id = ? AND (status IN ('pending','notified') OR (status = 'claimed' AND claim_until <= ?))
++			AND (? = '' OR command_type = ?)
++ AND (? = '' OR payload->'context_ref'->'moment'->>'executor_id' = ?)
+ 			ORDER BY created_at, command_id LIMIT ?
+ 		), candidates AS (
+ 			SELECT base.*,
+@@ -214,7 +227,7 @@ func (s *Service) listPendingCommands(_ context.Context, c *app.RequestContext)
+ 		) SELECT command_id, command_type, payload::text AS payload, required_context_revision,
+ 			status, claim_owner_runtime_id, claim_epoch, claim_until, attempt_count, created_at
+ 		FROM candidates WHERE cumulative_bytes <= ? OR row_num = 1
+-		ORDER BY created_at, command_id`, agentIDValue, now, limit, commandListPayloadBudget).Scan(&rows).Error; err != nil {
++		ORDER BY created_at, command_id`, agentIDValue, now, commandType, commandType, executor, executor, limit, commandListPayloadBudget).Scan(&rows).Error; err != nil {
+ 		fail(c, http.StatusInternalServerError, "COMMAND_LIST_FAILED", "could not list Agent commands", nil)
+ 		return
+ 	}
+@@ -226,6 +239,7 @@ func (s *Service) listPendingCommands(_ context.Context, c *app.RequestContext)
+ }
+ 
+ type claimAgentCommandRequest struct {
++	ExecutorID             string `json:"executor_id,omitempty"`
+ 	RuntimeInstanceID      string `json:"runtime_instance_id"`
+ 	AppliedContextRevision int64  `json:"applied_context_revision"`
+ }
+@@ -258,6 +272,11 @@ func (s *Service) claimAgentCommand(_ context.Context, c *app.RequestContext) {
+ 		if row.CommandType == "attention_response" && !validAttentionCommandProtocol(row.Payload) {
+ 			return errUnsupportedAttentionProtocol
+ 		}
++		if row.CommandType == "attention_response" {
++			if e := momentClaimAllowed(tx, agentIDValue, commandID, req.ExecutorID); e != nil {
++				return e
++			}
++		}
+ 		var runtime struct {
+ 			AppliedRevision *int64 `gorm:"column:context_revision_applied"`
+ 			Now             int64  `gorm:"column:now_ms"`
+@@ -284,6 +303,9 @@ func (s *Service) claimAgentCommand(_ context.Context, c *app.RequestContext) {
+ 			}
+ 			return nil
+ 		}
++		if row.CommandType == "attention_response" && row.Status == "claimed" {
++			return errConflict
++		}
+ 		claimUntil = now + int64(commandLeaseTTL/time.Millisecond)
+ 		if row.CommandID == 0 || (row.Status != "pending" && row.Status != "notified" &&
+ 			!(row.Status == "claimed" && row.ClaimUntil != nil && *row.ClaimUntil <= now)) {
+@@ -341,6 +363,7 @@ type attentionCommandResultEntity struct {
+ }
+ 
+ type attentionCommandResult struct {
++	Execution       *momentExecution               `json:"execution,omitempty"`
+ 	Summary         string                         `json:"summary"`
+ 	RelatedEntities []attentionCommandResultEntity `json:"related_entities,omitempty"`
+ }
+@@ -416,6 +439,9 @@ func validateAttentionCommandResult(raw json.RawMessage) error {
+ 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+ 		return errors.New("Attention result must contain one JSON object")
+ 	}
++	if !validMomentExecution(result.Execution) {
++		return fmt.Errorf("invalid execution receipt")
++	}
+ 	if strings.TrimSpace(result.Summary) == "" || utf8.RuneCountInString(result.Summary) > 500 || len(result.RelatedEntities) > 5 {
+ 		return errors.New("Attention result summary or related_entities is invalid")
+ 	}
+@@ -586,6 +612,7 @@ func (s *Service) completeAgentCommand(_ context.Context, c *app.RequestContext)
+ 			WHERE command_id = ? AND agent_id = ? AND status = 'claimed'
+ 			  AND claim_owner_runtime_id = ? AND claim_epoch = ? AND claim_token_hash = ?
+ 			  AND claim_until > clock.now_ms
++              AND (command_type<>'attention_response' OR EXISTS(SELECT 1 FROM agent_attention_items i WHERE i.agent_id=agent_commands.agent_id AND i.attention_id=agent_commands.attention_id AND i.expires_at>clock.now_ms AND i.status NOT IN ('dismissed','expired')))
+ 			RETURNING command_id, attention_id, command_type,
+ 				CASE WHEN command_type = 'attention_response' THEN COALESCE(payload->>'terminal', 'false') = 'true'
+ 					 ELSE false END AS terminal`,
+diff --git a/api/consolev2/onboarding_handlers.go b/api/consolev2/onboarding_handlers.go
+index b73670e..3a69c61 100644
+--- a/api/consolev2/onboarding_handlers.go
++++ b/api/consolev2/onboarding_handlers.go
+@@ -469,6 +469,7 @@ type identityCardDraft struct {
+ }
+ 
+ type draftPayload struct {
++ TwinProfile *twinProfile `json:"twin_profile,omitempty"`
+ 	IdentityCard     identityCardDraft `json:"identity_card"`
+ 	SecurityBoundary struct {
+ 		RecurringPublish bool `json:"recurring_publish"`
+@@ -492,6 +493,7 @@ var (
+ )
+ 
+ func validateDraftPayload(payload draftPayload) error {
++ if payload.TwinProfile != nil { if err := validateTwinProfile(*payload.TwinProfile, false); err != nil { return err } }
+ 	if utf8.RuneCountInString(payload.IdentityCard.AgentName) > 100 || utf8.RuneCountInString(payload.IdentityCard.Bio) > 2000 {
+ 		return errors.New("identity card exceeds its length limit")
+ 	}
+diff --git a/api/consolev2/onboarding_provenance.go b/api/consolev2/onboarding_provenance.go
+index b8e37a0..9fade96 100644
+--- a/api/consolev2/onboarding_provenance.go
++++ b/api/consolev2/onboarding_provenance.go
+@@ -52,6 +52,7 @@ var onboardingDraftFieldPaths = []string{
+ 	"security_boundary.show_add_friend",
+ 	"network_goal",
+ 	"intent_actions",
++	"twin_profile",
+ }
+ 
+ func decodeJSONObject(raw json.RawMessage) (map[string]interface{}, error) {
+@@ -310,7 +311,7 @@ func confirmStepProvenance(draft map[string]interface{}, provenance map[string]f
+ 	paths := onboardingDraftFieldPaths
+ 	switch step {
+ 	case 2:
+-		paths = onboardingDraftFieldPaths[:12]
++		paths = append(append([]string{}, onboardingDraftFieldPaths[:12]...), "twin_profile")
+ 	case 3:
+ 		paths = onboardingDraftFieldPaths[16:17]
+ 	case 4:
+diff --git a/api/consolev2/service.go b/api/consolev2/service.go
+index 5d7f67f..99c4114 100644
 --- a/api/consolev2/service.go
 +++ b/api/consolev2/service.go
-@@ -408,6 +408,35 @@
+@@ -365,6 +365,7 @@ func (s *Service) Register(h *server.Hertz) {
+ 	if s.enablePublicRegistration {
+ 		h.POST("/api/v2/agent-identities/registration-challenges", s.issuePublicRegistrationChallenge)
+ 	}
++	s.registerTwinRoutes(h)
+ 	h.POST("/api/v2/agent-identities/provision", s.provision)
+ 	h.POST("/api/v2/agent-sessions/refresh-challenges", s.createRefreshChallenge)
+ 	h.POST("/api/v2/agent-sessions/refresh", s.refreshAgentSession)
+@@ -434,14 +435,43 @@ func (s *Service) Register(h *server.Hertz) {
  	h.GET("/api/v2/console/today/status", s.consoleAuth(false), s.requireCompleted, s.getTodayStatus)
  	h.GET("/api/v2/console/today/brief", s.consoleAuth(false), s.requireCompleted, s.getTodayBrief)
  	h.GET("/api/v2/console/home/discovery", s.consoleAuth(false), s.requireCompleted, s.getHomeDiscovery)
@@ -36,100 +402,6 @@
  	h.GET("/api/v2/console/home/activity", s.consoleAuth(false), s.requireCompleted, s.getHomeActivity)
  	h.GET("/api/v2/console/home/worth-watching", s.consoleAuth(false), s.requireCompleted, s.getHomeWorthWatching)
  	h.POST("/api/v2/telemetry/events:batch", s.consoleAuth(true), s.recordTelemetryBatch)
---- a/api/consolev2/capability_registry.go
-+++ b/api/consolev2/capability_registry.go
-@@ -82,6 +82,24 @@
- 		capability("identity.legacy_login", "eigenflux auth login", "identity", "write", "旧版邮箱登录", "Legacy email login"),
- 		capability("identity.legacy_verify", "eigenflux auth verify", "identity", "write", "验证旧版邮箱登录", "Verify legacy email login"),
- 		capability("identity.logout", "eigenflux auth logout", "identity", "write", "退出旧版登录", "Log out of legacy authentication"),
-+		capability("elsewhere.portrait", "eigenflux elsewhere portrait", "profile", "read", "读取私有画像", "Read private portrait"),
-+		capability("elsewhere.sync_portrait", "eigenflux elsewhere sync-portrait", "profile", "write", "增量同步私有画像", "Sync private portrait"),
-+		capability("elsewhere.groups", "eigenflux elsewhere groups", "network", "read", "读取群列表", "Read groups"),
-+		capability("elsewhere.create_group", "eigenflux elsewhere create-group", "network", "write", "按主人授权创建群", "Create an owner-authorized group"),
-+		capability("elsewhere.messages", "eigenflux elsewhere messages", "network", "read", "读取群消息", "Read group messages"),
-+		capability("elsewhere.send", "eigenflux elsewhere send", "network", "write", "按主人授权发送群消息", "Send owner-authorized group messages"),
-+		capability("twin.show", "eigenflux twin show", "profile", "read", "读取旧版孪生资料", "Read legacy private twin"),
-+		capability("twin.policy", "eigenflux twin policy", "profile", "read", "读取每日活动额度", "Read daily activity limits"),
-+		capability("handoff.notify", "eigenflux handoff notify", "runtime", "read", "读取交接提醒", "Read handoff notifications"),
-+		capability("handoff.setup_codex", "eigenflux handoff setup-codex", "runtime", "write", "配置授权的本地提醒", "Configure authorized local reminders"),
-+		capability("social.share", "eigenflux social share", "network", "write", "按主人本次授权分享工作", "Share owner-authorized work"),
-+		capability("social.upload", "eigenflux social upload", "network", "write", "上传真实工作配图", "Upload work images"),
-+		capability("social.posts", "eigenflux social posts", "network", "read", "发现真实工作成果", "Read visible work posts"),
-+		capability("social.propose", "eigenflux social propose", "network", "write", "提交私有成果草稿供主人确认", "Propose a private work draft for owner approval"),
-+		capability("handoff.send", "eigenflux handoff send", "network", "write", "私密交接项目给联系人", "Send a private project handoff"),
-+		capability("handoff.inbox", "eigenflux handoff inbox", "network", "read", "查看项目交接收件箱", "Read project handoff inbox"),
-+		capability("handoff.get", "eigenflux handoff get", "network", "read", "读取交接说明", "Read private handoff details"),
-+		capability("handoff.acknowledge", "eigenflux handoff acknowledge", "network", "write", "确认已知悉交接，不执行", "Acknowledge a handoff without execution"),
- 		capability("profile.read", "eigenflux profile show", "profile", "read", "查看 Agent 资料", "View Agent profile"),
- 		capability("profile.update", "eigenflux profile patch", "profile", "write", "修改 Agent Card", "Update Agent Card"),
- 		capability("profile.legacy_update", "eigenflux profile update", "profile", "write", "兼容更新 Agent 资料", "Update the Agent profile through the compatibility command"),
-@@ -203,6 +221,11 @@
- 		if seed.id == "attention.prefill" {
- 			seed.availability = "pre_onboarding"
- 		}
-+		if strings.HasPrefix(seed.id, "elsewhere.") { seed.minCLI = "0.0.54-agentnet.9" }
-+		if strings.HasPrefix(seed.id, "twin.") { seed.minCLI = "0.0.54-agentnet.8" }
-+		if strings.HasPrefix(seed.id, "social.") { seed.minCLI = "0.0.54-agentnet.3" }
-+		if seed.id == "social.share" || seed.id == "social.upload" { seed.minCLI = "0.0.54-agentnet.5" }
-+		if strings.HasPrefix(seed.id, "handoff.") { seed.minCLI = "0.0.54-agentnet.6" }
- 		if seed.category == "runtime" || seed.id == "heartbeat.plan" || seed.id == "settings.report" ||
- 			seed.id == "settings.sync" ||
- 			seed.id == "skills.sync" || strings.HasPrefix(seed.id, "feed.event.") || seed.id == "feed.feedback" ||
---- a/api/consolev2/command_handlers.go
-+++ b/api/consolev2/command_handlers.go
-@@ -191,2 +191,7 @@
- 	agentIDValue, _ := agentID(c)
-+	commandType := c.Query("command_type")
-+	if commandType != "" && !validCommandType(commandType) {
-+		fail(c, http.StatusBadRequest, "INVALID_COMMAND_TYPE", "command_type is invalid", nil)
-+		return
-+	}
- 	limit := 20
-@@ -207,2 +212,3 @@
- 			WHERE agent_id = ? AND (status IN ('pending','notified') OR (status = 'claimed' AND claim_until <= ?))
-+			AND (? = '' OR command_type = ?)
- 			ORDER BY created_at, command_id LIMIT ?
-@@ -216,3 +222,3 @@
- 		FROM candidates WHERE cumulative_bytes <= ? OR row_num = 1
--		ORDER BY created_at, command_id`, agentIDValue, now, limit, commandListPayloadBudget).Scan(&rows).Error; err != nil {
-+		ORDER BY created_at, command_id`, agentIDValue, now, commandType, commandType, limit, commandListPayloadBudget).Scan(&rows).Error; err != nil {
- 		fail(c, http.StatusInternalServerError, "COMMAND_LIST_FAILED", "could not list Agent commands", nil)
---- a/cli/cmd/runtime_v2.go
-+++ b/cli/cmd/runtime_v2.go
-@@ -85,2 +85,3 @@
- 		limit, _ := cmd.Flags().GetInt("limit")
-+		commandType, _ := cmd.Flags().GetString("command-type")
- 		clientV2, _, err := newV2ClientForServer(serverFlag, true)
-@@ -89,3 +90,3 @@
- 		}
--		response, err := clientV2.Get("/agent-commands/pending", map[string]string{"limit": strconv.Itoa(limit)})
-+		response, err := clientV2.Get("/agent-commands/pending", map[string]string{"limit": strconv.Itoa(limit), "command_type": commandType})
- 		if err != nil {
-@@ -208,2 +209,3 @@
- 	runtimeV2CommandPendingCmd.Flags().Int("limit", 20, "maximum commands to return (1-50)")
-+	runtimeV2CommandPendingCmd.Flags().String("command-type", "", "optional command type filter")
- 	runtimeV2CommandClaimCmd.Flags().String("command-id", "", "command ID to claim")
---- a/api/main.go
-+++ b/api/main.go
-@@ -255,4 +255,5 @@
- 	h := server.Default(
- 		server.WithHostPorts(listenAddr),
-+		server.WithMaxRequestBodySize(12 << 20),
- 		tracer,
- 	)
---- a/api/consolev2/service.go
-+++ b/api/consolev2/service.go
-@@ -356,6 +356,7 @@
- 	if s.enablePublicRegistration {
- 		h.POST("/api/v2/agent-identities/registration-challenges", s.issuePublicRegistrationChallenge)
- 	}
-+	s.registerTwinRoutes(h)
- 	h.POST("/api/v2/agent-identities/provision", s.provision)
- 	h.POST("/api/v2/agent-sessions/refresh-challenges", s.createRefreshChallenge)
- 	h.POST("/api/v2/agent-sessions/refresh", s.refreshAgentSession)
-@@ -412,10 +413,10 @@
- 	h.GET("/api/v2/console/home/worth-watching", s.consoleAuth(false), s.requireCompleted, s.getHomeWorthWatching)
- 	h.POST("/api/v2/telemetry/events:batch", s.consoleAuth(true), s.recordTelemetryBatch)
  	if s.enableFeed {
 -		h.POST("/api/v2/feed", s.agentAuth("feed:read"), s.pullFeedV2)
 +		h.POST("/api/v2/feed", s.agentAuth("feed:read"), s.twinQuota("searches"), s.pullFeedV2)
@@ -141,7 +413,7 @@
  		h.GET("/api/v2/notifications/pending", s.agentAuth("feed:read"), s.listPendingNotifications)
  		h.POST("/api/v2/notifications/ack", s.agentAuth("notifications:ack"), s.ackPendingNotifications)
  	}
-@@ -429,7 +430,7 @@
+@@ -455,7 +485,7 @@ func (s *Service) Register(h *server.Hertz) {
  	}
  	if s.enableAttentionV1 {
  		h.POST("/api/v2/agent-attention-items/prefill", s.agentAuth("attention:prefill"), s.requireIncomplete, s.prefillAttentionItems)
@@ -150,7 +422,7 @@
  		h.GET("/api/v2/console/attention-items", s.consoleAuth(false), s.requireCompleted, s.listAttentionItems)
  		h.GET("/api/v2/console/attention-items/:attention_id", s.consoleAuth(false), s.requireCompleted, s.getAttentionItem)
  		h.GET("/api/v2/console/attention-items/:attention_id/source", s.consoleAuth(false), s.requireCompleted, s.getAttentionSource)
-@@ -464,7 +465,7 @@
+@@ -490,7 +520,7 @@ func (s *Service) Register(h *server.Hertz) {
  		h.GET("/api/v2/console/events/ws", s.consoleAuth(false), s.requireCompleted, s.streamCommunicationEvents)
  	}
  
@@ -159,7 +431,7 @@
  	h.DELETE("/api/v2/broadcasts/:item_id", s.agentAuth("broadcast:write"), s.requireCompleted, apihandler.DeleteMyItem)
  	h.GET("/api/v2/agents/me/broadcasts", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMyItems)
  	h.GET("/api/v2/agent-profile", s.agentAuth("profile:read"), s.requireCompleted, apihandler.GetMe)
-@@ -476,9 +477,9 @@
+@@ -502,9 +532,9 @@ func (s *Service) Register(h *server.Hertz) {
  	// V2 aliases preserve the stable CLI request/response bodies while the CLI
  	// transitions to the canonical routes above. They use Agent V2 auth only.
  	h.GET("/api/v2/items/:item_id", s.agentAuth("feed:read"), s.requireCompleted, apihandler.GetItem)
@@ -172,40 +444,113 @@
  	h.GET("/api/v2/pm/fetch", s.agentAuth("communication:read"), s.requireCompleted, apihandler.FetchPM)
  	h.POST("/api/v2/pm/send", s.agentAuth("communication:write"), s.requireCompleted, apihandler.SendPM)
  	h.GET("/api/v2/pm/history", s.agentAuth("communication:read"), s.requireCompleted, apihandler.GetConvHistory)
---- a/api/consolev2/onboarding_handlers.go
-+++ b/api/consolev2/onboarding_handlers.go
-@@ -452,6 +452,7 @@
+diff --git a/api/main.go b/api/main.go
+index 646d711..faa2554 100644
+--- a/api/main.go
++++ b/api/main.go
+@@ -254,6 +254,7 @@ func main() {
+ 	tracer, tracerCfg := hertztracing.NewServerTracer(hertztracing.WithShouldIgnore(tradebff.IgnoreAlipayAuthorizationTrace))
+ 	h := server.Default(
+ 		server.WithHostPorts(listenAddr),
++		server.WithMaxRequestBodySize(12 << 20),
+ 		tracer,
+ 	)
+ 	h.Use(hertztracing.ServerMiddleware(tracerCfg))
+diff --git a/cli/cmd/attention.go b/cli/cmd/attention.go
+index 4e7ffc2..4d5e962 100644
+--- a/cli/cmd/attention.go
++++ b/cli/cmd/attention.go
+@@ -117,10 +117,11 @@ type attentionSourceRef struct {
  }
  
- type draftPayload struct {
-+ TwinProfile *twinProfile `json:"twin_profile,omitempty"`
- 	IdentityCard     identityCardDraft `json:"identity_card"`
- 	SecurityBoundary struct {
- 		RecurringPublish bool `json:"recurring_publish"`
-@@ -475,6 +476,7 @@
- )
+ type attentionContextRef struct {
+-	Operation           string  `json:"operation,omitempty"`
+-	ContextRevision     int64   `json:"context_revision"`
+-	NetworkGoalRevision int64   `json:"network_goal_revision,omitempty"`
+-	IntentID            *string `json:"intent_id,omitempty"`
++	Moment              *momentContext `json:"moment,omitempty"`
++	Operation           string         `json:"operation,omitempty"`
++	ContextRevision     int64          `json:"context_revision"`
++	NetworkGoalRevision int64          `json:"network_goal_revision,omitempty"`
++	IntentID            *string        `json:"intent_id,omitempty"`
+ }
  
- func validateDraftPayload(payload draftPayload) error {
-+ if payload.TwinProfile != nil { if err := validateTwinProfile(*payload.TwinProfile, false); err != nil { return err } }
- 	if utf8.RuneCountInString(payload.IdentityCard.AgentName) > 100 || utf8.RuneCountInString(payload.IdentityCard.Bio) > 2000 {
- 		return errors.New("identity card exceeds its length limit")
+ type attentionAction struct {
+diff --git a/cli/cmd/attention_result.go b/cli/cmd/attention_result.go
+index caa91ce..0c8474e 100644
+--- a/cli/cmd/attention_result.go
++++ b/cli/cmd/attention_result.go
+@@ -21,6 +21,7 @@ type attentionRuntimeResultEntity struct {
+ }
+ 
+ type attentionRuntimeResult struct {
++	Execution       *momentExecution               `json:"execution,omitempty"`
+ 	Summary         string                         `json:"summary"`
+ 	RelatedEntities []attentionRuntimeResultEntity `json:"related_entities,omitempty"`
+ }
+@@ -59,6 +60,9 @@ func validateAttentionRuntimeResult(raw []byte) error {
+ 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+ 		return fmt.Errorf("result must contain exactly one JSON object")
  	}
---- a/api/consolev2/onboarding_provenance.go
-+++ b/api/consolev2/onboarding_provenance.go
-@@ -52,6 +52,7 @@
- 	"security_boundary.show_add_friend",
- 	"network_goal",
- 	"intent_actions",
-+	"twin_profile",
++	if !validMomentExecution(result.Execution) {
++		return fmt.Errorf("invalid execution receipt")
++	}
+ 	if strings.TrimSpace(result.Summary) == "" || utf8.RuneCountInString(result.Summary) > 500 {
+ 		return fmt.Errorf("summary is required and must not exceed 500 characters")
+ 	}
+diff --git a/cli/cmd/publish.go b/cli/cmd/publish.go
+index 29d7eb5..c6ce64e 100644
+--- a/cli/cmd/publish.go
++++ b/cli/cmd/publish.go
+@@ -45,7 +45,7 @@ Examples:
+ 		if resp.Code != 0 {
+ 			return fmt.Errorf("%s", resp.Msg)
+ 		}
+-		output.PrintMessage("Broadcast published")
++		output.PrintMessage("Broadcast accepted for processing; check profile items for completed status before reporting publication")
+ 		outputData := json.RawMessage(resp.Data)
+ 		if withContext {
+ 			outputData, err = withControlContext(activeServerName(), outputData)
+diff --git a/cli/cmd/runtime_v2.go b/cli/cmd/runtime_v2.go
+index 0317a2e..96ee64a 100644
+--- a/cli/cmd/runtime_v2.go
++++ b/cli/cmd/runtime_v2.go
+@@ -83,11 +83,13 @@ var runtimeV2CommandPendingCmd = &cobra.Command{
+ 	Short: "List pending or expired-claim commands",
+ 	RunE: func(cmd *cobra.Command, _ []string) error {
+ 		limit, _ := cmd.Flags().GetInt("limit")
++		executorID, _ := cmd.Flags().GetString("executor-id")
++		commandType, _ := cmd.Flags().GetString("command-type")
+ 		clientV2, _, err := newV2ClientForServer(serverFlag, true)
+ 		if err != nil {
+ 			return err
+ 		}
+-		response, err := clientV2.Get("/agent-commands/pending", map[string]string{"limit": strconv.Itoa(limit)})
++		response, err := clientV2.Get("/agent-commands/pending", map[string]string{"limit": strconv.Itoa(limit), "command_type": commandType, "executor_id": executorID})
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -120,8 +122,9 @@ var runtimeV2CommandClaimCmd = &cobra.Command{
+ 		if err != nil {
+ 			return err
+ 		}
++		executorID, _ := cmd.Flags().GetString("executor-id")
+ 		response, err := clientV2.Post("/agent-commands/"+commandID+"/claim", map[string]interface{}{
+-			"runtime_instance_id": runtimeID, "applied_context_revision": snapshot.Revision,
++			"runtime_instance_id": runtimeID, "applied_context_revision": snapshot.Revision, "executor_id": executorID,
+ 		})
+ 		if err != nil {
+ 			return err
+@@ -203,9 +206,12 @@ func parseRuntimeCommandResult(resultText string) (map[string]interface{}, error
  }
  
- func decodeJSONObject(raw json.RawMessage) (map[string]interface{}, error) {
-@@ -310,7 +311,7 @@
- 	paths := onboardingDraftFieldPaths
- 	switch step {
- 	case 2:
--		paths = onboardingDraftFieldPaths[:12]
-+		paths = append(append([]string{}, onboardingDraftFieldPaths[:12]...), "twin_profile")
- 	case 3:
- 		paths = onboardingDraftFieldPaths[16:17]
- 	case 4:
+ func init() {
++	runtimeV2CommandPendingCmd.Flags().String("executor-id", "", "Only this bound decision executor")
++	runtimeV2CommandClaimCmd.Flags().String("executor-id", "", "Bound decision executor")
+ 	runtimeV2HeartbeatCmd.Flags().String("capabilities", "cli,feed,commands", "comma-separated Runtime capabilities")
+ 	runtimeV2HeartbeatCmd.Flags().String("session-ref", "", "opaque host session reference used only by the Runtime adapter")
+ 	runtimeV2CommandPendingCmd.Flags().Int("limit", 20, "maximum commands to return (1-50)")
++	runtimeV2CommandPendingCmd.Flags().String("command-type", "", "optional command type filter")
+ 	runtimeV2CommandClaimCmd.Flags().String("command-id", "", "command ID to claim")
+ 	runtimeV2CommandCompleteCmd.Flags().String("command-id", "", "command ID to complete")
+ 	runtimeV2CommandCompleteCmd.Flags().String("claim-token", "", "claim fencing token returned by claim")

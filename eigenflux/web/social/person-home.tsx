@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { X } from '../icons';
-import type { SocialStore, WorkPost } from './model';
+import type { Page, SocialStore, WorkPost } from './model';
+import { mergeFeedPage } from './feed-pages';
 import { PostCard } from './post';
 import { demoPeople } from './people';
 import { portraitFields, type Portrait } from './portrait-data';
@@ -33,7 +34,10 @@ export function PersonHome({
   onReady?: () => void;
   onRequireLogin?: (reason?: string) => void;
 }) {
-  const [posts, setPosts] = useState<WorkPost[]>();
+  const [postPage, setPostPage] = useState<{ id: string; page: Page }>();
+  const page = postPage?.id === id ? postPage.page : undefined;
+  const posts = page?.items;
+  const postCursor = page?.next_cursor || '';
   const [section, setSection] = useState('posts');
   const [error, setError] = useState('');
   const [pending, setPending] = useState<string[]>([]);
@@ -50,7 +54,6 @@ export function PersonHome({
       next_cursor: string;
     }
   >();
-  const [postCursor, setPostCursor] = useState('');
   useEffect(() => {
     if (demo) return;
     let active = true;
@@ -109,13 +112,17 @@ export function PersonHome({
     let active = true;
     const currentRequest = ++request.current;
     setError('');
-    setPosts(undefined);
+    // Keep mounted cards and decoded images during background refreshes.
+    // A different author has no visible page until its own request settles.
     void store
       .list({ scope: `author:${id}`, q: '', kind: 'all', tags: [] })
       .then((page) => {
         if (active) {
-          setPosts(page.items);
-          setPostCursor(page.next_cursor);
+          setPostPage((previous) => {
+            const current = previous?.id === id ? previous.page : undefined;
+            const next = mergeFeedPage(current, page, 'refresh');
+            return next === current ? previous : { id, page: next };
+          });
           setSettledRequest(currentRequest);
         }
       })
@@ -150,7 +157,19 @@ export function PersonHome({
     setPending((ids) => [...ids, post.id]);
     try {
       const next = await store.reaction(post, kind);
-      setPosts((items) => items?.map((p) => (p.id === next.id ? next : p)));
+      setPostPage((current) =>
+        current?.id === id
+          ? {
+              id,
+              page: {
+                ...current.page,
+                items: current.page.items.map((p) =>
+                  p.id === next.id ? next : p,
+                ),
+              },
+            }
+          : current,
+      );
       setError('');
     } catch {
       setError('操作未保存，请重试。');
@@ -188,6 +207,7 @@ export function PersonHome({
                   : undefined
             }
             name={name}
+            ownerName={!demo ? remote?.fields.owner_name : undefined}
             bio={
               !own || portrait.visible.includes('bio') ? fields?.bio : undefined
             }
@@ -287,8 +307,19 @@ export function PersonHome({
                         tags: [],
                         cursor: postCursor,
                       });
-                      setPosts((old) => [...(old || []), ...page.items]);
-                      setPostCursor(page.next_cursor);
+                      setPostPage((previous) =>
+                        previous?.id === id
+                          ? {
+                              id,
+                              page: mergeFeedPage(
+                                previous.page,
+                                page,
+                                'append',
+                                postCursor,
+                              ),
+                            }
+                          : previous,
+                      );
                     } catch (e) {
                       setError(e instanceof Error ? e.message : '动态读取失败');
                     }

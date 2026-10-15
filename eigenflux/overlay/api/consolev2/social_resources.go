@@ -199,6 +199,7 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 		last := rows[len(rows)-1]
 		next = fmt.Sprintf("%d:%d:%d", last.RecommendScore, *last.PublishedAt, last.PostID)
 	}
+	s.addSocialImagePreviews(ctx, rows)
 	items := []map[string]any{}
 	for _, row := range rows {
 		item := socialView(row)

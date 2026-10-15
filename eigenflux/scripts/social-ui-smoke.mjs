@@ -27,12 +27,70 @@ try {
   await page.goto(origin + '/preview');
   await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
   await page.locator('.sw-post').first().waitFor();
+  assert.equal(new URL(page.url()).hash, '#explore');
+  const mainNav = page.getByRole('navigation', { name: '主导航', exact: true });
+  const motions = new Set();
+  for (const [label, route] of [
+    ['此刻', 'crossing'],
+    ['发现', 'explore'],
+    ['消息', 'messages'],
+    ['通讯录', 'network'],
+  ]) {
+    const link = mainNav.getByRole('link', { name: label, exact: true });
+    await link.click();
+    assert.equal(new URL(page.url()).hash, '#' + route);
+    assert.equal(await link.getAttribute('aria-current'), 'page');
+    const names = await link
+      .locator('svg > *')
+      .evaluateAll((parts) =>
+        parts
+          .map((part) => getComputedStyle(part).animationName)
+          .filter((name) => name !== 'none'),
+      );
+    assert.ok(names.length > 0, label + ' has selection feedback');
+    motions.add(names.join(','));
+  }
+  assert.equal(motions.size, 4, 'navigation destinations have distinct motion');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await mainNav.getByRole('link', { name: '此刻', exact: true }).click();
+  assert.equal(
+    await mainNav.locator('[aria-current] [data-icon="Moment"]').count(),
+    1,
+  );
+  assert.ok(
+    await mainNav
+      .locator('[aria-current] svg > *')
+      .evaluateAll((parts) =>
+        parts.every((part) => getComputedStyle(part).animationName === 'none'),
+      ),
+  );
+  await page.locator('.sw-brand').click();
+  assert.equal(new URL(page.url()).hash, '#explore');
+  const phone = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    reducedMotion: 'reduce',
+  });
+  phone.on('pageerror', (error) => errors.push(error.message));
+  await phone.goto(origin + '/preview#explore');
+  await phone.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
+  const mobileNav = phone.locator('.sw-mobile-nav');
+  await mobileNav.getByRole('link', { name: '此刻', exact: true }).click();
+  assert.equal(
+    await mobileNav.locator('[aria-current] [data-icon="Moment"]').isVisible(),
+    true,
+  );
+  await mobileNav.getByRole('link', { name: '发现', exact: true }).click();
+  assert.equal(new URL(phone.url()).hash, '#explore');
+  await phone.close();
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   assert.equal(
     await page
       .getByRole('navigation', { name: '主导航', exact: true })
       .getByRole('link')
       .count(),
-    3,
+    4,
   );
   assert.equal(await page.locator('.sw-agent-rail').count(), 0);
   assert.equal(await page.locator('.sn-account').count(), 1);

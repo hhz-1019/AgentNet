@@ -11,6 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"eigenflux_server/pkg/activity"
+	"eigenflux_server/pkg/firstcontact"
 	pmdal "eigenflux_server/rpc/pm/dal"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -19,27 +21,31 @@ import (
 )
 
 var errPortraitConflict = errors.New("portrait revision conflict")
-var portraitKeys = map[string]int{"name": 80, "bio": 1000, "interests": 1000, "role": 200, "values": 1000, "recent": 1000, "avatar": 20}
+var portraitKeys = map[string]int{"name": 80, "bio": 0, "interests": 0, "role": 0, "values": 0, "recent": 0, "connections": 0, "avatar": 100}
 
 // Optional initial Agent prefill inside the existing onboarding twin_profile envelope.
 type portraitDraft struct {
-	Fields   map[string]string `json:"fields"`
-	Memories []portraitMemory  `json:"memories"`
+	PrefillVersion string            `json:"prefill_version,omitempty"`
+	Fields         map[string]string `json:"fields"`
+	Memories       []portraitMemory  `json:"memories"`
 }
 
 func validatePortraitDraft(p portraitDraft) error {
+	if p.PrefillVersion != "" {
+		raw, _ := json.Marshal(map[string]any{"twin_profile": map[string]any{"portrait": p}})
+		if err := validateRichPortrait(raw); err != nil {
+			return err
+		}
+	}
 	for k, v := range p.Fields {
 		limit, ok := portraitKeys[k]
-		if !ok || utf8.RuneCountInString(v) > limit || (k == "avatar" && !validDefaultAvatar(v)) {
+		if !ok || (limit > 0 && utf8.RuneCountInString(v) > limit) || (k == "avatar" && !validPortraitAvatar(v)) {
 			return errors.New("画像字段无效或过长")
 		}
 	}
-	if len(p.Memories) > 100 {
-		return errors.New("初始记忆每批最多 100 条；接入后可以继续增量同步")
-	}
 	ids := map[string]bool{}
 	for _, m := range p.Memories {
-		if !twinUUID.MatchString(m.ID) || ids[m.ID] || strings.TrimSpace(m.Content) == "" || utf8.RuneCountInString(m.Content) > 16000 {
+		if !twinUUID.MatchString(m.ID) || ids[m.ID] || strings.TrimSpace(m.Content) == "" {
 			return errors.New("记忆格式无效")
 		}
 		ids[m.ID] = true
@@ -64,6 +70,10 @@ type portraitRow struct {
 }
 
 func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
+	s.registerMomentRoutes(h)
+	s.registerCompanionRoutes(h)
+	s.registerAvatarRoutes(h)
+	s.registerAgentSocialRoutes(h)
 	h.GET("/api/v2/guest/feed", s.getGuestFeed)
 	h.GET("/api/v2/guest/posts/:post_id/cover", s.getGuestCover)
 	h.GET("/api/v2/guest/posts/:post_id", s.getGuestPost)
@@ -168,8 +178,8 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 		Upserts          []portraitMemory  `json:"upserts"`
 		Deletes          []string          `json:"deletes"`
 	}
-	if decodeBody(c, &req) != nil || req.ExpectedRevision < 0 || len(req.Upserts) > 100 || len(req.Deletes) > 100 {
-		fail(c, 400, "INVALID_PORTRAIT", "资料格式无效，每次最多同步 100 条记忆", nil)
+	if decodeBody(c, &req) != nil || req.ExpectedRevision < 0 {
+		fail(c, 400, "INVALID_PORTRAIT", "资料格式无效", nil)
 		return
 	}
 	human := strings.HasPrefix(string(c.Path()), "/api/v2/console/")
@@ -177,10 +187,21 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 		fail(c, 403, "HUMAN_VISIBILITY_REQUIRED", "主页可见范围由本人设置", nil)
 		return
 	}
+	if avatar := req.Fields["avatar"]; customAvatarPattern.MatchString(avatar) {
+		var owned bool
+		if err := s.db.WithContext(ctx).Raw("SELECT EXISTS(SELECT 1 FROM agent_avatars WHERE avatar_id=? AND agent_id=?)", strings.TrimPrefix(avatar, avatarPrefix), id).Scan(&owned).Error; err != nil {
+			s.socialFailure(c, err)
+			return
+		}
+		if !owned {
+			fail(c, 400, "INVALID_AVATAR", "头像必须由当前 Agent 上传", nil)
+			return
+		}
+	}
 	for k, v := range req.Fields {
 		limit, ok := portraitKeys[k]
-		if !ok || utf8.RuneCountInString(v) > limit || (k == "name" && strings.TrimSpace(v) == "") || (k == "avatar" && !validDefaultAvatar(v)) {
-			fail(c, 400, "INVALID_PORTRAIT", "昵称必填，资料请遵守长度限制", nil)
+		if !ok || (limit > 0 && utf8.RuneCountInString(v) > limit) || (k == "avatar" && !validPortraitAvatar(v)) {
+			fail(c, 400, "INVALID_PORTRAIT", "资料格式或长度无效", nil)
 			return
 		}
 	}
@@ -199,7 +220,7 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 	}
 	seen := map[string]bool{}
 	for _, m := range req.Upserts {
-		if !twinUUID.MatchString(m.ID) || seen[m.ID] || strings.TrimSpace(m.Content) == "" || utf8.RuneCountInString(m.Content) > 16000 || (!human && m.ShowOnHome) {
+		if !twinUUID.MatchString(m.ID) || seen[m.ID] || strings.TrimSpace(m.Content) == "" || (!human && m.ShowOnHome) {
 			fail(c, 400, "INVALID_MEMORY", "记忆内容或可见范围无效", nil)
 			return
 		}
@@ -312,10 +333,9 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 				bio = fields["bio"]
 			}
 		}
-		if fields["name"] != "" {
-			return tx.Exec(`UPDATE agents SET agent_name=?,bio=? WHERE agent_id=?`, fields["name"], bio, id).Error
-		}
-		return nil
+		// The portrait describes the owner. Its nickname must never rename the
+		// companion; the dedicated companion endpoint owns the Agent name.
+		return tx.Exec(`UPDATE agents SET bio=? WHERE agent_id=?`, bio, id).Error
 	})
 	if errors.Is(err, errPortraitConflict) {
 		fail(c, 409, "REVISION_CONFLICT", "资料已变更，或包含本人保护的内容；请读取最新版本后核对", nil)
@@ -365,9 +385,8 @@ func (s *Service) getPerson(ctx context.Context, c *app.RequestContext) {
 				fields[k] = raw[k]
 			}
 			fields["avatar"] = raw["avatar"]
-			if fields["name"] == "" {
-				fields["name"] = p.AgentName
-			}
+			fields["owner_name"] = fields["name"]
+			fields["name"] = p.AgentName
 		}
 		memories, next, e = readPortraitMemories(s.db.WithContext(ctx), p.OwnerUID, c.Query("cursor"), "", true)
 		if e != nil {
@@ -453,6 +472,8 @@ func (s *Service) putFollow(ctx context.Context, c *app.RequestContext) {
 // The social onboarding confirms the reviewed portrait in one transaction. It
 // keeps the existing context compiler and credential activation, without making
 // an optional network goal or synthetic biography a signup prerequisite.
+var errCompanionNameRequired = errors.New("personal companion name required")
+
 func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 	defer s.registrationOutcome(c, "profile")
 	owner, id, ok := s.twinOwner(c)
@@ -468,17 +489,13 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	now := time.Now().UnixMilli()
+	activated := false
 	e := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		r, e := readPortraitRow(tx, owner, true)
 		if e != nil {
 			return e
 		}
 		if r.Revision != req.Revision {
-			return errConflict
-		}
-		var fields map[string]string
-		_ = json.Unmarshal([]byte(r.Fields), &fields)
-		if strings.TrimSpace(fields["name"]) == "" {
 			return errConflict
 		}
 		var state struct {
@@ -494,12 +511,22 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 		if state.State == "" {
 			return gorm.ErrRecordNotFound
 		}
+		var name string
+		if e = tx.Raw("SELECT agent_name FROM agents WHERE agent_id=?", id).Scan(&name).Error; e != nil {
+			return e
+		}
+		if !validCompanionName(name) {
+			return errCompanionNameRequired
+		}
 		if e = tx.Exec(`INSERT INTO twin_agreement_acceptances(user_id,version,accepted_at) VALUES(?,?,?) ON CONFLICT DO NOTHING`, owner, twinAgreementVersion, now).Error; e != nil {
 			return e
 		}
 		// Registration consent allows these activities; the saved policy still limits
 		// their rate. An existing settings row (including explicit denials) wins.
 		if e = tx.Exec(`INSERT INTO agent_settings(agent_id,recurring_publish,auto_reply_pm,auto_comment,show_add_friend,updated_at) VALUES(?,true,true,true,true,?) ON CONFLICT DO NOTHING`, id, now).Error; e != nil {
+			return e
+		}
+		if e = tx.Exec(`INSERT INTO twin_agent_policy(agent_id,updated_at) VALUES(?,?) ON CONFLICT DO NOTHING`, id, now).Error; e != nil {
 			return e
 		}
 		_, revision, e := compileAndActivateContext(tx, id, now)
@@ -515,15 +542,29 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 		if e = tx.Exec(`UPDATE agents SET profile_completed_at=COALESCE(profile_completed_at,?),updated_at=? WHERE agent_id=?`, now, now, id).Error; e != nil {
 			return e
 		}
-		return tx.Exec(`UPDATE agent_onboarding_v2 SET state='completed',current_step=5,revision=revision+1,active_context_revision=?,completed_at=?,updated_at=? WHERE agent_id=?`, revision, now, now, id).Error
+		if e = tx.Exec(`UPDATE agent_onboarding_v2 SET state='completed',current_step=5,revision=revision+1,active_context_revision=?,completed_at=?,updated_at=? WHERE agent_id=?`, revision, now, now, id).Error; e != nil {
+			return e
+		}
+		if e = firstcontact.Ensure(tx, id, s.idgen.NextID); e != nil {
+			return e
+		}
+		activated = true
+		return nil
 	})
 	if e != nil {
-		if errors.Is(e, errConflict) {
+		if errors.Is(e, errCompanionNameRequired) {
+			fail(c, 400, "COMPANION_NAME_REQUIRED", "请为 Agent 起一个个人名字，不能使用工具或模型名称", nil)
+		} else if errors.Is(e, errConflict) {
 			fail(c, 409, "REVISION_CONFLICT", "请重新读取并确认画像", nil)
 		} else {
 			s.socialFailure(c, e)
 		}
 		return
+	}
+	if activated {
+		publishProfileCompletion(ctx, id)
+		firstcontact.Notify(ctx, s.db, id)
+		activity.PublishOnboardingCompleted(ctx, id)
 	}
 	reply(c, 200, map[string]any{"completed": true})
 }

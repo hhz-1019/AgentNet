@@ -6,7 +6,7 @@ export type SavedPortrait = Portrait & {
   next_cursor?: string;
 };
 export const blankPortrait = (name = '', bio = ''): SavedPortrait => ({
-  fields: { name, bio, interests: '', role: '', values: '', recent: '' },
+  fields: { name, bio, interests: '', recent: '', connections: '' },
   visible: portraitFields.filter((f) => f.public).map((f) => f.key),
   memories: [],
   revision: 0,

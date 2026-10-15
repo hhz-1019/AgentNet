@@ -85,23 +85,69 @@ async function join(name) {
     draft: { identity_card: { agent_name: `Acceptance ${name} ${run}` } },
   });
   assert(identity.agent_id);
+  const avatar = await client.upload_avatar({
+    local_path: resolve('eigenflux/web/public/preview-assets/linjian.png'),
+  });
+  assert.match(avatar.avatar, /^\/api\/v2\/public\/avatars\/[a-f0-9]{32}$/);
+  await client.command(
+    [
+      'agent',
+      'provision',
+      '--require-existing-agent',
+      '--mode',
+      'skill',
+      '--runtime-name',
+      'agentnet-protocol-test',
+      '--draft-file',
+      '-',
+    ],
+    {
+      input: {
+        twin_profile: {
+          portrait: {
+            fields: {
+              name: '验收主人',
+              avatar: avatar.avatar,
+              interests: '小说与城市散步',
+              recent: '认识愿意慢慢聊书的人',
+            },
+            memories: [
+              {
+                id: crypto.randomUUID(),
+                content:
+                  '明确标注的模拟记忆：重读小说之后，想继续聊没有想明白的问题。',
+              },
+            ],
+          },
+        },
+      },
+    },
+  );
+  await assert.rejects(
+    client.comment({
+      post_id: '1',
+      content: '尚未注册不能评论',
+      idempotency_key: crypto.randomUUID(),
+    }),
+  );
   const h = human();
   const link = new URL(identity.console_url);
   await h('console/handoffs/exchange', {
-    ticket: link.searchParams.get('ticket'),
-    browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce'),
+    ticket:
+      new URLSearchParams(link.hash.slice(1)).get('connect') ||
+      link.searchParams.get('ticket'),
+    browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce') || '',
   });
-  await assert.rejects(
-    h('console/handoffs/exchange', {
-      ticket: link.searchParams.get('ticket'),
-      browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce'),
-    }),
-    (error) => error.code === 'HANDOFF_INVALID',
-  );
+  await h('console/handoffs/exchange', {
+    ticket:
+      new URLSearchParams(link.hash.slice(1)).get('connect') ||
+      link.searchParams.get('ticket'),
+    browser_nonce: new URLSearchParams(link.hash.slice(1)).get('nonce') || '',
+  });
   assert.equal(
     (await h('console/session')).agent_id,
     identity.agent_id,
-    'replayed ticket must not destroy the existing browser session',
+    'reopened registration page must preserve the same browser session',
   );
   const credential = testOwners[name];
   assert(
@@ -113,6 +159,12 @@ async function join(name) {
   owner.recovery_key = credential.recoveryKey;
   assert.match(owner.uid, /^[1-9]\d{4,}$/);
   let draft = await h('agents/me/onboarding-draft');
+  assert.equal(
+    draft.draft.data.twin_profile.portrait.fields.avatar,
+    avatar.avatar,
+    'Agent-uploaded avatar must reach the owner review draft',
+  );
+  assert.equal(draft.draft.data.twin_profile.portrait.memories.length, 1);
   // A corrected prefill must update the existing draft, not allocate a new identity.
   const prefill = {
     identity_card: {
@@ -214,16 +266,76 @@ async function join(name) {
       'PUT',
     );
   }
-  for (let step = 2; step <= 5; step++) {
-    draft = await h('agents/me/onboarding-draft');
-    await saveOnboardingStep(
-      h,
-      draft,
-      normalizeDraft(draft.draft.data),
-      step,
-      () => {},
+  if (name === 'Atlas') {
+    const settings = (await h('console/companion')).settings;
+    await h(
+      'console/companion',
+      {
+        ...settings,
+        agent_name: '林间验收',
+        connection_goal: '认识愿意慢慢聊书、交换散步见闻的人',
+      },
+      'PUT',
     );
-  }
+    const saved = await h(
+      'console/portrait',
+      {
+        expected_revision: 0,
+        fields: {
+          name: '验收主人',
+          interests: '小说与城市散步',
+          values: '重视具体交流',
+          recent: '想认识能一起聊读后问题的人',
+          avatar: avatar.avatar,
+        },
+        visible: ['name', 'interests'],
+        upserts: [
+          {
+            id: crypto.randomUUID(),
+            content:
+              '明确标注的模拟记忆：主人重读小说后，希望和人聊仍然没想明白的问题。',
+            showOnHome: false,
+          },
+        ],
+        deletes: [],
+      },
+      'PUT',
+    );
+    await h('console/portrait/confirm', {
+      revision: saved.revision,
+      agreed: true,
+    });
+    const portrait = await client.get_portrait();
+    assert.equal(portrait.fields.avatar, avatar.avatar);
+    assert.equal(portrait.memories.length, 1);
+    assert.equal(
+      (await client.get_companion()).settings.agent_name,
+      '林间验收',
+    );
+    assert.equal((await client.get_activity_policy()).daily_posts, 10);
+    assert.ok((await client.get_context()).context_revision > 0);
+    const accountPage = new URL((await client.command(['dashboard'])).url);
+    assert.equal(accountPage.pathname, '/dashboard');
+    assert.equal(accountPage.searchParams.get('account'), credential.uid);
+    await h('console/handoffs/exchange', {
+      ticket: new URLSearchParams(link.hash.slice(1)).get('connect'),
+    });
+    assert.equal((await h('console/session')).owner_bound, true);
+    assert.equal((await h('console/portrait')).fields.avatar, avatar.avatar);
+    console.log(
+      'PASS: current one-form onboarding activates same CLI, avatar, private memory, companion and default quota',
+    );
+  } else
+    for (let step = 2; step <= 5; step++) {
+      draft = await h('agents/me/onboarding-draft');
+      await saveOnboardingStep(
+        h,
+        draft,
+        normalizeDraft(draft.draft.data),
+        step,
+        () => {},
+      );
+    }
   const session = await h('console/session');
   assert.equal(session.onboarding.state, 'completed');
   if (name === 'Helper') {
@@ -236,10 +348,11 @@ async function join(name) {
     ]);
   }
   const card = await h('console/bff/agents/me/card/page');
-  assert.equal(
-    card.current_values.human_description,
-    data.identity_card.human_description,
-  );
+  if (name !== 'Atlas')
+    assert.equal(
+      card.current_values.human_description,
+      data.identity_card.human_description,
+    );
   await client.heartbeat();
   return {
     client,
@@ -372,6 +485,36 @@ assert(
   ),
 );
 console.log('PASS: two-way private messaging through actual RPC services');
+const share = {
+  owner_authorized: true,
+  visibility: 'friends',
+  work_id: 'isolated-social-acceptance',
+  status: 'completed',
+  shareable: true,
+  title: '隔离环境发帖验收',
+  source: '本次隔离验收中的实际双向私信测试。',
+  result:
+    '两个测试身份已通过真实服务完成双向私信，现检查分享的持久化、好友可见范围和重试幂等性。',
+  evidence: '本脚本已读回双方消息并核对正文。',
+  limitations: '仅证明隔离后端联通，不代表线上部署或广播模型处理完成。',
+  tags: ['联调验收'],
+};
+const shared = await a.client.share_work(share);
+assert.equal(shared.state, 'published');
+assert.equal(shared.document.identity, 'agent');
+assert.equal((await a.client.share_work(share)).id, shared.id);
+assert((await b.client.get_work_posts()).items.some((p) => p.id === shared.id));
+assert(
+  !(await helper.client.get_work_posts()).items.some((p) => p.id === shared.id),
+);
+assert(
+  (await a.h('console/social/posts?scope=mine')).items.some(
+    (p) => p.id === shared.id,
+  ),
+);
+console.log(
+  'PASS: Agent social post persisted, visible in Console and to friend, hidden from nonfriend, retry deduplicated',
+);
 const handoffPacket = {
   receiver_id: b.id,
   title: '隔离测试项目交接',
@@ -480,6 +623,82 @@ console.log(
   'PASS: Agent requests decision, owner approves, actual read-only work completes with receipt',
 );
 
+// Exercise Moment through the complete authenticated stack, in addition to
+// the legacy Attention contract above. No real-user account is used here.
+const executorID = 'isolated_moment_host';
+const scope = '仅读取测试账号的公开资料，不修改资料，不发送消息或发布内容。';
+const scopedDecision = await a.client.request_decision({
+  title: '核对测试账号资料？',
+  body: '隔离验收将通过已绑定宿主读取测试账号的公开资料。',
+  recommendation: '只读取并核对当前身份。',
+  choices: ['只读核对'],
+  scopes: [scope],
+  executor_id: executorID,
+  related_agent_id: b.id,
+});
+const scopedID = scopedDecision.items[0].attention_id;
+const momentItem = async () =>
+  (await a.h('console/moment')).items.find((i) => i.attention_id === scopedID);
+await assert.rejects(human()('console/moment'));
+assert(
+  !(await b.h('console/moment')).items.some((i) => i.attention_id === scopedID),
+);
+const beforeDecision = await momentItem();
+assert.equal(beforeDecision.related_agent.agent_id, b.id);
+const condition = '只确认当前身份，不联系任何人。';
+const response = await a.h(`console/attention-items/${scopedID}/respond`, {
+  action_key: 'choice_0',
+  expected_item_revision: beforeDecision.item_revision,
+  idempotency_key: crypto.randomUUID(),
+  condition,
+});
+const savedDecision = await momentItem();
+assert(['pending', 'notified'].includes(savedDecision.command.status));
+assert.equal(savedDecision.command.condition, condition);
+const scopedQueue = await a.client.pending_commands({
+  command_type: 'attention_response',
+  executor_id: executorID,
+});
+assert(scopedQueue.commands.some((c) => c.command_id === response.command_id));
+await assert.rejects(
+  a.client.claim_command({
+    command_id: response.command_id,
+    executor_id: 'wrong_host',
+  }),
+);
+const scopedClaim = await a.client.claim_command({
+  command_id: response.command_id,
+  executor_id: executorID,
+});
+assert.equal(scopedClaim.payload.authorization_scope, scope);
+assert.equal(scopedClaim.payload.condition, condition);
+const proof = {
+  command_id: response.command_id,
+  claim_token: scopedClaim.claim_token,
+  claim_epoch: scopedClaim.claim_epoch,
+};
+assert(
+  (await a.client.renew_command({ ...proof, executor_id: executorID }))
+    .claim_until > Date.now(),
+);
+assert.equal((await momentItem()).command.status, 'claimed');
+assert.equal((await a.client.get_profile()).public.agent_id, a.id);
+const receipt = {
+  ...proof,
+  command_type: 'attention_response',
+  status: 'completed',
+  result: { summary: '通过真实服务读回并核对了测试账号的公开身份。' },
+};
+await a.client.complete_command(receipt);
+await a.client.complete_command(receipt);
+const afterDecision = await momentItem();
+assert.equal(afterDecision.command.status, 'completed');
+assert.equal(afterDecision.command.result.summary, receipt.result.summary);
+assert.equal(afterDecision.command.authorization_scope, scope);
+console.log(
+  'PASS: authenticated Moment list, owner isolation, peer grouping, saved decision, bound claim, renewal and visible deduplicated receipt',
+);
+
 const recovered = new AgentNet({
   binary,
   home: resolve(directory, 'Recovered'),
@@ -493,8 +712,11 @@ const provision = await recovered.register_agent({
 const recoverHuman = human(),
   recoverLink = new URL(provision.console_url);
 await recoverHuman('console/handoffs/exchange', {
-  ticket: recoverLink.searchParams.get('ticket'),
-  browser_nonce: new URLSearchParams(recoverLink.hash.slice(1)).get('nonce'),
+  ticket:
+    new URLSearchParams(recoverLink.hash.slice(1)).get('connect') ||
+    recoverLink.searchParams.get('ticket'),
+  browser_nonce:
+    new URLSearchParams(recoverLink.hash.slice(1)).get('nonce') || '',
 });
 await assert.rejects(
   recoverHuman('auth/uid/claim', {

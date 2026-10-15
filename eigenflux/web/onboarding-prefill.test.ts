@@ -1,4 +1,3 @@
-import { defaultAvatarId } from './default-avatars.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prefillPortrait } from './onboarding-prefill.ts';
@@ -18,7 +17,7 @@ const blank = () => ({
 await test('legacy memory prefill survives empty modern placeholders', () => {
   const draft = {
     identity_card: {
-      agent_name: 'Codex',
+      agent_name: '未命名',
       agent_description: '通用助手',
       human_description: '研究社会网络，偏好简洁表达',
     },
@@ -41,13 +40,14 @@ await test('legacy memory prefill survives empty modern placeholders', () => {
   };
   const result = prefillPortrait(blank(), draft, 'Codex');
   assert.deepEqual(result.fields, {
-    name: 'Codex',
+    name: '',
     bio: '研究社会网络，偏好简洁表达',
     interests: '认知科学',
     role: '学生',
     values: '',
-    recent: '完成当前研究',
-    avatar: 'spark',
+    recent: '',
+    connections: '完成当前研究',
+    avatar: '',
   });
   assert.equal(result.memories[0].content, '完成一次研究实验');
   assert.equal(result.memories[0].showOnHome, false);
@@ -74,7 +74,7 @@ await test('modern portrait wins field by field while memories stay private', ()
     },
     'Codex',
   );
-  assert.deepEqual(result.fields, { ...fields, avatar: 'tide' });
+  assert.deepEqual(result.fields, { ...fields, connections: '', avatar: '' });
   assert.equal(result.memories[0].showOnHome, false);
 });
 await test('saved human edits and deliberately cleared fields cannot be refilled', () => {
@@ -91,22 +91,28 @@ await test('saved human edits and deliberately cleared fields cannot be refilled
 await test('absent memory never invents a personal biography', () => {
   const result = prefillPortrait(blank(), {}, 'Codex');
   assert.deepEqual(result.fields, {
-    name: 'Codex',
+    name: '',
     bio: '',
     interests: '',
     role: '',
     values: '',
     recent: '',
-    avatar: defaultAvatarId('Codex'),
+    avatar: '',
+    connections: '',
   });
   assert.deepEqual(result.memories, []);
 });
-await test('Agent avatar choice survives review and invalid URLs fall back to a local asset', () => {
+await test('custom Agent avatars survive review; unknown external URLs stay pending', () => {
   const draft = (avatar: string) => ({
     twin_profile: {
       portrait: { fields: { name: '朋友', interests: '音乐', avatar } },
     },
   });
+  const custom = '/api/v2/public/avatars/' + 'a'.repeat(32);
+  assert.equal(
+    prefillPortrait(blank(), draft(custom), '').fields.avatar,
+    custom,
+  );
   assert.equal(
     prefillPortrait(blank(), draft('bloom'), '').fields.avatar,
     'bloom',
@@ -114,7 +120,7 @@ await test('Agent avatar choice survives review and invalid URLs fall back to a 
   assert.equal(
     prefillPortrait(blank(), draft('https://example.com/pixel'), '').fields
       .avatar,
-    'tide',
+    '',
   );
   const saved = {
     ...blank(),
@@ -124,5 +130,48 @@ await test('Agent avatar choice survives review and invalid URLs fall back to a 
   assert.equal(
     prefillPortrait(saved, draft('bloom'), '').fields.avatar,
     'orbit',
+  );
+});
+
+await test('Agent capability descriptions cannot fill a personal portrait; connection goals never fill recent events', () => {
+  const p = prefillPortrait(
+    blank(),
+    {
+      identity_card: { agent_description: '我会查资料和推进任务' },
+      network_goal: '寻找可以一起慢慢聊书的人',
+    },
+    '林间',
+  );
+  assert.equal(p.fields.bio, '');
+  assert.equal(p.fields.recent, '');
+  assert.equal(p.fields.connections, '寻找可以一起慢慢聊书的人');
+});
+
+await test('merging old private preferences and roles preserves content without widening visibility', async () => {
+  const { mergeLegacyPortrait } = await import('./portrait-merge.ts');
+  const original = {
+    ...blank(),
+    fields: {
+      ...blank().fields,
+      bio: '伙伴简介',
+      interests: '已有兴趣',
+      values: '不愿公开的偏好',
+      role: '私人身份',
+    },
+  };
+  const merged = mergeLegacyPortrait(original);
+  assert.equal(merged.fields.interests, '已有兴趣\n\n不愿公开的偏好');
+  assert.equal(merged.fields.bio, '伙伴简介\n\n私人身份');
+  assert(!merged.visible.includes('interests'));
+  assert(!merged.visible.includes('bio'));
+  assert.equal(original.fields.interests, '已有兴趣');
+  assert.deepEqual(mergeLegacyPortrait(merged), merged);
+  const edited = {
+    ...merged,
+    fields: { ...merged.fields, interests: '主人修改后的兴趣' },
+  };
+  assert.equal(
+    mergeLegacyPortrait(edited).fields.interests,
+    '主人修改后的兴趣',
   );
 });

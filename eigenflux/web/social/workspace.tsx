@@ -1,4 +1,5 @@
 import { ThemeSwitcher } from '../theme';
+import { useEntryPreparation } from '../entry-preparation';
 import { UnreadDot, useUnreadMessages } from '../unread';
 import { AgentAvatar, rememberAvatar } from '../avatar';
 import {
@@ -12,6 +13,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Activity,
+  Moment as MomentIcon,
   Bookmark,
   Compass,
   FileText,
@@ -53,10 +55,14 @@ import { ContentTabs, useFeedMotion } from './content-motion';
 import { JournalAtmosphere, useJournalAtmosphere } from './journal-atmosphere';
 import { DemoSettings } from './social-settings';
 import type { WorkPost, SocialStore, Page } from './model';
+import { mergeFeedPage } from './feed-pages';
 import { liveSocialStore, uploadAttachment } from './store';
 import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
 import { LivePortrait } from './live-portrait';
+import { Crossing } from './crossing';
+import { Moment } from './moment';
+import type { CrossingView } from './crossing-data';
 import './workspace.css';
 import './polish.css';
 import './social-layout.css';
@@ -72,6 +78,7 @@ import './post-reading.css';
 import './post-detail.css';
 
 const nav = [
+  ['crossing', '此刻', MomentIcon],
   ['explore', '发现', Compass],
   ['messages', '消息', MessageCircle],
   ['network', '通讯录', Users],
@@ -88,6 +95,9 @@ const settingsItems = [
   ['activity', '活动记录', Activity],
 ] as const;
 const personalRoutes = new Set([
+  'crossing',
+  'crossing/encounters',
+  'crossing/traces',
   'me',
   'mine',
   'saved',
@@ -110,6 +120,8 @@ function readRoute(demo: boolean) {
   if (demo && route === 'security') return 'settings';
   if (route === 'mine') return 'me';
   if (route === 'relations') return 'network';
+  if (['crossing', 'crossing/encounters', 'crossing/traces'].includes(route))
+    return route;
   return ['explore', 'messages', 'network', ...personalRoutes].includes(route)
     ? route
     : 'explore';
@@ -164,6 +176,11 @@ export function SocialWorkspace({
   const [feed, setFeed] = useState(demo || guest ? 'recommended' : 'latest');
   const [page, setPage] = useState<Page>();
   const [cursor, setCursor] = useState('');
+  const feedEnd = useRef<HTMLDivElement>(null);
+  const feedQuery = useRef('');
+  const feedVersion = useRef(0);
+  const feedHistory = useRef(new Map<string, Page>());
+  const [feedRetry, setFeedRetry] = useState(0);
   const [loading, setLoading] = useState(true);
   const [version, setVersion] = useState(0);
   const [error, setError] = useState('');
@@ -172,6 +189,28 @@ export function SocialWorkspace({
   const [pending, setPending] = useState<string[]>([]);
   const [publisher, setPublisher] = useState<WorkPost | true>();
   const [detail, setDetail] = useState<WorkPost>();
+  const [linkVersion, setLinkVersion] = useState(0);
+  useEffect(() => {
+    const update = () => setLinkVersion((v) => v + 1);
+    window.addEventListener('popstate', update);
+    return () => window.removeEventListener('popstate', update);
+  }, []);
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get('post');
+    if (!id || route !== 'explore' || !/^\d+$/.test(id)) return;
+    let active = true;
+    void store
+      .get(id)
+      .then((post) => {
+        if (active) setDetail(post);
+      })
+      .catch(() => {
+        if (active) setNotice('这条动态暂时无法访问。');
+      });
+    return () => {
+      active = false;
+    };
+  }, [route, store, linkVersion]);
   const workspace = useRef<HTMLDivElement>(null);
   const atmosphere = useJournalAtmosphere(
     workspace,
@@ -237,7 +276,18 @@ export function SocialWorkspace({
     route,
   );
   const personRoute = route.startsWith('person/');
-  const personal = personalRoutes.has(route);
+  const crossingRoute = route === 'crossing' || route.startsWith('crossing/');
+  const crossingView: CrossingView =
+    route === 'crossing/encounters'
+      ? 'encounters'
+      : route === 'crossing/traces'
+        ? 'traces'
+        : 'now';
+  useEntryPreparation(
+    (feedRoute && !page && !error) || (personRoute && !personReady),
+    feedRoute && Boolean(error) && !page,
+  );
+  const personal = personalRoutes.has(route) && !crossingRoute;
   const profileIntro = portrait.fields.bio?.trim();
   const generation = useRef(0);
   const href = (id: string) =>
@@ -271,6 +321,14 @@ export function SocialWorkspace({
     }
     if (id === route) return;
     detailRefresh.current++;
+    // Infinite feeds can exceed the browser's serialized history size limit.
+    // Retain a few recent feed snapshots in memory, store only their keys.
+    const feedSnapshot = page ? crypto.randomUUID() : '';
+    if (page) {
+      feedHistory.current.set(feedSnapshot, page);
+      if (feedHistory.current.size > 4)
+        feedHistory.current.delete(feedHistory.current.keys().next().value!);
+    }
     history.replaceState(
       {
         ...history.state,
@@ -281,6 +339,7 @@ export function SocialWorkspace({
           topic,
           feed,
           cursor,
+          feedSnapshot,
           detail,
           scroll: window.scrollY,
           detailScroll:
@@ -322,6 +381,9 @@ export function SocialWorkspace({
           : requested;
       const saved = history.state?.elsewhereView;
       const view = saved?.route === nextRoute ? saved : undefined;
+      const restoredPage = view?.feedSnapshot
+        ? feedHistory.current.get(view.feedSnapshot)
+        : undefined;
       setRoute(nextRoute);
       setPersonReady(false);
       detailPosition.current = view?.detailScroll || 0;
@@ -341,13 +403,19 @@ export function SocialWorkspace({
               setReactionError('暂时无法更新这条动态，请关闭后重试。');
           });
       }
-      setCursor(view?.cursor || '');
+      setCursor(restoredPage ? view?.cursor || '' : '');
       setQuery(view?.query || '');
       setSearch(view?.search || '');
       setTopic(view?.topic || '');
       if (view?.feed) setFeed(view.feed);
       returnPosition.current = view?.scroll ?? 0;
-      setPage(undefined);
+      feedQuery.current = JSON.stringify([
+        nextRoute,
+        view?.search || '',
+        view?.topic || '',
+        view?.feed || feed,
+      ]);
+      setPage(restoredPage);
     };
     // Hash history traversal fires both events. Handle it once so a second
     // event cannot clear the feed after its load has already completed.
@@ -356,7 +424,7 @@ export function SocialWorkspace({
     return () => {
       window.removeEventListener(event, sync);
     };
-  }, [demo, guest, hashRouting, store]);
+  }, [demo, guest, hashRouting, store, feed]);
   useEffect(() => {
     if (
       returnPosition.current === undefined ||
@@ -371,8 +439,8 @@ export function SocialWorkspace({
     return () => cancelAnimationFrame(frame);
   }, [route, feedRoute, loading, page, personRoute, personReady]);
   useEffect(() => {
-    document.title = `${personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
-  }, [route, personal, personRoute]);
+    document.title = `${crossingRoute ? '此刻' : personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
+  }, [route, personal, personRoute, crossingRoute]);
   useEffect(() => {
     if (query === search) return;
     const timer = setTimeout(() => {
@@ -383,6 +451,19 @@ export function SocialWorkspace({
   }, [query, search]);
   useEffect(() => {
     if (!feedRoute) return;
+    const key = JSON.stringify([route, search, topic, feed]);
+    const changed = feedQuery.current !== key;
+    if (changed && cursor) {
+      setPage(undefined);
+      setCursor('');
+      return;
+    }
+    const refresh = !changed && feedVersion.current !== version;
+    feedQuery.current = key;
+    feedVersion.current = version;
+    if (changed) setPage(undefined);
+    const requestCursor = refresh ? '' : cursor;
+    const mode = refresh ? 'refresh' : requestCursor ? 'append' : 'replace';
     let active = true;
     const id = ++generation.current;
     setLoading(true);
@@ -406,7 +487,7 @@ export function SocialWorkspace({
         q: search,
         kind: 'all',
         tags: topic ? [topic] : [],
-        cursor,
+        cursor: requestCursor,
       })
       .then((p) => {
         if (active && generation.current === id) {
@@ -418,7 +499,7 @@ export function SocialWorkspace({
                     ['林间的 Agent', '小周的 Agent'].includes(item.author_name),
                   )
                 : p.items;
-            setPage({
+            p = {
               ...p,
               items:
                 feed === 'recommended'
@@ -428,8 +509,11 @@ export function SocialWorkspace({
                         (b.published_at || b.created_at) -
                         (a.published_at || a.created_at),
                     ),
-            });
-          } else setPage(p);
+            };
+          }
+          setPage((previous) =>
+            mergeFeedPage(previous, p, mode, requestCursor),
+          );
         }
       })
       .catch((e) => {
@@ -441,7 +525,44 @@ export function SocialWorkspace({
     return () => {
       active = false;
     };
-  }, [store, route, search, topic, cursor, version, feedRoute, feed, demo]);
+  }, [
+    store,
+    route,
+    search,
+    topic,
+    cursor,
+    version,
+    feedRetry,
+    feedRoute,
+    feed,
+    demo,
+  ]);
+  useEffect(() => {
+    const node = feedEnd.current;
+    if (!node || !feedRoute || loading || error || !page?.next_cursor) return;
+    let observer: IntersectionObserver;
+    const observe = () => {
+      observer?.disconnect();
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            // A refresh can cancel an in-flight append. Retry that same cursor
+            // rather than leaving the sentinel unable to trigger a state change.
+            if (page.next_cursor === cursor) setFeedRetry((v) => v + 1);
+            setCursor(page.next_cursor);
+          }
+        },
+        { rootMargin: `0px 0px ${window.innerHeight}px 0px` },
+      );
+      observer.observe(node);
+    };
+    observe();
+    window.addEventListener('resize', observe);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', observe);
+    };
+  }, [feedRoute, page, loading, error, cursor]);
   useEffect(() => {
     if (demo || guest) return;
     const onRefresh = () => setVersion((v) => v + 1);
@@ -496,9 +617,9 @@ export function SocialWorkspace({
       setPending((ids) => ids.filter((x) => x !== post.id));
     }
   }
-  const activeNav = personal ? 'me' : route;
+  const activeNav = crossingRoute ? 'crossing' : personal ? 'me' : route;
   const renderNav = (
-    ids: readonly string[] = ['explore', 'messages', 'network'],
+    ids: readonly string[] = ['crossing', 'explore', 'messages', 'network'],
   ) =>
     nav
       .filter(([id]) => ids.includes(id))
@@ -516,6 +637,7 @@ export function SocialWorkspace({
           }
           title={label}
           className="ew-flip-nav"
+          data-nav={id}
         >
           <span className="ew-nav-stage" aria-hidden="true">
             <span className="ew-nav-label">{label}</span>
@@ -530,7 +652,7 @@ export function SocialWorkspace({
       ));
   return (
     <div
-      className="sw-workspace sn-social ew-social"
+      className="sw-workspace sn-social ew-social cx-enabled"
       data-page={route}
       data-guest={guest || undefined}
       ref={workspace}
@@ -587,7 +709,9 @@ export function SocialWorkspace({
             <strong>
               {guest
                 ? '登录 / 加入'
-                : portrait.fields.name || session.agent_name}
+                : demo
+                  ? portrait.fields.name || session.agent_name
+                  : session.agent_name}
             </strong>
           </span>
         </a>
@@ -629,7 +753,12 @@ export function SocialWorkspace({
                 <SocialIdentity
                   agentId={session.agent_id}
                   avatar={portrait.fields.avatar}
-                  name={portrait.fields.name || session.agent_name}
+                  name={
+                    demo
+                      ? portrait.fields.name || session.agent_name
+                      : session.agent_name
+                  }
+                  ownerName={!demo ? portrait.fields.name : undefined}
                   bio={profileIntro}
                   interests={portrait.fields.interests}
                   accessibleName="我的身份"
@@ -639,7 +768,7 @@ export function SocialWorkspace({
                           .filter((field) => field.key !== 'name')
                           .map((field) => ({
                             label: field.label,
-                            value: portrait.fields[field.key],
+                            value: portrait.fields[field.key] || '',
                           }))
                       : [{ label: '自我介绍', value: profileIntro || '' }]
                   }
@@ -683,7 +812,23 @@ export function SocialWorkspace({
         {personal && ['liked', 'saved', 'drafts'].includes(route) && (
           <p className="sw-hint sn-private-note">仅自己可见</p>
         )}
-        {personRoute ? (
+        {crossingRoute ? (
+          demo ? (
+            <Crossing
+              view={crossingView}
+              onView={(view) =>
+                go(view === 'now' ? 'crossing' : `crossing/${view}`)
+              }
+              onExplore={() => go('explore')}
+            />
+          ) : (
+            <Moment
+              key={session.agent_id}
+              agentId={session.agent_id}
+              onExplore={() => go('explore')}
+            />
+          )
+        ) : personRoute ? (
           <PersonHome
             onRequireLogin={onRequireLogin}
             viewerId={session.agent_id}
@@ -785,7 +930,7 @@ export function SocialWorkspace({
                 </button>
               </div>
             )}
-            {error ? (
+            {error && !page ? (
               <div className="sw-feed-error" role="alert">
                 <strong>暂时无法读取动态</strong>
                 <p>{error}</p>
@@ -888,19 +1033,25 @@ export function SocialWorkspace({
                     </button>
                   </div>
                 )}
-                {(cursor || page?.next_cursor) && (
-                  <div className="sw-pagination">
-                    <button disabled={!cursor} onClick={() => setCursor('')}>
-                      回到最新
-                    </button>
-                    <button
-                      disabled={!page?.next_cursor}
-                      onClick={() => setCursor(page?.next_cursor || '')}
-                    >
-                      下一页
-                    </button>
-                  </div>
-                )}
+                <div ref={feedEnd} className="sw-feed-end" aria-live="polite">
+                  {error ? (
+                    <div role="alert">
+                      <p>{error}</p>
+                      <button onClick={() => setFeedRetry((v) => v + 1)}>
+                        重试加载
+                      </button>
+                    </div>
+                  ) : loading ? (
+                    <output className="sw-feed-dots">
+                      <span className="sw-sr-only">正在加载更多动态…</span>
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                      <i aria-hidden="true" />
+                    </output>
+                  ) : page && page.items.length > 0 && !page.next_cursor ? (
+                    '已经看完全部动态'
+                  ) : null}
+                </div>
               </>
             )}
           </>
@@ -1094,7 +1245,7 @@ export function SocialWorkspace({
         )}
       </main>
       <nav className="sw-mobile-nav" aria-label="移动导航">
-        {renderNav(['explore', 'messages'])}
+        {renderNav(['crossing', 'explore', 'messages'])}
         <button
           className="ew-mobile-publish"
           onClick={() =>
@@ -1111,26 +1262,42 @@ export function SocialWorkspace({
           draftKey={session.agent_id}
           mode="direct"
           upload={demo ? undefined : uploadAttachment}
-          authorName={portrait.fields.name || session.agent_name}
+          authorName={
+            demo
+              ? portrait.fields.name || session.agent_name
+              : session.agent_name
+          }
           agentId={session.agent_id}
           avatar={portrait.fields.avatar}
           onClose={() => setPublisher(undefined)}
           onPublish={async (input) => {
-            if (demo)
-              await (store as PreviewStore).share({
-                ...input,
-                name: portrait.fields.name,
-              });
-            else
-              await api('console/social/share', {
-                title: input.title,
-                tags: input.tags,
-                content: input.content,
-                visibility: input.visibility,
-                media: input.media,
-                idempotency_key: input.key,
-              });
+            const published = demo
+              ? await (store as PreviewStore).share({
+                  ...input,
+                  name: portrait.fields.name,
+                })
+              : await api<WorkPost>('console/social/share', {
+                  title: input.title,
+                  tags: input.tags,
+                  content: input.content,
+                  visibility: input.visibility,
+                  media: input.media,
+                  idempotency_key: input.key,
+                });
+            if (
+              !published?.id ||
+              published.state !== 'published' ||
+              published.agent_id !== session.agent_id
+            )
+              throw new Error(
+                '服务器尚未确认这条动态发布成功，请保留内容后重试。',
+              );
             go('me');
+            setCursor('');
+            setQuery('');
+            setSearch('');
+            setTopic('');
+            setPage(undefined);
             reload();
             setNotice('动态已发布。');
           }}
@@ -1147,6 +1314,11 @@ export function SocialWorkspace({
           }}
           onPublished={() => {
             go('me');
+            setCursor('');
+            setQuery('');
+            setSearch('');
+            setTopic('');
+            setPage(undefined);
             reload();
             setNotice('动态已发布。');
           }}
@@ -1164,7 +1336,9 @@ export function SocialWorkspace({
           viewer={{
             avatar: portrait.fields.avatar,
             id: session.agent_id,
-            name: portrait.fields.name || session.agent_name,
+            name: demo
+              ? portrait.fields.name || session.agent_name
+              : session.agent_name,
           }}
           sourceRect={detailOrigin.current}
           initialScroll={detailPosition.current}
@@ -1174,6 +1348,11 @@ export function SocialWorkspace({
           onClose={() => {
             const id = detail.id;
             setDetail(undefined);
+            const url = new URL(location.href);
+            if (url.searchParams.has('post')) {
+              url.searchParams.delete('post');
+              history.replaceState(history.state, '', url);
+            }
             requestAnimationFrame(() => {
               const origin = Array.from(
                 document.querySelectorAll<HTMLElement>(

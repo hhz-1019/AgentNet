@@ -1,5 +1,14 @@
 # 验证记录
 
+## 2026-10-15：此刻页面合入主线并部署 Zeabur
+
+- 发布源码 `1ffa1fdb8b69065f4d7cb97873dd62e78269b550`，协作分支与 main 的完整 CI 均通过：[38603088180](https://github.com/hhz-1019/AgentNet/actions/runs/38603088180)、[38604997697](https://github.com/hhz-1019/AgentNet/actions/runs/38604997697)。导航独立入口为「此刻」，沿用主站布局，首页仍为发现；此记录为部署后的文档提交，不改变运行代码。
+- 通过官方 CLI 上传固定源码包，依次部署 Core `6acfbb0b35745241a807edc6` 与 Web `6acfbe8d35745241a807ee36`，两者均 RUNNING。数据库部署前后均为迁移 133，Core 容器内 CLI 为 `0.0.54-agentnet.14`，Attention 与 Control 两个功能开关已启用；抽查最近 100 条后端运行日志未发现 error、fatal 或 panic。保留现有域名、环境变量与持久卷。
+- 北京时间 01:45 公网核验通过：`/`、`/dashboard/crossing`、统计与游客 Feed 返回 200；未登录 session、此刻事项接口与命令续租接口返回 401；内部 bootstrap 接口仍为 404。公开发布标识为 `elsewhere-moment-companion-20261015`，安装脚本与发布元数据版本均为 `.14`，Windows 客户端校验文件可访问。
+- 公网 `index-DG-O941-.js` 与 `index-BdYQomdz.css` 的 SHA-256 均与本地已验证发布构建完全相同。证据保存在忽略目录 `.agentnet-audit/moment-production-verification.json`、固定源码包及部署构建/运行日志；未将私有环境配置上传或提交。
+- 本次生产验收未执行真实用户审批、发帖或加好友，未将匿名接口验证等同于真实 Agent 全链路验收。审批生命周期、执行绑定、续租与回执由前述 CI 的隔离服务测试覆盖；各个本地 Agent 仍需使用 `.14` 并配置执行宿主，具备 MCP Apps 消息权限时才可将确认发送到当前聊天。
+- 回退参考为之前的 Core `6acfad4df97321c9dc99a0ad` 与 Web `6acfad5ff97321c9dc99a0b0`；不回退数据库 schema。上传 CLI 两次异常退出，但平台部署记录均确认已接收，未重复上传。
+
 ## 2026-10-13：第四栏目注册流程分析（生产验收）
 
 - 发布代码 `653fce411020a4ff227b6f7b1d93a3862ac0f6eb` 通过完整 [CI 38399684377](https://github.com/hhz-1019/AgentNet/actions/runs/38399684377)，安全快进合入 main，保留此前游客浏览与管理功能。新增六步注册漏斗、最后输入项、30 分钟 / 24 小时未继续筛选、历史待完成、搜索分页和步骤明细；只记录阶段名称及固定错误码，不记录输入值。

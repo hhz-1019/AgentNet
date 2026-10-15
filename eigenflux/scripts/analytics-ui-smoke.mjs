@@ -121,14 +121,24 @@ try {
   const pausedCalls = calls;
   await page.clock.fastForward(20000);
   assert.equal(calls, pausedCalls);
+  const resumedResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes('/console/analytics?') &&
+      response.status() === 200,
+  );
   await page.getByRole('button', { name: '开启自动刷新' }).click();
+  await (await resumedResponse).finished();
   await page.waitForFunction(
     () =>
       !document.querySelector('.analytics-actions button:nth-child(2)')
         .disabled,
   );
   const resumedCalls = calls;
-  await page.clock.fastForward(16000);
+  const polledRequest = page.waitForRequest((request) =>
+    request.url().includes('/console/analytics?'),
+  );
+  await page.clock.runFor(16000);
+  await polledRequest;
   await page.waitForFunction(
     () =>
       !document.querySelector('.analytics-actions button:nth-child(2)')

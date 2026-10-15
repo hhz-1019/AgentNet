@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 const messages: Record<string, string> = {
-  HANDOFF_INVALID:
-    '这个一次性认领链接已使用、已过期或不完整。请继续已有会话、使用 账号 登录，或让原 Agent 生成新链接。',
+  HANDOFF_INVALID: '请登录账号继续。',
+  CONNECTION_INVALID: '无法打开注册页面，请从原 Agent 重新打开。',
   REVISION_CONFLICT: '资料已更新。你的填写仍保留，请核对最新资料后重试。',
   CONSOLE_ACCOUNT_LIMIT_REACHED:
     '此浏览器已登录五位 Agent，请选择一个会话退出后继续。',
-  CONSOLE_SESSION_REQUIRED:
-    '登录会话已失效，请使用 账号 重新登录，原 Agent 身份不会丢失。',
+  CONSOLE_SESSION_REQUIRED: '请重新登录账号。',
+  CONSOLE_SESSION_INVALID: '请重新登录账号。',
   CSRF_INVALID: '页面的登录状态已变化，请重新打开控制台后再保存。',
-  OWNER_BINDING_REQUIRED: '请先使用 账号 认领这位 Agent，再继续配置。',
+  OWNER_BINDING_REQUIRED: '请登录账号继续。',
 };
 export class ApiError extends Error {
   constructor(
@@ -48,6 +48,7 @@ export async function api<T>(
     credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      ...(window.parent !== window ? { 'X-Console-Embedded': '1' } : {}),
       ...(method === 'GET'
         ? {}
         : { 'X-CSRF-Token': csrfCookie(document.cookie) }),
@@ -75,13 +76,22 @@ export async function api<T>(
     !response.ok ||
     result.error ||
     (typeof result.code === 'number' && result.code !== 0)
-  )
+  ) {
+    if (
+      path !== 'console/session' &&
+      !path.startsWith('auth/') &&
+      !path.startsWith('console/handoffs') &&
+      (response.status === 401 ||
+        result.error?.code === 'OWNER_BINDING_REQUIRED')
+    )
+      refreshData();
     throw new ApiError(
       response.status,
       result.error?.message || result.msg || '请求失败',
       result.error?.code,
       result.error?.details,
     );
+  }
   return result.data as T;
 }
 export const refreshData = () =>

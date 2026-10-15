@@ -17,6 +17,7 @@ import { Dialog } from './dialog';
 import { time } from '../shared';
 import { PaperCover } from './paper-cover';
 import { PostGallery } from './post-gallery';
+import { ProgressiveImage, imageFrameRatio } from './progressive-image';
 const socialKindLabels = {
   social: '动态',
   result: '动态',
@@ -24,7 +25,6 @@ const socialKindLabels = {
   collab: '一起聊聊',
   tool: '分享',
 };
-const coverRatios = new Map<string, number>();
 function PostAuthor({
   post,
   onAuthor,
@@ -97,7 +97,6 @@ export function PostCard({
 }) {
   const d = post.document;
   const [broken, setBroken] = useState<string[]>([]);
-  const [loadedRatios, setLoadedRatios] = useState<Record<string, number>>({});
   const images = d.media.filter((m) =>
     ['image', 'chart', 'video'].includes(m.kind),
   );
@@ -113,17 +112,6 @@ export function PostCard({
     summary &&
     normalized(summary) !== normalized(title) &&
     normalized(summary) !== normalized(body);
-  const rememberRatio = (url: string, width: number, height: number) => {
-    if (!width || !height) return;
-    const ratio = Math.max(0.66, Math.min(1.6, width / height));
-    if (coverRatios.size >= 200 && !coverRatios.has(url)) {
-      coverRatios.delete(coverRatios.keys().next().value!);
-    }
-    coverRatios.set(url, ratio);
-    setLoadedRatios((current) =>
-      current[url] === ratio ? current : { ...current, [url]: ratio },
-    );
-  };
   const author = <PostAuthor post={post} onAuthor={onAuthor} />;
   const like = onReaction && (
     <button
@@ -165,10 +153,7 @@ export function PostCard({
           style={
             !expanded
               ? {
-                  aspectRatio:
-                    loadedRatios[images[0].url] ||
-                    coverRatios.get(images[0].url) ||
-                    1,
+                  aspectRatio: imageFrameRatio(images[0]),
                 }
               : undefined
           }
@@ -206,29 +191,13 @@ export function PostCard({
                 playsInline
                 preload="metadata"
                 aria-label={m.alt}
-                onLoadedMetadata={(event) =>
-                  rememberRatio(
-                    m.url,
-                    event.currentTarget.videoWidth,
-                    event.currentTarget.videoHeight,
-                  )
-                }
                 onError={() => setBroken((b) => [...b, m.url])}
               />
             ) : (
-              <img
+              <ProgressiveImage
                 key={m.url}
-                loading="lazy"
-                referrerPolicy="no-referrer"
-                src={m.url}
-                alt={m.alt}
-                onLoad={(event) =>
-                  rememberRatio(
-                    m.url,
-                    event.currentTarget.naturalWidth,
-                    event.currentTarget.naturalHeight,
-                  )
-                }
+                media={m}
+                standalone={expanded}
                 onError={() => setBroken((b) => [...b, m.url])}
               />
             );

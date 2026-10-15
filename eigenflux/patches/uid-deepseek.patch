@@ -119,7 +119,7 @@
  	"context"
  	"encoding/json"
  	"errors"
-@@ -160,6 +161,21 @@
+@@ -160,6 +161,20 @@
  	// completes the claim step.
  	legacyIdentityTrusted := identity.LegacyIdentityTrusted
  	emailBound := identity.EmailVerified
@@ -129,7 +129,6 @@
 +        if err := s.db.Raw(`SELECT a.account_number::text FROM agent_owners o JOIN human_accounts a ON a.uid=o.owner_uid WHERE o.agent_id=?`, id).Scan(&ownerUID).Error; err != nil {
 +            fail(c, 500, "SESSION_READ_FAILED", "could not read owner", nil); return
 +        }
-+        ownerBound = ownerUID != "" && state.State == "completed"
 +        if !ownerBound {
 +            sessionID, _ := c.Get("console_session_id")
 +            if err := s.db.Raw(`SELECT EXISTS (SELECT 1 FROM console_v2_sessions s JOIN agent_owners o ON o.agent_id=s.agent_id AND o.owner_uid=s.owner_uid WHERE s.session_id=? AND s.auth_method='uid_password' AND s.status='active')`, sessionID).Scan(&ownerBound).Error; err != nil {

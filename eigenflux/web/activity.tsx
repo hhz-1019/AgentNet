@@ -146,7 +146,7 @@ interface SourceBroadcast {
   author_identity?: { display_name: string };
   content_truncated?: boolean;
 }
-function AttentionSource({ id }: { id: string }) {
+export function AttentionSource({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
   const q = useData<{
     detail: SourceBroadcast & {
@@ -301,14 +301,32 @@ export function TodayPage({ session }: { session: Session }) {
 }
 
 export function AttentionPage() {
+  const target = new URLSearchParams(location.search).get('item') || '';
+  const selected = /^\d+$/.test(target);
+  const one = useData<Attention>(
+    selected ? `console/attention-items/${target}` : null,
+  );
   const [status, setStatus] = useState('open');
   const [cursor, setCursor] = useState('');
   const q = useData<{ attention_items: Attention[]; next_cursor: string }>(
-    'console/attention-items?status=' +
-      status +
-      '&cursor=' +
-      encodeURIComponent(cursor),
+    selected
+      ? null
+      : 'console/attention-items?status=' +
+          status +
+          '&cursor=' +
+          encodeURIComponent(cursor),
   );
+  if (selected)
+    return (
+      <>
+        <header>
+          <h1>你的决定</h1>
+        </header>
+        <ErrorBox error={one.error} retry={one.reload} />
+        {one.data && <AttentionList items={[one.data]} reload={one.reload} />}
+        {!one.data && !one.error && <Blank>正在读取…</Blank>}
+      </>
+    );
   return (
     <>
       <header>

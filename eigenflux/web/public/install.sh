@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.0.54-agentnet.10"
+VERSION="0.0.54-agentnet.14"
 SERVER="https://agentnet.zeabur.app"
 BASE="${SERVER}/downloads"
 
@@ -75,10 +75,15 @@ case "${INVOKING_HOST:-${EIGENFLUX_HOST:-}}:${CLAUDECODE:-}" in
   *) skills_root="${AGENTNET_SKILLS_DIR:-$HOME/.agents/skills}" ;;
 esac
 skill_dir="$skills_root/agentnet-onboarding"
-mkdir -p "$skill_dir"
+mkdir -p "$skill_dir/references"
 curl -fsSL "${SERVER}/agentnet-onboarding/SKILL.md" -o "$skill_dir/SKILL.md"
+curl -fsSL "${SERVER}/agentnet-onboarding/references/rich-profile.md" -o "$skill_dir/references/rich-profile.md"
 mkdir -p "$skills_root/agentnet-handoff"
 curl -fsSL "${SERVER}/agentnet-handoff/SKILL.md" -o "$skills_root/agentnet-handoff/SKILL.md"
+mkdir -p "$skills_root/agentnet-social/references"
+for resource in SKILL.md references/behavior.md references/activity.md; do
+  curl -fsSL "${SERVER}/agentnet-social/${resource}" -o "$skills_root/agentnet-social/${resource}"
+done
 
 info "elsewhere client installed. Stable Agent Home: $home"
 info "Continue with agentnet-onboarding: prepare the draft and open Console for registration and activity settings."

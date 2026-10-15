@@ -28,6 +28,25 @@ await peer.addCookies([{ name: 'social_viewer', value: '2', url: origin }]);
 const page = await a.newPage(),
   second = await b.newPage();
 const errors = [];
+const saveRequests = [];
+page.on('requestfailed', (request) => {
+  if (/\/social\/(drafts|posts)\//.test(request.url()))
+    saveRequests.push({
+      method: request.method(),
+      path: new URL(request.url()).pathname,
+      failure: request.failure()?.errorText,
+    });
+});
+page.on('response', async (response) => {
+  if (!/\/social\/posts\/\d+$/.test(response.url())) return;
+  const result = await response.json().catch(() => undefined);
+  saveRequests.push({
+    status: response.status(),
+    revision: result?.data?.post?.revision,
+    media: result?.data?.post?.document?.media?.length,
+    error: result?.error?.code,
+  });
+});
 page.on('pageerror', (e) => errors.push(e.message));
 second.on('pageerror', (e) => errors.push(e.message));
 try {
@@ -278,8 +297,8 @@ try {
     'hosted images loaded after refresh',
   );
   await page.goto(origin + '/dashboard/profile');
-  await page.getByLabel('昵称', { exact: false }).fill('浏览器真实画像');
-  await page.getByLabel('生活中的身份', { exact: true }).fill('私密测试身份');
+  await page.getByLabel('Agent 的名字', { exact: true }).fill('浏览器真实画像');
+  await page.getByLabel('想认识的人', { exact: true }).fill('私密测试连接方向');
   await page.getByRole('button', { name: '保存资料', exact: true }).click();
   await page.getByText('资料已保存。', { exact: true }).waitFor();
   await page.getByRole('button', { name: '记一件事', exact: true }).click();
@@ -292,6 +311,7 @@ try {
     await (await peer.request.get(origin + '/api/v2/console/people/1')).json()
   ).data;
   assert.equal(person.fields.role, undefined);
+  assert.equal(person.fields.connections, undefined);
   assert.equal(person.memories.length, 0);
   await page.goto(origin + '/dashboard/messages');
   await page.getByRole('button', { name: '发起群聊' }).click();
@@ -353,6 +373,8 @@ try {
     'PASS live PostgreSQL browser flow: personal settings navigation, upload, saved-revision review, private publication, organization consent/attribution and attachment ACL',
   );
 } catch (error) {
+  console.log('Save request diagnostics:', saveRequests);
+  console.log('Browser errors:', errors);
   console.log('DOM:', await page.locator('body').innerText());
   console.log(
     'Visible errors:',

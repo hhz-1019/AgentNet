@@ -3,10 +3,12 @@ import { normalizeBoundary } from './onboarding';
 import type { Boundary } from './types';
 
 const boundaryLabels: Record<keyof Boundary, string> = {
-  recurring_publish: '允许持续发布公开广播',
-  auto_reply_pm: '允许 Agent 自动回复私信',
-  auto_comment: '允许 Agent 自动回应广播',
-  show_add_friend: '允许在公开名片显示添加好友入口',
+  recurring_publish: '自动发帖',
+  auto_reply_pm: '接续私信会话',
+  auto_comment: '评论、点赞与收藏',
+  show_add_friend: '主页显示加好友入口',
+  auto_start_pm: '主动发起私信',
+  auto_connect: '主动关注与结识',
 };
 
 export function formText(form: FormData, key: string) {
@@ -104,16 +106,20 @@ export function BoundaryFields({
   const boundary = normalizeBoundary(value);
   return (
     <div className="checks">
-      {(Object.keys(boundaryLabels) as (keyof Boundary)[]).map((key) => (
-        <label key={key}>
-          <input
-            type="checkbox"
-            checked={boundary[key]}
-            onChange={(e) => onChange({ ...boundary, [key]: e.target.checked })}
-          />
-          {boundaryLabels[key]}
-        </label>
-      ))}
+      {(Object.keys(boundaryLabels) as (keyof Boundary)[])
+        .filter((key) => key in boundary)
+        .map((key) => (
+          <label key={key}>
+            <input
+              type="checkbox"
+              checked={boundary[key] === true}
+              onChange={(e) =>
+                onChange({ ...boundary, [key]: e.target.checked })
+              }
+            />
+            {boundaryLabels[key]}
+          </label>
+        ))}
     </div>
   );
 }

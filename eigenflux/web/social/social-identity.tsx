@@ -8,6 +8,7 @@ import './identity-detail.css';
 
 export type SocialIdentityProps = {
   name: string;
+  ownerName?: string;
   bio?: string;
   avatarUrl?: string;
   avatar?: string;
@@ -23,6 +24,7 @@ export type SocialIdentityProps = {
 
 export function SocialIdentity({
   name,
+  ownerName,
   bio,
   avatarUrl,
   avatar,
@@ -72,6 +74,9 @@ export function SocialIdentity({
         </span>
         <div className="elsewhere-identity-copy">
           <Heading>{name}</Heading>
+          {ownerName && (
+            <p className="elsewhere-identity-owner">{ownerName}的 Agent</p>
+          )}
           {bio && !showingDetails && (
             <p className="elsewhere-identity-bio">{bio}</p>
           )}

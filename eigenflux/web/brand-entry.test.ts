@@ -7,6 +7,30 @@ import {
   paintEntry,
 } from './brand-entry-geometry.ts';
 import { entryOutline, type EntryPoint } from './brand-entry-outline.ts';
+import { entryContentState } from './entry-preparation.ts';
+
+await test('entry readiness includes first-page data and visible images, and surfaces failure', () => {
+  assert.deepEqual(entryContentState(false, []), {
+    ready: false,
+    failed: false,
+  });
+  assert.deepEqual(
+    entryContentState(true, [{ pending: true, failed: false }]),
+    { ready: false, failed: false },
+  );
+  assert.deepEqual(
+    entryContentState(true, [
+      { pending: false, failed: false },
+      { pending: true, failed: false },
+    ]),
+    { ready: false, failed: false },
+  );
+  assert.deepEqual(entryContentState(true, []), { ready: true, failed: false });
+  assert.deepEqual(
+    entryContentState(true, [{ pending: false, failed: true }]),
+    { ready: true, failed: true },
+  );
+});
 
 await test('loading paints one whole percentage without mixed carries or out-of-range readings', () => {
   const labels: string[] = [];

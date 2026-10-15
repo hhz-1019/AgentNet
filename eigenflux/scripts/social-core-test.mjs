@@ -3,19 +3,22 @@ import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 import { cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { resolve, basename } from 'node:path';
 await mkdir('.agentnet-audit', { recursive: true });
 const dir = await mkdtemp(resolve('.agentnet-audit/social-core-'));
 await cp('upstream/eigenflux', dir, {
   recursive: true,
-  filter: (s) => !s.endsWith('/.git'),
+  filter: (s) => basename(s) !== '.git',
 });
+// Apply patches relative to this isolated checkout, not the parent repository.
+execFileSync('git', ['init', '--quiet'], { cwd: dir });
 for (const patch of [
   'domestic-providers',
   'uid-deepseek',
   'official-assistant',
   'community-activation',
   'social-workspace',
+  'account-connection',
 ])
   execFileSync(
     'git',
@@ -39,6 +42,8 @@ const migrations = await Promise.all(
     '000111_project_handoffs.sql',
     '000112_digital_twin.sql',
     '000119_elsewhere_social.sql',
+    '000130_agent_companions.sql',
+    '000131_agent_avatars.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 await db.exec(
@@ -53,12 +58,15 @@ await db.exec(
   ).split('-- +goose Down')[0],
 );
 await db.exec(
-  "ALTER TABLE agents ADD COLUMN bio TEXT NOT NULL DEFAULT ''; ALTER TABLE agents ADD COLUMN identity_state TEXT NOT NULL DEFAULT 'active'; ALTER TABLE conversations ADD COLUMN topic_status SMALLINT NOT NULL DEFAULT 1;",
+  "ALTER TABLE agents ADD COLUMN agent_name_en TEXT DEFAULT ''; ALTER TABLE agents ADD COLUMN updated_at BIGINT DEFAULT 0; ALTER TABLE agents ADD COLUMN bio TEXT NOT NULL DEFAULT ''; ALTER TABLE agents ADD COLUMN identity_state TEXT NOT NULL DEFAULT 'active'; ALTER TABLE conversations ADD COLUMN topic_status SMALLINT NOT NULL DEFAULT 1;",
 );
 for (const migration of migrations)
   await db.exec(migration.split('-- +goose Down')[0]);
 await db.exec(
   'CREATE TABLE social_follow_friendships(from_uid BIGINT,to_uid BIGINT,PRIMARY KEY(from_uid,to_uid))',
+);
+await db.exec(
+  `CREATE TABLE agent_onboarding_drafts(agent_id BIGINT,revision BIGINT,draft_data JSONB); CREATE TABLE agent_network_goals(goal_id BIGSERIAL PRIMARY KEY,agent_id BIGINT,goal_text TEXT,source TEXT,status TEXT,version BIGINT,created_at BIGINT,updated_at BIGINT); CREATE TABLE agent_context_heads(agent_id BIGINT PRIMARY KEY,active_revision BIGINT);`,
 );
 const port = Number(process.env.AGENTNET_SOCIAL_TEST_PORT || 15439),
   socket = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
@@ -82,14 +90,20 @@ try {
         '-run',
         process.argv.includes('--regression')
           ? '.'
-          : 'TestSocial|TestTwin|TestElsewhere',
+          : process.argv.includes('--moment')
+            ? 'TestMoment'
+            : 'TestSocial|TestTwin|TestElsewhere',
         '-count=1',
+        ...(process.argv.includes('--serve') ? ['-timeout=0'] : []),
         '-v',
       ],
       {
         cwd: dir,
         env: {
           ...process.env,
+          AGENTNET_MOMENT_PREVIEW_PORT: process.argv.includes('--serve')
+            ? '4320'
+            : '',
           AGENTNET_SOCIAL_BROWSER_SCRIPT: process.argv.includes('--browser')
             ? resolve('eigenflux/scripts/social-live-ui.mjs')
             : '',
@@ -108,7 +122,11 @@ try {
     );
     if (videoCount.rows[0].n) {
       await assert.rejects(
-        db.exec(migrations.at(-1).split('-- +goose Down')[1]),
+        db.exec(
+          migrations
+            .find((m) => m.includes('social_media_content_type_check'))
+            .split('-- +goose Down')[1],
+        ),
         /social_media_content_type_check/,
       );
       await db.exec(

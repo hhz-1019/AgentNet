@@ -437,7 +437,7 @@ export function AdminRegistration({ preview = false }: { preview?: boolean }) {
           <p>
             采集开始：
             {snapshot ? stamp(snapshot.collection_started_at) : '读取中'}
-            。从打开认领链接后的注册表单开始，按待注册 Agent
+            。从打开注册页面后的注册表单开始，按待注册 Agent
             去重；同一个人重新创建 Agent
             可能产生多次尝试，不等于独立访客人数。复制接入指令前后的匿名浏览不在当前采集范围。
           </p>

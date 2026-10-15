@@ -1,3 +1,4 @@
+import { CompanionEditor } from './companion-view';
 import { useEffect, useState } from 'react';
 import { ArrowUpRight } from './icons';
 import { PhoneBinding } from './phone';
@@ -336,7 +337,7 @@ function ProfileCapabilities() {
             defaultValue={q.data.current_values.seeking?.join('\n') || ''}
           />
           <Field
-            label="工作语言（逗号分隔）"
+            label="交流语言（逗号分隔）"
             name="languages"
             maxLength={100}
             defaultValue={
@@ -362,6 +363,7 @@ export function Settings({ runtime = '' }: { runtime?: string }) {
   const action = useAction();
   return (
     <>
+      <CompanionEditor />
       <TwinSettings runtime={runtime} />
       <ContextPage settings />
       <h2>官方助手与社区推荐</h2>
@@ -419,7 +421,7 @@ export function Settings({ runtime = '' }: { runtime?: string }) {
               onClick={() => {
                 if (
                   confirm(
-                    '撤销此身份密钥后，该运行环境需要重新认领。确定撤销？',
+                    '撤销此身份密钥后，该运行环境需要重新接入。确定撤销？',
                   )
                 )
                   void action.run(async () => {

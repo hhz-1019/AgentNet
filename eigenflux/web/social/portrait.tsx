@@ -1,18 +1,9 @@
-import { AgentAvatar } from '../avatar';
-import {
-  defaultAvatars,
-  isDefaultAvatar,
-  suggestAvatar,
-} from '../default-avatars';
+import { isPortraitAvatar, avatarUrl } from '../default-avatars';
+import { api } from '../api';
+import type { CompanionSettings } from '../companion';
+import { CompanionPreferences } from '../companion-view';
 import { useEffect, useId, useRef, useState } from 'react';
-import {
-  ArrowRight,
-  BookOpen,
-  Eye,
-  LockKeyhole,
-  Plus,
-  Search,
-} from '../icons';
+import { ArrowRight, BookOpen, Eye, LockKeyhole, Plus, Search } from '../icons';
 import { Dialog } from './dialog';
 import {
   emptyMemory,
@@ -21,6 +12,7 @@ import {
   type Portrait,
   type PortraitField,
 } from './portrait-data';
+import { mergeLegacyPortrait } from '../portrait-merge';
 import './profile-design.css';
 
 export function PortraitEditor({
@@ -29,21 +21,38 @@ export function PortraitEditor({
   onPublicHome,
   focusMemory = false,
   onComplete,
+  companion,
+  onCompanionChange,
+  preview = false,
+  previewAvatar,
 }: {
   profile: Portrait;
   onSave: (p: Portrait) => void | Promise<void>;
   onPublicHome: () => void;
   focusMemory?: boolean;
   onComplete?: () => void;
+  companion?: CompanionSettings;
+  onCompanionChange?: (settings: CompanionSettings) => void;
+  preview?: boolean;
+  previewAvatar?: string;
 }) {
   const formId = useId();
+  const mergedProfile = mergeLegacyPortrait(profile);
   const [fields, setFields] = useState(() => ({
-    ...profile.fields,
-    avatar: isDefaultAvatar(profile.fields.avatar)
+    ...mergedProfile.fields,
+    avatar: isPortraitAvatar(profile.fields.avatar)
       ? profile.fields.avatar
-      : suggestAvatar(profile.fields),
+      : '',
   }));
-  const [visible, setVisible] = useState(profile.visible);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const uploadInput = useRef<HTMLInputElement>(null);
+  useEffect(
+    () => () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    },
+    [avatarPreview],
+  );
+  const [visible, setVisible] = useState(mergedProfile.visible);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(12);
   const [editing, setEditing] = useState<EventMemory>();
@@ -100,19 +109,14 @@ export function PortraitEditor({
           </button>
         )}
       </header>
-      <section
-        className="sn-portrait-details"
-        aria-labelledby={`${formId}-details`}
-      >
-        <div className="sn-section-intro">
-          <h2 id={`${formId}-details`}>我的资料</h2>
-        </div>
+      <section className="sn-portrait-details" aria-label="资料">
         <form
           id={formId}
           className="sn-portrait-form"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (!fields.name.trim()) return;
+            if (!(companion ? companion.agent_name : fields.name).trim())
+              return;
             const saved = await save(
               {
                 ...profile,
@@ -124,88 +128,173 @@ export function PortraitEditor({
             if (saved) onComplete?.();
           }}
         >
-          <fieldset className="ew-avatar-picker" disabled={busy}>
-            <legend>我的头像</legend>
-            <p>让一抹颜色代表你。Agent 会根据你的兴趣选择，你也可以换一款。</p>
-            <div className="ew-avatar-options">
-              {defaultAvatars.map((avatar) => (
-                <button
-                  key={avatar.id}
-                  type="button"
-                  className="ew-avatar-option"
-                  aria-pressed={fields.avatar === avatar.id}
-                  aria-label={avatar.name}
-                  onClick={() => {
-                    setFields((current) => ({ ...current, avatar: avatar.id }));
-                    setStatus('');
+          <fieldset
+            className="ew-avatar-picker ew-personal-avatar"
+            disabled={busy}
+          >
+            <legend>Agent 的头像</legend>
+            <div className="ew-personal-avatar-row">
+              <img
+                className="ew-avatar-image"
+                src={
+                  avatarPreview ||
+                  (preview ? previewAvatar : '') ||
+                  avatarUrl(fields.avatar, companion?.agent_name || fields.name)
+                }
+                alt="Agent 头像"
+                width={96}
+                height={96}
+              />
+              <div>
+                <input
+                  ref={uploadInput}
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  aria-label="上传 Agent 头像"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (!file) return;
+                    if (file.size > 8 * 1024 * 1024) {
+                      setError('头像需为不超过 8 MB 的 PNG/JPEG。');
+                      return;
+                    }
+                    setBusy(true);
+                    setError('');
+                    try {
+                      if (preview) {
+                        setAvatarPreview(URL.createObjectURL(file));
+                        setStatus('预览头像已替换，不会上传到真实账号。');
+                      } else {
+                        const data = await new Promise<string>(
+                          (resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              if (typeof reader.result !== 'string') {
+                                reject(new Error('图片读取失败'));
+                                return;
+                              }
+                              resolve(reader.result.split(',')[1]);
+                            };
+                            reader.onerror = () =>
+                              reject(new Error('图片读取失败'));
+                            reader.readAsDataURL(file);
+                          },
+                        );
+                        const result = await api<{ avatar: string }>(
+                          'console/portrait/avatar',
+                          { data },
+                          'POST',
+                        );
+                        setFields((current) => ({
+                          ...current,
+                          avatar: result.avatar,
+                        }));
+                        setStatus('头像已准备，保存资料后生效。');
+                      }
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : '头像上传失败');
+                    } finally {
+                      setBusy(false);
+                    }
                   }}
+                />
+                <button
+                  type="button"
+                  onClick={() => uploadInput.current?.click()}
                 >
-                  <AgentAvatar avatar={avatar.id} />
-                  <span>{avatar.name}</span>
+                  上传替换
                 </button>
-              ))}
+              </div>
             </div>
           </fieldset>
           <div className="sn-portrait-grid">
-            {portraitFields.map((field) => (
-              <div
-                className={`sn-portrait-field sn-portrait-field-${field.key}`}
-                key={field.key}
-              >
-                <div>
-                  <label htmlFor={`${formId}-${field.key}`}>
-                    {field.label}
-                    {field.key === 'name' && (
-                      <span className="required-mark" aria-hidden="true">
-                        {' '}
-                        *
-                      </span>
-                    )}
-                  </label>
-                  {field.key === 'name' ? (
-                    <span className="sn-visibility sn-visibility-fixed">
-                      <Eye size={16} aria-hidden="true" /> 固定展示
-                    </span>
-                  ) : (
-                    <label className="sn-visibility">
-                      <input
-                        type="checkbox"
-                        aria-label={`${field.label}在主页展示`}
-                        checked={visible.includes(field.key)}
-                        onChange={(e) => {
-                          setVisible((v) =>
-                            e.target.checked
-                              ? [...v, field.key]
-                              : v.filter((key) => key !== field.key),
-                          );
-                          setStatus('');
-                        }}
-                      />
-                      主页展示
+            {portraitFields.map((originalField) => {
+              const field = companion
+                ? {
+                    ...originalField,
+                    label:
+                      originalField.key === 'name'
+                        ? 'Agent 的名字'
+                        : originalField.label,
+                  }
+                : originalField;
+              return (
+                <div
+                  className={`sn-portrait-field sn-portrait-field-${field.key}`}
+                  key={field.key}
+                >
+                  <div>
+                    <label htmlFor={`${formId}-${field.key}`}>
+                      {field.label}
+                      {field.key === 'name' && (
+                        <span className="required-mark" aria-hidden="true">
+                          {' '}
+                          *
+                        </span>
+                      )}
                     </label>
+                    {field.key === 'name' ? (
+                      <span className="sn-visibility sn-visibility-fixed">
+                        <Eye size={16} aria-hidden="true" /> 固定展示
+                      </span>
+                    ) : (
+                      <label className="sn-visibility">
+                        <input
+                          type="checkbox"
+                          aria-label={`${field.label}在主页展示`}
+                          checked={visible.includes(field.key)}
+                          onChange={(e) => {
+                            setVisible((v) =>
+                              e.target.checked
+                                ? [...v, field.key]
+                                : v.filter((key) => key !== field.key),
+                            );
+                            setStatus('');
+                          }}
+                        />
+                        主页展示
+                      </label>
+                    )}
+                  </div>
+                  {field.key === 'name' ? (
+                    <input
+                      id={`${formId}-${field.key}`}
+                      aria-label={field.label}
+                      required={field.key === 'name'}
+                      maxLength={companion ? 40 : 80}
+                      value={
+                        field.key === 'name' && companion
+                          ? companion.agent_name
+                          : fields[field.key]
+                      }
+                      onChange={(e) =>
+                        field.key === 'name' && companion && onCompanionChange
+                          ? onCompanionChange({
+                              ...companion,
+                              agent_name: e.target.value,
+                            })
+                          : changeField(field.key, e.target.value)
+                      }
+                    />
+                  ) : (
+                    <textarea
+                      id={`${formId}-${field.key}`}
+                      rows={field.key === 'recent' ? 4 : 3}
+                      value={fields[field.key] || ''}
+                      onChange={(e) => changeField(field.key, e.target.value)}
+                    />
                   )}
                 </div>
-                {['name', 'role'].includes(field.key) ? (
-                  <input
-                    id={`${formId}-${field.key}`}
-                    aria-label={field.label}
-                    required={field.key === 'name'}
-                    maxLength={field.key === 'name' ? 80 : 200}
-                    value={fields[field.key]}
-                    onChange={(e) => changeField(field.key, e.target.value)}
-                  />
-                ) : (
-                  <textarea
-                    id={`${formId}-${field.key}`}
-                    rows={2}
-                    maxLength={1000}
-                    value={fields[field.key]}
-                    onChange={(e) => changeField(field.key, e.target.value)}
-                  />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
+          {companion && onCompanionChange && (
+            <CompanionPreferences
+              value={companion}
+              onChange={onCompanionChange}
+            />
+          )}
         </form>
         <section
           className="sn-memories"
@@ -226,6 +315,7 @@ export function PortraitEditor({
               记一件事
             </button>
           </header>
+
           <label className="sn-memory-search">
             <Search size={17} />
             <input
@@ -330,7 +420,9 @@ export function PortraitEditor({
           className="sw-primary"
           type="submit"
           form={formId}
-          disabled={busy || !fields.name.trim()}
+          disabled={
+            busy || !(companion ? companion.agent_name : fields.name).trim()
+          }
         >
           {onComplete ? '确认画像，进入 elsewhere' : '保存资料'}
         </button>
@@ -383,7 +475,6 @@ export function PortraitEditor({
               <textarea
                 required
                 rows={8}
-                maxLength={16000}
                 value={editing.content}
                 onChange={(e) =>
                   setEditing({ ...editing, content: e.target.value })

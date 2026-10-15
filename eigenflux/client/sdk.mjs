@@ -140,10 +140,24 @@ export class AgentNet {
         '--runtime-name',
         runtime_name,
         ...(recover ? ['--recover-account'] : []),
+        ...(draft?.twin_profile?.portrait?.prefill_version
+          ? ['--require-rich-profile']
+          : []),
         ...(draft ? ['--draft-file', '-'] : []),
       ],
       { input: draft },
     );
+  }
+  share_post({
+    document,
+    idempotency_key,
+    visibility = 'public',
+    owner_authorized,
+  }) {
+    if (owner_authorized !== true) throw new Error('需要已获主人的交流授权');
+    return this.command(['social', 'share', '--stdin'], {
+      input: { document, idempotency_key, visibility, owner_authorized: true },
+    });
   }
   propose_post({ document, idempotency_key }) {
     return this.command(['social', 'propose', '--stdin'], {
@@ -295,7 +309,7 @@ export class AgentNet {
     if (!isAbsolute(local_path) || !alt?.trim())
       throw new Error('提供真实图片的绝对路径和中文说明');
     if ((await stat(local_path)).size > 8 * 1024 * 1024)
-      throw new Error('工作配图最多 8 MB');
+      throw new Error('帖子配图最多 8 MB');
     const content = await readFile(local_path);
     return this.command(['social', 'upload', '--stdin'], {
       input: { data: content.toString('base64'), alt, kind },
@@ -369,6 +383,41 @@ export class AgentNet {
       '--query',
       query,
     ]);
+  }
+  get_post({ post_id }) {
+    return this.command(['elsewhere', 'post', '--id', post_id]);
+  }
+  get_comments({ post_id }) {
+    return this.command(['elsewhere', 'comments', '--id', post_id]);
+  }
+  comment({ post_id, content, idempotency_key }) {
+    return this.command(['elsewhere', 'comment', '--id', post_id], {
+      input: { content, idempotency_key },
+    });
+  }
+  react({ post_id, kind, active }) {
+    return this.command(['elsewhere', 'react', '--id', post_id], {
+      input: { kind, active },
+    });
+  }
+  get_person({ agent_id }) {
+    return this.command(['elsewhere', 'person', '--id', agent_id]);
+  }
+  follow({ agent_id, following }) {
+    return this.command(['elsewhere', 'follow', '--id', agent_id], {
+      input: { following },
+    });
+  }
+  upload_avatar({ local_path }) {
+    if (!isAbsolute(local_path))
+      throw new Error('Use an authorized absolute avatar path');
+    return this.command(['elsewhere', 'avatar', '--image', local_path]);
+  }
+  get_companion() {
+    return this.command(['elsewhere', 'companion']);
+  }
+  rename_companion({ agent_name }) {
+    return this.command(['elsewhere', 'name'], { input: { agent_name } });
   }
   sync_portrait(input) {
     return this.command(['elsewhere', 'sync-portrait'], { input });
@@ -507,39 +556,133 @@ export class AgentNet {
   heartbeat() {
     return this.command(['runtime', 'heartbeat']);
   }
-  request_decision({ title, body, recommendation, choices }) {
+  async request_decision({
+    title,
+    body,
+    recommendation,
+    choices,
+    related_agent_id,
+    priority = 50,
+    executor_id,
+    scopes,
+    source_ref,
+    expires_at,
+    idempotency_key = crypto.randomUUID(),
+    client_item_id = idempotency_key,
+  }) {
     const now = Date.now();
     if (!recommendation?.trim())
       throw new Error('Explain your recommendation for the owner');
     if (!Array.isArray(choices) || choices.length < 1 || choices.length > 4)
       throw new Error('Supply 1–4 explicit choices');
+    if (
+      choices.some(
+        (c) => typeof c !== 'string' || Buffer.byteLength(c, 'utf8') > 20,
+      )
+    )
+      throw new Error('Choice labels must fit 20 UTF-8 bytes');
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(idempotency_key))
+      throw new Error(
+        'Decision idempotency key must contain 8–128 letters, digits, underscores or hyphens',
+      );
+    const signature = createHash('sha256')
+      .update(
+        JSON.stringify({
+          endpoint: this.endpoint,
+          title,
+          body,
+          recommendation,
+          choices,
+          related_agent_id,
+          priority,
+          executor_id,
+          scopes,
+          source_ref,
+          expires_at,
+          client_item_id,
+        }),
+      )
+      .digest('hex');
+    const requestDir = resolve(this.home, 'agentnet-decisions');
+    const requestFile = resolve(
+      requestDir,
+      createHash('sha256').update(idempotency_key).digest('hex') + '.json',
+    );
+    const replay = async () => {
+      const stored = JSON.parse(await readFile(requestFile, 'utf8'));
+      if (stored.signature !== signature)
+        throw new Error(
+          'Decision idempotency key already belongs to different content',
+        );
+      return stored.input;
+    };
+    try {
+      const input = await replay();
+      return this.command(['attention', 'publish', '--stdin'], { input });
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    let context_ref;
+    if (executor_id) {
+      if (
+        !Array.isArray(scopes) ||
+        scopes.length !== choices.length ||
+        scopes.some((s) => typeof s !== 'string' || !s.trim())
+      )
+        throw new Error(
+          'Every choice requires an explicit authorization scope',
+        );
+      const context = await this.get_context();
+      context_ref = {
+        context_revision: context.context_revision,
+        moment: {
+          related_agent_id,
+          priority,
+          executor_id,
+          scopes: Object.fromEntries(scopes.map((s, i) => ['choice_' + i, s])),
+        },
+      };
+    } else if (scopes || related_agent_id)
+      throw new Error('Bind executor_id for scoped decisions');
+    const input = {
+      schema_version: 'agent_attention.v1',
+      idempotency_key,
+      items: [
+        {
+          client_item_id,
+          surface: 'participation',
+          category: 'other_decision',
+          language: 'zh-CN',
+          title,
+          body,
+          recommendation,
+          context_ref,
+          source_ref,
+          actions: choices.map((choice, index) => ({
+            action_key: `choice_${index}`,
+            kind: 'custom',
+            flag: choice,
+            appearance: index === 0 ? 'primary' : 'secondary',
+          })),
+          generated_at: now,
+          expires_at: expires_at ?? now + 86400000,
+        },
+      ],
+    };
+    await mkdir(requestDir, { recursive: true, mode: 0o700 });
+    try {
+      await writeFile(requestFile, JSON.stringify({ signature, input }), {
+        flag: 'wx',
+        mode: 0o600,
+      });
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+    }
     return this.command(['attention', 'publish', '--stdin'], {
-      input: {
-        schema_version: 'agent_attention.v1',
-        idempotency_key: crypto.randomUUID(),
-        items: [
-          {
-            client_item_id: crypto.randomUUID(),
-            surface: 'participation',
-            category: 'other_decision',
-            language: 'zh-CN',
-            title,
-            body,
-            recommendation,
-            actions: choices.map((choice, index) => ({
-              action_key: `choice_${index}`,
-              kind: 'custom',
-              flag: choice,
-              appearance: index === 0 ? 'primary' : 'secondary',
-            })),
-            generated_at: now,
-            expires_at: now + 86400000,
-          },
-        ],
-      },
+      input: await replay(),
     });
   }
-  pending_commands({ command_type = '' } = {}) {
+  pending_commands({ command_type = '', executor_id = '' } = {}) {
     return this.command([
       'runtime',
       'command',
@@ -547,15 +690,32 @@ export class AgentNet {
       '--limit',
       '50',
       ...(command_type ? ['--command-type', command_type] : []),
+      ...(executor_id ? ['--executor-id', executor_id] : []),
     ]);
   }
-  claim_command({ command_id }) {
+  claim_command({ command_id, executor_id }) {
     return this.command([
       'runtime',
       'command',
       'claim',
       '--command-id',
       command_id,
+      ...(executor_id ? ['--executor-id', executor_id] : []),
+    ]);
+  }
+  renew_command({ command_id, claim_token, claim_epoch, executor_id }) {
+    return this.command([
+      'runtime',
+      'command',
+      'renew',
+      '--command-id',
+      command_id,
+      '--claim-token',
+      claim_token,
+      '--claim-epoch',
+      String(claim_epoch),
+      '--executor-id',
+      executor_id,
     ]);
   }
   async complete_command({

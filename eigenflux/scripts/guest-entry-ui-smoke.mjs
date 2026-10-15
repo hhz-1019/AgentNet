@@ -51,11 +51,30 @@ const posts = Array.from({ length: 26 }, (_, i) => ({
 }));
 let feedMode = 'normal';
 let loginMode = 'invalid';
+let runtimeOnly = false;
+let sessionFailure = false;
 await context.route('**/api/v2/**', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
   const path = url.pathname;
   requests.push({ path, method: request.method(), query: url.search });
+  if (path.endsWith('/console/session') && sessionFailure)
+    return route.fulfill({
+      status: 503,
+      json: { error: { message: '会话暂不可用' } },
+    });
+  if (path.endsWith('/console/session') && runtimeOnly)
+    return route.fulfill({
+      json: {
+        data: {
+          agent_id: '101',
+          agent_name: '林间',
+          owner_uid: '10000',
+          owner_bound: false,
+          onboarding: { state: 'completed', current_step: 5, revision: 1 },
+        },
+      },
+    });
   if (path.endsWith('/console/session'))
     return route.fulfill({
       status: 401,
@@ -157,6 +176,45 @@ await context.route('**/api/v2/**', async (route) => {
 const login = page.getByRole('dialog', { name: '加入 elsewhere' });
 const detail = page.getByRole('dialog', { name: '动态详情' });
 try {
+  runtimeOnly = true;
+  await page.goto(origin);
+  await page.locator('.sw-post').first().waitFor();
+  assert.equal(
+    await login.count(),
+    0,
+    'A runtime-only cookie must not force login on the public homepage',
+  );
+  assert.equal(
+    requests.some((r) => r.path.includes('/console/analytics/heartbeat')),
+    false,
+  );
+  sessionFailure = true;
+  await page.reload();
+  await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
+  await page.locator('.sw-post').first().waitFor();
+  assert.equal(
+    await login.count(),
+    0,
+    'Optional session lookup cannot block readable public posts',
+  );
+  sessionFailure = false;
+  runtimeOnly = false;
+  await page.goto(origin + 'dashboard/attention?item=77');
+  await login.waitFor();
+  assert.equal(new URL(page.url()).pathname, '/dashboard/attention');
+  assert.equal(new URL(page.url()).searchParams.get('item'), '77');
+  assert.equal(
+    requests.some((r) => r.path.includes('attention-items')),
+    false,
+  );
+  await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await page.goto(origin + '?post=1#explore');
+  await detail.waitFor();
+  await detail
+    .getByText('这是一篇完整的公开正文，游客可以直接阅读。', { exact: true })
+    .waitFor();
+  await detail.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  assert.equal(new URL(page.url()).searchParams.has('post'), false);
   await page.goto(origin);
   const cards = page.locator('.sw-feed-grid .sw-post');
   await cards.nth(23).waitFor();
@@ -167,11 +225,15 @@ try {
     'No separate guest shell',
   );
   assert.equal(await login.count(), 0, 'No unsolicited login wall');
-  await page.getByRole('button', { name: '下一页', exact: true }).click();
-  await page.waitForFunction(
-    () => document.querySelectorAll('.sw-feed-grid .sw-post').length === 2,
+  assert.equal(
+    await page.getByRole('button', { name: '下一页', exact: true }).count(),
+    0,
   );
-  await page.getByRole('button', { name: '回到最新', exact: true }).click();
+  await page.locator('.sw-feed-end').scrollIntoViewIfNeeded();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.sw-feed-grid .sw-post').length === 26,
+  );
+  await page.getByText('已经看完全部动态', { exact: true }).waitFor();
   await cards.nth(23).waitFor();
   await page
     .getByRole('button', { name: '查看动态：把周末留给散步', exact: true })
@@ -195,7 +257,11 @@ try {
   assert.equal(await detail.isVisible(), true);
   await detail.getByRole('button', { name: '关闭窗口', exact: true }).click();
   await detail.waitFor({ state: 'detached' });
-  assert.equal(await cards.count(), 24);
+  assert.equal(
+    await cards.count(),
+    26,
+    'Closing a post preserves all loaded feed pages',
+  );
   await page
     .getByRole('textbox', { name: '搜索动态', exact: true })
     .fill('散步');
@@ -220,8 +286,14 @@ try {
     await nav
       .locator('a')
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label'))),
-    ['发现', '消息', '通讯录'],
+    ['此刻', '发现', '消息', '通讯录'],
   );
+  await nav.getByRole('link', { name: '此刻', exact: true }).click();
+  await login.waitFor();
+  assert.equal(await page.locator('.mb-live').count(), 0);
+  assert(!requests.some((r) => r.path.endsWith('/console/moment')));
+  await login.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  await login.waitFor({ state: 'detached' });
   await nav.getByRole('link', { name: '通讯录', exact: true }).click();
   await page.locator('.sw-peer-card').waitFor();
   assert.equal(await login.count(), 0);
@@ -377,7 +449,7 @@ try {
       .evaluateAll((nodes) =>
         nodes.map((n) => n.getAttribute('aria-label') || n.textContent.trim()),
       ),
-    ['发现', '消息', '发布', '通讯录', '我的'],
+    ['此刻', '发现', '消息', '发布', '通讯录', '我的'],
   );
   await mobileNav.getByRole('link', { name: '通讯录', exact: true }).click();
   await mobilePage.locator('.sw-peer-card').first().waitFor();

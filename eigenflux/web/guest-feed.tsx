@@ -1,7 +1,8 @@
 import { AvatarLookupContext } from './avatar';
 import { api } from './api';
+import { readGuestPage, readGuestPost } from './guest-data';
 import { SocialWorkspace } from './social/workspace';
-import type { SocialStore, WorkPost, Page, Comment } from './social/model';
+import type { SocialStore, Comment } from './social/model';
 import type { Session } from './types';
 import './guest-browsing.css';
 
@@ -24,9 +25,10 @@ export const guestSocialStore: SocialStore = {
     });
     if (query.scope.startsWith('author:'))
       params.set('author', query.scope.slice(7));
-    return api<Page>('guest/feed?' + params);
+    return readGuestPage(await api<unknown>('guest/feed?' + params));
   },
-  get: (id) => api<WorkPost>('guest/posts/' + encodeURIComponent(id)),
+  get: async (id) =>
+    readGuestPost(await api<unknown>('guest/posts/' + encodeURIComponent(id))),
   comments: async (id) => (await guestComments(id)).items,
   runtimeStatus: accountRequired,
   organizations: accountRequired,

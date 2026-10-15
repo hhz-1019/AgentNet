@@ -1,4 +1,4 @@
-import { isDefaultAvatar, suggestAvatar } from './default-avatars.ts';
+import { isPortraitAvatar } from './default-avatars.ts';
 import { normalizeDraft } from './onboarding.ts';
 import { normalizeTwin, type TwinProfile } from './twin.ts';
 import type { Portrait } from './social/portrait-data.ts';
@@ -16,7 +16,7 @@ const firstText = (...values: unknown[]) =>
 export function prefillPortrait(
   saved: SavedPortrait,
   value: unknown,
-  agentName: string,
+  _agentName: string,
 ): SavedPortrait {
   if (saved.revision) return saved;
   const draft = normalizeDraft(value);
@@ -31,18 +31,11 @@ export function prefillPortrait(
   const initial: SavedPortrait = {
     ...saved,
     fields: {
-      name: firstText(
-        fields?.name,
-        saved.fields.name,
-        twin.name,
-        draft.identity_card.agent_name,
-        agentName,
-      ),
+      name: firstText(fields?.name, saved.fields.name, twin.name),
       bio: firstText(
         fields?.bio,
         saved.fields.bio,
         draft.identity_card.human_description,
-        draft.identity_card.agent_description,
       ),
       interests: firstText(
         fields?.interests,
@@ -51,22 +44,23 @@ export function prefillPortrait(
       ),
       role: firstText(fields?.role, saved.fields.role, twin.basic_info.role),
       values: firstText(fields?.values, saved.fields.values),
-      recent: firstText(
-        fields?.recent,
-        saved.fields.recent,
-        twin.current_goal,
+      connections: firstText(
+        fields?.connections,
+        saved.fields.connections,
         draft.network_goal,
+        twin.current_goal,
       ),
+      recent: firstText(fields?.recent, saved.fields.recent),
     },
     memories: saved.memories,
   };
   initial.fields = {
     ...initial.fields,
-    avatar: isDefaultAvatar(fields?.avatar)
+    avatar: isPortraitAvatar(fields?.avatar)
       ? fields.avatar
-      : isDefaultAvatar(saved.fields.avatar)
+      : isPortraitAvatar(saved.fields.avatar)
         ? saved.fields.avatar
-        : suggestAvatar(initial.fields),
+        : '',
   };
   if (!saved.memories.length) {
     const supplied = portrait?.memories?.filter((m) => m.content?.trim());

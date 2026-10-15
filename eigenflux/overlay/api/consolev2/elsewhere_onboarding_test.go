@@ -49,6 +49,7 @@ func TestManagedElsewherePortraitConfirmation(t *testing.T) {
 		c.Next(ctx)
 	}
 	h.PUT("/api/v2/console/portrait", auth, s.putPortrait)
+	h.PUT("/api/v2/console/companion", auth, s.putCompanion)
 	h.POST("/confirm", auth, s.confirmPortrait)
 	call := func(method, path string, body any, want int) {
 		t.Helper()
@@ -58,7 +59,9 @@ func TestManagedElsewherePortraitConfirmation(t *testing.T) {
 			t.Fatalf("%s %s: %d %s", method, path, r.Code, r.Body.String())
 		}
 	}
-	request := map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "只有昵称，其他选填为空"}}
+	call("PUT", "/api/v2/console/companion", companionSettings{AgentName: "林间", ConnectionGoal: "认识能聊读后问题的人", StartHour: 8, EndHour: 24, ReportEveryRound: true, HistoryImages: true}, 200)
+	// The Agent has a personal name; an unknown owner nickname stays empty.
+	request := map[string]any{"expected_revision": 0, "fields": map[string]string{"name": ""}}
 	call("PUT", "/api/v2/console/portrait", request, 200)
 	call("PUT", "/api/v2/console/portrait", request, 200) // lost-response retry
 	call("POST", "/confirm", map[string]any{"revision": 1, "agreed": false}, 400)

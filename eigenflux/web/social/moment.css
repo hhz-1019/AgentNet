@@ -1,0 +1,472 @@
+/* Moment owns one screen: a movable avatar field and contained detail panels. */
+html:has(.sw-workspace[data-page^='crossing'] .mb-live),
+body:has(.sw-workspace[data-page^='crossing'] .mb-live) {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html[data-theme] #root .sw-workspace[data-page^='crossing']:has(.mb-live) {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: minmax(0, 1fr);
+}
+html[data-theme]
+  #root
+  .sw-workspace[data-page^='crossing']:has(.mb-live)
+  .sw-main {
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#root .mb-live {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+#root .mb-drag-wrap {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+#root .mb-drag-rail {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+  touch-action: pan-x;
+  cursor: auto;
+}
+#root .mb-drag-rail[data-overflow] {
+  cursor: grab;
+}
+#root .mb-drag-rail::-webkit-scrollbar {
+  display: none;
+}
+#root .mb-drag-rail[data-dragging] {
+  cursor: grabbing;
+  user-select: none;
+}
+#root .mb-drag-rail:focus-visible {
+  outline: 2px solid var(--ew-focus, var(--ew-ink));
+  outline-offset: -2px;
+}
+#root .mb-rail-arrows {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+#root .mb-rail-arrows button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ew-ink);
+  box-shadow: none;
+}
+#root .mb-rail-arrows button:disabled {
+  opacity: 0.25;
+}
+/* The camera moves; the page itself never scrolls. */
+#root .mb-field {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  isolation: isolate;
+}
+#root .mb-field[data-dragging],
+#root .mb-field[data-dragging] .mb-orb {
+  cursor: grabbing;
+}
+#root .mb-field:focus-visible {
+  outline: 2px solid var(--ew-focus, var(--ew-ink));
+  outline-offset: -3px;
+}
+/* The mask stays at the viewport edge while the avatar world pans and zooms. */
+#root .mb-field-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  --mb-edge-fade: clamp(20px, 5vmin, 56px);
+  mask-image:
+    linear-gradient(
+      to right,
+      transparent,
+      #000 var(--mb-edge-fade),
+      #000 calc(100% - var(--mb-edge-fade)),
+      transparent
+    ),
+    linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--mb-edge-fade),
+      #000 calc(100% - var(--mb-edge-fade)),
+      transparent
+    );
+  mask-composite: intersect;
+}
+#root .mb-world {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+#root .mb-orb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ew-ink);
+  box-shadow: none;
+  cursor: pointer;
+  touch-action: none;
+  transition:
+    transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 560ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+#root .mb-orb-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+  background: var(--ew-tint);
+  /* Move only the face, leaving its button's hit target stable. */
+  pointer-events: none;
+  translate: var(--mb-drift-x, 0px) var(--mb-drift-y, 0px);
+  box-shadow: 0 3px 7px -4px rgb(48 44 38 / 25%);
+  transition:
+    translate 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#root .mb-orb-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+#root .mb-orb:focus-visible .mb-orb-image {
+  transform: scale(var(--mb-hover-scale));
+  box-shadow: 0 16px 32px -12px rgb(48 44 38 / 38%);
+}
+@media (hover: hover) and (pointer: fine) {
+  #root
+    .mb-field:has(.mb-orb:hover)
+    .mb-orb:focus-visible:not(:hover)
+    .mb-orb-image {
+    transform: none;
+    box-shadow: 0 3px 7px -4px rgb(48 44 38 / 25%);
+  }
+  #root .mb-orb:hover .mb-orb-image {
+    transform: scale(var(--mb-hover-scale));
+    box-shadow: 0 16px 32px -12px rgb(48 44 38 / 38%);
+  }
+}
+#root .mb-orb:active .mb-orb-image {
+  transform: scale(0.94);
+  transition-duration: 110ms;
+}
+#root .mb-field[data-dragging] .mb-orb-image {
+  transform: none;
+  box-shadow: 0 3px 7px -4px rgb(48 44 38 / 25%);
+}
+#root .mb-orb:focus-visible {
+  outline: 2px solid var(--ew-ink);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .mb-orb {
+    transition: none;
+  }
+  #root .mb-orb-image {
+    transition: opacity 120ms ease-out;
+  }
+  #root .mb-orb:hover .mb-orb-image,
+  #root .mb-orb:focus-visible .mb-orb-image,
+  #root .mb-orb:active .mb-orb-image {
+    transform: none;
+  }
+  #root .mb-reader {
+    animation: none;
+  }
+}
+#root .mb-live .mb-empty {
+  flex: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 20px;
+  text-align: center;
+}
+#root .mb-live .mb-empty p {
+  font-size: 22px;
+}
+#root .mb-load-message {
+  padding: 16px;
+  line-height: 1.6;
+}
+#root dialog.mb-fit-panel {
+  width: min(960px, calc(100vw - 48px));
+  height: min(760px, calc(100dvh - 48px));
+}
+#root dialog.mb-fit-panel .sw-dialog-heading {
+  padding: 10px 24px;
+}
+#root .mb-detail {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 32px 24px;
+}
+#root .mb-task-rail {
+  flex-shrink: 0;
+}
+#root .mb-task-strip,
+#root .mb-action-strip {
+  display: flex;
+  gap: 8px;
+  width: max-content;
+  max-width: none;
+}
+#root .mb-task-strip button {
+  max-width: min(300px, 70vw);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--ew-line);
+  border-radius: 8px;
+  color: var(--ew-ink);
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+}
+#root .mb-task-strip button[aria-pressed='true'] {
+  background: var(--ew-tint);
+  border-color: var(--ew-ink);
+}
+#root .mb-detail-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--ew-line);
+  padding-bottom: 8px;
+}
+#root .mb-detail-toolbar nav {
+  display: flex;
+  gap: 12px;
+}
+#root .mb-detail-toolbar nav button {
+  border-radius: 0;
+  min-height: 36px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 6px 0;
+  color: var(--ew-muted);
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  font-size: 16px;
+}
+#root .mb-detail-toolbar nav [aria-current] {
+  color: var(--ew-ink);
+  border-bottom-color: var(--ew-ink);
+}
+#root .mb-current-status {
+  font-size: 14px;
+  color: var(--ew-ink);
+  text-align: right;
+}
+#root .mb-reader-rail {
+  flex: 1;
+}
+#root .mb-reader {
+  height: 100%;
+  width: 100%;
+  columns: 1;
+  column-fill: auto;
+  column-gap: 32px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+#root .mb-reader h3 {
+  font-size: clamp(21px, 3vw, 30px);
+  line-height: 1.45;
+  font-weight: 500;
+  margin: 0 0 20px;
+}
+#root .mb-reader h4 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 24px 0 8px;
+  break-after: avoid;
+}
+#root .mb-reader p {
+  margin: 0 0 14px;
+  white-space: pre-wrap;
+}
+#root .mb-reader .mb-deadline {
+  font-size: 14px;
+  color: var(--ew-muted);
+  margin-top: 22px;
+}
+#root .mb-fit-panel .mb-condition {
+  flex-shrink: 0;
+  margin: 0;
+  gap: 6px;
+  font-size: 15px;
+}
+#root .mb-fit-panel .mb-condition textarea {
+  min-height: 64px;
+  height: 72px;
+  max-height: 72px;
+  padding: 8px 12px;
+  resize: none;
+  font-size: 16px;
+}
+#root .mb-detail-actions {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+#root .mb-detail-actions:empty {
+  display: none;
+}
+#root .mb-action-rail {
+  max-width: 100%;
+}
+#root .mb-detail-actions .mb-defer {
+  margin: 0 auto 0 0;
+  flex-shrink: 0;
+}
+#root .mb-detail-actions :is(.mb-primary, .mb-secondary) {
+  min-height: 44px;
+  padding: 6px 18px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+#root .mb-fit-panel .mb-feedback {
+  margin: 0;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  html[data-theme]
+    #root
+    .sw-workspace[data-page^='crossing']:has(.mb-live)
+    .sw-main {
+    padding: 0 0 calc(80px + env(safe-area-inset-bottom));
+  }
+  html[data-theme] #root .sw-workspace.mb-live-preview .sw-main {
+    padding-bottom: 0;
+  }
+  #root dialog.mb-fit-panel {
+    width: calc(100vw - 20px);
+    height: calc(100dvh - 24px);
+    border-radius: 18px;
+  }
+  #root dialog.mb-fit-panel .sw-dialog-heading {
+    padding: 8px 18px;
+  }
+  #root .mb-detail {
+    padding: 12px 18px 18px;
+    gap: 10px;
+  }
+  #root .mb-detail-toolbar {
+    align-items: flex-start;
+  }
+  #root .mb-current-status {
+    max-width: 125px;
+    font-size: 14px;
+  }
+  #root .mb-detail-toolbar nav {
+    gap: 10px;
+  }
+}
+@media (max-height: 540px) {
+  #root dialog.mb-fit-panel {
+    height: calc(100dvh - 16px);
+  }
+  #root .mb-detail {
+    padding-block: 8px;
+    gap: 6px;
+  }
+  #root dialog.mb-fit-panel .sw-dialog-heading {
+    padding-block: 4px;
+  }
+  #root .mb-fit-panel .mb-condition textarea {
+    height: 52px;
+    min-height: 52px;
+    max-height: 52px;
+  }
+  #root .mb-task-strip button {
+    min-height: 32px;
+    padding-block: 5px;
+  }
+  #root .mb-reader h3 {
+    margin-bottom: 12px;
+    font-size: 21px;
+  }
+}
+
+@keyframes mb-detail-change {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #root .mb-reader {
+    animation: mb-detail-change 220ms ease-out;
+  }
+}

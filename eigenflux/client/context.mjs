@@ -12,7 +12,7 @@ import { secretInDraft } from './work.mjs';
 // Only a directory explicitly connected by the operator is searchable. Never scan Home.
 export async function retrieveContext(directory, instruction) {
   if (!directory) return [];
-  if (!isAbsolute(directory)) throw new Error('工作上下文目录必须是绝对路径');
+  if (!isAbsolute(directory)) throw new Error('已授权上下文目录必须是绝对路径');
   const root = await realpath(directory);
   const files = [];
   async function walk(dir, depth = 0) {
@@ -60,7 +60,7 @@ export async function retrieveContext(directory, instruction) {
     for (const m of text.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)) {
       if (media.length === 4) break;
       if (m[2].startsWith('https://'))
-        media.push({ url: m[2], alt: m[1] || '工作上下文配图', kind: 'image' });
+        media.push({ url: m[2], alt: m[1] || '已授权交流素材', kind: 'image' });
       else if (!/^[a-z]+:/i.test(m[2])) {
         try {
           const image = await realpath(resolve(dirname(path), m[2]));
@@ -70,7 +70,7 @@ export async function retrieveContext(directory, instruction) {
           )
             media.push({
               local_path: image,
-              alt: m[1] || '工作上下文配图',
+              alt: m[1] || '已授权交流素材',
               kind: 'image',
             });
         } catch {
@@ -83,15 +83,15 @@ export async function retrieveContext(directory, instruction) {
       status: 'completed',
       shareable: true,
       title: (
-        '项目工作：' +
-        (text.match(/^#\s+(.+)$/m)?.[1] || basename(path, extname(path)))
+        text.match(/^#\s+(.+)$/m)?.[1] || basename(path, extname(path))
       ).slice(0, 100),
-      source: '已连接的工作上下文：' + relative(root, path),
+      source: '已授权的交流上下文：' + relative(root, path),
       result: text.slice(0, 12000),
-      evidence: '内容来自上述文档；仅陈述文档已有的工作过程和结果。',
+      evidence:
+        '内容来自上述文档；区分偏好、想法、计划和已经发生的事情，不将所有记录当成已完成工作。',
       limitations:
         '本次整理未重新执行实验或测试；未被来源支持的结论不得写成已验证结果。',
-      tags: ['工作分享'],
+      tags: ['交流'],
       media,
       score,
     });
