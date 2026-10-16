@@ -2,66 +2,52 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 )
 
-func richTestDraft() map[string]any {
-	list := func(n int) string {
-		items := []string{}
-		for i := 0; i < n; i++ {
-			items = append(items, fmt.Sprintf("%d. 方向%d：%s", i+1, i, strings.Repeat("具体", 100)))
+func TestElsewhereHostProfileContract(t *testing.T) {
+	validate := func(v any) error { raw, _ := json.Marshal(v); return validateRichPortrait(raw) }
+	minimal := func() map[string]any {
+		return map[string]any{"portrait": map[string]any{"prefill_version": richPortraitVersion, "fields": map[string]string{"bio": "我叫小满，喜欢接着具体的问题聊。", "interests": "画画", "offers": ""}}}
+	}
+	for _, twin := range []any{minimal(), map[string]any{}, map[string]any{"portrait": map[string]any{"fields": map[string]string{}}}} {
+		if e := validate(map[string]any{"twin_profile": twin}); e != nil {
+			t.Fatal("current-conversation-only must work", e)
 		}
-		return strings.Join(items, "\n\n")
 	}
-	memories := []map[string]any{}
-	for i := 0; i < 20; i++ {
-		memories = append(memories, map[string]any{"id": fmt.Sprintf("00000000-0000-4000-8000-%012d", i), "content": fmt.Sprintf("事件%d", i) + strings.Repeat("经历", 150)})
+	for _, key := range []string{"episodes", "knowledge", "relationships"} {
+		p := minimal()
+		p[key] = []any{map[string]string{"content": "私密经历"}}
+		if validate(map[string]any{"twin_profile": p}) == nil {
+			t.Fatal("accepted", key)
+		}
 	}
-	return map[string]any{"twin_profile": map[string]any{"portrait": map[string]any{"prefill_version": richPortraitVersion, "fields": map[string]string{"bio": strings.Repeat("理解", 250), "interests": list(10), "recent": list(3), "connections": list(5)}, "memories": memories}}}
-}
-func TestRichPortraitCompleteness(t *testing.T) {
-	d := richTestDraft()
-	raw, _ := json.Marshal(d)
-	if e := validateRichPortrait(raw); e != nil {
-		t.Fatal(e)
+	for _, key := range []string{"memories"} {
+		p := minimal()
+		p["portrait"].(map[string]any)[key] = []any{map[string]string{"content": "私密经历"}}
+		if validate(map[string]any{"twin_profile": p}) == nil {
+			t.Fatal("accepted", key)
+		}
 	}
-	p := d["twin_profile"].(map[string]any)["portrait"].(map[string]any)
-	f := p["fields"].(map[string]string)
-	f["bio"] = "由你在注册页面补充"
-	f["interests"] = strings.Repeat("a", 199) + "\n\n" + strings.Repeat("a", 199)
-	p["memories"] = []any{}
-	raw, _ = json.Marshal(d)
-	e := validateRichPortrait(raw)
-	if e == nil || !strings.Contains(e.Error(), "简介") || !strings.Contains(e.Error(), "兴趣") || !strings.Contains(e.Error(), "记忆") {
-		t.Fatal("must report all gaps", e)
+	p := minimal()
+	p["portrait"].(map[string]any)["prefill_version"] = "portrait-rich-2026-10-14"
+	if validate(map[string]any{"twin_profile": p}) == nil {
+		t.Fatal("old instruction accepted")
 	}
-	if portraitCharacterCount("中 文\n😀") != 3 {
-		t.Fatal("count Unicode characters, not bytes or spaces")
+	p = minimal()
+	p["portrait"].(map[string]any)["fields"].(map[string]string)["bio"] = strings.Repeat("忆", 601)
+	if validate(map[string]any{"twin_profile": p}) == nil {
+		t.Fatal("memory archive disguised as biography")
 	}
-	d = richTestDraft()
-	p = d["twin_profile"].(map[string]any)["portrait"].(map[string]any)
-	f = p["fields"].(map[string]string)
-	f["interests"] = strings.Repeat(strings.Repeat("相同", 100)+"\n\n", 10)
-	raw, _ = json.Marshal(d)
-	if validateRichPortrait(raw) == nil {
-		t.Fatal("repeated content cannot count as independent items")
+	p = minimal()
+	p["portrait"].(map[string]any)["fields"].(map[string]string)["recent"] = "private event"
+	if validate(map[string]any{"twin_profile": p}) == nil {
+		t.Fatal("legacy field accepted")
 	}
-	d = richTestDraft()
-	p = d["twin_profile"].(map[string]any)["portrait"].(map[string]any)
-	f = p["fields"].(map[string]string)
-	f["bio"] = strings.Repeat("更多细节", 6000)
-	mem := p["memories"].([]map[string]any)
-	for i := 20; i < 120; i++ {
-		mem = append(mem, map[string]any{"content": fmt.Sprintf("事件%d", i) + strings.Repeat("细节", 9000)})
-	}
-	p["memories"] = mem
-	raw, _ = json.Marshal(d)
-	if e := validateRichPortrait(raw); e != nil {
-		t.Fatal("no prose or count maximum", e)
-	}
-	if _, _, err := parseProvisionDraft(raw); err != nil {
-		t.Fatal("large complete portrait must pass native draft transport parsing", err)
+	p = minimal()
+	p["persona"] = map[string]any{"traits": map[string]any{"openness": 0.9}}
+	if validate(map[string]any{"twin_profile": p}) == nil {
+		t.Fatal("private persona accepted")
 	}
 }

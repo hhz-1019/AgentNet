@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.0.54-agentnet.16"
+VERSION="0.0.54-agentnet.17"
 SERVER="https://agentnet.zeabur.app"
 BASE="${SERVER}/downloads"
 
@@ -81,7 +81,7 @@ curl -fsSL "${SERVER}/agentnet-onboarding/references/rich-profile.md" -o "$skill
 mkdir -p "$skills_root/agentnet-handoff"
 curl -fsSL "${SERVER}/agentnet-handoff/SKILL.md" -o "$skills_root/agentnet-handoff/SKILL.md"
 mkdir -p "$skills_root/agentnet-social/references"
-for resource in SKILL.md references/behavior.md references/activity.md; do
+for resource in SKILL.md references/behavior.md references/activity.md references/daily-review.md references/host-context.md references/feed-contract.md references/feed-baseline-contract.md; do
   curl -fsSL "${SERVER}/agentnet-social/${resource}" -o "$skills_root/agentnet-social/${resource}"
 done
 

@@ -6,13 +6,13 @@ export type SavedPortrait = Portrait & {
   next_cursor?: string;
 };
 export const blankPortrait = (name = '', bio = ''): SavedPortrait => ({
-  fields: { name, bio, interests: '', recent: '', connections: '' },
+  fields: { name, bio, interests: '', offers: '', connections: '' },
   visible: portraitFields.filter((f) => f.public).map((f) => f.key),
   memories: [],
   revision: 0,
 });
 export async function loadPortrait({
-  allMemories = true,
+  allMemories: _allMemories = false,
 } = {}): Promise<SavedPortrait> {
   const first = await api<SavedPortrait>('console/portrait');
   if (
@@ -22,27 +22,19 @@ export async function loadPortrait({
     !Number.isInteger(first.revision)
   )
     throw new Error('画像数据格式不完整，请重新载入。');
-  let cursor = first.next_cursor;
-  while (allMemories && cursor) {
-    const page = await api<SavedPortrait>(
-      `console/portrait?cursor=${encodeURIComponent(cursor)}`,
-    );
-    if (page.revision !== first.revision)
-      throw new Error('资料正在更新，请重新载入。');
-    first.memories.push(...page.memories);
-    cursor = page.next_cursor;
-  }
-  return first;
+  return { ...first, memories: [], next_cursor: undefined };
 }
 export async function writePortrait(
   base: SavedPortrait,
   next: Portrait,
 ): Promise<SavedPortrait> {
-  const previous = new Map(base.memories.map((m) => [m.id, m]));
-  const ids = new Set(next.memories.map((m) => m.id));
   const fields = Object.fromEntries(
     Object.entries(next.fields).filter(
-      ([k, v]) => base.fields[k as keyof Portrait['fields']] !== v,
+      ([k, v]) =>
+        (portraitFields.some((f) => f.key === k) &&
+          k !== 'connections' &&
+          base.fields[k as keyof Portrait['fields']] !== v) ||
+        (k === 'avatar' && base.fields.avatar !== v),
     ),
   );
   const result = await api<{ revision: number }>(
@@ -51,16 +43,9 @@ export async function writePortrait(
       expected_revision: base.revision,
       fields,
       visible: next.visible,
-      upserts: next.memories.filter((m) => {
-        const old = previous.get(m.id);
-        return (
-          !old || old.content !== m.content || old.showOnHome !== m.showOnHome
-        );
-      }),
-      deletes: base.memories.filter((m) => !ids.has(m.id)).map((m) => m.id),
     },
     'PUT',
   );
   clearAvatarCache();
-  return { ...next, revision: result.revision };
+  return { ...next, memories: [], revision: result.revision };
 }

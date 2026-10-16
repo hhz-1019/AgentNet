@@ -3,7 +3,6 @@ package consolev2
 import (
 	"context"
 	"encoding/json"
-	"math"
 	"os"
 	"strings"
 	"sync"
@@ -15,15 +14,13 @@ import (
 )
 
 func TestTwinValidation(t *testing.T) {
-	p := twinProfile{Name: "测试用户", CurrentGoal: "找到研究伙伴", Persona: twinPersona{Traits: map[string]float64{"openness": 0.8}}}
+	p := twinProfile{Name: "测试用户", CurrentGoal: "找到研究伙伴", Persona: twinPersona{}}
 	if err := validateTwinProfile(p, true); err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range []float64{-0.1, 1.1, math.NaN(), math.Inf(1)} {
-		p.Persona.Traits["openness"] = v
-		if validateTwinProfile(p, true) == nil {
-			t.Fatal("invalid weight accepted", v)
-		}
+	p.Episodes = []twinEpisode{{Content: "不能上传的经历"}}
+	if validateTwinProfile(p, true) == nil {
+		t.Fatal("memory upload accepted")
 	}
 	if validTwinPolicy(twinPolicy{DailyPosts: -1}) || validTwinPolicy(twinPolicy{DailySearches: 1001}) {
 		t.Fatal("invalid quota accepted")
@@ -67,43 +64,22 @@ func TestTwinOwnerIsolationAndQuotas(t *testing.T) {
 		_ = json.Unmarshal(r.Body(), &data)
 		return r.StatusCode(), data
 	}
-	p := twinProfile{Name: "私人昵称", CurrentGoal: "找研究伙伴", BasicInfo: map[string]string{"role": "学生"}, Persona: twinPersona{Traits: map[string]float64{"openness": 0.8}}, Episodes: []twinEpisode{{ID: "00000000-0000-4000-8000-000000000001", Content: "私人经历", Importance: 0.7}}, Knowledge: []twinKnowledge{{ID: "00000000-0000-4000-8000-000000000002", Concept: "价值观", Description: "开放合作", Confidence: 0.8}}, Relationships: []twinRelationship{{ID: "00000000-0000-4000-8000-000000000003", TargetID: "导师代号", Intimacy: 0.5, Trust: 0.8}}}
+	p := twinProfile{Name: "私人昵称", Episodes: []twinEpisode{{Content: "私人经历"}}}
 	status, _ := request("PUT", "/twin", map[string]any{"expected_revision": 0, "profile": p})
-	if status != 200 {
-		t.Fatalf("save: %d", status)
+	if status != 410 {
+		t.Fatal("legacy writes must retire", status)
 	}
 	status, out := request("GET", "/twin", nil)
 	if status != 200 {
 		t.Fatal(status)
 	}
 	data := out["data"].(map[string]any)
-	rev := data["revision"].(float64)
-	saved := data["profile"].(map[string]any)
-	if saved["name"] != p.Name || len(saved["episodes"].([]any)) != 1 {
-		t.Fatal("read does not match save", saved)
-	}
-	_, other := request("GET", "/twin?b=1", nil)
-	if other["data"].(map[string]any)["profile"].(map[string]any)["name"] == p.Name {
-		t.Fatal("owner data leaked")
+	if len(data["memories"].([]any)) != 0 || data["memory_mode"] != "host" {
+		t.Fatal("legacy read leaked memory", data)
 	}
 	status, _ = request("GET", "/twin?handoff=1", nil)
 	if status != 403 {
-		t.Fatal("handoff read private owner profile", status)
-	}
-	status, _ = request("PUT", "/twin", map[string]any{"expected_revision": 0, "profile": p})
-	if status != 409 {
-		t.Fatal("stale revision accepted", status)
-	}
-	status, _ = request("PUT", "/twin?b=1", map[string]any{"expected_revision": 0, "profile": p})
-	if status != 409 {
-		t.Fatal("foreign record ID accepted", status)
-	}
-	p.Episodes = nil
-	p.Knowledge = nil
-	p.Relationships = nil
-	status, _ = request("PUT", "/twin", map[string]any{"expected_revision": rev, "profile": p})
-	if status != 200 {
-		t.Fatal("record removal failed", status)
+		t.Fatal("unverified owner read", status)
 	}
 	status, _ = request("PUT", "/policy", twinPolicy{DailyPosts: 3, DailySearches: 4, DailyFeedback: 2})
 	if status != 200 {
@@ -145,7 +121,7 @@ func TestTwinOwnerIsolationAndQuotas(t *testing.T) {
 	if status != 429 {
 		t.Fatal("zero quota accepted activity", status)
 	}
-	if err := db.Exec(`DELETE FROM twin_daily_usage;DELETE FROM twin_agent_policy;DELETE FROM twin_users;DELETE FROM agent_owners;DELETE FROM console_v2_sessions;DELETE FROM human_accounts;`).Error; err != nil {
+	if err := db.Exec(`DELETE FROM twin_daily_usage;DELETE FROM twin_agent_policy;DELETE FROM twin_users;DELETE FROM agent_owners;DELETE FROM console_v2_sessions;DELETE FROM legacy_profile_archives;DELETE FROM human_accounts;`).Error; err != nil {
 		t.Fatal(err)
 	}
 }

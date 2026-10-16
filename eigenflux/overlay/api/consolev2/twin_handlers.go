@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const twinAgreementVersion = "2026-10-14"
+const twinAgreementVersion = "2026-10-16"
 
 var twinUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
@@ -69,6 +69,10 @@ func twinRange(v, lo, hi float64) bool {
 	return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= lo && v <= hi
 }
 func validateTwinProfile(p twinProfile, required bool) error {
+	raw, _ := json.Marshal(map[string]any{"twin_profile": p})
+	if err := validateRichPortrait(raw); err != nil {
+		return err
+	}
 	if p.Portrait != nil {
 		if err := validatePortraitDraft(*p.Portrait); err != nil {
 			return err
@@ -173,129 +177,16 @@ func ensureTwinUser(tx *gorm.DB, owner string, now int64) error {
 	}
 	return tx.Exec(`INSERT INTO twin_persona(user_id,updated_at) VALUES(?,?) ON CONFLICT(user_id) DO NOTHING`, owner, now).Error
 }
-func (s *Service) getTwin(_ context.Context, c *app.RequestContext) {
-	owner, _, ok := s.twinOwner(c)
-	if !ok {
-		return
-	}
-	var data string
-	err := s.db.Raw(`SELECT json_build_object('revision',u.revision,'agreement_accepted',EXISTS(SELECT 1 FROM twin_agreement_acceptances a WHERE a.user_id=u.user_id AND a.version IN ('2026-10-09','2026-10-14')),'profile',json_build_object('name',u.name,'basic_info',u.basic_info,'persona',json_build_object('traits',p.traits,'speaking_style',p.speaking_style,'decision_style',p.decision_style,'risk_preference',p.risk_preference,'social_preference',p.social_preference),
- 'episodes',COALESCE((SELECT json_agg(json_build_object('id',memory_id,'content',content,'emotion_score',emotion_score,'importance',importance,'occurred_at',occurred_at,'decay_rate',decay_rate) ORDER BY created_at,memory_id) FROM twin_episodic_memory WHERE user_id=u.user_id),'[]'),
- 'knowledge',COALESCE((SELECT json_agg(json_build_object('id',memory_id,'concept',concept,'description',description,'confidence',confidence) ORDER BY updated_at,memory_id) FROM twin_semantic_memory WHERE user_id=u.user_id),'[]'),
- 'relationships',COALESCE((SELECT json_agg(json_build_object('id',relationship_id,'target_id',target_id,'description',description,'intimacy',intimacy,'trust',trust,'emotion',emotion) ORDER BY target_id) FROM twin_relationships WHERE user_id=u.user_id),'[]'),
- 'current_goal',u.current_goal))::text FROM twin_users u JOIN twin_persona p USING(user_id) WHERE u.user_id=?`, owner).Scan(&data).Error
-	if err != nil {
-		fail(c, 500, "TWIN_READ_FAILED", "资料暂时无法读取", nil)
-		return
-	}
-	if data == "" {
-		reply(c, 200, map[string]any{"revision": int64(0), "profile": twinProfile{BasicInfo: map[string]string{}, Persona: twinPersona{Traits: map[string]float64{}}, Episodes: []twinEpisode{}, Knowledge: []twinKnowledge{}, Relationships: []twinRelationship{}}})
-		return
-	}
-	reply(c, 200, json.RawMessage(data))
-}
+
+// Legacy clients receive only the same minimal profile, never archived cognition.
+func (s *Service) getTwin(ctx context.Context, c *app.RequestContext) { s.getPortrait(ctx, c) }
 func (s *Service) putTwin(_ context.Context, c *app.RequestContext) {
-	owner, id, ok := s.twinOwner(c)
-	if !ok {
+	if _, _, ok := s.twinOwner(c); !ok {
 		return
 	}
-	var req struct {
-		ExpectedRevision int64       `json:"expected_revision"`
-		Profile          twinProfile `json:"profile"`
-		AgreementVersion string      `json:"agreement_version"`
-	}
-	if decodeBody(c, &req) != nil || validateTwinProfile(req.Profile, true) != nil || req.ExpectedRevision < 0 {
-		fail(c, 400, "TWIN_INVALID", "请检查必填资料、记录和权重范围", nil)
-		return
-	}
-	now := time.Now().UnixMilli()
-	revision := int64(0)
-	err := s.db.Transaction(func(tx *gorm.DB) error {
-		if err := ensureTwinUser(tx, owner, now); err != nil {
-			return err
-		}
-		var current int64
-		if err := tx.Raw(`SELECT revision FROM twin_users WHERE user_id=? FOR UPDATE`, owner).Scan(&current).Error; err != nil {
-			return err
-		}
-		// Zero represents a newly registered account whose cognition is not yet created.
-		if current != req.ExpectedRevision && !(req.ExpectedRevision == 0 && current == 1) {
-			return errConflict
-		}
-		revision = current + 1
-		info, _ := json.Marshal(req.Profile.BasicInfo)
-		traits, _ := json.Marshal(req.Profile.Persona.Traits)
-		if string(info) == "null" {
-			info = []byte("{}")
-		}
-		if string(traits) == "null" {
-			traits = []byte("{}")
-		}
-		if err := tx.Exec(`UPDATE twin_users SET name=?,basic_info=?::jsonb,current_goal=?,revision=?,last_active_at=? WHERE user_id=?`, strings.TrimSpace(req.Profile.Name), string(info), req.Profile.CurrentGoal, revision, now, owner).Error; err != nil {
-			return err
-		}
-		p := req.Profile.Persona
-		if err := tx.Exec(`UPDATE twin_persona SET traits=?::jsonb,speaking_style=?,decision_style=?,risk_preference=?,social_preference=?,updated_at=? WHERE user_id=?`, string(traits), p.SpeakingStyle, p.DecisionStyle, p.RiskPreference, p.SocialPreference, now, owner).Error; err != nil {
-			return err
-		}
-		// Preserve retrieval metadata for retained IDs; reject another owner's IDs.
-		for _, r := range req.Profile.Episodes {
-			res := tx.Exec(`INSERT INTO twin_episodic_memory(memory_id,user_id,content,emotion_score,importance,occurred_at,decay_rate,created_at) VALUES(?::uuid,?,?,?,?,?,?,?) ON CONFLICT(memory_id) DO UPDATE SET content=EXCLUDED.content,emotion_score=EXCLUDED.emotion_score,importance=EXCLUDED.importance,occurred_at=EXCLUDED.occurred_at,decay_rate=EXCLUDED.decay_rate,embedding=CASE WHEN twin_episodic_memory.content=EXCLUDED.content THEN twin_episodic_memory.embedding ELSE NULL END WHERE twin_episodic_memory.user_id=EXCLUDED.user_id`, r.ID, owner, r.Content, r.Emotion, r.Importance, r.OccurredAt, r.DecayRate, now)
-			if res.Error != nil {
-				return res.Error
-			}
-			if res.RowsAffected != 1 {
-				return errConflict
-			}
-		}
-		for _, r := range req.Profile.Knowledge {
-			res := tx.Exec(`INSERT INTO twin_semantic_memory(memory_id,user_id,concept,description,confidence,updated_at) VALUES(?::uuid,?,?,?,?,?) ON CONFLICT(memory_id) DO UPDATE SET concept=EXCLUDED.concept,description=EXCLUDED.description,confidence=EXCLUDED.confidence,updated_at=EXCLUDED.updated_at,embedding=CASE WHEN twin_semantic_memory.concept=EXCLUDED.concept AND twin_semantic_memory.description=EXCLUDED.description THEN twin_semantic_memory.embedding ELSE NULL END WHERE twin_semantic_memory.user_id=EXCLUDED.user_id`, r.ID, owner, r.Concept, r.Description, r.Confidence, now)
-			if res.Error != nil {
-				return res.Error
-			}
-			if res.RowsAffected != 1 {
-				return errConflict
-			}
-		}
-		for _, r := range req.Profile.Relationships {
-			res := tx.Exec(`INSERT INTO twin_relationships(relationship_id,user_id,target_id,description,intimacy,trust,emotion) VALUES(?::uuid,?,?,?,?,?,?) ON CONFLICT(relationship_id) DO UPDATE SET target_id=EXCLUDED.target_id,description=EXCLUDED.description,intimacy=EXCLUDED.intimacy,trust=EXCLUDED.trust,emotion=EXCLUDED.emotion WHERE twin_relationships.user_id=EXCLUDED.user_id`, r.ID, owner, r.TargetID, r.Description, r.Intimacy, r.Trust, r.Emotion)
-			if res.Error != nil {
-				return res.Error
-			}
-			if res.RowsAffected != 1 {
-				return errConflict
-			}
-		}
-		for _, item := range []struct {
-			table, key string
-			ids        []string
-		}{{"twin_episodic_memory", "memory_id", episodeIDs(req.Profile.Episodes)}, {"twin_semantic_memory", "memory_id", knowledgeIDs(req.Profile.Knowledge)}, {"twin_relationships", "relationship_id", relationshipIDs(req.Profile.Relationships)}} {
-			if len(item.ids) == 0 {
-				if err := tx.Exec("DELETE FROM "+item.table+" WHERE user_id=?", owner).Error; err != nil {
-					return err
-				}
-			} else if err := tx.Exec("DELETE FROM "+item.table+" WHERE user_id=? AND "+item.key+"::text NOT IN ?", owner, item.ids).Error; err != nil {
-				return err
-			}
-		}
-		if err := tx.Exec(`INSERT INTO twin_working_memory(agent_id,user_id,current_goal,last_updated,expires_at) VALUES(?,?,?,?,?) ON CONFLICT(agent_id) DO UPDATE SET user_id=EXCLUDED.user_id,current_goal=EXCLUDED.current_goal,last_updated=EXCLUDED.last_updated,expires_at=EXCLUDED.expires_at`, id, owner, req.Profile.CurrentGoal, now, now+int64(24*time.Hour/time.Millisecond)).Error; err != nil {
-			return err
-		}
-		if req.AgreementVersion == twinAgreementVersion {
-			return tx.Exec(`INSERT INTO twin_agreement_acceptances(user_id,version,accepted_at) VALUES(?,?,?) ON CONFLICT DO NOTHING`, owner, twinAgreementVersion, now).Error
-		}
-		return nil
-	})
-	if errors.Is(err, errConflict) || isUniqueViolation(err) {
-		fail(c, 409, "REVISION_CONFLICT", "资料已更新，请重新读取后保存", nil)
-		return
-	}
-	if err != nil {
-		fail(c, 500, "TWIN_SAVE_FAILED", "资料未保存，请重试", nil)
-		return
-	}
-	reply(c, 200, map[string]any{"revision": revision})
+	fail(c, 410, "HOST_MEMORY_REQUIRED", "请更新接入指令，使用简洁网络资料；旧记忆可由本人导出", nil)
 }
+
 func episodeIDs(rows []twinEpisode) []string {
 	ids := []string{}
 	for _, r := range rows {

@@ -115,6 +115,8 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
     assert.match(value, /agentnet-handoff/);
     assert.match(value, /agentnet-social/);
     assert(value.includes('references/behavior.md'));
+    assert(value.includes('references/daily-review.md'));
+    assert(value.includes('references/host-context.md'));
     assert.match(value, /auto_skill_sync/);
     assert.match(value, /agentnet-onboarding/);
     assert.doesNotMatch(value, /eigenflux\.ai\/install/);
@@ -125,13 +127,13 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
   }
   assert.match(install, /宿主确实要求的工具批准/);
   assert.match(join, /https:\/\/agentnet\.zeabur\.app\/install\.md/);
-  assert.match(skill, /Console-first onboarding/);
-  assert.match(skill, /twin_profile/);
-  assert.match(skill, /mandatory tool approvals/);
+  assert.match(skill, /一次完成接入准备/);
+  assert.match(skill, /简洁资料契约/);
+  assert.match(skill, /宿主强制审批/);
   assert.doesNotMatch(skill, /Do not combine the three user choices/);
   assert.match(skill, /scheduler_prompt/);
   assert.match(skill, /\/dashboard\/register/);
-  assert.match(skill, /no separate claim step/);
+  assert.match(skill, /不是一次性认领/);
 });
 
 await test('SMS settings fail closed and cap cannot be disabled', () => {

@@ -38,8 +38,7 @@ export function LivePortrait({
             ...p,
             fields: {
               ...p.fields,
-              connections:
-                p.fields.connections || settings.settings.connection_goal,
+              connections: settings.settings.connection_goal,
             },
           });
           setError('');
@@ -72,7 +71,12 @@ export function LivePortrait({
   }
   return (
     <>
-      {error && !profile && <ContentState title="资料暂时没有加载出来" action={() => retry((n) => n + 1)} />}
+      {error && !profile && (
+        <ContentState
+          title="资料暂时没有加载出来"
+          action={() => retry((n) => n + 1)}
+        />
+      )}
       {profile ? (
         <PortraitEditor
           profile={profile}

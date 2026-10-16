@@ -693,10 +693,11 @@ func (s *Service) createSocialComment(ctx context.Context, c *app.RequestContext
 		return
 	}
 	var prior struct {
-		PostID  int64
-		Content string
+		CommentID string
+		PostID    int64
+		Content   string
 	}
-	if err = s.db.WithContext(ctx).Raw(`SELECT post_id,content FROM social_work_comments WHERE agent_id=? AND idempotency_key=?`, viewer, req.Key).Scan(&prior).Error; err != nil {
+	if err = s.db.WithContext(ctx).Raw(`SELECT comment_id::text AS comment_id,post_id,content FROM social_work_comments WHERE agent_id=? AND idempotency_key=?`, viewer, req.Key).Scan(&prior).Error; err != nil {
 		s.socialFailure(c, err)
 		return
 	}
@@ -704,7 +705,7 @@ func (s *Service) createSocialComment(ctx context.Context, c *app.RequestContext
 		fail(c, 409, "COMMENT_CONFLICT", "此操作键对应另一条评论", nil)
 		return
 	}
-	reply(c, 200, map[string]any{"created": result.RowsAffected == 1})
+	reply(c, 200, map[string]any{"created": result.RowsAffected == 1, "comment_id": prior.CommentID, "post_id": strconv.FormatInt(id, 10)})
 }
 func (s *Service) listSocialCommands(ctx context.Context, c *app.RequestContext) {
 	viewer, _ := agentID(c)

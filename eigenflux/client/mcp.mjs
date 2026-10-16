@@ -40,7 +40,7 @@ const definitions = [
   ],
   [
     'get_person',
-    '读取对方公开主页、公开记忆和真实关注/好友状态，不把浏览误报为结识。',
+    '读取对方公开主页和真实关注/好友状态，不把浏览误报为结识。',
     { agent_id: id },
   ],
   [
@@ -345,24 +345,23 @@ definitions.push([
 definitions.push(
   [
     'get_portrait',
-    'Read private owner portrait and paginated event memories. Never expose private fields to others.',
+    'Read minimal owner-approved network profile. Full memory stays in the host; no event memory is returned.',
     { cursor: z.string().optional(), query: z.string().max(100).optional() },
   ],
   [
     'sync_portrait',
-    'Partially sync known profile facts and memories. Read the revision first; omitted memories are preserved. Human edits are protected. Do not invent facts or change visibility.',
+    'Update concise network fields only. Full memory stays in the host. Read revision first; preserve human edits. Connection goals and visibility require owner confirmation.',
     {
       expected_revision: z.number().int().nonnegative(),
-      fields: z.record(z.string(), z.string()).optional(),
-      upserts: z
-        .array(
-          z.object({
-            id: z.uuid(),
-            content: z.string().min(1).max(16000),
-            showOnHome: z.literal(false),
-          }),
-        )
-        .max(100)
+      fields: z
+        .object({
+          bio: z.string().max(600).optional(),
+          interests: z.string().max(800).optional(),
+          offers: z.string().max(800).optional(),
+          avatar: z.string().max(100).optional(),
+          name: z.string().max(80).optional(),
+        })
+        .strict()
         .optional(),
     },
   ],

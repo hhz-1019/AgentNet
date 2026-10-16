@@ -120,10 +120,9 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 	}
 	tags = socialInterestTerms(tags)
 	var ownerIntent struct{ Goal, Interests string }
-	if err = s.db.WithContext(ctx).Raw(`SELECT CASE WHEN u.portrait_revision>0 AND jsonb_exists(u.portrait_fields,'recent')
-		THEN u.portrait_fields->>'recent' ELSE u.current_goal END AS goal,
+	if err = s.db.WithContext(ctx).Raw(`SELECT CASE WHEN c.agent_id IS NOT NULL THEN c.connection_goal ELSE COALESCE((SELECT NULLIF(goal_text,'') FROM agent_network_goals WHERE agent_id=o.agent_id AND status='active' LIMIT 1),NULLIF(u.current_goal,''),(SELECT NULLIF(draft_data->>'network_goal','') FROM agent_onboarding_drafts WHERE agent_id=o.agent_id ORDER BY revision DESC LIMIT 1),'') END AS goal,
 		COALESCE(u.portrait_fields->>'interests','') AS interests FROM twin_users u
-		JOIN agent_owners o ON o.owner_uid=u.user_id WHERE o.agent_id=?`, viewer).Scan(&ownerIntent).Error; err != nil {
+		JOIN agent_owners o ON o.owner_uid=u.user_id LEFT JOIN agent_companions c ON c.agent_id=o.agent_id WHERE o.agent_id=?`, viewer).Scan(&ownerIntent).Error; err != nil {
 		s.socialFailure(c, err)
 		return
 	}

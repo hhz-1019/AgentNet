@@ -129,7 +129,7 @@ func init() {
 			return nil
 		}}
 		cmd.Flags().String("cursor", "", "pagination cursor")
-		cmd.Flags().String("query", "", "memory search")
+		cmd.Flags().String("query", "", "legacy search parameter (network profile reads no longer include memories)")
 		cmd.Flags().String("id", "", "post or Agent ID")
 		cmd.Flags().String("group", "", "group ID")
 		if spec.name == "avatar" {

@@ -45,7 +45,7 @@ export function Onboard({
       {!session.owner_uid && (
         <ol className="steps">
           <li className={!session.owner_bound ? 'current' : ''}>1. 注册账号</li>
-          <li className={session.owner_bound ? 'current' : ''}>2. 确认画像</li>
+          <li className={session.owner_bound ? 'current' : ''}>2. 确认资料</li>
         </ol>
       )}
       {!session.owner_bound ? (
@@ -88,7 +88,7 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
           ...initial,
           fields: {
             ...initial.fields,
-            connections: initial.fields.connections || prepared.connection_goal,
+            connections: prepared.connection_goal,
           },
         });
         setCompanion(prepared);
@@ -133,7 +133,12 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
   }
   return (
     <>
-      {error && <ErrorBox error={error} retry={!profile ? () => retry((n) => n + 1) : undefined} />}
+      {error && (
+        <ErrorBox
+          error={error}
+          retry={!profile ? () => retry((n) => n + 1) : undefined}
+        />
+      )}
       {!profile ? (
         !error && <ContentState title="正在打开资料" loading />
       ) : (

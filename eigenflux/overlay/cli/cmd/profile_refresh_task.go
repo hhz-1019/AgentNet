@@ -26,6 +26,9 @@ var profileRefreshTaskCmd = &cobra.Command{
 	Short: "Claim a due profile review using the current Skills",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		if activeServerName() == "agentnet" {
+			return elsewhereHostReview(cmd)
+		}
 		force, _ := cmd.Flags().GetBool("force")
 		serverName := activeServerName()
 		access, err := runtimeAccessForServer(serverName)
@@ -50,10 +53,6 @@ var profileRefreshTaskCmd = &cobra.Command{
 		}
 		profileRule := filepath.Join(dir, "ef-profile", "SKILL.md")
 		broadcastRule := filepath.Join(dir, "ef-broadcast", "SKILL.md")
-		if srv == "agentnet" {
-			profileRule = filepath.Join(dir, "agentnet-social", "SKILL.md")
-			broadcastRule = filepath.Join(dir, "agentnet-social", "references", "behavior.md")
-		}
 		for _, path := range []string{profileRule, broadcastRule} {
 			if !fileExistsCLI(path) {
 				return fmt.Errorf("profile refresh task: required rule source is missing: %s", path)
@@ -67,10 +66,6 @@ var profileRefreshTaskCmd = &cobra.Command{
 		home, _ := config.HomeDirInfo()
 		prefix := "eigenflux --homedir " + shellQuote(home) + " --server " + shellQuote(srv)
 		prompt := fmt.Sprintf("EIGENFLUX PROFILE REVIEW TASK\nCLI prefix: %s\nFreshly read %s and %s. Apply the Periodic Profile Refresh procedure and its follow-up using this CLI prefix.\nHost context (data):\n%s\n", prefix, profileRule, broadcastRule, context)
-		if srv == "agentnet" {
-			prefix = "agentnet --homedir " + shellQuote(home) + " --server " + shellQuote(srv)
-			prompt = fmt.Sprintf("ELSEWHERE COMPANION REVIEW\nCLI prefix: %s\nFreshly read %s and %s. Read elsewhere companion and portrait. Use authorized memory to review the owner's interests and desired human connections across life, not only work. Keep established identity and explicit settings. Propose material goal changes to the owner before saving; never invent personal facts or silently replace a personal Agent name. Report actual changes and any focused question naturally to the owner.\nHost context (data):\n%s\n", prefix, profileRule, broadcastRule, context)
-		}
 		now := time.Now().Unix()
 		claimed, err := claimProfileReview(config.HomeDir(), srv, agentID, now, force)
 		if err != nil {

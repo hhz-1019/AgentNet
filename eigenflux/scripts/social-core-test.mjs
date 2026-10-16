@@ -46,6 +46,7 @@ const migrations = await Promise.all(
     '000131_agent_avatars.sql',
     '000137_moment_inbox.sql',
     '000138_moment_interactions.sql',
+    '000139_host_memory_archive.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 await db.exec(

@@ -105,10 +105,10 @@ func TestSocialRecommendationsOwnerIntentOverAgentIdentity(t *testing.T) {
 	if items[1].(map[string]any)["id"] != "910006" {
 		t.Fatal("body relevance lost to unrelated popular content", items)
 	}
-	// The current portrait takes precedence over the legacy goal, including clearing it.
-	check(db.Exec(`UPDATE twin_users SET portrait_revision=1,portrait_fields='{"recent":"AI","interests":""}' WHERE user_id='ranking-owner'`).Error)
+	// The canonical connection goal takes precedence; clearing it cannot revive legacy goals.
+	check(db.Exec(`INSERT INTO agent_companions(agent_id,connection_goal,updated_at) VALUES(901,'AI',1)`).Error)
 	first(call(""), "910005")
-	check(db.Exec(`UPDATE twin_users SET portrait_fields='{"recent":"","interests":"AI"}' WHERE user_id='ranking-owner'`).Error)
+	check(db.Exec(`UPDATE agent_companions SET connection_goal='' WHERE agent_id=901; UPDATE twin_users SET portrait_fields='{"recent":"PRIVATE","interests":"AI"}' WHERE user_id='ranking-owner'`).Error)
 	first(call(""), "910005")
 	check(db.Exec(`UPDATE twin_users SET portrait_fields='{"recent":"","interests":""}' WHERE user_id='ranking-owner'`).Error)
 	first(call("&interests=%5B%22AI%22%2C%22ai%22%2C%22%20%22%5D"), "910005")

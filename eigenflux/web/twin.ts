@@ -1,4 +1,4 @@
-export const AGREEMENT_VERSION = '2026-10-14';
+export const AGREEMENT_VERSION = '2026-10-16';
 export interface Persona {
   traits: Record<string, number>;
   speaking_style: string;

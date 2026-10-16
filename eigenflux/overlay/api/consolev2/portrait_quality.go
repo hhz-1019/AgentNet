@@ -3,93 +3,61 @@ package consolev2
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 )
 
-// Mirrors the native CLI offline check. Human edits remain unrestricted.
-const richPortraitVersion = "portrait-rich-2026-10-14"
+// Host memory stays with the runtime. Keep this entry point for old CLI callers.
+const richPortraitVersion = "host-context-2026-10-16"
 
-var portraitItemBreak = regexp.MustCompile(`\n\s*\n`)
-var portraitItemPrefix = regexp.MustCompile(`^\s*(?:#{1,6}\s*|[-*•]\s*|[0-9]+[.、)）]\s*)`)
-
-func portraitCharacterCount(text string) int {
-	return utf8.RuneCountInString(strings.Map(func(r rune) rune {
-		if unicode.IsSpace(r) {
-			return -1
-		}
-		return r
-	}, text))
-}
 func validateRichPortrait(raw []byte) error {
 	var draft struct {
 		Twin struct {
-			Portrait struct {
+			BasicInfo     map[string]string          `json:"basic_info"`
+			Episodes      []json.RawMessage          `json:"episodes"`
+			Knowledge     []json.RawMessage          `json:"knowledge"`
+			Relationships []json.RawMessage          `json:"relationships"`
+			Persona       map[string]json.RawMessage `json:"persona"`
+			Portrait      struct {
 				Version  string            `json:"prefill_version"`
 				Fields   map[string]string `json:"fields"`
-				Memories []struct {
-					Content string `json:"content"`
-				} `json:"memories"`
+				Memories []json.RawMessage `json:"memories"`
 			} `json:"portrait"`
 		} `json:"twin_profile"`
 	}
 	if json.Unmarshal(raw, &draft) != nil {
-		return fmt.Errorf("画像草稿必须是 JSON")
+		return fmt.Errorf("资料草稿必须是 JSON")
+	}
+	for _, v := range draft.Twin.BasicInfo {
+		if strings.TrimSpace(v) != "" {
+			return fmt.Errorf("HOST_MEMORY_REQUIRED: 详细基础资料留在宿主，请使用简洁网络字段")
+		}
 	}
 	p := draft.Twin.Portrait
-	problems := []string{}
-	if p.Version != richPortraitVersion {
-		problems = append(problems, "缺少当前画像预填版本")
+	if len(p.Memories)+len(draft.Twin.Episodes)+len(draft.Twin.Knowledge)+len(draft.Twin.Relationships) > 0 {
+		return fmt.Errorf("HOST_MEMORY_REQUIRED: 完整记忆留在宿主；请更新接入指令，只提交简洁资料，不上传 memories、episodes、knowledge 或 relationships")
 	}
-	if portraitCharacterCount(p.Fields["bio"]) < 500 {
-		problems = append(problems, "简介至少 500 字")
+	for _, v := range draft.Twin.Persona {
+		s := strings.TrimSpace(string(v))
+		if s != "null" && s != "{}" && s != "[]" && s != `""` {
+			return fmt.Errorf("HOST_MEMORY_REQUIRED: 私人人格资料留在宿主")
+		}
 	}
-	for _, rule := range []struct {
-		key, label string
-		minimum    int
-	}{{"interests", "兴趣与长期关注", 10}, {"recent", "近期在做的事", 3}, {"connections", "想认识的人", 5}} {
-		items := portraitItemBreak.Split(strings.TrimSpace(p.Fields[rule.key]), -1)
-		valid := 0
-		seen := map[string]bool{}
-		for _, item := range items {
-			item = strings.TrimSpace(portraitItemPrefix.ReplaceAllString(item, ""))
-			if portraitCharacterCount(item) < 200 {
+	if p.Version != "" && p.Version != richPortraitVersion {
+		return fmt.Errorf("PROFILE_UPGRADE_REQUIRED: 请重新读取 install.md，使用 host-context-2026-10-16 简洁资料；不再要求长篇画像")
+	}
+	limits := map[string]int{"name": 80, "avatar": 100, "bio": 600, "interests": 800, "connections": 1000, "offers": 800}
+	for k, v := range p.Fields {
+		limit, ok := limits[k]
+		if !ok {
+			if strings.TrimSpace(v) == "" {
 				continue
 			}
-			if seen[item] {
-				continue
-			}
-			seen[item] = true
-			valid++
+			return fmt.Errorf("HOST_MEMORY_REQUIRED: %s 不属于网络资料，请保留在宿主", k)
 		}
-		if valid < rule.minimum {
-			problems = append(problems, fmt.Sprintf("%s至少 %d 项，每项至少 200 字；目前合格 %d 项", rule.label, rule.minimum, valid))
+		if utf8.RuneCountInString(v) > limit {
+			return fmt.Errorf("%s 请精简到 %d 字以内", k, limit)
 		}
-	}
-	validMemories := 0
-	seen := map[string]bool{}
-	for _, m := range p.Memories {
-		text := strings.TrimSpace(m.Content)
-		if portraitCharacterCount(text) >= 300 && !seen[text] {
-			validMemories++
-			seen[text] = true
-		}
-	}
-	if validMemories < 20 {
-		problems = append(problems, fmt.Sprintf("事件记忆至少 20 条，每条至少 300 字；目前合格 %d 条", validMemories))
-	}
-	for _, key := range []string{"bio", "interests", "recent", "connections"} {
-		for _, placeholder := range []string{"具体兴趣方向由你", "具体方向由你", "由你在注册页面", "待补充", "待填写", "这里没有提供", "材料没有提供", "所以不能补造", "这里不知道"} {
-			if strings.Contains(p.Fields[key], placeholder) {
-				problems = append(problems, key+" 中含检索或填写说明")
-				break
-			}
-		}
-	}
-	if len(problems) > 0 {
-		return fmt.Errorf("画像预填未完成：\n- %s", strings.Join(problems, "\n- "))
 	}
 	return nil
 }

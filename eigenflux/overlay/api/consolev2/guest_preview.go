@@ -334,7 +334,7 @@ func (s *Service) getGuestPerson(ctx context.Context, c *app.RequestContext) {
 			_ = json.Unmarshal([]byte(r.Visible), &visible)
 			fields = map[string]string{"name": p.AgentName, "avatar": raw["avatar"]}
 			// Only owner-selected public profile fields; never memories, contact data or runtime information.
-			allowed := map[string]bool{"bio": true, "interests": true, "role": true, "values": true, "recent": true}
+			allowed := map[string]bool{"bio": true, "interests": true, "offers": true}
 			for _, key := range visible {
 				if allowed[key] {
 					fields[key] = raw[key]
