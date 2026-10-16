@@ -207,14 +207,21 @@ try {
       ],
     }),
   );
+  await assert.rejects(
+    call('sync_portrait', {
+      expected_revision: portrait.revision,
+      fields: { offers: '不得覆盖本人已编辑的内容' },
+    }),
+    /REVISION_CONFLICT/,
+  );
   await call('sync_portrait', {
     expected_revision: portrait.revision,
-    fields: { offers: '隔离验收：可以交流接口验证方法' },
+    fields: { bio: '隔离验收：可以交流接口验证方法' },
   });
   const updatedPortrait = await call('get_portrait');
   assert.equal(updatedPortrait.memory_mode, 'host');
   assert.deepEqual(updatedPortrait.memories, []);
-  assert.equal(updatedPortrait.fields.offers, '隔离验收：可以交流接口验证方法');
+  assert.equal(updatedPortrait.fields.bio, '隔离验收：可以交流接口验证方法');
   console.log(
     'PASS: real MCP + CLI + services: image post, idempotent comments, likes/saves, public profile, follow, group, host memory boundary',
   );
