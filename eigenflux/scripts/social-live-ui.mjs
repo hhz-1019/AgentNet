@@ -1,6 +1,7 @@
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -31,7 +32,12 @@ const errors = [];
 const saveRequests = [];
 const imageRequests = [];
 page.on('response', (response) => {
-  if (response.url().includes('/social/media/')) imageRequests.push({ url: response.url(), status: response.status(), contentType: response.headers()['content-type'] });
+  if (response.url().includes('/social/media/'))
+    imageRequests.push({
+      url: response.url(),
+      status: response.status(),
+      contentType: response.headers()['content-type'],
+    });
 });
 page.on('requestfailed', (request) => {
   if (/\/social\/(drafts|posts)\//.test(request.url()))
@@ -78,7 +84,10 @@ try {
   await peerPage.getByText('你的角色：编辑 · 已加入').waitFor();
   await page.getByRole('button', { name: '撤销成员', exact: true }).click();
   await page.getByRole('alert').waitFor();
-  await page.getByRole('alert').getByRole('button', { name: '再试一次', exact: true }).click();
+  await page
+    .getByRole('alert')
+    .getByRole('button', { name: '再试一次', exact: true })
+    .click();
   await page.getByText(/伙伴 Agent · 2 · 编辑 · 已加入/).waitFor();
   await Promise.all([
     page.waitForResponse(
@@ -223,7 +232,10 @@ try {
   const original = await a.request.get(origin + mediaURL);
   assert.equal(original.status(), 200);
   assert.equal(original.headers()['cache-control'], 'private, no-cache');
-  assert.ok(original.headers().etag, 'private image requires a revalidation tag');
+  assert.ok(
+    original.headers().etag,
+    'private image requires a revalidation tag',
+  );
   await page
     .getByText(
       '我已预览当前版本，确认内容可分享，并授权按所选身份与范围发布。',
@@ -303,12 +315,23 @@ try {
   await page.getByLabel('想认识的人', { exact: true }).fill('私密测试连接方向');
   await page.getByRole('button', { name: '保存资料', exact: true }).click();
   await page.getByText('资料已保存。', { exact: true }).waitFor();
-  await page.getByRole('button', { name: '记一件事', exact: true }).click();
-  await page
-    .getByLabel('记忆内容', { exact: true })
-    .fill('真实数据库中的私密事件记忆');
-  await page.getByRole('button', { name: '保存这条记忆', exact: true }).click();
-  await page.getByText('记忆已保存。', { exact: true }).waitFor();
+  assert.equal(
+    await page.getByRole('button', { name: '记一件事', exact: true }).count(),
+    0,
+  );
+  const downloadReady = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出旧资料', exact: true }).click();
+  const download = await downloadReady;
+  const exported = JSON.parse(await readFile(await download.path(), 'utf8'));
+  assert.equal(exported.memory_mode, 'host');
+  assert.deepEqual(
+    exported.portrait_memories.map((m) => m.content),
+    ['升级前保留的私密事件记忆'],
+  );
+  const peerArchive = await (
+    await peer.request.get(origin + '/api/v2/console/portrait/export')
+  ).json();
+  assert.deepEqual(peerArchive.data.portrait_memories, []);
   const person = (
     await (await peer.request.get(origin + '/api/v2/console/people/1')).json()
   ).data;
@@ -378,7 +401,20 @@ try {
   console.log('Save request diagnostics:', saveRequests);
   console.log('Browser errors:', errors);
   console.log('Image requests:', imageRequests);
-  console.log('Image elements:', await page.locator('img').evaluateAll((images) => images.map(i => ({src:i.src, currentSrc:i.currentSrc, complete:i.complete, width:i.naturalWidth, parent:i.parentElement?.outerHTML.slice(0,1000)}))));
+  console.log(
+    'Image elements:',
+    await page
+      .locator('img')
+      .evaluateAll((images) =>
+        images.map((i) => ({
+          src: i.src,
+          currentSrc: i.currentSrc,
+          complete: i.complete,
+          width: i.naturalWidth,
+          parent: i.parentElement?.outerHTML.slice(0, 1000),
+        })),
+      ),
+  );
   console.log('DOM:', await page.locator('body').innerText());
   console.log(
     'Visible errors:',

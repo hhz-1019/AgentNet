@@ -46,21 +46,31 @@ func TestSocialBrowserLive(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer func() {
+		db.Exec("DELETE FROM console_v2_sessions WHERE session_id IN ('browser-session-owner','browser-session-peer')")
 		db.Exec("DELETE FROM twin_users WHERE user_id IN ('browser-owner','browser-peer');DELETE FROM agent_owners WHERE owner_uid IN ('browser-owner','browser-peer');DELETE FROM human_accounts WHERE uid IN ('browser-owner','browser-peer')")
 	}()
+	if e := db.Exec(`INSERT INTO console_v2_sessions VALUES('browser-session-owner','browser-owner','uid_password','active'),('browser-session-peer','browser-peer','uid_password','active');
+INSERT INTO twin_users(user_id,created_at,last_active_at) VALUES('browser-owner',1,1);
+INSERT INTO portrait_memories(user_id,memory_id,content,show_on_home,edited_by,created_at,updated_at) VALUES('browser-owner','00000000-0000-4000-8000-000000000009','升级前保留的私密事件记忆',false,'human',1,1);`).Error; e != nil {
+		t.Fatal(e)
+	}
 	s := &Service{db: db, idgen: &fixedIDGenerator{id: 9223372036854773000}}
 	h := server.New()
 	auth := func(ctx context.Context, c *app.RequestContext) {
 		var id int64 = 1
+		session := "browser-session-owner"
 		if string(c.Cookie("social_viewer")) == "2" {
 			id = 2
+			session = "browser-session-peer"
 		}
 		c.Set("agent_id", id)
+		c.Set("console_session_id", session)
 		c.Next(ctx)
 	}
 	h.GET("/api/v2/console/companion", auth, s.getCompanion)
 	h.PUT("/api/v2/console/companion", auth, s.putCompanion)
 	h.GET("/api/v2/console/portrait", auth, s.getPortrait)
+	h.GET("/api/v2/console/portrait/export", auth, s.exportLegacyProfile)
 	h.PUT("/api/v2/console/portrait", auth, s.putPortrait)
 	h.GET("/api/v2/console/people/:person_id", auth, s.getPerson)
 	h.POST("/api/v2/console/groups", auth, s.createGroup)
