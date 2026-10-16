@@ -1,0 +1,2866 @@
+[
+  {
+    "key": "elon-musk",
+    "name": "马斯克",
+    "english": "Elon Musk",
+    "sector": "科技",
+    "focus": "电动车、航天与规模化制造",
+    "voice": "从物理约束追问成本，短句、直接、带工程式反问",
+    "background": "Elon Reeve Musk is an industrialist and former public official who is the chief executive officer (CEO) and largest shareholder of Tesla and SpaceX. Musk has been the wealthiest person in the world since 2025, and became the only trillionaire in June 2026; as of October 2026, Forbes estimates his net worth to be $1.1 trillion.",
+    "reference": "https://en.wikipedia.org/wiki/Elon_Musk",
+    "feed": "https://news.google.com/rss/search?q=%22Elon%20Musk%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146017482,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "elonmusk",
+        "url": "https://x.com/elonmusk",
+        "evidence": "https://www.wikidata.org/wiki/Q317521"
+      },
+      {
+        "kind": "weibo",
+        "handle": "elonmusk",
+        "url": "https://weibo.com/u/elonmusk",
+        "evidence": "https://www.wikidata.org/wiki/Q317521"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148005782,
+    "original_feeds": []
+  },
+  {
+    "key": "sam-altman",
+    "name": "山姆·奥特曼",
+    "english": "Sam Altman",
+    "sector": "科技",
+    "focus": "人工智能产品与创业",
+    "voice": "从长期技术扩散谈取舍，简洁而开放",
+    "background": "Samuel Harris Altman is an American entrepreneur and investor who has been the chief executive officer (CEO) of the artificial intelligence company OpenAI since 2019.",
+    "reference": "https://en.wikipedia.org/wiki/Sam_Altman",
+    "feed": "https://news.google.com/rss/search?q=%22Sam%20Altman%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146017339,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "sama",
+        "url": "https://x.com/sama",
+        "evidence": "https://www.wikidata.org/wiki/Q7407093"
+      },
+      {
+        "kind": "instagram",
+        "handle": "sama",
+        "url": "https://www.instagram.com/sama",
+        "evidence": "https://www.wikidata.org/wiki/Q7407093"
+      },
+      {
+        "kind": "facebook",
+        "handle": "samhaltman",
+        "url": "https://www.facebook.com/samhaltman",
+        "evidence": "https://www.wikidata.org/wiki/Q7407093"
+      }
+    ],
+    "official_sites": [
+      "https://blog.samaltman.com/"
+    ],
+    "accounts_checked_at": 1792148005744,
+    "original_feeds": [
+      "https://blog.samaltman.com/posts.atom"
+    ]
+  },
+  {
+    "key": "jensen-huang",
+    "name": "黄仁勋",
+    "english": "Jensen Huang",
+    "sector": "科技",
+    "focus": "GPU与加速计算",
+    "voice": "用架构和产业转变串联判断，强调系统协同",
+    "background": "Jen-Hsun \"Jensen\" Huang is a Taiwanese and American business executive and electrical engineer who is the co-founder, president, and CEO of Nvidia, the world's most valuable company. As of October 2026, Forbes estimates his net worth at over US$200 billion, making him the seventh-wealthiest individual in the world and the wealthiest individual of Asian descent.",
+    "reference": "https://en.wikipedia.org/wiki/Jensen_Huang",
+    "feed": "https://news.google.com/rss/search?q=%22Jensen%20Huang%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146017344,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "JensenHuang",
+        "url": "https://x.com/JensenHuang",
+        "evidence": "https://www.wikidata.org/wiki/Q305177"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148005465,
+    "original_feeds": []
+  },
+  {
+    "key": "lisa-su",
+    "name": "苏姿丰",
+    "english": "Lisa Su",
+    "sector": "科技",
+    "focus": "半导体与高性能计算",
+    "voice": "以产品路线和执行细节展开，克制务实",
+    "background": "Lisa Tzwu-Fang Su is a Taiwanese and American business executive, computer scientist, and electrical engineer who has been the president and CEO of the American semiconductor company AMD since 2014.",
+    "reference": "https://en.wikipedia.org/wiki/Lisa_Su",
+    "feed": "https://news.google.com/rss/search?q=%22Lisa%20Su%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146017621,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "LisaSu",
+        "url": "https://x.com/LisaSu",
+        "evidence": "https://www.wikidata.org/wiki/Q18207172"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148005203,
+    "original_feeds": []
+  },
+  {
+    "key": "satya-nadella",
+    "name": "萨提亚·纳德拉",
+    "english": "Satya Nadella",
+    "sector": "科技",
+    "focus": "云计算与开发者平台",
+    "voice": "从用户能力与组织学习出发，温和有层次",
+    "background": "Satya Narayana Nadella is an Indian-American business executive. He is the chairman and chief executive officer (CEO) of Microsoft, succeeding Steve Ballmer in 2014 as CEO and John W. Thompson in 2021 as chairman. Before becoming CEO, he was the executive vice president of Microsoft's cloud and enterprise group, responsible for building and running the company's computing platforms.",
+    "reference": "https://en.wikipedia.org/wiki/Satya_Nadella",
+    "feed": "https://news.google.com/rss/search?q=%22Satya%20Nadella%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146017550,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "satyanadella",
+        "url": "https://x.com/satyanadella",
+        "evidence": "https://www.wikidata.org/wiki/Q7426870"
+      }
+    ],
+    "official_sites": [
+      "https://news.microsoft.com/exec/satya-nadella/"
+    ],
+    "accounts_checked_at": 1792148006085,
+    "original_feeds": []
+  },
+  {
+    "key": "bill-gates",
+    "name": "比尔·盖茨",
+    "english": "Bill Gates",
+    "sector": "科技",
+    "focus": "软件与全球公益",
+    "voice": "通过数据和成本讨论规模化问题，清楚审慎",
+    "background": "William Henry Gates III is an American businessman and philanthropist. A pioneer of the microcomputer revolution of the 1970s and 1980s, he co-founded the software company Microsoft in 1975 with his childhood friend Paul Allen. Following Microsoft's initial public offering in 1986 and the subsequent increase in its stock price, Gates became the world's then-youngest billionaire in 1987, at age 31. Forbes magazine ranked him as the world's wealthiest person in their The World's Billionaires list for 18 out of 24 years between 1995 and 2017, including 13 years consecutively from 1995 to 2007. Gates became the first centibillionaire in 1999, when his net worth briefly surpassed US$100 billion. According to Forbes, as of July 2026, his net worth stood at US$106.5 billion, making him the 19th-wealthiest individual in the world.",
+    "reference": "https://en.wikipedia.org/wiki/Bill_Gates",
+    "feed": "https://news.google.com/rss/search?q=%22Bill%20Gates%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146018785,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "BillGates",
+        "url": "https://x.com/BillGates",
+        "evidence": "https://www.wikidata.org/wiki/Q5284"
+      },
+      {
+        "kind": "instagram",
+        "handle": "thisisbillgates",
+        "url": "https://www.instagram.com/thisisbillgates",
+        "evidence": "https://www.wikidata.org/wiki/Q5284"
+      },
+      {
+        "kind": "facebook",
+        "handle": "BillGates",
+        "url": "https://www.facebook.com/BillGates",
+        "evidence": "https://www.wikidata.org/wiki/Q5284"
+      },
+      {
+        "kind": "weibo",
+        "handle": "gates",
+        "url": "https://weibo.com/u/gates",
+        "evidence": "https://www.wikidata.org/wiki/Q5284"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148006512,
+    "original_feeds": []
+  },
+  {
+    "key": "jeff-bezos",
+    "name": "杰夫·贝索斯",
+    "english": "Jeff Bezos",
+    "sector": "科技",
+    "focus": "电商与长期投资",
+    "voice": "从客户需求倒推机制，区分可逆与不可逆选择",
+    "background": "Jeffrey Preston Bezos is an American businessman, and the founder, executive chairman, and former president and CEO of Amazon, the world's largest e-commerce and cloud computing company. According to the Bloomberg Billionaires Index and Forbes, he was the world's wealthiest person from 2017 to 2021, and in 2026, his net worth was approximately US$284 billion. He is commonly considered part of the global elite.",
+    "reference": "https://en.wikipedia.org/wiki/Jeff_Bezos",
+    "feed": "https://news.google.com/rss/search?q=%22Jeff%20Bezos%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146017694,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "JeffBezos",
+        "url": "https://x.com/JeffBezos",
+        "evidence": "https://www.wikidata.org/wiki/Q312556"
+      },
+      {
+        "kind": "instagram",
+        "handle": "jeffbezos",
+        "url": "https://www.instagram.com/jeffbezos",
+        "evidence": "https://www.wikidata.org/wiki/Q312556"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148007760,
+    "original_feeds": []
+  },
+  {
+    "key": "tim-cook",
+    "name": "蒂姆·库克",
+    "english": "Tim Cook",
+    "sector": "科技",
+    "focus": "消费电子与供应链",
+    "voice": "强调体验、隐私与执行，稳健节制",
+    "background": "Timothy Donald Cook is an American business executive who served as the chief executive officer (CEO) of Apple Inc. from August 24, 2011 to August 31, 2026, and has been the company's executive chairman since September 1, 2026. Cook joined the technology company in 1998 as senior vice president for worldwide operations, and later served as vice president for worldwide sales and operations and then as chief operating officer under co-founder Steve Jobs. He was appointed chief executive in 2011, when Jobs resigned due to failing health. Under Cook, Apple grew into one of the world's most valuable companies; in 2025 it was the second largest technology company by revenue in the world, at US $416 billion. Cook led a succession plan that saw John Ternus succeed him as CEO.",
+    "reference": "https://en.wikipedia.org/wiki/Tim_Cook",
+    "feed": "https://news.google.com/rss/search?q=%22Tim%20Cook%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146018020,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "tim_cook",
+        "url": "https://x.com/tim_cook",
+        "evidence": "https://www.wikidata.org/wiki/Q265852"
+      },
+      {
+        "kind": "weibo",
+        "handle": "timcook",
+        "url": "https://weibo.com/u/timcook",
+        "evidence": "https://www.wikidata.org/wiki/Q265852"
+      }
+    ],
+    "official_sites": [
+      "https://www.apple.com/leadership/tim-cook/"
+    ],
+    "accounts_checked_at": 1792148008243,
+    "original_feeds": []
+  },
+  {
+    "key": "mark-zuckerberg",
+    "name": "马克·扎克伯格",
+    "english": "Mark Zuckerberg",
+    "sector": "科技",
+    "focus": "社交网络与开放模型",
+    "voice": "从连接与技术迭代讨论产品，直白具体",
+    "background": "Mark Elliot Zuckerberg is an American businessman, webmaster, and programmer who co-founded the social media service Facebook and its parent company Meta Platforms. He is its chairman, chief executive officer (CEO), and controlling shareholder.",
+    "reference": "https://en.wikipedia.org/wiki/Mark_Zuckerberg",
+    "feed": "https://news.google.com/rss/search?q=%22Mark%20Zuckerberg%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146018039,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "finkd",
+        "url": "https://x.com/finkd",
+        "evidence": "https://www.wikidata.org/wiki/Q36215"
+      },
+      {
+        "kind": "instagram",
+        "handle": "zuck",
+        "url": "https://www.instagram.com/zuck",
+        "evidence": "https://www.wikidata.org/wiki/Q36215"
+      },
+      {
+        "kind": "facebook",
+        "handle": "zuck",
+        "url": "https://www.facebook.com/zuck",
+        "evidence": "https://www.wikidata.org/wiki/Q36215"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148008563,
+    "original_feeds": []
+  },
+  {
+    "key": "sundar-pichai",
+    "name": "桑达尔·皮查伊",
+    "english": "Sundar Pichai",
+    "sector": "科技",
+    "focus": "搜索与人工智能",
+    "voice": "兼顾技术可用性与广泛用户，平和审慎",
+    "background": "Pichai Sundararajan, better known as Sundar Pichai, is an Indian–American business executive who has been the CEO of Google since 2015 and the CEO of its parent company Alphabet Inc. since 2019.",
+    "reference": "https://en.wikipedia.org/wiki/Sundar_Pichai",
+    "feed": "https://news.google.com/rss/search?q=%22Sundar%20Pichai%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146017895,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "sundarpichai",
+        "url": "https://x.com/sundarpichai",
+        "evidence": "https://www.wikidata.org/wiki/Q3503829"
+      },
+      {
+        "kind": "instagram",
+        "handle": "sundarpichai",
+        "url": "https://www.instagram.com/sundarpichai",
+        "evidence": "https://www.wikidata.org/wiki/Q3503829"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148008481,
+    "original_feeds": []
+  },
+  {
+    "key": "demis-hassabis",
+    "name": "德米斯·哈萨比斯",
+    "english": "Demis Hassabis",
+    "sector": "科技",
+    "focus": "人工智能与科学发现",
+    "voice": "把研究问题拆成可验证步骤，理性又有探索感",
+    "background": "Sir Demis Hassabis is a British artificial intelligence (AI) researcher and entrepreneur. He is the chairman and co-founder of Google DeepMind and the chief scientist of Alphabet, as well as the chief executive officer and co-founder of Isomorphic Labs. Hassabis is also a UK Government AI Adviser. In 2024, Hassabis and John M. Jumper were jointly awarded the Nobel Prize in Chemistry for their AI research contributions to protein structure prediction.",
+    "reference": "https://en.wikipedia.org/wiki/Demis_Hassabis",
+    "feed": "https://news.google.com/rss/search?q=%22Demis%20Hassabis%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146018784,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "demishassabis",
+        "url": "https://x.com/demishassabis",
+        "evidence": "https://www.wikidata.org/wiki/Q3022141"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148008683,
+    "original_feeds": []
+  },
+  {
+    "key": "dario-amodei",
+    "name": "达里奥·阿莫代伊",
+    "english": "Dario Amodei",
+    "sector": "科技",
+    "focus": "大模型与可靠性",
+    "voice": "关注扩展规律、评估与不确定性，细致有条件",
+    "background": "Dario Amodei is an American artificial intelligence (AI) researcher and entrepreneur. In 2021, he and his sister Daniela Amodei co-founded Anthropic, the company behind the large language model series Claude. Before that, he was the vice president of research at OpenAI. At US$965 billion as of May 2026, Anthropic is one of the most valuable AI pure play companies, rivaled by OpenAI.",
+    "reference": "https://en.wikipedia.org/wiki/Dario_Amodei",
+    "feed": "https://news.google.com/rss/search?q=%22Dario%20Amodei%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146018784,
+    "accounts": [],
+    "official_sites": [
+      "https://darioamodei.com/"
+    ],
+    "accounts_checked_at": 1792148007542,
+    "original_feeds": []
+  },
+  {
+    "key": "ilya-sutskever",
+    "name": "伊利亚·苏茨克维",
+    "english": "Ilya Sutskever",
+    "sector": "科技",
+    "focus": "深度学习",
+    "voice": "抓住学习机制与泛化问题，用少量句子推演",
+    "background": "Ilya Sutskever is a Soviet-born Israeli-Canadian computer scientist who specializes in machine learning. He has made several major contributions to the field of deep learning, including sequence-to-sequence learning, reasoning models, GPT models, and contributions to CLIP, DALL-E, and AlphaGo. With Alex Krizhevsky and Geoffrey Hinton, he co-created AlexNet, a convolutional neural network. One of the most highly cited computer scientists in history, he has won the NeurIPS Test of Time Award for his lasting impact on AI research three times in a row (2022–2024) and received the National Academy of Sciences Award for the Industrial Application of Science in 2026.",
+    "reference": "https://en.wikipedia.org/wiki/Ilya_Sutskever",
+    "feed": "https://news.google.com/rss/search?q=%22Ilya%20Sutskever%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146018912,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "ilyasut",
+        "url": "https://x.com/ilyasut",
+        "evidence": "https://www.wikidata.org/wiki/Q21712134"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148009572,
+    "original_feeds": []
+  },
+  {
+    "key": "andrej-karpathy",
+    "name": "安德烈·卡帕西",
+    "english": "Andrej Karpathy",
+    "sector": "科技",
+    "focus": "神经网络与AI教育",
+    "voice": "从可运行的小例子解释原理，直观且技术化",
+    "background": "Andrej Karpathy is a Slovak-Canadian AI researcher, who co-founded and formerly worked at OpenAI, where he specialized in deep learning and computer vision. He also worked as the director of artificial intelligence and Autopilot Vision at Tesla, and in 2024 he founded Eureka Labs, an AI education platform. In 2026 he joined Anthropic as part of the pretraining team.",
+    "reference": "https://en.wikipedia.org/wiki/Andrej_Karpathy",
+    "feed": "https://news.google.com/rss/search?q=%22Andrej%20Karpathy%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146018986,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "karpathy",
+        "url": "https://x.com/karpathy",
+        "evidence": "https://www.wikidata.org/wiki/Q56037405"
+      },
+      {
+        "kind": "facebook",
+        "handle": "karpathy",
+        "url": "https://www.facebook.com/karpathy",
+        "evidence": "https://www.wikidata.org/wiki/Q56037405"
+      }
+    ],
+    "official_sites": [
+      "https://karpathy.ai/"
+    ],
+    "accounts_checked_at": 1792148009768,
+    "original_feeds": [
+      "https://karpathy.bearblog.dev/feed/"
+    ]
+  },
+  {
+    "key": "yann-lecun",
+    "name": "杨立昆",
+    "english": "Yann LeCun",
+    "sector": "科技",
+    "focus": "机器学习与世界模型",
+    "voice": "区分机制和宣传，论点鲜明、重视概念准确",
+    "background": "Yann André Le Cun is a French-American computer scientist working in the fields of artificial intelligence, machine learning, computer vision, robotics and image compression. He is the Jacob T. Schwartz Professor of Computer Science at the Courant Institute of Mathematical Sciences at New York University (NYU). He served as Chief AI Scientist at Meta Platforms before co-founding Advanced Machine Intelligence Labs in December 2025.",
+    "reference": "https://en.wikipedia.org/wiki/Yann_LeCun",
+    "feed": "https://news.google.com/rss/search?q=%22Yann%20LeCun%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146019349,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "ylecun",
+        "url": "https://x.com/ylecun",
+        "evidence": "https://www.wikidata.org/wiki/Q3571662"
+      },
+      {
+        "kind": "facebook",
+        "handle": "yann.lecun",
+        "url": "https://www.facebook.com/yann.lecun",
+        "evidence": "https://www.wikidata.org/wiki/Q3571662"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148010298,
+    "original_feeds": []
+  },
+  {
+    "key": "geoffrey-hinton",
+    "name": "杰弗里·辛顿",
+    "english": "Geoffrey Hinton",
+    "sector": "科技",
+    "focus": "神经网络与学习理论",
+    "voice": "用直觉类比解释复杂机制，对不确定性坦诚",
+    "background": "Geoffrey Everest Hinton is a British-Canadian computer scientist, cognitive scientist, cognitive psychologist and Nobel Prize laureate known for his work on artificial neural networks, which earned him the title \"the Godfather of AI\". He is University Professor Emeritus at the University of Toronto.",
+    "reference": "https://en.wikipedia.org/wiki/Geoffrey_Hinton",
+    "feed": "https://news.google.com/rss/search?q=%22Geoffrey%20Hinton%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146019227,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "geoffreyhinton",
+        "url": "https://x.com/geoffreyhinton",
+        "evidence": "https://www.wikidata.org/wiki/Q92894"
+      }
+    ],
+    "official_sites": [
+      "https://www.cs.toronto.edu/~hinton"
+    ],
+    "accounts_checked_at": 1792148010585,
+    "original_feeds": []
+  },
+  {
+    "key": "yoshua-bengio",
+    "name": "约书亚·本吉奥",
+    "english": "Yoshua Bengio",
+    "sector": "科技",
+    "focus": "深度学习与AI安全",
+    "voice": "从研究假设和证据出发，谨慎分析影响",
+    "background": "Yoshua Bengio is a Canadian computer scientist, and a pioneer of artificial neural networks and deep learning.",
+    "reference": "https://en.wikipedia.org/wiki/Yoshua_Bengio",
+    "feed": "https://news.google.com/rss/search?q=%22Yoshua%20Bengio%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146019354,
+    "accounts": [],
+    "official_sites": [
+      "https://yoshuabengio.org/fr/",
+      "https://yoshuabengio.org/"
+    ],
+    "accounts_checked_at": 1792148010582,
+    "original_feeds": [
+      "https://yoshuabengio.org/en/feed"
+    ]
+  },
+  {
+    "key": "fei-fei-li",
+    "name": "李飞飞",
+    "english": "Fei-Fei Li",
+    "sector": "科技",
+    "focus": "计算机视觉与以人为本AI",
+    "voice": "从人的需求连接视觉技术，温和而具体",
+    "background": "Fei-Fei Li is a Chinese-born American computer scientist best known for establishing ImageNet, the dataset that enabled rapid advances in computer vision in the 2010s. She is a professor of computer science at Stanford University, with research expertise in artificial intelligence, machine learning, deep learning, computer vision, and cognitive neuroscience. Li has earned the title of \"The Godmother of AI\".",
+    "reference": "https://en.wikipedia.org/wiki/Fei-Fei_Li",
+    "feed": "https://news.google.com/rss/search?q=%22Fei-Fei%20Li%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146019488,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "drfeifei",
+        "url": "https://x.com/drfeifei",
+        "evidence": "https://www.wikidata.org/wiki/Q18686107"
+      }
+    ],
+    "official_sites": [
+      "https://profiles.stanford.edu/fei-fei-li"
+    ],
+    "accounts_checked_at": 1792148009822,
+    "original_feeds": []
+  },
+  {
+    "key": "andrew-ng",
+    "name": "吴恩达",
+    "english": "Andrew Ng",
+    "sector": "科技",
+    "focus": "机器学习教育与应用",
+    "voice": "把复杂任务拆成可行动步骤，实用清晰",
+    "background": "Andrew Yan-Tak Ng is a British-American computer scientist and technology entrepreneur focusing on machine learning and artificial intelligence (AI). Ng was a cofounder and head of Google Brain and was the former Chief Scientist at Baidu.",
+    "reference": "https://en.wikipedia.org/wiki/Andrew_Ng",
+    "feed": "https://news.google.com/rss/search?q=%22Andrew%20Ng%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146019662,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "AndrewYNg",
+        "url": "https://x.com/AndrewYNg",
+        "evidence": "https://www.wikidata.org/wiki/Q2846695"
+      },
+      {
+        "kind": "facebook",
+        "handle": "andrew.ng.96",
+        "url": "https://www.facebook.com/andrew.ng.96",
+        "evidence": "https://www.wikidata.org/wiki/Q2846695"
+      },
+      {
+        "kind": "weibo",
+        "handle": "5866810652",
+        "url": "https://weibo.com/u/5866810652",
+        "evidence": "https://www.wikidata.org/wiki/Q2846695"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148012284,
+    "original_feeds": []
+  },
+  {
+    "key": "kai-fu-lee",
+    "name": "李开复",
+    "english": "Kai-Fu Lee",
+    "sector": "科技",
+    "focus": "人工智能创业",
+    "voice": "从技术落地与商业场景展开，结构明确",
+    "background": "Kai-Fu Lee is a Taiwanese computer scientist, investor, and author. He was the founding director of Microsoft Research China, later Microsoft Research Asia, serving from 1998 to 2000, and served as president of Google China 2005 to 2009.",
+    "reference": "https://en.wikipedia.org/wiki/Kai-Fu_Lee",
+    "feed": "https://news.google.com/rss/search?q=%22Kai-Fu%20Lee%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146019785,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "kaifulee",
+        "url": "https://x.com/kaifulee",
+        "evidence": "https://www.wikidata.org/wiki/Q699605"
+      },
+      {
+        "kind": "facebook",
+        "handle": "kaifulee",
+        "url": "https://www.facebook.com/kaifulee",
+        "evidence": "https://www.wikidata.org/wiki/Q699605"
+      },
+      {
+        "kind": "weibo",
+        "handle": "kaifulee",
+        "url": "https://weibo.com/u/kaifulee",
+        "evidence": "https://www.wikidata.org/wiki/Q699605"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148012381,
+    "original_feeds": []
+  },
+  {
+    "key": "andrew-yao",
+    "name": "姚期智",
+    "english": "Andrew Yao",
+    "sector": "科技",
+    "focus": "计算理论与密码学",
+    "voice": "先明确问题与假设，再论证边界，严谨克制",
+    "background": "Andrew Chi-Chih Yao is a Chinese computer scientist, theoretical physicist, and computational theorist. He is currently a professor and the dean of Institute for Interdisciplinary Information Sciences (IIIS) at Tsinghua University. Yao used the minimax theorem to prove what is now known as Yao's principle.",
+    "reference": "https://en.wikipedia.org/wiki/Andrew_Yao",
+    "feed": "https://news.google.com/rss/search?q=%22Andrew%20Yao%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146326427,
+    "accounts": [],
+    "official_sites": [
+      "https://iiis.tsinghua.edu.cn/yao/"
+    ],
+    "accounts_checked_at": 1792148012207,
+    "original_feeds": []
+  },
+  {
+    "key": "sebastian-thrun",
+    "name": "塞巴斯蒂安·特龙",
+    "english": "Sebastian Thrun",
+    "sector": "科技",
+    "focus": "机器人与自动驾驶",
+    "voice": "通过实验和迭代讨论现实约束，乐于解释",
+    "background": "Sebastian Thrun is a German-American computer scientist, entrepreneur, and educator. He is an adjunct professor at Stanford University and is known for his work in self-driving cars, robotics, artificial intelligence, and online education. He is the co-founder of Google X, co-founder of Udacity, and former chief executive officer of Kitty Hawk Corporation.",
+    "reference": "https://en.wikipedia.org/wiki/Sebastian_Thrun",
+    "feed": "https://news.google.com/rss/search?q=%22Sebastian%20Thrun%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146328480,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "SebastianThrun",
+        "url": "https://x.com/SebastianThrun",
+        "evidence": "https://www.wikidata.org/wiki/Q62901"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148012394,
+    "original_feeds": []
+  },
+  {
+    "key": "pieter-abbeel",
+    "name": "彼得·阿比尔",
+    "english": "Pieter Abbeel",
+    "sector": "科技",
+    "focus": "机器人与强化学习",
+    "voice": "从任务、反馈和泛化讨论方案，技术而直观",
+    "background": "Pieter Abbeel is a professor of electrical engineering and computer sciences, Director of the Berkeley Robot Learning Lab, and co-director of the Berkeley AI Research (BAIR) Lab at the University of California, Berkeley. He is also the co-founder of Covariant, a venture-funded start-up that aims to teach robots new, complex skills, and co-founder of Gradescope, an online grading system that has been implemented in over 500 universities across the United States. He is best known for his cutting-edge research in robotics and machine learning, particularly in deep reinforcement learning. In 2021, he joined AIX Ventures as an Investment Partner. AIX Ventures is a venture capital fund that invests in artificial intelligence startups.",
+    "reference": "https://en.wikipedia.org/wiki/Pieter_Abbeel",
+    "feed": "https://news.google.com/rss/search?q=%22Pieter%20Abbeel%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146330542,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "pabbeel",
+        "url": "https://x.com/pabbeel",
+        "evidence": "https://www.wikidata.org/wiki/Q33374357"
+      }
+    ],
+    "official_sites": [
+      "https://people.eecs.berkeley.edu/~pabbeel/"
+    ],
+    "accounts_checked_at": 1792148012162,
+    "original_feeds": []
+  },
+  {
+    "key": "daphne-koller",
+    "name": "达芙妮·科勒",
+    "english": "Daphne Koller",
+    "sector": "科技",
+    "focus": "机器学习与生物医学",
+    "voice": "连接概率推理和科学证据，审慎清晰",
+    "background": "Daphne Koller is an Israeli-American computer scientist. She was a professor in the department of computer science at Stanford University and a MacArthur Foundation fellowship recipient. She is one of the founders of Coursera, an online education platform. Her general research area is artificial intelligence and its applications in the biomedical sciences. Koller was featured in a 2004 article by MIT Technology Review titled \"10 Emerging Technologies That Will Change Your World\" concerning the topic of Bayesian machine learning.",
+    "reference": "https://en.wikipedia.org/wiki/Daphne_Koller",
+    "feed": "https://news.google.com/rss/search?q=%22Daphne%20Koller%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146020001,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "DaphneKoller",
+        "url": "https://x.com/DaphneKoller",
+        "evidence": "https://www.wikidata.org/wiki/Q11755"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148011415,
+    "original_feeds": []
+  },
+  {
+    "key": "dawn-song",
+    "name": "宋晓冬",
+    "english": "Dawn Song",
+    "sector": "科技",
+    "focus": "计算机安全与隐私",
+    "voice": "先看威胁模型和数据边界，具体严谨",
+    "background": "Dawn Song is a Chinese American academic and is a professor at the University of California, Berkeley, in the Electrical Engineering and Computer Science Department.",
+    "reference": "https://en.wikipedia.org/wiki/Dawn_Song",
+    "feed": "https://news.google.com/rss/search?q=%22Dawn%20Song%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146333299,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "dawnsongtweets",
+        "url": "https://x.com/dawnsongtweets",
+        "evidence": "https://www.wikidata.org/wiki/Q92701"
+      },
+      {
+        "kind": "facebook",
+        "handle": "dawnsong.fb",
+        "url": "https://www.facebook.com/dawnsong.fb",
+        "evidence": "https://www.wikidata.org/wiki/Q92701"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148013720,
+    "original_feeds": []
+  },
+  {
+    "key": "danqi-chen",
+    "name": "陈丹琦",
+    "english": "Danqi Chen",
+    "sector": "科技",
+    "focus": "自然语言处理",
+    "voice": "关注检索、表示与评估，简洁注重实验",
+    "background": "Danqi Chen is a Chinese computer scientist and assistant professor at Princeton University specializing in the AI field of natural language processing (NLP). In 2019, she joined the Princeton NLP group, alongside Sanjeev Arora, Christiane Fellbaum, and Karthik Narasimhan. She was previously a visiting scientist at Facebook AI Research (FAIR). She earned her Ph.D. at Stanford University and her BS from Tsinghua University.",
+    "reference": "https://en.wikipedia.org/wiki/Danqi_Chen",
+    "feed": "https://news.google.com/rss/search?q=%22Danqi%20Chen%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146335394,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "danqi_chen",
+        "url": "https://x.com/danqi_chen",
+        "evidence": "https://www.wikidata.org/wiki/Q63699901"
+      }
+    ],
+    "official_sites": [
+      "https://www.cs.princeton.edu/~danqic/"
+    ],
+    "accounts_checked_at": 1792148013708,
+    "original_feeds": []
+  },
+  {
+    "key": "chelsea-finn",
+    "name": "切尔西·芬恩",
+    "english": "Chelsea Finn",
+    "sector": "科技",
+    "focus": "机器人学习",
+    "voice": "从适应与少样本学习切入，重视可验证任务",
+    "background": "Chelsea Finn is an American computer scientist and assistant professor at Stanford University. Her research investigates intelligence through the interactions of robots, with the hope to create robotic systems that can learn how to learn. She previously worked for Google and currently is a co-founder of the startup Physical Intelligence.",
+    "reference": "https://en.wikipedia.org/wiki/Chelsea_Finn",
+    "feed": "https://news.google.com/rss/search?q=%22Chelsea%20Finn%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146337447,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "chelseabfinn",
+        "url": "https://x.com/chelseabfinn",
+        "evidence": "https://www.wikidata.org/wiki/Q63535485"
+      },
+      {
+        "kind": "facebook",
+        "handle": "cfinn",
+        "url": "https://www.facebook.com/cfinn",
+        "evidence": "https://www.wikidata.org/wiki/Q63535485"
+      }
+    ],
+    "official_sites": [
+      "https://people.eecs.berkeley.edu/~cbfinn/",
+      "https://ai.stanford.edu/~cbfinn/"
+    ],
+    "accounts_checked_at": 1792148013282,
+    "original_feeds": []
+  },
+  {
+    "key": "percy-liang",
+    "name": "梁鹏",
+    "english": "Percy Liang",
+    "sector": "科技",
+    "focus": "语言模型评估",
+    "voice": "区分能力、评估环境和外推限制，结构严谨",
+    "background": "Percy Liang is an American computer scientist whose research focuses on machine learning, natural language processing, and foundation models. He is a Professor of Computer Science at Stanford University and is the Director of the Center for Research on Foundation Models (CRFM).",
+    "reference": "https://en.wikipedia.org/wiki/Percy_Liang",
+    "feed": "https://news.google.com/rss/search?q=%22Percy%20Liang%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146339506,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "percyliang",
+        "url": "https://x.com/percyliang",
+        "evidence": "https://www.wikidata.org/wiki/Q55395315"
+      }
+    ],
+    "official_sites": [
+      "https://cs.stanford.edu/~pliang/",
+      "https://profiles.stanford.edu/percy-liang"
+    ],
+    "accounts_checked_at": 1792148014093,
+    "original_feeds": []
+  },
+  {
+    "key": "harrison-chase",
+    "name": "哈里森·蔡斯",
+    "english": "Harrison Chase",
+    "sector": "科技",
+    "focus": "Agent开发工具",
+    "voice": "围绕工作流、状态和调试说问题，具体实用",
+    "background": "\nGeneral Hospital is the longest-running American television serial drama, airing on ABC since April 1, 1963. Created by Frank and Doris Hursley, it was originally set in a general hospital in an unnamed fictional city. In the 1970s, the city was named Port Charles, New York. This is a list of notable characters who significantly impacted storylines and began their run between 2010 and 2019.",
+    "reference": "https://en.wikipedia.org/wiki/Harrison_Chase",
+    "feed": "https://news.google.com/rss/search?q=%22Harrison%20Chase%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146341547,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148013491,
+    "original_feeds": []
+  },
+  {
+    "key": "guillermo-rauch",
+    "name": "吉列尔莫·劳赫",
+    "english": "Guillermo Rauch",
+    "sector": "科技",
+    "focus": "Web开发与产品体验",
+    "voice": "从开发反馈速度和用户体验出发，短句鲜明",
+    "background": "Vercel Inc. is an American cloud application company. The company created and maintains the Next.js web development framework.",
+    "reference": "https://en.wikipedia.org/wiki/Guillermo_Rauch",
+    "feed": "https://news.google.com/rss/search?q=%22Guillermo%20Rauch%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146343582,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "vercel",
+        "url": "https://x.com/vercel",
+        "evidence": "https://www.wikidata.org/wiki/Q56069184"
+      },
+      {
+        "kind": "facebook",
+        "handle": "VercelHQ",
+        "url": "https://www.facebook.com/VercelHQ",
+        "evidence": "https://www.wikidata.org/wiki/Q56069184"
+      }
+    ],
+    "official_sites": [
+      "https://vercel.com/"
+    ],
+    "accounts_checked_at": 1792148013751,
+    "original_feeds": []
+  },
+  {
+    "key": "patrick-collison",
+    "name": "帕特里克·科里森",
+    "english": "Patrick Collison",
+    "sector": "科技",
+    "focus": "支付基础设施与科学进步",
+    "voice": "追问制度与基础设施的瓶颈，理性好奇",
+    "background": "Patrick Collison is an Irish entrepreneur, investor, and philanthropist. He is the chief executive officer of Stripe, which he co-founded with his younger brother, John, in 2010. A billionaire since 2016, his net worth as of August 2026 is estimated at $17.5 billion.",
+    "reference": "https://en.wikipedia.org/wiki/Patrick_Collison",
+    "feed": "https://news.google.com/rss/search?q=%22Patrick%20Collison%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146020734,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "patrickc",
+        "url": "https://x.com/patrickc",
+        "evidence": "https://www.wikidata.org/wiki/Q7146257"
+      },
+      {
+        "kind": "instagram",
+        "handle": "patrickcollison",
+        "url": "https://www.instagram.com/patrickcollison",
+        "evidence": "https://www.wikidata.org/wiki/Q7146257"
+      },
+      {
+        "kind": "facebook",
+        "handle": "patrickcollison",
+        "url": "https://www.facebook.com/patrickcollison",
+        "evidence": "https://www.wikidata.org/wiki/Q7146257"
+      }
+    ],
+    "official_sites": [
+      "https://patrickcollison.com/"
+    ],
+    "accounts_checked_at": 1792148015501,
+    "original_feeds": []
+  },
+  {
+    "key": "john-collison",
+    "name": "约翰·科里森",
+    "english": "John Collison",
+    "sector": "科技",
+    "focus": "支付与互联网商业",
+    "voice": "用商户需求和工程取舍展开，务实简洁",
+    "background": "John Collison is an Irish entrepreneur. He is the president of Stripe, which he co-founded in 2010 with his brother Patrick. Collison was the youngest self-made billionaire in 2016. As of 2026, according to Bloomberg Billionaires Index, his net worth is estimated at US$9.3 billion.",
+    "reference": "https://en.wikipedia.org/wiki/John_Collison",
+    "feed": "https://news.google.com/rss/search?q=%22John%20Collison%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146345625,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "collision",
+        "url": "https://x.com/collision",
+        "evidence": "https://www.wikidata.org/wiki/Q16233063"
+      },
+      {
+        "kind": "instagram",
+        "handle": "johncollison",
+        "url": "https://www.instagram.com/johncollison",
+        "evidence": "https://www.wikidata.org/wiki/Q16233063"
+      },
+      {
+        "kind": "facebook",
+        "handle": "John Collison",
+        "url": "https://www.facebook.com/John%20Collison",
+        "evidence": "https://www.wikidata.org/wiki/Q16233063"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148015403,
+    "original_feeds": []
+  },
+  {
+    "key": "tobi-l-tke",
+    "name": "托比·吕特克",
+    "english": "Tobi Lütke",
+    "sector": "科技",
+    "focus": "电商软件与编程",
+    "voice": "关注工具如何放大人的创造力，直接有工程感",
+    "background": "Tobias Lütke is a German Canadian entrepreneur and racing driver who is the co-founder and CEO of Shopify, an e-commerce company based in Ottawa, Ontario, Canada. He competes in the 2025 IMSA SportsCar Championship driving in LMP2 for Era Motorsport.",
+    "reference": "https://en.wikipedia.org/wiki/Tobias_L%C3%BCtke",
+    "feed": "https://news.google.com/rss/search?q=%22Tobi%20L%C3%BCtke%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146347440,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "tobi",
+        "url": "https://x.com/tobi",
+        "evidence": "https://www.wikidata.org/wiki/Q20684647"
+      },
+      {
+        "kind": "instagram",
+        "handle": "tobi",
+        "url": "https://www.instagram.com/tobi",
+        "evidence": "https://www.wikidata.org/wiki/Q20684647"
+      },
+      {
+        "kind": "facebook",
+        "handle": "tobias.lutke",
+        "url": "https://www.facebook.com/tobias.lutke",
+        "evidence": "https://www.wikidata.org/wiki/Q20684647"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148014925,
+    "original_feeds": []
+  },
+  {
+    "key": "paul-graham",
+    "name": "保罗·格雷厄姆",
+    "english": "Paul Graham",
+    "sector": "科技",
+    "focus": "创业与编程",
+    "voice": "从一个反直觉观察展开推理，平实有锋芒",
+    "background": "Paul Graham is an English-American computer scientist, writer, essayist, entrepreneur, and investor. His work includes the programming language Arc, the startup Viaweb, co-founding the startup accelerator and seed capital firm Y Combinator, a number of essays and books, and the media webpage Hacker News.",
+    "reference": "https://en.wikipedia.org/wiki/Paul_Graham_(programmer)",
+    "feed": "https://news.google.com/rss/search?q=%22Paul%20Graham%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146349497,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "paulg",
+        "url": "https://x.com/paulg",
+        "evidence": "https://www.wikidata.org/wiki/Q92650"
+      }
+    ],
+    "official_sites": [
+      "https://paulgraham.com"
+    ],
+    "accounts_checked_at": 1792148016034,
+    "original_feeds": []
+  },
+  {
+    "key": "paul-buchheit",
+    "name": "保罗·布赫海特",
+    "english": "Paul Buchheit",
+    "sector": "科技",
+    "focus": "互联网产品与创业",
+    "voice": "关注小团队和核心体验，简短实用",
+    "background": "Paul T. Buchheit is an American computer engineer and entrepreneur who created the email service Gmail. He developed the original prototype of Google AdSense as part of his work on Gmail. He also suggested Google's former company motto Don't be evil in a 2000 meeting on company values, after the motto was initially coined in 1999 by engineer Amit Patel.",
+    "reference": "https://en.wikipedia.org/wiki/Paul_Buchheit",
+    "feed": "https://news.google.com/rss/search?q=%22Paul%20Buchheit%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146351529,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "paultoo",
+        "url": "https://x.com/paultoo",
+        "evidence": "https://www.wikidata.org/wiki/Q3299582"
+      },
+      {
+        "kind": "facebook",
+        "handle": "buchheit",
+        "url": "https://www.facebook.com/buchheit",
+        "evidence": "https://www.wikidata.org/wiki/Q3299582"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148014779,
+    "original_feeds": []
+  },
+  {
+    "key": "marc-andreessen",
+    "name": "马克·安德森",
+    "english": "Marc Andreessen",
+    "sector": "科技",
+    "focus": "软件与风险投资",
+    "voice": "从技术扩散和产业结构判断，论点鲜明",
+    "background": "Marc Lowell Andreessen is an American businessman, venture capitalist, and former software engineer. He is the co-author of Mosaic, the first web browser to display inline images; co-founder of Netscape; and co-founder and general partner of Silicon Valley venture capital firm Andreessen Horowitz.",
+    "reference": "https://en.wikipedia.org/wiki/Marc_Andreessen",
+    "feed": "https://news.google.com/rss/search?q=%22Marc%20Andreessen%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146353593,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "pmarca",
+        "url": "https://x.com/pmarca",
+        "evidence": "https://www.wikidata.org/wiki/Q62882"
+      },
+      {
+        "kind": "facebook",
+        "handle": "pmarca",
+        "url": "https://www.facebook.com/pmarca",
+        "evidence": "https://www.wikidata.org/wiki/Q62882"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148015054,
+    "original_feeds": []
+  },
+  {
+    "key": "ben-horowitz",
+    "name": "本·霍洛维茨",
+    "english": "Ben Horowitz",
+    "sector": "科技",
+    "focus": "创业管理",
+    "voice": "通过具体组织难题讨论决策，直白务实",
+    "background": "Benjamin Abraham Horowitz is an American businessman, investor, blogger, and author. He is a technology entrepreneur and co-founder of the venture capital firm Andreessen Horowitz along with Marc Andreessen. He previously co-founded and served as president and chief executive officer of the enterprise software company Opsware, which Hewlett-Packard acquired in 2007. Horowitz is the author of The Hard Thing About Hard Things: Building a Business When There Are No Easy Answers, a book about startups, and What You Do Is Who You Are: How to Create Your Business Culture.",
+    "reference": "https://en.wikipedia.org/wiki/Ben_Horowitz",
+    "feed": "https://news.google.com/rss/search?q=%22Ben%20Horowitz%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146355701,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "bhorowitz",
+        "url": "https://x.com/bhorowitz",
+        "evidence": "https://www.wikidata.org/wiki/Q4885859"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148017742,
+    "original_feeds": []
+  },
+  {
+    "key": "reid-hoffman",
+    "name": "里德·霍夫曼",
+    "english": "Reid Hoffman",
+    "sector": "科技",
+    "focus": "职业网络与创业",
+    "voice": "关注网络效应与不确定下的行动，类比清楚",
+    "background": "Reid Garrett Hoffman is an American Internet entrepreneur, venture capitalist, podcaster, and author. Hoffman is the co-founder and former executive chairman of LinkedIn, a business-oriented social network used primarily for professional networking. He is also chairman of venture capital firm Village Global, a co-founder of Inflection AI, a co-founder of Manas AI, and a board member at Arc Institute.",
+    "reference": "https://en.wikipedia.org/wiki/Reid_Hoffman",
+    "feed": "https://news.google.com/rss/search?q=%22Reid%20Hoffman%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146358641,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "reidhoffman",
+        "url": "https://x.com/reidhoffman",
+        "evidence": "https://www.wikidata.org/wiki/Q211098"
+      },
+      {
+        "kind": "instagram",
+        "handle": "reidhoffman",
+        "url": "https://www.instagram.com/reidhoffman",
+        "evidence": "https://www.wikidata.org/wiki/Q211098"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148017478,
+    "original_feeds": []
+  },
+  {
+    "key": "peter-thiel",
+    "name": "彼得·蒂尔",
+    "english": "Peter Thiel",
+    "sector": "科技",
+    "focus": "创业与技术创新",
+    "voice": "追问独特性和竞争假设，反常识而简练",
+    "background": "Peter Andreas Thiel is a German-American entrepreneur, venture capitalist, and conservative political activist. A co-founder of PayPal, Palantir Technologies and Founders Fund, he was also the first outside investor in Facebook. As of October 2026, Forbes estimated Thiel's net worth at US$37.7 billion.",
+    "reference": "https://en.wikipedia.org/wiki/Peter_Thiel",
+    "feed": "https://news.google.com/rss/search?q=%22Peter%20Thiel%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146021636,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "peterthiel",
+        "url": "https://x.com/peterthiel",
+        "evidence": "https://www.wikidata.org/wiki/Q705525"
+      },
+      {
+        "kind": "facebook",
+        "handle": "sittingbournerugbyclub",
+        "url": "https://www.facebook.com/sittingbournerugbyclub",
+        "evidence": "https://www.wikidata.org/wiki/Q705525"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148018089,
+    "original_feeds": []
+  },
+  {
+    "key": "vinod-khosla",
+    "name": "维诺德·科斯拉",
+    "english": "Vinod Khosla",
+    "sector": "科技",
+    "focus": "科技投资与能源",
+    "voice": "从技术替代与规模成本切入，大胆但区分假设",
+    "background": "Vinod Khosla is an Indian-American billionaire, entrepreneur, and venture capitalist. He is a co-founder of Sun Microsystems and the founder of Khosla Ventures, as well as the owner of the Seattle Seahawks. Khosla made his wealth from early venture capital investments in areas including networking, software, and alternative energy technologies. He has been described by The Information as one of the most successful and influential venture capitalists.",
+    "reference": "https://en.wikipedia.org/wiki/Vinod_Khosla",
+    "feed": "https://news.google.com/rss/search?q=%22Vinod%20Khosla%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146021806,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "vkhosla",
+        "url": "https://x.com/vkhosla",
+        "evidence": "https://www.wikidata.org/wiki/Q738005"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148016703,
+    "original_feeds": []
+  },
+  {
+    "key": "naval-ravikant",
+    "name": "纳瓦尔·拉维坎特",
+    "english": "Naval Ravikant",
+    "sector": "科技",
+    "focus": "创业与个人学习",
+    "voice": "压缩观点、强调长期积累，冷静简练",
+    "background": "Naval Ravikant is an Indian-born American entrepreneur and investor. He is the co-founder and chairman of AngelList, a platform for startups, investors, and job seekers. He is an angel investor who has made early-stage investments in companies including Uber, Twitter, Postmates, and Yammer.\nRavikant is a recipient of the Edmund Hillary Fellowship. He also co-hosts a podcast with Brett Hall.",
+    "reference": "https://en.wikipedia.org/wiki/Naval_Ravikant",
+    "feed": "https://news.google.com/rss/search?q=%22Naval%20Ravikant%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146360789,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "naval",
+        "url": "https://x.com/naval",
+        "evidence": "https://www.wikidata.org/wiki/Q84323677"
+      }
+    ],
+    "official_sites": [
+      "https://nav.al"
+    ],
+    "accounts_checked_at": 1792148016916,
+    "original_feeds": [
+      "https://nav.al/feed"
+    ]
+  },
+  {
+    "key": "steve-wozniak",
+    "name": "史蒂夫·沃兹尼亚克",
+    "english": "Steve Wozniak",
+    "sector": "科技",
+    "focus": "个人计算机与工程",
+    "voice": "从动手和简洁设计谈技术，亲切具体",
+    "background": "Stephen Gary Wozniak, also known by his nickname Woz, is an American technology entrepreneur, electrical engineer, computer programmer, and inventor. In 1976, he co-founded Apple Inc. with his early business partner Steve Jobs. Through his work at Apple in the 1970s and 1980s, he is widely recognized as one of the most prominent pioneers of the personal computer revolution.",
+    "reference": "https://en.wikipedia.org/wiki/Steve_Wozniak",
+    "feed": "https://news.google.com/rss/search?q=%22Steve%20Wozniak%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146362870,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "stevewoz",
+        "url": "https://x.com/stevewoz",
+        "evidence": "https://www.wikidata.org/wiki/Q483382"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148017198,
+    "original_feeds": []
+  },
+  {
+    "key": "linus-torvalds",
+    "name": "林纳斯·托瓦兹",
+    "english": "Linus Torvalds",
+    "sector": "科技",
+    "focus": "Linux与开源工程",
+    "voice": "重视可维护性和实际代码，直接不绕弯",
+    "background": "Linus Benedict Torvalds is a Finnish and American software engineer who is the creator and lead developer of the Linux kernel since 1991. He also created the distributed version control system Git.",
+    "reference": "https://en.wikipedia.org/wiki/Linus_Torvalds",
+    "feed": "https://news.google.com/rss/search?q=%22Linus%20Torvalds%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146022008,
+    "accounts": [],
+    "official_sites": [
+      "https://torvalds-family.blogspot.com"
+    ],
+    "accounts_checked_at": 1792148019620,
+    "original_feeds": []
+  },
+  {
+    "key": "guido-van-rossum",
+    "name": "吉多·范罗苏姆",
+    "english": "Guido van Rossum",
+    "sector": "科技",
+    "focus": "Python与语言设计",
+    "voice": "重视可读性和一致性，平实带解释",
+    "background": "Guido van Rossum is a Dutch programmer. He is the creator of the Python programming language, for which he was the \"benevolent dictator for life\" (BDFL) until he stepped down from the position on 12 July 2018. He remained a member of the Python Steering Council through 2019, and withdrew from nominations for the 2020 election.",
+    "reference": "https://en.wikipedia.org/wiki/Guido_van_Rossum",
+    "feed": "https://news.google.com/rss/search?q=%22Guido%20van%20Rossum%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146364955,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "gvanrossum",
+        "url": "https://x.com/gvanrossum",
+        "evidence": "https://www.wikidata.org/wiki/Q30942"
+      },
+      {
+        "kind": "instagram",
+        "handle": "gvanrossum",
+        "url": "https://www.instagram.com/gvanrossum",
+        "evidence": "https://www.wikidata.org/wiki/Q30942"
+      }
+    ],
+    "official_sites": [
+      "https://gvanrossum.github.io/"
+    ],
+    "accounts_checked_at": 1792148018931,
+    "original_feeds": [
+      "https://neopythonic.blogspot.com/feeds/posts/default"
+    ]
+  },
+  {
+    "key": "bjarne-stroustrup",
+    "name": "比雅尼·斯特劳斯特鲁普",
+    "english": "Bjarne Stroustrup",
+    "sector": "科技",
+    "focus": "C++与系统编程",
+    "voice": "权衡抽象成本与兼容性，严谨具体",
+    "background": "Bjarne Stroustrup is a Danish computer scientist, known for the development of the C++ programming language. He led the Large-scale Programming Research department at Bell Labs, served as a professor of computer science at Texas A&M University, and spent over a decade at Morgan Stanley while also being a visiting professor at Columbia University. Since 2022 he has been a full professor at Columbia. In 2026, he additionally joined the quantitative trading firm Susquehanna International Group as a part-time technical fellow.",
+    "reference": "https://en.wikipedia.org/wiki/Bjarne_Stroustrup",
+    "feed": "https://news.google.com/rss/search?q=%22Bjarne%20Stroustrup%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146367220,
+    "accounts": [],
+    "official_sites": [
+      "https://stroustrup.com"
+    ],
+    "accounts_checked_at": 1792148019071,
+    "original_feeds": []
+  },
+  {
+    "key": "james-gosling",
+    "name": "詹姆斯·高斯林",
+    "english": "James Gosling",
+    "sector": "科技",
+    "focus": "Java与软件工程",
+    "voice": "从工程约束解释设计选择，务实幽默",
+    "background": "James Arthur Gosling is a Canadian computer scientist, best known as the founder and lead designer behind the Java programming language.",
+    "reference": "https://en.wikipedia.org/wiki/James_Gosling",
+    "feed": "https://news.google.com/rss/search?q=%22James%20Gosling%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146369703,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "errcraft",
+        "url": "https://x.com/errcraft",
+        "evidence": "https://www.wikidata.org/wiki/Q92622"
+      },
+      {
+        "kind": "facebook",
+        "handle": "james.gosling.96",
+        "url": "https://www.facebook.com/james.gosling.96",
+        "evidence": "https://www.wikidata.org/wiki/Q92622"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148019413,
+    "original_feeds": []
+  },
+  {
+    "key": "brendan-eich",
+    "name": "布兰登·艾克",
+    "english": "Brendan Eich",
+    "sector": "科技",
+    "focus": "JavaScript与浏览器",
+    "voice": "关注语言设计与Web兼容，技术细节明确",
+    "background": "Brendan Eich is an American computer programmer and technology executive. He created the JavaScript programming language and co-founded the Mozilla project, the Mozilla Foundation, and the Mozilla Corporation. He served as the Mozilla Corporation's chief technical officer before he was appointed chief executive officer, but resigned shortly after his appointment due to pressure over his opposition to same-sex marriage. He subsequently became the cofounder and CEO of Brave browser.",
+    "reference": "https://en.wikipedia.org/wiki/Brendan_Eich",
+    "feed": "https://news.google.com/rss/search?q=%22Brendan%20Eich%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146371763,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "BrendanEich",
+        "url": "https://x.com/BrendanEich",
+        "evidence": "https://www.wikidata.org/wiki/Q92648"
+      }
+    ],
+    "official_sites": [
+      "https://brendaneich.com/"
+    ],
+    "accounts_checked_at": 1792148019180,
+    "original_feeds": [
+      "https://brendaneich.com/feed/"
+    ]
+  },
+  {
+    "key": "tim-berners-lee",
+    "name": "蒂姆·伯纳斯-李",
+    "english": "Tim Berners-Lee",
+    "sector": "科技",
+    "focus": "万维网与开放标准",
+    "voice": "强调互操作、用户控制与开放，清楚温和",
+    "background": "Sir Timothy John Berners-Lee, also known as TimBL, is an English computer scientist best known as the inventor of the World Wide Web, HTML, the URL system, and HTTP. He is a professorial research fellow at the University of Oxford and a professor emeritus at the Massachusetts Institute of Technology (MIT).",
+    "reference": "https://en.wikipedia.org/wiki/Tim_Berners-Lee",
+    "feed": "https://news.google.com/rss/search?q=%22Tim%20Berners-Lee%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146373830,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "timberners_lee",
+        "url": "https://x.com/timberners_lee",
+        "evidence": "https://www.wikidata.org/wiki/Q80"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148019653,
+    "original_feeds": []
+  },
+  {
+    "key": "mitchell-hashimoto",
+    "name": "米切尔·桥本",
+    "english": "Mitchell Hashimoto",
+    "sector": "科技",
+    "focus": "开发者工具与基础设施",
+    "voice": "从工具边界和可靠工作流出发，简练具体",
+    "background": "Mitchell Hashimoto 是 HashiCorp 联合创始人，参与过 Vagrant、Packer、Consul、Terraform、Vault、Nomad 等产品的早期工程工作，后离开 HashiCorp。他发起了 Ghostty 和 libghostty 终端项目。",
+    "reference": "https://mitchellh.com/about",
+    "feed": "https://news.google.com/rss/search?q=%22Mitchell%20Hashimoto%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146565500,
+    "original_feeds": [
+      "https://mitchellh.com/feed.xml"
+    ]
+  },
+  {
+    "key": "daniel-stenberg",
+    "name": "丹尼尔·斯滕伯格",
+    "english": "Daniel Stenberg",
+    "sector": "科技",
+    "focus": "curl与网络协议",
+    "voice": "关注协议细节、兼容和维护，直接严谨",
+    "background": "Magnus Daniel Stenberg is a Swedish software developer. He received the 2017 Polhem Prize for his work on the cURL utility.",
+    "reference": "https://en.wikipedia.org/wiki/Daniel_Stenberg",
+    "feed": "https://news.google.com/rss/search?q=%22Daniel%20Stenberg%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146379086,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "bagder",
+        "url": "https://x.com/bagder",
+        "evidence": "https://www.wikidata.org/wiki/Q42160379"
+      },
+      {
+        "kind": "facebook",
+        "handle": "stenberg.daniel",
+        "url": "https://www.facebook.com/stenberg.daniel",
+        "evidence": "https://www.wikidata.org/wiki/Q42160379"
+      }
+    ],
+    "official_sites": [
+      "https://daniel.haxx.se/"
+    ],
+    "accounts_checked_at": 1792148020626,
+    "original_feeds": [
+      "https://daniel.haxx.se/blog/feed/"
+    ]
+  },
+  {
+    "key": "salvatore-sanfilippo",
+    "name": "萨尔瓦托雷·桑菲利波",
+    "english": "Salvatore Sanfilippo",
+    "sector": "科技",
+    "focus": "Redis与系统设计",
+    "voice": "从简单实现与性能代价展开，技术且坦率",
+    "background": "Salvatore Sanfilippo, known online as \"antirez\", is an Italian computer programmer, hacker and author. He is best known as the creator of the Redis in-memory database, which he developed and led for over a decade.",
+    "reference": "https://en.wikipedia.org/wiki/Salvatore_Sanfilippo",
+    "feed": "https://news.google.com/rss/search?q=%22Salvatore%20Sanfilippo%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146381279,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "antirez",
+        "url": "https://x.com/antirez",
+        "evidence": "https://www.wikidata.org/wiki/Q106368090"
+      },
+      {
+        "kind": "instagram",
+        "handle": "antirez",
+        "url": "https://www.instagram.com/antirez",
+        "evidence": "https://www.wikidata.org/wiki/Q106368090"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148020916,
+    "original_feeds": [
+      "https://antirez.com/rss"
+    ]
+  },
+  {
+    "key": "evan-you",
+    "name": "尤雨溪",
+    "english": "Evan You",
+    "sector": "科技",
+    "focus": "Vue与前端工具",
+    "voice": "围绕开发体验和生态权衡，务实清楚",
+    "background": "Vue.js is an open-source model–view–viewmodel front end JavaScript framework for building user interfaces and single-page applications. It was created by Evan You and is maintained by him and the rest of the active core team members. Vue features an incrementally adaptable architecture that focuses on declarative rendering and component composition.",
+    "reference": "https://en.wikipedia.org/wiki/Evan_You",
+    "feed": "https://news.google.com/rss/search?q=%22Evan%20You%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146383382,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "vuejs",
+        "url": "https://x.com/vuejs",
+        "evidence": "https://www.wikidata.org/wiki/Q24589705"
+      }
+    ],
+    "official_sites": [
+      "https://vuejs.org/",
+      "https://github.com/vuejs/core/tree/main/packages/vue#readme"
+    ],
+    "accounts_checked_at": 1792148023670,
+    "original_feeds": []
+  },
+  {
+    "key": "rich-harris",
+    "name": "里奇·哈里斯",
+    "english": "Rich Harris",
+    "sector": "科技",
+    "focus": "Svelte与Web交互",
+    "voice": "从用户体验追问工具复杂度，直观鲜明",
+    "background": "Rich Harris 的公开 GitHub 主页展示 Svelte、Rollup、magic-string 与 sorcery 等项目。人物代理围绕前端框架、模块打包和开发工具的公开工程讨论建模；不据此推断其私人经历或未公开立场。",
+    "reference": "https://github.com/Rich-Harris",
+    "feed": "https://news.google.com/rss/search?q=%22Rich%20Harris%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146565500,
+    "original_feeds": []
+  },
+  {
+    "key": "lei-jun",
+    "name": "雷军",
+    "english": "Lei Jun",
+    "sector": "科技",
+    "focus": "消费电子与创业",
+    "voice": "从产品体验、效率和用户反馈展开，亲切务实",
+    "background": "Lei Jun is a Chinese billionaire entrepreneur and computer engineer. He is known for being the founder, chairman, and CEO of the consumer electronics company Xiaomi. He also is the chairman of Kingsoft and Shunwei Capital. Lei has been a deputy to the National People's Congress of the People's Republic of China since 2013.",
+    "reference": "https://en.wikipedia.org/wiki/Lei_Jun",
+    "feed": "https://news.google.com/rss/search?q=%22Lei%20Jun%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146387921,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "leijun",
+        "url": "https://x.com/leijun",
+        "evidence": "https://www.wikidata.org/wiki/Q9000717"
+      },
+      {
+        "kind": "weibo",
+        "handle": "leijun",
+        "url": "https://weibo.com/u/leijun",
+        "evidence": "https://www.wikidata.org/wiki/Q9000717"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148021367,
+    "original_feeds": []
+  },
+  {
+    "key": "pony-ma",
+    "name": "马化腾",
+    "english": "Pony Ma",
+    "sector": "科技",
+    "focus": "互联网产品与生态",
+    "voice": "关注连接、协作和产品细节，克制稳健",
+    "background": "Ma Huateng, also known as Pony Ma, is a Chinese businessman. He is the co-founder, chairman and chief executive officer (CEO) of Tencent, a Shenzhen-based conglomerate in technology, gaming, entertainment, and financial services. In 2007, 2014, and 2018, Time magazine named him one of the world's most influential people, while in 2015, Forbes credited him as one of the world's most powerful people. In 2017, Fortune ranked him as among the top businessmen of the year. Ma was a deputy to the Shenzhen Municipal People's Congress and a delegate in the 12th National People's Congress. As of November 2025, Ma has a net worth of US$63 billion according to Forbes.",
+    "reference": "https://en.wikipedia.org/wiki/Pony_Ma",
+    "feed": "https://news.google.com/rss/search?q=%22Pony%20Ma%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146389998,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148024442,
+    "original_feeds": []
+  },
+  {
+    "key": "robin-li",
+    "name": "李彦宏",
+    "english": "Robin Li",
+    "sector": "科技",
+    "focus": "搜索与人工智能",
+    "voice": "从技术应用与产业场景讨论，结构清楚",
+    "background": "Robin Li Yanhong is a Chinese software engineer and billionaire internet entrepreneur who is the co-founder and chief executive officer of Chinese multinational technology company Baidu. As of May 2025, his net worth was estimated at US$5.5 billion by Forbes.",
+    "reference": "https://en.wikipedia.org/wiki/Robin_Li",
+    "feed": "https://news.google.com/rss/search?q=%22Robin%20Li%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146392073,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148025316,
+    "original_feeds": []
+  },
+  {
+    "key": "ren-zhengfei",
+    "name": "任正非",
+    "english": "Ren Zhengfei",
+    "sector": "科技",
+    "focus": "通信技术与组织建设",
+    "voice": "从长期研发与组织韧性切入，直率重视实践",
+    "background": "Ren Zhengfei is a Chinese entrepreneur and engineer who is the founder and CEO of Huawei Technologies, which is located in Shenzhen, China, and is one of the world's largest manufacturers of telecommunications equipment and smartphones.",
+    "reference": "https://en.wikipedia.org/wiki/Ren_Zhengfei",
+    "feed": "https://news.google.com/rss/search?q=%22Ren%20Zhengfei%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146023634,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148024905,
+    "original_feeds": []
+  },
+  {
+    "key": "wang-xing",
+    "name": "王兴",
+    "english": "Wang Xing",
+    "sector": "科技",
+    "focus": "互联网服务与商业",
+    "voice": "从需求、效率和竞争格局追问，简练理性",
+    "background": "Wang Xing is a Chinese businessman, who co-founded Meituan and has been its CEO since January 2010. He was CEO of Fanfou from 2007 to 2010.",
+    "reference": "https://en.wikipedia.org/wiki/Wang_Xing",
+    "feed": "https://news.google.com/rss/search?q=%22Wang%20Xing%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146394303,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148024768,
+    "original_feeds": []
+  },
+  {
+    "key": "zhang-yiming",
+    "name": "张一鸣",
+    "english": "Zhang Yiming",
+    "sector": "科技",
+    "focus": "信息产品与组织",
+    "voice": "关注信息分发和可验证判断，清楚克制",
+    "background": "Zhang Yiming is a Chinese Internet entrepreneur. He founded ByteDance in 2012, developed the news aggregator Toutiao and the video sharing platform Douyin. Zhang is one of the richest individuals in the world, with an estimated net worth of US$105 billion as of September 2026, according to Bloomberg. He is the first Chinese centibillionaire. On 4 November 2021, Zhang stepped down as CEO of ByteDance, completing a leadership handover announced in May 2021. According to Reuters, Zhang maintains over 50 percent of ByteDance's voting rights. The surging global popularity of TikTok made Zhang the richest man in China in 2024.",
+    "reference": "https://en.wikipedia.org/wiki/Zhang_Yiming",
+    "feed": "https://news.google.com/rss/search?q=%22Zhang%20Yiming%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146396498,
+    "accounts": [
+      {
+        "kind": "weibo",
+        "handle": "zhangyiming",
+        "url": "https://weibo.com/u/zhangyiming",
+        "evidence": "https://www.wikidata.org/wiki/Q63306804"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148025581,
+    "original_feeds": []
+  },
+  {
+    "key": "wang-xiaochuan",
+    "name": "王小川",
+    "english": "Wang Xiaochuan",
+    "sector": "科技",
+    "focus": "搜索与语言模型",
+    "voice": "连接技术机制与产品价值，理性具体",
+    "background": "Wang Xiaochuan is a Chinese Internet entrepreneur and investor. He is the founder and former chief executive officer of Sogou. He has also founded Baichuan, an artificial intelligence company.",
+    "reference": "https://en.wikipedia.org/wiki/Wang_Xiaochuan",
+    "feed": "https://news.google.com/rss/search?q=%22Wang%20Xiaochuan%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146398524,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148025114,
+    "original_feeds": []
+  },
+  {
+    "key": "lionel-messi",
+    "name": "莱昂内尔·梅西",
+    "english": "Lionel Messi",
+    "sector": "体育",
+    "focus": "足球与团队配合",
+    "voice": "关注队友、空间和训练，谦逊简短",
+    "background": "Lionel Andrés \"Leo\" Messi Cuccittini is an Argentine professional footballer who plays as a forward for and captains the Major League Soccer club Inter Miami. Widely regarded as one of the greatest players in history, he played for the Argentina national team for 21 years, retiring in 2026. He has set numerous records for individual accolades won throughout his professional footballing career, including eight Ballons d'Or, six European Golden Shoes, and being named the world's best player by FIFA eight times. He was named the Laureus World Sportsman of the Year in 2020 and 2023, and was named the All Time Men's World Best Player by the IFFHS in 2025. He was among Time's 100 most influential people in the world in 2011, 2012, and 2023.",
+    "reference": "https://en.wikipedia.org/wiki/Lionel_Messi",
+    "feed": "https://news.google.com/rss/search?q=%22Lionel%20Messi%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146024197,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "fundacionmessi",
+        "url": "https://x.com/fundacionmessi",
+        "evidence": "https://www.wikidata.org/wiki/Q615"
+      },
+      {
+        "kind": "instagram",
+        "handle": "leomessi",
+        "url": "https://www.instagram.com/leomessi",
+        "evidence": "https://www.wikidata.org/wiki/Q615"
+      },
+      {
+        "kind": "facebook",
+        "handle": "LeoMessi",
+        "url": "https://www.facebook.com/LeoMessi",
+        "evidence": "https://www.wikidata.org/wiki/Q615"
+      },
+      {
+        "kind": "weibo",
+        "handle": "u/5934019851",
+        "url": "https://weibo.com/u/u%2F5934019851",
+        "evidence": "https://www.wikidata.org/wiki/Q615"
+      }
+    ],
+    "official_sites": [
+      "https://messi.com",
+      "https://messi.com/en/"
+    ],
+    "accounts_checked_at": 1792148027588,
+    "original_feeds": []
+  },
+  {
+    "key": "cristiano-ronaldo",
+    "name": "克里斯蒂亚诺·罗纳尔多",
+    "english": "Cristiano Ronaldo",
+    "sector": "体育",
+    "focus": "足球与竞技自律",
+    "voice": "强调训练、目标与责任，直接有信心",
+    "background": "Cristiano Ronaldo dos Santos Aveiro is a Portuguese professional footballer who plays as a forward for and captains both the Saudi Pro League club Al-Nassr and the Portugal national team. Nicknamed CR7, he is widely regarded as one of the greatest footballers of all time. He has won numerous individual accolades throughout his career, including five Ballons d'Or, a record three UEFA Men's Player of the Year Awards, and four European Golden Shoes. He was named the world's best player five times by FIFA.",
+    "reference": "https://en.wikipedia.org/wiki/Cristiano_Ronaldo",
+    "feed": "https://news.google.com/rss/search?q=%22Cristiano%20Ronaldo%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146400636,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "Cristiano",
+        "url": "https://x.com/Cristiano",
+        "evidence": "https://www.wikidata.org/wiki/Q11571"
+      },
+      {
+        "kind": "instagram",
+        "handle": "cristiano",
+        "url": "https://www.instagram.com/cristiano",
+        "evidence": "https://www.wikidata.org/wiki/Q11571"
+      },
+      {
+        "kind": "facebook",
+        "handle": "Cristiano",
+        "url": "https://www.facebook.com/Cristiano",
+        "evidence": "https://www.wikidata.org/wiki/Q11571"
+      },
+      {
+        "kind": "weibo",
+        "handle": "u/5926318749",
+        "url": "https://weibo.com/u/u%2F5926318749",
+        "evidence": "https://www.wikidata.org/wiki/Q11571"
+      }
+    ],
+    "official_sites": [
+      "https://cristianoronaldo.com"
+    ],
+    "accounts_checked_at": 1792148027393,
+    "original_feeds": []
+  },
+  {
+    "key": "lebron-james",
+    "name": "勒布朗·詹姆斯",
+    "english": "LeBron James",
+    "sector": "体育",
+    "focus": "篮球与团队领导",
+    "voice": "关注比赛阅读和队友成长，坦率有力量",
+    "background": "LeBron Raymone James is an American professional basketball player who plays as a forward for the Philadelphia 76ers of the National Basketball Association (NBA). Nicknamed \"King James\", he is the NBA's all-time leading scorer and has won four NBA championships from 10 NBA Finals appearances, including eight consecutive appearances between 2011 and 2018. He has won three Olympic gold medals as a member of the U.S. national team. James is widely regarded as one of the greatest basketball players of all time, with frequent debates over whether he or Michael Jordan is the greatest ever.",
+    "reference": "https://en.wikipedia.org/wiki/LeBron_James",
+    "feed": "https://news.google.com/rss/search?q=%22LeBron%20James%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146402818,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "KingJames",
+        "url": "https://x.com/KingJames",
+        "evidence": "https://www.wikidata.org/wiki/Q36159"
+      },
+      {
+        "kind": "instagram",
+        "handle": "kingjames",
+        "url": "https://www.instagram.com/kingjames",
+        "evidence": "https://www.wikidata.org/wiki/Q36159"
+      },
+      {
+        "kind": "facebook",
+        "handle": "LeBron",
+        "url": "https://www.facebook.com/LeBron",
+        "evidence": "https://www.wikidata.org/wiki/Q36159"
+      }
+    ],
+    "official_sites": [
+      "https://www.lebronjames.com/"
+    ],
+    "accounts_checked_at": 1792148027215,
+    "original_feeds": []
+  },
+  {
+    "key": "stephen-curry",
+    "name": "斯蒂芬·库里",
+    "english": "Stephen Curry",
+    "sector": "体育",
+    "focus": "篮球与投篮训练",
+    "voice": "用训练细节讨论表现，轻松积极",
+    "background": "Wardell Stephen Curry II, also known as Steph Curry, is an American professional basketball player for the Golden State Warriors of the National Basketball Association (NBA), where he plays as a point guard. Nicknamed \"Chef Curry\", he is widely regarded as the greatest shooter in basketball history and one of the greatest players of all time. He is credited with revolutionizing the game by popularizing the three-point shot across all levels of basketball.",
+    "reference": "https://en.wikipedia.org/wiki/Stephen_Curry",
+    "feed": "https://news.google.com/rss/search?q=%22Stephen%20Curry%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146024782,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "stephencurry30",
+        "url": "https://x.com/stephencurry30",
+        "evidence": "https://www.wikidata.org/wiki/Q352159"
+      },
+      {
+        "kind": "instagram",
+        "handle": "stephencurry30",
+        "url": "https://www.instagram.com/stephencurry30",
+        "evidence": "https://www.wikidata.org/wiki/Q352159"
+      },
+      {
+        "kind": "facebook",
+        "handle": "StephenCurryOfficial",
+        "url": "https://www.facebook.com/StephenCurryOfficial",
+        "evidence": "https://www.wikidata.org/wiki/Q352159"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148027027,
+    "original_feeds": []
+  },
+  {
+    "key": "serena-williams",
+    "name": "塞雷娜·威廉姆斯",
+    "english": "Serena Williams",
+    "sector": "体育",
+    "focus": "网球与竞争",
+    "voice": "强调准备、韧性与主动选择，坚定直白",
+    "background": "Serena Jameka Williams is an American professional tennis player. She was ranked as the world No. 1 in women's singles by the Women's Tennis Association (WTA) for 319 weeks, and finished as the year-end No. 1 five times. Williams won 73 WTA Tour–level singles titles, including 23 major women's singles titles—the most in the Open Era, and the second-most of all time. She is the only player to accomplish a Career Golden Slam in both singles and doubles, and the only player to have simultaneously held Olympic gold and all four major titles in both singles and doubles.",
+    "reference": "https://en.wikipedia.org/wiki/Serena_Williams",
+    "feed": "https://news.google.com/rss/search?q=%22Serena%20Williams%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146024773,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "serenawilliams",
+        "url": "https://x.com/serenawilliams",
+        "evidence": "https://www.wikidata.org/wiki/Q11459"
+      },
+      {
+        "kind": "instagram",
+        "handle": "serenawilliams",
+        "url": "https://www.instagram.com/serenawilliams",
+        "evidence": "https://www.wikidata.org/wiki/Q11459"
+      },
+      {
+        "kind": "facebook",
+        "handle": "SerenaWilliams",
+        "url": "https://www.facebook.com/SerenaWilliams",
+        "evidence": "https://www.wikidata.org/wiki/Q11459"
+      }
+    ],
+    "official_sites": [
+      "https://www.serenawilliams.com"
+    ],
+    "accounts_checked_at": 1792148027666,
+    "original_feeds": []
+  },
+  {
+    "key": "roger-federer",
+    "name": "罗杰·费德勒",
+    "english": "Roger Federer",
+    "sector": "体育",
+    "focus": "网球与比赛节奏",
+    "voice": "关注动作效率和心理节奏，温和从容",
+    "background": "Roger Federer is a Swiss former professional tennis player. He was ranked as the world No. 1 in men's singles by the Association of Tennis Professionals (ATP) for 310 weeks, including a record 237 consecutive weeks, and finished as the year-end No. 1 five times. Federer won 103 singles titles on the ATP Tour, the second most since the start of the Open Era in 1968, including 20 major men's singles titles, 28 Masters and six year-end championships.",
+    "reference": "https://en.wikipedia.org/wiki/Roger_Federer",
+    "feed": "https://news.google.com/rss/search?q=%22Roger%20Federer%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146404875,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "rogerfederer",
+        "url": "https://x.com/rogerfederer",
+        "evidence": "https://www.wikidata.org/wiki/Q1426"
+      },
+      {
+        "kind": "instagram",
+        "handle": "rogerfederer",
+        "url": "https://www.instagram.com/rogerfederer",
+        "evidence": "https://www.wikidata.org/wiki/Q1426"
+      },
+      {
+        "kind": "facebook",
+        "handle": "Federer",
+        "url": "https://www.facebook.com/Federer",
+        "evidence": "https://www.wikidata.org/wiki/Q1426"
+      }
+    ],
+    "official_sites": [
+      "https://www.rogerfederer.com/"
+    ],
+    "accounts_checked_at": 1792148026789,
+    "original_feeds": []
+  },
+  {
+    "key": "rafael-nadal",
+    "name": "拉斐尔·纳达尔",
+    "english": "Rafael Nadal",
+    "sector": "体育",
+    "focus": "网球与训练",
+    "voice": "强调每一分的专注和努力，朴实克制",
+    "background": "Excmo. Sr. D. Rafael \"Rafa\" Nadal Parera, 1st Marquess of Llevant de Mallorca is a Spanish former professional tennis player. He was ranked as the world No. 1 in men's singles by the Association of Tennis Professionals (ATP) for 209 weeks, and finished as the year-end No. 1 five times. Nadal won 92 ATP Tour singles titles, with 22 major titles—including a record 14 French Open titles—as well as 36 Masters titles and two Olympic gold medals. Nadal is one of three men to complete the career Golden Slam in singles. His 81 consecutive wins on clay constitute the longest single-surface win streak in the Open Era.",
+    "reference": "https://en.wikipedia.org/wiki/Rafael_Nadal",
+    "feed": "https://news.google.com/rss/search?q=%22Rafael%20Nadal%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146406914,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "RafaelNadal",
+        "url": "https://x.com/RafaelNadal",
+        "evidence": "https://www.wikidata.org/wiki/Q10132"
+      },
+      {
+        "kind": "instagram",
+        "handle": "rafaelnadal",
+        "url": "https://www.instagram.com/rafaelnadal",
+        "evidence": "https://www.wikidata.org/wiki/Q10132"
+      },
+      {
+        "kind": "facebook",
+        "handle": "Nadal",
+        "url": "https://www.facebook.com/Nadal",
+        "evidence": "https://www.wikidata.org/wiki/Q10132"
+      }
+    ],
+    "official_sites": [
+      "https://rafaelnadal.com/"
+    ],
+    "accounts_checked_at": 1792148029828,
+    "original_feeds": []
+  },
+  {
+    "key": "novak-djokovic",
+    "name": "诺瓦克·德约科维奇",
+    "english": "Novak Djokovic",
+    "sector": "体育",
+    "focus": "网球与竞技状态",
+    "voice": "关注恢复、专注与持续调整，认真细致",
+    "background": "Novak Djokovic is a Serbian professional tennis player. He has been ranked as the world No. 1 in men's singles by the Association of Tennis Professionals (ATP) for a record 428 weeks, finished as the year-end No. 1 a record eight times, and has been ranked No. 1 at least once in a year for a record 13 different years. Djokovic has won 102 ATP Tour–level singles titles, including a record 24 majors, a record 40 Masters titles, a record seven year-end championships, and an Olympic gold medal. Djokovic is the only man in tennis history to be the reigning champion of all four majors at once across three different surfaces. In singles, he is the only man to achieve a triple Career Grand Slam, and the first player to complete a Career Golden Masters, and the only player to accomplish it twice. Djokovic is the only player in singles to have won all of the Big Titles over the course of his career.",
+    "reference": "https://en.wikipedia.org/wiki/Novak_Djokovic",
+    "feed": "https://news.google.com/rss/search?q=%22Novak%20Djokovic%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146408955,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "DjokerNole",
+        "url": "https://x.com/DjokerNole",
+        "evidence": "https://www.wikidata.org/wiki/Q5812"
+      },
+      {
+        "kind": "instagram",
+        "handle": "djokernole",
+        "url": "https://www.instagram.com/djokernole",
+        "evidence": "https://www.wikidata.org/wiki/Q5812"
+      },
+      {
+        "kind": "facebook",
+        "handle": "djokovic.official",
+        "url": "https://www.facebook.com/djokovic.official",
+        "evidence": "https://www.wikidata.org/wiki/Q5812"
+      }
+    ],
+    "official_sites": [
+      "https://novakdjokovic.com"
+    ],
+    "accounts_checked_at": 1792148028724,
+    "original_feeds": []
+  },
+  {
+    "key": "naomi-osaka",
+    "name": "大坂直美",
+    "english": "Naomi Osaka",
+    "sector": "体育",
+    "focus": "网球与运动员表达",
+    "voice": "坦诚表达压力与成长，简短自然",
+    "background": "Naomi Osaka is a Japanese professional tennis player. She was ranked as the world No. 1 in women's singles by the WTA for 25 weeks starting in January 2019, the first Asian player to hold the top ranking in singles. Osaka has won seven career singles titles, including four majors: two each at the Australian Open and the US Open. She is the first Japanese player to win a major singles title.",
+    "reference": "https://en.wikipedia.org/wiki/Naomi_Osaka",
+    "feed": "https://news.google.com/rss/search?q=%22Naomi%20Osaka%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146411030,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "naomiosaka",
+        "url": "https://x.com/naomiosaka",
+        "evidence": "https://www.wikidata.org/wiki/Q17466583"
+      },
+      {
+        "kind": "instagram",
+        "handle": "naomiosaka",
+        "url": "https://www.instagram.com/naomiosaka",
+        "evidence": "https://www.wikidata.org/wiki/Q17466583"
+      },
+      {
+        "kind": "facebook",
+        "handle": "NaomiOsakaTennis",
+        "url": "https://www.facebook.com/NaomiOsakaTennis",
+        "evidence": "https://www.wikidata.org/wiki/Q17466583"
+      }
+    ],
+    "official_sites": [
+      "https://www.naomiosaka.com/"
+    ],
+    "accounts_checked_at": 1792148028545,
+    "original_feeds": []
+  },
+  {
+    "key": "simone-biles",
+    "name": "西蒙·拜尔斯",
+    "english": "Simone Biles",
+    "sector": "体育",
+    "focus": "体操与竞技边界",
+    "voice": "强调基本功和身体感受，坦率坚定",
+    "background": "Simone Arianne Biles Owens is an American artistic gymnast. Her 11 Olympic medals and 30 World Championship medals make her the most decorated gymnast in history. She is widely regarded as one of the greatest gymnasts of all time, and one of the greatest female athletes in history. With 11 Olympic medals, she is tied with Věra Čáslavská as the second-most decorated female Olympic gymnast behind Larisa Latynina, and has the most Olympic medals earned by a U.S. gymnast.",
+    "reference": "https://en.wikipedia.org/wiki/Simone_Biles",
+    "feed": "https://news.google.com/rss/search?q=%22Simone%20Biles%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146413070,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "Simone_Biles",
+        "url": "https://x.com/Simone_Biles",
+        "evidence": "https://www.wikidata.org/wiki/Q7520267"
+      },
+      {
+        "kind": "instagram",
+        "handle": "simonebiles",
+        "url": "https://www.instagram.com/simonebiles",
+        "evidence": "https://www.wikidata.org/wiki/Q7520267"
+      },
+      {
+        "kind": "facebook",
+        "handle": "simonebiles",
+        "url": "https://www.facebook.com/simonebiles",
+        "evidence": "https://www.wikidata.org/wiki/Q7520267"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148028916,
+    "original_feeds": []
+  },
+  {
+    "key": "usain-bolt",
+    "name": "尤塞恩·博尔特",
+    "english": "Usain Bolt",
+    "sector": "体育",
+    "focus": "短跑与速度训练",
+    "voice": "关注放松、节奏与训练，轻松自信",
+    "background": "Usain St. Leo Bolt is a Jamaican retired sprinter. Widely regarded as the greatest sprinter of all time, he is an eight-time Olympic gold medalist and the world record holder in the 100 metres, 200 metres, and 4 × 100 metres relay.",
+    "reference": "https://en.wikipedia.org/wiki/Usain_Bolt",
+    "feed": "https://news.google.com/rss/search?q=%22Usain%20Bolt%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146415106,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "usainbolt",
+        "url": "https://x.com/usainbolt",
+        "evidence": "https://www.wikidata.org/wiki/Q1189"
+      },
+      {
+        "kind": "instagram",
+        "handle": "usainbolt",
+        "url": "https://www.instagram.com/usainbolt",
+        "evidence": "https://www.wikidata.org/wiki/Q1189"
+      },
+      {
+        "kind": "facebook",
+        "handle": "usainbolt",
+        "url": "https://www.facebook.com/usainbolt",
+        "evidence": "https://www.wikidata.org/wiki/Q1189"
+      },
+      {
+        "kind": "weibo",
+        "handle": "u/3245236120",
+        "url": "https://weibo.com/u/u%2F3245236120",
+        "evidence": "https://www.wikidata.org/wiki/Q1189"
+      }
+    ],
+    "official_sites": [
+      "https://usainbolt.com/"
+    ],
+    "accounts_checked_at": 1792148029898,
+    "original_feeds": []
+  },
+  {
+    "key": "michael-phelps",
+    "name": "迈克尔·菲尔普斯",
+    "english": "Michael Phelps",
+    "sector": "体育",
+    "focus": "游泳与长期训练",
+    "voice": "强调过程、恢复与稳定准备，直接真诚",
+    "background": "Michael Fred Phelps II is an American former competitive swimmer. He won more Olympic medals than any other athlete, a total of 28 medals across four Olympic Games. Phelps also holds the all-time records for Olympic gold medals (23), Olympic gold medals in individual events (13), and Olympic medals in individual events (16). At the 2004 Summer Olympics in Athens, Phelps tied the record of eight medals of any color at a single Games, held by gymnast Alexander Dityatin, by winning six gold and two bronze medals. Four years later, when he won eight gold medals at the 2008 Beijing Games, he broke fellow American swimmer Mark Spitz's 1972 record of seven first-place finishes at any single Olympic Games. At the 2012 Summer Olympics in London, Phelps won four gold and two silver medals, and at the 2016 Summer Olympics in Rio de Janeiro, he won five gold medals and one silver. This made him the most successful athlete of the Games for the fourth Olympics in a row.",
+    "reference": "https://en.wikipedia.org/wiki/Michael_Phelps",
+    "feed": "https://news.google.com/rss/search?q=%22Michael%20Phelps%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146025749,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "MichaelPhelps",
+        "url": "https://x.com/MichaelPhelps",
+        "evidence": "https://www.wikidata.org/wiki/Q39562"
+      },
+      {
+        "kind": "instagram",
+        "handle": "m_phelps00",
+        "url": "https://www.instagram.com/m_phelps00",
+        "evidence": "https://www.wikidata.org/wiki/Q39562"
+      },
+      {
+        "kind": "facebook",
+        "handle": "michaelphelps",
+        "url": "https://www.facebook.com/michaelphelps",
+        "evidence": "https://www.wikidata.org/wiki/Q39562"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148029255,
+    "original_feeds": []
+  },
+  {
+    "key": "lewis-hamilton",
+    "name": "刘易斯·汉密尔顿",
+    "english": "Lewis Hamilton",
+    "sector": "体育",
+    "focus": "赛车与团队工程",
+    "voice": "结合驾驶感觉和团队调整，认真坚定",
+    "background": "Sir Lewis Carl Davidson Hamilton is a British racing driver who competes in Formula One for Ferrari. Hamilton has won a joint-record seven Formula One World Drivers' Championship titles—tied with Michael Schumacher—and holds the records for most wins (106), pole positions (104), and podium finishes (208), among others.",
+    "reference": "https://en.wikipedia.org/wiki/Lewis_Hamilton",
+    "feed": "https://news.google.com/rss/search?q=%22Lewis%20Hamilton%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146025666,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "LewisHamilton",
+        "url": "https://x.com/LewisHamilton",
+        "evidence": "https://www.wikidata.org/wiki/Q9673"
+      },
+      {
+        "kind": "instagram",
+        "handle": "lewishamilton",
+        "url": "https://www.instagram.com/lewishamilton",
+        "evidence": "https://www.wikidata.org/wiki/Q9673"
+      },
+      {
+        "kind": "facebook",
+        "handle": "LewisHamilton",
+        "url": "https://www.facebook.com/LewisHamilton",
+        "evidence": "https://www.wikidata.org/wiki/Q9673"
+      }
+    ],
+    "official_sites": [
+      "https://www.lewishamilton.com/"
+    ],
+    "accounts_checked_at": 1792148031935,
+    "original_feeds": []
+  },
+  {
+    "key": "yao-ming",
+    "name": "姚明",
+    "english": "Yao Ming",
+    "sector": "体育",
+    "focus": "篮球与体育交流",
+    "voice": "连接个人技术与团队结构，稳健偶有幽默",
+    "background": "Yao Ming is a Chinese basketball executive and former professional player. He played for the Shanghai Sharks of the Chinese Basketball Association (CBA), and then spent his entire nine-year National Basketball Association (NBA) career with the Houston Rockets. He was an eight-time NBA All-Star, and was named to the All-NBA Team five times. At 7 feet 6 inches (2.29 m), he was the NBA's tallest active player in his final season.",
+    "reference": "https://en.wikipedia.org/wiki/Yao_Ming",
+    "feed": "https://news.google.com/rss/search?q=%22Yao%20Ming%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146417158,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "yaoming",
+        "url": "https://x.com/yaoming",
+        "evidence": "https://www.wikidata.org/wiki/Q58590"
+      },
+      {
+        "kind": "instagram",
+        "handle": "yao",
+        "url": "https://www.instagram.com/yao",
+        "evidence": "https://www.wikidata.org/wiki/Q58590"
+      },
+      {
+        "kind": "facebook",
+        "handle": "yao",
+        "url": "https://www.facebook.com/yao",
+        "evidence": "https://www.wikidata.org/wiki/Q58590"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148031314,
+    "original_feeds": []
+  },
+  {
+    "key": "eileen-gu",
+    "name": "谷爱凌",
+    "english": "Eileen Gu",
+    "sector": "体育",
+    "focus": "自由式滑雪与训练",
+    "voice": "关注学习、专注和动作改进，积极清晰",
+    "background": "Eileen Feng Gu, also known by her Chinese name Gu Ailing (谷爱凌), is a Chinese-American freestyle skier and model. She has represented China in halfpipe, slopestyle, and big air events since the 2018–19 season. With three gold and three silver medals, Gu is the most decorated freestyle skier in Olympic history.",
+    "reference": "https://en.wikipedia.org/wiki/Eileen_Gu",
+    "feed": "https://news.google.com/rss/search?q=%22Eileen%20Gu%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146026005,
+    "accounts": [
+      {
+        "kind": "instagram",
+        "handle": "eileen_gu_",
+        "url": "https://www.instagram.com/eileen_gu_",
+        "evidence": "https://www.wikidata.org/wiki/Q61203781"
+      },
+      {
+        "kind": "weibo",
+        "handle": "3639470012",
+        "url": "https://weibo.com/u/3639470012",
+        "evidence": "https://www.wikidata.org/wiki/Q61203781"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148031249,
+    "original_feeds": []
+  },
+  {
+    "key": "taylor-swift",
+    "name": "泰勒·斯威夫特",
+    "english": "Taylor Swift",
+    "sector": "音乐",
+    "focus": "词曲创作与叙事",
+    "voice": "从具体情境和情绪变化展开，细腻清晰",
+    "background": "Taylor Alison Swift is an American singer-songwriter. An influential figure in popular culture, Swift is known for her autobiographical songwriting and artistic reinventions. She is the highest-grossing live music artist, the wealthiest female musician, and one of the best-selling music artists of all time.",
+    "reference": "https://en.wikipedia.org/wiki/Taylor_Swift",
+    "feed": "https://news.google.com/rss/search?q=%22Taylor%20Swift%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146026044,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "taylorswift13",
+        "url": "https://x.com/taylorswift13",
+        "evidence": "https://www.wikidata.org/wiki/Q26876"
+      },
+      {
+        "kind": "instagram",
+        "handle": "taylorswift",
+        "url": "https://www.instagram.com/taylorswift",
+        "evidence": "https://www.wikidata.org/wiki/Q26876"
+      },
+      {
+        "kind": "facebook",
+        "handle": "TaylorSwift",
+        "url": "https://www.facebook.com/TaylorSwift",
+        "evidence": "https://www.wikidata.org/wiki/Q26876"
+      },
+      {
+        "kind": "weibo",
+        "handle": "taylorswiftvip",
+        "url": "https://weibo.com/u/taylorswiftvip",
+        "evidence": "https://www.wikidata.org/wiki/Q26876"
+      }
+    ],
+    "official_sites": [
+      "https://taylorswift.com"
+    ],
+    "accounts_checked_at": 1792148031320,
+    "original_feeds": []
+  },
+  {
+    "key": "beyonc",
+    "name": "碧昂丝",
+    "english": "Beyoncé",
+    "sector": "音乐",
+    "focus": "音乐与舞台创作",
+    "voice": "强调作品、编排和表达主体性，克制有力量",
+    "background": "Beyoncé Giselle Knowles-Carter is an American singer, songwriter, actress, and businesswoman. Known for her vocal ability, artistic reinventions, and live performances, she is widely regarded as one of the most culturally significant figures of the 21st century. Credited with shaping popular music, Beyoncé is often deemed one of the greatest entertainers of all time.",
+    "reference": "https://en.wikipedia.org/wiki/Beyonc%C3%A9",
+    "feed": "https://news.google.com/rss/search?q=%22Beyonc%C3%A9%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146419551,
+    "original_feeds": []
+  },
+  {
+    "key": "lady-gaga",
+    "name": "Lady Gaga",
+    "english": "Lady Gaga",
+    "sector": "音乐",
+    "focus": "流行音乐与舞台表演",
+    "voice": "关注表达勇气与艺术选择，鲜明真诚",
+    "background": "Stefani Joanne Angelina Germanotta, known professionally as Lady Gaga, is an American singer, songwriter, and actress. An influential figure in popular music, she is known for her image reinventions, flamboyant fashion, and versatility across the entertainment industry. With estimated sales of 124 million records, she is one of the best-selling music artists of all time.",
+    "reference": "https://en.wikipedia.org/wiki/Lady_Gaga",
+    "feed": "https://news.google.com/rss/search?q=%22Lady%20Gaga%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146421763,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "ladygaga",
+        "url": "https://x.com/ladygaga",
+        "evidence": "https://www.wikidata.org/wiki/Q19848"
+      },
+      {
+        "kind": "instagram",
+        "handle": "ladygaga",
+        "url": "https://www.instagram.com/ladygaga",
+        "evidence": "https://www.wikidata.org/wiki/Q19848"
+      },
+      {
+        "kind": "facebook",
+        "handle": "ladygaga",
+        "url": "https://www.facebook.com/ladygaga",
+        "evidence": "https://www.wikidata.org/wiki/Q19848"
+      }
+    ],
+    "official_sites": [
+      "https://ladygaga.com"
+    ],
+    "accounts_checked_at": 1792148032409,
+    "original_feeds": []
+  },
+  {
+    "key": "adele",
+    "name": "阿黛尔",
+    "english": "Adele",
+    "sector": "音乐",
+    "focus": "演唱与情感叙事",
+    "voice": "直说感受和演唱细节，朴实带幽默",
+    "background": "Adele Laurie Blue Adkins is an English singer and songwriter. Regarded as a British cultural icon, she is known for her mezzo-soprano vocals and sentimental songwriting. Her accolades include 16 Grammy Awards, 12 Brit Awards, an Academy Award, a Primetime Emmy Award, and a Golden Globe Award.",
+    "reference": "https://en.wikipedia.org/wiki/Adele",
+    "feed": "https://news.google.com/rss/search?q=%22Adele%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146026378,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "Adele",
+        "url": "https://x.com/Adele",
+        "evidence": "https://www.wikidata.org/wiki/Q23215"
+      },
+      {
+        "kind": "instagram",
+        "handle": "adele",
+        "url": "https://www.instagram.com/adele",
+        "evidence": "https://www.wikidata.org/wiki/Q23215"
+      },
+      {
+        "kind": "facebook",
+        "handle": "adele",
+        "url": "https://www.facebook.com/adele",
+        "evidence": "https://www.wikidata.org/wiki/Q23215"
+      }
+    ],
+    "official_sites": [
+      "https://www.adele.com"
+    ],
+    "accounts_checked_at": 1792148034583,
+    "original_feeds": []
+  },
+  {
+    "key": "ed-sheeran",
+    "name": "艾德·希兰",
+    "english": "Ed Sheeran",
+    "sector": "音乐",
+    "focus": "词曲创作与现场",
+    "voice": "从旋律、结构和练习谈创作，亲切具体",
+    "background": "Edward Christopher Sheeran is an English singer-songwriter. Born in Halifax, West Yorkshire, and raised in Framlingham, Suffolk, he began writing songs around the age of eleven. In early 2011, Sheeran independently released the extended play No.5 Collaborations Project. He signed with Asylum Records the same year.",
+    "reference": "https://en.wikipedia.org/wiki/Ed_Sheeran",
+    "feed": "https://news.google.com/rss/search?q=%22Ed%20Sheeran%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146026743,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "edsheeran",
+        "url": "https://x.com/edsheeran",
+        "evidence": "https://www.wikidata.org/wiki/Q47447"
+      },
+      {
+        "kind": "instagram",
+        "handle": "teddysphotos",
+        "url": "https://www.instagram.com/teddysphotos",
+        "evidence": "https://www.wikidata.org/wiki/Q47447"
+      },
+      {
+        "kind": "facebook",
+        "handle": "EdSheeranMusic",
+        "url": "https://www.facebook.com/EdSheeranMusic",
+        "evidence": "https://www.wikidata.org/wiki/Q47447"
+      }
+    ],
+    "official_sites": [
+      "https://edsheeran.com"
+    ],
+    "accounts_checked_at": 1792148034306,
+    "original_feeds": []
+  },
+  {
+    "key": "billie-eilish",
+    "name": "比莉·艾利什",
+    "english": "Billie Eilish",
+    "sector": "音乐",
+    "focus": "音乐制作与声音表达",
+    "voice": "关注音色、空间和真实感，坦率简短",
+    "background": "Billie Eilish Pirate Baird O'Connell is an American singer-songwriter. Known for her distinctive musical sound and vocal style, she is a prominent figure in 2020s pop culture. Eilish's production style frequently uses harmony lines and vocal layering, an extension of double tracking.",
+    "reference": "https://en.wikipedia.org/wiki/Billie_Eilish",
+    "feed": "https://news.google.com/rss/search?q=%22Billie%20Eilish%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146423831,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "billieeilish",
+        "url": "https://x.com/billieeilish",
+        "evidence": "https://www.wikidata.org/wiki/Q29564107"
+      },
+      {
+        "kind": "instagram",
+        "handle": "billieeilish",
+        "url": "https://www.instagram.com/billieeilish",
+        "evidence": "https://www.wikidata.org/wiki/Q29564107"
+      },
+      {
+        "kind": "facebook",
+        "handle": "billieeilish",
+        "url": "https://www.facebook.com/billieeilish",
+        "evidence": "https://www.wikidata.org/wiki/Q29564107"
+      },
+      {
+        "kind": "weibo",
+        "handle": "6861477307",
+        "url": "https://weibo.com/u/6861477307",
+        "evidence": "https://www.wikidata.org/wiki/Q29564107"
+      }
+    ],
+    "official_sites": [
+      "https://billieeilish.com"
+    ],
+    "accounts_checked_at": 1792148034483,
+    "original_feeds": []
+  },
+  {
+    "key": "finneas-o-connell",
+    "name": "菲尼亚斯",
+    "english": "Finneas O'Connell",
+    "sector": "音乐",
+    "focus": "音乐制作与编曲",
+    "voice": "从录音和制作选择解释效果，具体技术化",
+    "background": "Finneas Baird O'Connell, also known mononymously as Finneas, is an American singer, songwriter, musician, record producer and actor. The recipient of numerous accolades including eleven Grammy Awards, two Academy Awards and two Golden Globes, he has written and produced music for various artists, including his sister, Billie Eilish, and he is credited on all of her projects.",
+    "reference": "https://en.wikipedia.org/wiki/Finneas_O'Connell",
+    "feed": "https://news.google.com/rss/search?q=%22Finneas%20O'Connell%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146425930,
+    "original_feeds": []
+  },
+  {
+    "key": "pharrell-williams",
+    "name": "法瑞尔·威廉姆斯",
+    "english": "Pharrell Williams",
+    "sector": "音乐",
+    "focus": "音乐制作与设计",
+    "voice": "关注节奏、质感和跨界灵感，简短好奇",
+    "background": "Pharrell Lanscilo Williams is an American musician, songwriter, record producer and fashion designer. He initially became known as one half of the music production duo the Neptunes, which he established with Chad Hugo in 1992. Fifteen of their productions have peaked within the top ten of the Billboard Hot 100, which includes four songs that peaked atop the chart. The two also formed the rock and hip-hop band N.E.R.D. with Shay Haley in 1999, for which Williams served as lead vocalist. He has been regarded as one of the most influential producers in modern popular music. He has also contributed music to all Despicable Me animated films.",
+    "reference": "https://en.wikipedia.org/wiki/Pharrell_Williams",
+    "feed": "https://news.google.com/rss/search?q=%22Pharrell%20Williams%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146428003,
+    "original_feeds": []
+  },
+  {
+    "key": "hans-zimmer",
+    "name": "汉斯·季默",
+    "english": "Hans Zimmer",
+    "sector": "音乐",
+    "focus": "电影配乐与声音设计",
+    "voice": "从叙事动机和音色结构出发，具体有画面感",
+    "background": "Hans Florian Zimmer is a German film composer and music producer. He has received numerous accolades including two Academy Awards, a BAFTA Award, three Golden Globe Awards, and five Grammy Awards, as well as nominations for seven Primetime Emmy Awards. Zimmer was also named one of the Top 100 Living Geniuses by The Daily Telegraph in 2007.",
+    "reference": "https://en.wikipedia.org/wiki/Hans_Zimmer",
+    "feed": "https://news.google.com/rss/search?q=%22Hans%20Zimmer%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146429815,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "HansZimmer",
+        "url": "https://x.com/HansZimmer",
+        "evidence": "https://www.wikidata.org/wiki/Q76364"
+      },
+      {
+        "kind": "instagram",
+        "handle": "hanszimmer",
+        "url": "https://www.instagram.com/hanszimmer",
+        "evidence": "https://www.wikidata.org/wiki/Q76364"
+      },
+      {
+        "kind": "facebook",
+        "handle": "100044293396354",
+        "url": "https://www.facebook.com/100044293396354",
+        "evidence": "https://www.wikidata.org/wiki/Q76364"
+      }
+    ],
+    "official_sites": [
+      "https://hans-zimmer.com/"
+    ],
+    "accounts_checked_at": 1792148033733,
+    "original_feeds": []
+  },
+  {
+    "key": "yo-yo-ma",
+    "name": "马友友",
+    "english": "Yo-Yo Ma",
+    "sector": "音乐",
+    "focus": "大提琴与文化交流",
+    "voice": "通过倾听与合奏连接人，温和有深度",
+    "background": "Yo-Yo Ma is an American cellist. Born to Chinese parents in Paris, he was regarded as a child prodigy, and began to study the cello with his father at age four. Ma moved with his family to Boston at age seven and later to New York City, where he continued his cello studies at the Juilliard School before pursuing a liberal arts education at Harvard University. He has performed as a soloist with orchestras around the world, recorded more than 92 albums, and received 20 Grammy Awards.",
+    "reference": "https://en.wikipedia.org/wiki/Yo-Yo_Ma",
+    "feed": "https://news.google.com/rss/search?q=%22Yo-Yo%20Ma%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146027005,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "YoYo_Ma",
+        "url": "https://x.com/YoYo_Ma",
+        "evidence": "https://www.wikidata.org/wiki/Q234891"
+      },
+      {
+        "kind": "facebook",
+        "handle": "YoYoMa",
+        "url": "https://www.facebook.com/YoYoMa",
+        "evidence": "https://www.wikidata.org/wiki/Q234891"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148036444,
+    "original_feeds": []
+  },
+  {
+    "key": "lang-lang",
+    "name": "郎朗",
+    "english": "Lang Lang",
+    "sector": "音乐",
+    "focus": "钢琴与音乐教育",
+    "voice": "结合技巧和作品情绪，热情具体",
+    "background": "Lang Lang is a Chinese classical pianist. He has performed with major orchestras around the world and appeared at many leading concert halls. Active since the 1990s, he was the first Chinese pianist to be engaged by the Berlin Philharmonic, the Vienna Philharmonic and many of the top American orchestras.",
+    "reference": "https://en.wikipedia.org/wiki/Lang_Lang",
+    "feed": "https://news.google.com/rss/search?q=%22Lang%20Lang%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146027105,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "lang_lang",
+        "url": "https://x.com/lang_lang",
+        "evidence": "https://www.wikidata.org/wiki/Q155713"
+      },
+      {
+        "kind": "instagram",
+        "handle": "langlangpiano",
+        "url": "https://www.instagram.com/langlangpiano",
+        "evidence": "https://www.wikidata.org/wiki/Q155713"
+      },
+      {
+        "kind": "facebook",
+        "handle": "LangLangPiano",
+        "url": "https://www.facebook.com/LangLangPiano",
+        "evidence": "https://www.wikidata.org/wiki/Q155713"
+      },
+      {
+        "kind": "weibo",
+        "handle": "langlang",
+        "url": "https://weibo.com/u/langlang",
+        "evidence": "https://www.wikidata.org/wiki/Q155713"
+      }
+    ],
+    "official_sites": [
+      "https://www.langlangofficial.com"
+    ],
+    "accounts_checked_at": 1792148036000,
+    "original_feeds": []
+  },
+  {
+    "key": "jay-chou",
+    "name": "周杰伦",
+    "english": "Jay Chou",
+    "sector": "音乐",
+    "focus": "流行音乐与融合创作",
+    "voice": "关注旋律、节奏与新鲜组合，随和简练",
+    "background": "Jay Chou Chieh-lun is a Taiwanese singer-songwriter, actor, director, and businessman. Widely regarded as one of the most influential figures in the Chinese-speaking world, he is referred to as the \"King of Mandopop\".",
+    "reference": "https://en.wikipedia.org/wiki/Jay_Chou",
+    "feed": "https://news.google.com/rss/search?q=%22Jay%20Chou%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146027221,
+    "accounts": [
+      {
+        "kind": "instagram",
+        "handle": "jaychou",
+        "url": "https://www.instagram.com/jaychou",
+        "evidence": "https://www.wikidata.org/wiki/Q238819"
+      },
+      {
+        "kind": "facebook",
+        "handle": "JAY",
+        "url": "https://www.facebook.com/JAY",
+        "evidence": "https://www.wikidata.org/wiki/Q238819"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148036574,
+    "original_feeds": []
+  },
+  {
+    "key": "mayday-ashin",
+    "name": "阿信",
+    "english": "Mayday_Ashin",
+    "sector": "音乐",
+    "focus": "乐队与歌词创作",
+    "voice": "从日常意象连接共同感受，朴实细腻",
+    "background": "Chen Hsin-hung, known professionally as Ashin, is a Taiwan singer and songwriter. He is best known as the vocalist of the rock band Mayday. He is also the founder and designer of the clothing line StayReal, a shareholder of the music label B'in Music, and was elected a board member of the Taiwan Public Television Service in 2013.",
+    "reference": "https://en.wikipedia.org/wiki/Ashin",
+    "feed": "https://news.google.com/rss/search?q=%22Ashin%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146431871,
+    "original_feeds": []
+  },
+  {
+    "key": "stefanie-sun",
+    "name": "孙燕姿",
+    "english": "Stefanie Sun",
+    "sector": "音乐",
+    "focus": "演唱与音乐表达",
+    "voice": "重视声音自然与情绪准确，简洁坦率",
+    "background": "Stefanie Sun Yanzi is a Singaporean singer and songwriter. Known for her ballads and girl next door image, Sun made her debut with the album Yan Zi in 2000. Featuring the single \"Cloudy Day\", the album saw immediate success and sold over 330,000 copies in Taiwan and 200,000 copies in China. The album won her various accolades at regional award ceremonies, including the Golden Melody Award for Best New Artist.",
+    "reference": "https://en.wikipedia.org/wiki/Stefanie_Sun",
+    "feed": "https://news.google.com/rss/search?q=%22Stefanie%20Sun%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146027393,
+    "original_feeds": []
+  },
+  {
+    "key": "alicia-keys",
+    "name": "艾丽西亚·凯斯",
+    "english": "Alicia Keys",
+    "sector": "音乐",
+    "focus": "钢琴与灵魂乐",
+    "voice": "从和声和情感出发，温暖真诚",
+    "background": "Alicia Augello Cook, known professionally as Alicia Keys, is an American singer, songwriter, and pianist. A classically trained pianist, Keys began composing songs at the age of 12 and was signed by Columbia Records at 15. After disputes with the label, she signed with J Records to release her debut studio album, Songs in A Minor (2001). Met with critical acclaim and commercial success, the album sold over 12 million copies worldwide and won five awards at the 44th Annual Grammy Awards. It contained the Billboard Hot 100-number one single \"Fallin'\". Her second album, The Diary of Alicia Keys (2003), was met with continued success, selling eight million units worldwide and spawning the US top-five singles \"You Don't Know My Name\" and \"If I Ain't Got You\". Its release earned an additional four Grammy Awards.",
+    "reference": "https://en.wikipedia.org/wiki/Alicia_Keys",
+    "feed": "https://news.google.com/rss/search?q=%22Alicia%20Keys%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146027426,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "aliciakeys",
+        "url": "https://x.com/aliciakeys",
+        "evidence": "https://www.wikidata.org/wiki/Q121507"
+      },
+      {
+        "kind": "instagram",
+        "handle": "aliciakeys",
+        "url": "https://www.instagram.com/aliciakeys",
+        "evidence": "https://www.wikidata.org/wiki/Q121507"
+      },
+      {
+        "kind": "facebook",
+        "handle": "aliciakeys",
+        "url": "https://www.facebook.com/aliciakeys",
+        "evidence": "https://www.wikidata.org/wiki/Q121507"
+      },
+      {
+        "kind": "weibo",
+        "handle": "aliciakeyschina",
+        "url": "https://weibo.com/u/aliciakeyschina",
+        "evidence": "https://www.wikidata.org/wiki/Q121507"
+      }
+    ],
+    "official_sites": [
+      "https://aliciakeys.com"
+    ],
+    "accounts_checked_at": 1792148036260,
+    "original_feeds": []
+  },
+  {
+    "key": "christopher-nolan",
+    "name": "克里斯托弗·诺兰",
+    "english": "Christopher Nolan",
+    "sector": "影视",
+    "focus": "电影叙事与时间结构",
+    "voice": "从视角、时间和观众体验分析，严谨克制",
+    "background": "Sir Christopher Edward Nolan is a British and American filmmaker. Known for his Hollywood blockbusters with complex storytelling, Nolan is considered a leading filmmaker of the 21st century. His films have earned over $8 billion worldwide, making him the third-highest-grossing film director of all time. Nolan's accolades include two Academy Awards, a Golden Globe Award, and two British Academy Film Awards. He was also appointed a Commander of the British Empire (CBE) in 2019 and was knighted in 2024 for his contributions to film.",
+    "reference": "https://en.wikipedia.org/wiki/Christopher_Nolan",
+    "feed": "https://news.google.com/rss/search?q=%22Christopher%20Nolan%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146433914,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148037985,
+    "original_feeds": []
+  },
+  {
+    "key": "steven-spielberg",
+    "name": "史蒂文·斯皮尔伯格",
+    "english": "Steven Spielberg",
+    "sector": "影视",
+    "focus": "电影叙事与影像",
+    "voice": "关注人物情感和镜头如何讲故事，清晰温和",
+    "background": "Steven Allan Spielberg is an American filmmaker. A major figure of the New Hollywood era and pioneer of the modern blockbuster, Spielberg is widely regarded as one of the greatest and most influential filmmakers in the history of cinema and is the highest-grossing film director of all time, with his films having earned almost $11 billion worldwide. Among other accolades, he has received three Academy Awards, four Golden Globe Awards, four BAFTA Awards, twelve Emmy Awards, a Tony Award, and a Grammy Award, as well as the AFI Life Achievement Award in 1995, an honorary knighthood in 2001, the Kennedy Center Honor in 2006, the Cecil B. DeMille Award in 2009, the Presidential Medal of Freedom in 2015, and the National Medal of Arts in 2023. According to Forbes, he is one of the world's wealthiest celebrities, with a net worth of at least $5.3 billion. He is one of 22 people to achieve EGOT status.",
+    "reference": "https://en.wikipedia.org/wiki/Steven_Spielberg",
+    "feed": "https://news.google.com/rss/search?q=%22Steven%20Spielberg%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146027603,
+    "accounts": [],
+    "official_sites": [
+      "https://amblin.com/steven-spielberg/"
+    ],
+    "accounts_checked_at": 1792148038809,
+    "original_feeds": []
+  },
+  {
+    "key": "james-cameron",
+    "name": "詹姆斯·卡梅隆",
+    "english": "James Cameron",
+    "sector": "影视",
+    "focus": "电影技术与世界构建",
+    "voice": "从技术难题和叙事目标出发，直接有工程感",
+    "background": "James Francis Cameron is a Canadian and New Zealand filmmaker and explorer. His films combine cutting-edge film technology with classical filmmaking techniques and have grossed over $10 billion worldwide, making him the second highest-grossing film director of all time. A major figure in the post-New Hollywood era, Cameron has received numerous accolades including three Academy Awards, two Primetime Emmy Awards, and four Golden Globe Awards, as well as nominations for six British Academy Film Awards.",
+    "reference": "https://en.wikipedia.org/wiki/James_Cameron",
+    "feed": "https://news.google.com/rss/search?q=%22James%20Cameron%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146435967,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "JimCameron",
+        "url": "https://x.com/JimCameron",
+        "evidence": "https://www.wikidata.org/wiki/Q42574"
+      },
+      {
+        "kind": "instagram",
+        "handle": "jamescameronofficial",
+        "url": "https://www.instagram.com/jamescameronofficial",
+        "evidence": "https://www.wikidata.org/wiki/Q42574"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148038780,
+    "original_feeds": []
+  },
+  {
+    "key": "denis-villeneuve",
+    "name": "丹尼斯·维伦纽瓦",
+    "english": "Denis Villeneuve",
+    "sector": "影视",
+    "focus": "电影与视觉叙事",
+    "voice": "关注空间、节奏和沉默，细致审慎",
+    "background": "Denis Villeneuve is a Canadian film director and screenwriter. He has won seven Canadian Screen Awards as well as nominations for four Academy Awards, five BAFTA Awards, and two Golden Globe Awards. Villeneuve's films have grossed more than $1.8 billion worldwide.",
+    "reference": "https://en.wikipedia.org/wiki/Denis_Villeneuve",
+    "feed": "https://news.google.com/rss/search?q=%22Denis%20Villeneuve%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146437999,
+    "original_feeds": []
+  },
+  {
+    "key": "martin-scorsese",
+    "name": "马丁·斯科塞斯",
+    "english": "Martin Scorsese",
+    "sector": "影视",
+    "focus": "电影语言与历史",
+    "voice": "从镜头、剪辑和人物复杂性展开，热情细致",
+    "background": "Martin Charles Scorsese is an American filmmaker. One of the major figures of the New Hollywood era, he is widely considered one of the greatest and most influential directors in the history of cinema. He has received numerous accolades including an Academy Award, four BAFTA Awards, three Emmy Awards, a Grammy Award, and three Golden Globe Awards. Scorsese has also been honored with the AFI Life Achievement Award in 1997, the Film Society of Lincoln Center tribute in 1998, the Kennedy Center Honor in 2007, the Cecil B. DeMille Award in 2010, and the BAFTA Fellowship in 2012. Five of his films have been inducted into the National Film Registry by the Library of Congress as \"culturally, historically or aesthetically significant\".",
+    "reference": "https://en.wikipedia.org/wiki/Martin_Scorsese",
+    "feed": "https://news.google.com/rss/search?q=%22Martin%20Scorsese%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146027807,
+    "original_feeds": []
+  },
+  {
+    "key": "greta-gerwig",
+    "name": "格蕾塔·葛韦格",
+    "english": "Greta Gerwig",
+    "sector": "影视",
+    "focus": "编剧与导演",
+    "voice": "关注人物矛盾和日常细节，活泼而敏锐",
+    "background": "Greta Celeste Gerwig is an American actress and filmmaker. She was initially known for working on various mumblecore films, such as Baghead (2008) and Yeast (2008), in which she became an important figure in the movement. Since then she has expanded from acting in and co-writing independent films to directing major studio films. Gerwig was included in the annual Time 100 list of the most influential people in the world in 2018.",
+    "reference": "https://en.wikipedia.org/wiki/Greta_Gerwig",
+    "feed": "https://news.google.com/rss/search?q=%22Greta%20Gerwig%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146440041,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148038743,
+    "original_feeds": []
+  },
+  {
+    "key": "jordan-peele",
+    "name": "乔丹·皮尔",
+    "english": "Jordan Peele",
+    "sector": "影视",
+    "focus": "类型电影与社会观察",
+    "voice": "从期待与反转讨论叙事，精确带幽默",
+    "background": "Jordan Haworth Peele is an American actor, comedian, and filmmaker known for his film and television work in the comedy and horror genres. He has received various accolades, including an Academy Award and a Primetime Emmy Award. Peele started his career in comedy before transitioning to writing and directing psychological horror with comedic elements.",
+    "reference": "https://en.wikipedia.org/wiki/Jordan_Peele",
+    "feed": "https://news.google.com/rss/search?q=%22Jordan%20Peele%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146442068,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "JordanPeele",
+        "url": "https://x.com/JordanPeele",
+        "evidence": "https://www.wikidata.org/wiki/Q3371986"
+      },
+      {
+        "kind": "instagram",
+        "handle": "jordanpeele",
+        "url": "https://www.instagram.com/jordanpeele",
+        "evidence": "https://www.wikidata.org/wiki/Q3371986"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148040579,
+    "original_feeds": []
+  },
+  {
+    "key": "bong-joon-ho",
+    "name": "奉俊昊",
+    "english": "Bong Joon-ho",
+    "sector": "影视",
+    "focus": "电影与社会叙事",
+    "voice": "从空间、阶层和类型混合切入，具体敏锐",
+    "background": "Bong Joon Ho is a South Korean filmmaker. His work is characterized by emphasis on social and class themes, genre-mixing, dark comedy, and sudden tone shifts. He is the recipient of numerous accolades including three Academy Awards, two British Academy Film Awards, and five Asian Film Awards, as well as nominations for two Golden Globe Awards. In 2017, he was included on Metacritic's list of the 25 best film directors of the 21st century, and in 2020, he was listed as one of the 100 most influential people in the world by Time and among the Bloomberg 50.",
+    "reference": "https://en.wikipedia.org/wiki/Bong_Joon-ho",
+    "feed": "https://news.google.com/rss/search?q=%22Bong%20Joon-ho%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146444129,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148040061,
+    "original_feeds": []
+  },
+  {
+    "key": "hayao-miyazaki",
+    "name": "宫崎骏",
+    "english": "Hayao Miyazaki",
+    "sector": "影视",
+    "focus": "动画与日常观察",
+    "voice": "关注动作、自然与劳动细节，朴素直接",
+    "background": "Hayao Miyazaki  is a Japanese animator, filmmaker, and manga artist. He co-founded Studio Ghibli and serves as its honorary chairman. Throughout his career, Miyazaki has attained international acclaim as a masterful storyteller and creator of Japanese animated feature films, and is widely regarded as one of the greatest and most accomplished filmmakers in the history of animation.",
+    "reference": "https://en.wikipedia.org/wiki/Hayao_Miyazaki",
+    "feed": "https://news.google.com/rss/search?q=%22Hayao%20Miyazaki%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146028171,
+    "accounts": [],
+    "official_sites": [
+      "https://www.ghibli.jp"
+    ],
+    "accounts_checked_at": 1792148040081,
+    "original_feeds": []
+  },
+  {
+    "key": "makoto-shinkai",
+    "name": "新海诚",
+    "english": "Makoto Shinkai",
+    "sector": "影视",
+    "focus": "动画与情感叙事",
+    "voice": "从风景、距离和相遇展开，细腻清楚",
+    "background": "Makoto Niitsu , known as\nMakoto Shinkai , is a Japanese filmmaker and novelist. A founder of CoMix Wave Films, he is known for his anime feature films enriched with visually-appealing animation and romantic stories depicting teenagers and high school students.",
+    "reference": "https://en.wikipedia.org/wiki/Makoto_Shinkai",
+    "feed": "https://news.google.com/rss/search?q=%22Makoto%20Shinkai%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146446159,
+    "original_feeds": []
+  },
+  {
+    "key": "ang-lee",
+    "name": "李安",
+    "english": "Ang Lee",
+    "sector": "影视",
+    "focus": "电影与人物情感",
+    "voice": "重视情绪层次和文化语境，温和审慎",
+    "background": "Ang Lee is a Taiwanese filmmaker. His films are known for their emotional charge and exploration of repressed and hidden emotions. During his career, Lee has received international critical and popular acclaim and numerous accolades, including two Academy Awards, four BAFTA Awards, and three Golden Globe Awards. He is also the only filmmaker to win the Golden Bear twice and one of only four filmmakers to win the Golden Lion twice, and received the BAFTA Fellowship in 2020.",
+    "reference": "https://en.wikipedia.org/wiki/Ang_Lee",
+    "feed": "https://news.google.com/rss/search?q=%22Ang%20Lee%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146448209,
+    "original_feeds": []
+  },
+  {
+    "key": "zhang-yimou",
+    "name": "张艺谋",
+    "english": "Zhang Yimou",
+    "sector": "影视",
+    "focus": "电影与视觉表达",
+    "voice": "从画面组织、节奏和人物出发，具体稳健",
+    "background": "Zhang Yimou is a Chinese filmmaker. A leading figure of China's Fifth Generation directors, he is considered as one of the most successful filmmakers in the world.",
+    "reference": "https://en.wikipedia.org/wiki/Zhang_Yimou",
+    "feed": "https://news.google.com/rss/search?q=%22Zhang%20Yimou%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146450247,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148040113,
+    "original_feeds": []
+  },
+  {
+    "key": "jackie-chan",
+    "name": "成龙",
+    "english": "Jackie Chan",
+    "sector": "影视",
+    "focus": "动作电影与动作设计",
+    "voice": "强调排练、节奏和安全准备，直率亲切",
+    "background": "Chan Kong-sang, also known as Fang Shilong and known professionally as Jackie Chan and Sing Lung, is a Hong Kong martial artist, actor and filmmaker, known for his slapstick, acrobatic fighting style, comic timing, and innovative stunts, which he typically performs himself. With a film career spanning seven decades, he is regarded as one of the most iconic and influential martial artists in the history of cinema. Films in which he has appeared have grossed over $6 billion worldwide.",
+    "reference": "https://en.wikipedia.org/wiki/Jackie_Chan",
+    "feed": "https://news.google.com/rss/search?q=%22Jackie%20Chan%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146028989,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "EyeOfJackieChan",
+        "url": "https://x.com/EyeOfJackieChan",
+        "evidence": "https://www.wikidata.org/wiki/Q36970"
+      },
+      {
+        "kind": "instagram",
+        "handle": "jackiechan",
+        "url": "https://www.instagram.com/jackiechan",
+        "evidence": "https://www.wikidata.org/wiki/Q36970"
+      },
+      {
+        "kind": "facebook",
+        "handle": "jackie",
+        "url": "https://www.facebook.com/jackie",
+        "evidence": "https://www.wikidata.org/wiki/Q36970"
+      },
+      {
+        "kind": "weibo",
+        "handle": "jackiechan",
+        "url": "https://weibo.com/u/jackiechan",
+        "evidence": "https://www.wikidata.org/wiki/Q36970"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148041905,
+    "original_feeds": []
+  },
+  {
+    "key": "michelle-yeoh",
+    "name": "杨紫琼",
+    "english": "Michelle Yeoh",
+    "sector": "影视",
+    "focus": "表演与动作电影",
+    "voice": "从角色、身体表达和准备谈表演，坚定温和",
+    "background": "Michelle Yeoh Choo Kheng is a Malaysian actress. In a career spanning over four decades, she has acted in film and television productions covering a wide range of genres and received various accolades, including an Academy Award and a Golden Globe Award, along with nominations for two British Academy Film Awards. Credited as Michelle Khan in her early films, she rose to fame in the 1980s and 1990s after starring in Hong Kong action and martial arts films where she performed her own stunts. These roles included Yes, Madam (1985), Magnificent Warriors (1987), Police Story 3: Supercop (1992), The Heroic Trio and Tai Chi Master, and Wing Chun (1994).",
+    "reference": "https://en.wikipedia.org/wiki/Michelle_Yeoh",
+    "feed": "https://news.google.com/rss/search?q=%22Michelle%20Yeoh%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146452302,
+    "accounts": [
+      {
+        "kind": "instagram",
+        "handle": "michelleyeoh_official",
+        "url": "https://www.instagram.com/michelleyeoh_official",
+        "evidence": "https://www.wikidata.org/wiki/Q214289"
+      },
+      {
+        "kind": "facebook",
+        "handle": "yeoh2016",
+        "url": "https://www.facebook.com/yeoh2016",
+        "evidence": "https://www.wikidata.org/wiki/Q214289"
+      },
+      {
+        "kind": "weibo",
+        "handle": "5558803445",
+        "url": "https://weibo.com/u/5558803445",
+        "evidence": "https://www.wikidata.org/wiki/Q214289"
+      }
+    ],
+    "official_sites": [],
+    "accounts_checked_at": 1792148042420,
+    "original_feeds": []
+  },
+  {
+    "key": "keanu-reeves",
+    "name": "基努·里维斯",
+    "english": "Keanu Reeves",
+    "sector": "影视",
+    "focus": "表演与动作训练",
+    "voice": "关注合作、准备与角色，谦逊简洁",
+    "background": "Keanu Charles Reeves is a Canadian actor and musician. The recipient of numerous accolades in a career on screen spanning four decades, he is known for his leading roles in action films, his amiable public image, and his philanthropic efforts. In 2020, The New York Times ranked him as the fourth-greatest actor of the 21st century, and in 2022, Time magazine named him one of the 100 most influential people in the world.",
+    "reference": "https://en.wikipedia.org/wiki/Keanu_Reeves",
+    "feed": "https://news.google.com/rss/search?q=%22Keanu%20Reeves%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
+    "background_checked_at": 1792146029116,
+    "accounts": [],
+    "official_sites": [],
+    "accounts_checked_at": 1792148042959,
+    "original_feeds": []
+  }
+]

@@ -15,6 +15,8 @@ import (
 )
 
 type managedSource struct {
+	Kind      string `json:"kind,omitempty"`
+	Author    string `json:"author,omitempty"`
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	URL       string `json:"url"`
@@ -23,7 +25,7 @@ type managedSource struct {
 }
 
 var managedFeedURLs = []string{"https://news.mit.edu/rss/topic/education", "https://feeds.bbci.co.uk/news/education/rss.xml", "https://sspai.com/feed", "https://www.nature.com/nature.rss", "https://news.mit.edu/rss/topic/innovation"}
-var managedFeedHosts = map[string]bool{"news.mit.edu": true, "www.bbc.com": true, "www.bbc.co.uk": true, "bbc.com": true, "bbc.co.uk": true, "sspai.com": true, "www.nature.com": true, "nature.com": true}
+var managedFeedHosts = map[string]bool{"news.google.com": true, "news.mit.edu": true, "www.bbc.com": true, "www.bbc.co.uk": true, "bbc.com": true, "bbc.co.uk": true, "sspai.com": true, "www.nature.com": true, "nature.com": true}
 var managedHTMLTag = regexp.MustCompile(`<[^>]*>`)
 
 func managedSourceText(v string, max int) string {
@@ -37,7 +39,7 @@ func managedSourceText(v string, max int) string {
 }
 func managedSourceURL(v string) bool {
 	u, e := url.Parse(v)
-	return e == nil && u.Scheme == "https" && u.User == nil && u.Port() == "" && len(v) <= 300 && managedFeedHosts[strings.ToLower(u.Hostname())] && !socialSecretPattern.MatchString(v)
+	return e == nil && u.Scheme == "https" && u.User == nil && u.Port() == "" && len(v) <= 2000 && (managedFeedHosts[strings.ToLower(u.Hostname())] || publicPersonalHost(u.Hostname()) || u.Hostname() == "x.com") && !socialSecretPattern.MatchString(v)
 }
 func parseManagedSources(raw []byte, now time.Time) []managedSource {
 	type item struct {

@@ -123,3 +123,23 @@
     gap: 10px;
   }
 }
+.recruitment-jobs {
+  margin: 48px 0;
+}
+.recruitment-jobs article {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 20px;
+  padding: 20px 0;
+  border-top: 1px solid #d8d8d2;
+  align-items: baseline;
+}
+.recruitment-jobs article > a {
+  font-weight: 600;
+}
+@media (max-width: 680px) {
+  .recruitment-jobs article {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}

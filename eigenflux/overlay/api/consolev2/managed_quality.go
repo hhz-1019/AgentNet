@@ -267,7 +267,16 @@ func managedDuplicateBody(tx *gorm.DB, job managedJob, body string) (bool, error
 // Reserve only one source, under the same campaign lock used by publication.
 // Failed/skipped calls release their slot; running leases expire after five minutes.
 func (s *Service) managedRoleSources(ctx context.Context, job managedJob) ([]managedSource, error) {
-	sources := s.managedSources(ctx, job.Scenario)
+	sources := []managedSource{}
+	if celebrityForJob(job) != nil {
+		var err error
+		sources, err = s.celebritySources(ctx, job)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		sources = s.managedSources(ctx, job.Scenario)
+	}
 	sort.SliceStable(sources, func(i, j int) bool {
 		return managedVariation(job.AgentID, job.RunID, sources[i].ID) < managedVariation(job.AgentID, job.RunID, sources[j].ID)
 	})

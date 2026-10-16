@@ -18,6 +18,14 @@ import (
 )
 
 func (s *Service) registerManagedRoutes(h *server.Hertz) {
+	h.GET("/api/v2/recruitment/jobs", s.publicRecruitmentJobs)
+	h.GET("/api/v2/console/managed/public-agents", s.consoleAuth(false), s.getPublicAgents)
+	h.POST("/api/v2/console/managed/public-agents/seed", s.consoleAuth(true), s.seedPublicAgents)
+	h.PUT("/api/v2/console/managed/public-agents/:key", s.consoleAuth(true), s.updatePublicSource)
+	h.POST("/api/v2/console/managed/public-agents/:key/sync", s.consoleAuth(true), s.syncPublicSource)
+	if os.Getenv("AGENTNET_PUBLIC_SOURCE_WORKER") == "true" {
+		go s.publicSourceLoop()
+	}
 	h.GET("/api/v2/console/admin/registration", s.consoleAuth(false), s.getRegistrationAnalytics)
 	h.POST("/api/v2/console/registration/progress", s.consoleAuth(true), s.registrationProgress)
 	h.GET("/api/v2/console/analytics", s.consoleAuth(false), s.getAnalytics)
@@ -168,7 +176,7 @@ func (s *Service) provisionManagedEntries(ctx context.Context, owner string, ent
 			if err := tx.Raw("SELECT count(*) FROM managed_members WHERE sponsor_uid=? AND deleted_at=0", owner).Scan(&count).Error; err != nil {
 				return err
 			}
-			if count >= 200 {
+			if count >= 1000 {
 				return errConflict
 			}
 			var duplicate bool
@@ -179,7 +187,7 @@ func (s *Service) provisionManagedEntries(ctx context.Context, owner string, ent
 				return errConflict
 			}
 			var next int
-			if err := tx.Raw("SELECT GREATEST(COALESCE(max(seed_index),99)+1,100) FROM managed_members WHERE sponsor_uid=?", owner).Scan(&next).Error; err != nil {
+			if err := tx.Raw("SELECT GREATEST(COALESCE(max(seed_index),99)+1,100) FROM managed_members WHERE sponsor_uid=? AND seed_index<10000", owner).Scan(&next).Error; err != nil {
 				return err
 			}
 			entries = map[int]managedPersona{next: p}
@@ -282,7 +290,7 @@ func (s *Service) provisionManagedEntries(ctx context.Context, owner string, ent
 			if err := tx.Exec(`UPDATE twin_users SET name=?,current_goal=? WHERE user_id=?`, p.Name, draft.NetworkGoal, uid).Error; err != nil {
 				return err
 			}
-			if err := tx.Exec(`INSERT INTO managed_members(agent_id,owner_uid,sponsor_uid,seed_index,name,scenario,persona,next_run_at,profile_version) VALUES(?,?,?,?,?,?,?,?,?)`, id, uid, owner, index, p.Name, p.Scenario, p.Persona, now+int64(index)*60000, managedProfileVersion).Error; err != nil {
+			if err := tx.Exec(`INSERT INTO managed_members(agent_id,owner_uid,sponsor_uid,seed_index,name,scenario,persona,next_run_at,profile_version) VALUES(?,?,?,?,?,?,?,?,?)`, id, uid, owner, index, p.Name, p.Scenario, p.Persona, now+int64(index%100)*60000, managedProfileVersion).Error; err != nil {
 				return err
 			}
 			ids = append(ids, id)
@@ -362,7 +370,16 @@ func (s *Service) putManagedMember(ctx context.Context, c *app.RequestContext) {
 	}
 	id := socialDecimal(c.Param("member_id"))
 	var req managedMemberEdit
-	if decodeBody(c, &req) != nil || strings.TrimSpace(req.Name) == "" || utf8.RuneCountInString(req.Name) > 30 || managedSceneIndex(req.Scenario) < 0 || strings.TrimSpace(req.Persona) == "" || utf8.RuneCountInString(req.Persona) < 1001 || utf8.RuneCountInString(req.Persona) > 6000 || socialSecretPattern.MatchString(req.Persona+"\n"+req.Name+"\n"+req.Scenario) || req.DailyLimit < 0 || req.DailyLimit > 12 || req.StartHour < 0 || req.EndHour > 24 || req.StartHour >= req.EndHour {
+	var publicKind string
+	if err := s.db.Raw("SELECT kind FROM managed_public_sources WHERE sponsor_uid=? AND agent_id=?", owner, id).Scan(&publicKind).Error; err != nil {
+		s.managedError(c, err)
+		return
+	}
+	minPersona := 1001
+	if publicKind != "" {
+		minPersona = 50
+	}
+	if decodeBody(c, &req) != nil || strings.TrimSpace(req.Name) == "" || utf8.RuneCountInString(req.Name) > 30 || (managedSceneIndex(req.Scenario) < 0 && !(publicKind == "celebrity" && strings.HasPrefix(req.Scenario, "名人·"))) || strings.TrimSpace(req.Persona) == "" || utf8.RuneCountInString(req.Persona) < minPersona || utf8.RuneCountInString(req.Persona) > 6000 || socialSecretPattern.MatchString(req.Persona+"\n"+req.Name+"\n"+req.Scenario) || req.DailyLimit < 0 || req.DailyLimit > 12 || req.StartHour < 0 || req.EndHour > 24 || req.StartHour >= req.EndHour {
 		fail(c, 400, "MANAGED_MEMBER_INVALID", "身份档案须为 1001–6000 字；请检查支持的场景、时段和每日次数（0–12）", nil)
 		return
 	}
@@ -475,6 +492,9 @@ func (s *Service) pauseManaged(_ context.Context, c *app.RequestContext) {
 	}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec(`UPDATE managed_campaigns SET enabled=false,revision=revision+1 WHERE sponsor_uid=?`, owner).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("UPDATE managed_public_sources SET enabled=false WHERE sponsor_uid=?", owner).Error; err != nil {
 			return err
 		}
 		return managedAudit(tx, owner, "pause_all", nil)

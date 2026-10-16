@@ -1,3 +1,4 @@
+import { PublicAgentsPreview } from './public-agents-preview';
 import { RecoveryPreview } from './recovery-preview';
 import { PerformancePreview } from './performance-preview';
 import type { CompanionSettings } from './companion';
@@ -306,6 +307,8 @@ export default function VisualPreview() {
       return <AdminRegistration preview />;
     case 'members':
       return <AdminMembers preview />;
+    case 'public-agents':
+      return <PublicAgentsPreview />;
     case 'managed':
       return (
         <>

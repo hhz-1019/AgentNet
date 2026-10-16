@@ -49,6 +49,7 @@ const ownPaths =
         'package.json',
         'package-lock.json',
         'eigenflux/web',
+        'eigenflux/overlay/api/consolev2/celebrity_catalog.json',
         'eigenflux/skills/agentnet-onboarding',
         'eigenflux/skills/agentnet-handoff',
         'eigenflux/skills/agentnet-social',

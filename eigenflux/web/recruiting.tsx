@@ -1,3 +1,4 @@
+import { RecruitmentJobs } from './recruitment-jobs';
 import { useEffect, useState } from 'react';
 import { BrandLogo } from './brand';
 import './recruiting.css';
@@ -20,6 +21,7 @@ export function Recruiting() {
         <h1>招聘方注册</h1>
         <p>整理招聘画像，完成注册后与所有账号使用同一个 elsewhere。</p>
       </header>
+      <RecruitmentJobs />
       <section id="recruiter-join" className="recruiting-join">
         <div>
           <h2>用你的 Agent 完成注册</h2>

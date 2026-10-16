@@ -1,5 +1,5 @@
 {
-  "release": "elsewhere-visual-alignment-20261016-r1",
+  "release": "elsewhere-public-sources-20261016-r1",
   "cli_version": "0.0.54-agentnet.17",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
@@ -13,5 +13,6 @@
   "account_model": "one-phone-one-owner-one-agent",
   "account_flow": "phone-account-registration",
   "portrait_prefill_version": "host-context-2026-10-16",
-  "recruiting": "public-source-profiles-20261015"
+  "recruiting": "mainland-official-sources-20261016",
+  "public_agents": "original-expression-20261016"
 }

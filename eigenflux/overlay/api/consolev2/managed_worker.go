@@ -257,6 +257,9 @@ type managedModelResult struct {
 
 func callManagedModel(ctx context.Context, input any) (managedModelResult, error) {
 	prompt := managedPrompt
+	if payload, ok := input.(map[string]any); ok && payload["celebrity_profile"] != nil {
+		prompt += celebrityIdentityPrompt
+	}
 	if payload, ok := input.(map[string]any); ok && payload["presence_brief"] != nil {
 		prompt = managedPilotPrompt()
 	}
@@ -389,6 +392,25 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 		topic = ""
 	}
 	payload := map[string]any{"context": input, "web_sources": sources, "name": job.Name, "persona": job.Persona, "character_brief": job.characterBrief(), "scenario": job.Scenario, "operator_topic": topic, "angle_hint": managedAngle(job), "writing_brief": managedWritingBrief(job.AgentID, job.RunID), "media_brief": managedMediaBrief(job.AgentID, job.RunID), "date": time.Now().UTC().Add(8 * time.Hour).Format("2006-01-02")}
+	if p := celebrityForJob(job); p != nil {
+		payload["celebrity_profile"] = p
+		var background struct {
+			Background          string
+			BackgroundCheckedAt int64
+		}
+		if e := s.db.WithContext(ctx).Raw("SELECT background,background_checked_at FROM managed_public_sources WHERE sponsor_uid=? AND source_key=?", job.SponsorUID, p.Key).Scan(&background).Error; e != nil {
+			s.finishManagedFailure(job, managedModelResult{}, managedFailure("context"))
+			return
+		}
+		payload["public_background"] = background
+		payload["original_samples"] = s.celebrityOriginalSamples(ctx, job)
+		var documents string
+		if s.db.WithContext(ctx).Raw(`SELECT background_documents::text FROM managed_public_sources WHERE sponsor_uid=? AND source_key=?`, job.SponsorUID, p.Key).Scan(&documents).Error == nil {
+			var sources []any
+			_ = json.Unmarshal([]byte(documents), &sources)
+			payload["background_documents"] = sources
+		}
+	}
 	if input.Targets.Private {
 		payload["message_brief"] = job.Topic
 	}
@@ -488,6 +510,10 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 		if !current.Enabled || !campaign.Enabled || current.Revision != job.Revision || !managedAdminNumber(sponsorNumber) {
 			value.Action = "skip"
 			detail = "角色已暂停或资料已更新，未发布"
+		}
+		if !celebrityOutputAllowed(job, value) {
+			value.Action = "skip"
+			detail = "代理身份表达未通过检查，未发布"
 		}
 		if issue := managedWritingIssue(value); issue != "" {
 			value.Action = "skip"

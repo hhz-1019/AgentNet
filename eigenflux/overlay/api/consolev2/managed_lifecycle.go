@@ -167,6 +167,9 @@ func (s *Service) changeManagedArchive(ctx context.Context, c *app.RequestContex
 				return err
 			}
 		}
+		if err := tx.Exec("UPDATE managed_public_sources SET enabled=false WHERE sponsor_uid=? AND agent_id=?", owner, id).Error; err != nil {
+			return err
+		}
 		return managedAudit(tx, owner, action, id)
 	})
 	if err != nil {

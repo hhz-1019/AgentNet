@@ -218,6 +218,13 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 		if c, ok := payload["context"].(managedContext); ok && managedPresencePilot(*job) {
 			checkInput["public_events"] = c.PublicEvents
 		}
+		if p := celebrityForJob(*job); p != nil {
+			checkInput["celebrity_profile"] = p
+			checkInput["public_background"] = payload["public_background"]
+			checkInput["original_samples"] = payload["original_samples"]
+			checkInput["background_documents"] = payload["background_documents"]
+			reviewPrompt += celebrityIdentityPrompt + "\n拒绝把人物亲历写成代理亲历，以及任何虚构本人委托的表达，reason 使用 unsupported_experience。"
+		}
 		// Keep grounding and persona intact. Reduce the optional comparison window
 		// before the model's hard byte ceiling, without any extra summarizer call.
 		for n := len(recent); n > 0; n-- {
@@ -230,6 +237,7 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 		if err = s.reserveManagedReview(ctx, job); err != nil {
 			return err
 		}
+
 		checked, err := callManagedModelWithPrompt(ctx, checkInput, reviewPrompt)
 		managedMergeUsage(result, checked, *job)
 		if err != nil {

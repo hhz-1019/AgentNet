@@ -53,5 +53,11 @@ func managedNumbers() []int64 {
 			}
 		}
 	}
+	for n := int64(21000); n < 22000; n++ {
+		if !seen[n] {
+			out = append(out, n)
+			seen[n] = true
+		}
+	}
 	return out
 }

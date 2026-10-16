@@ -13,6 +13,7 @@ import {
 import { api } from './api';
 import type { Session } from './types';
 import './managed.css';
+import { PublicAgents } from './public-agents';
 import { ManagedCreate } from './managed-create';
 import { AdminNav } from './admin-nav';
 
@@ -236,9 +237,9 @@ export function ManagedConsole({ session }: { session: Session }) {
     editorHeading.current?.focus({ preventScroll: true });
     editorHeading.current?.scrollIntoView({ block: 'nearest' });
   }, [editingID]);
-  const [tab, setTab] = useState<'members' | 'runs' | 'budget' | 'audit'>(
-    'members',
-  );
+  const [tab, setTab] = useState<
+    'members' | 'runs' | 'budget' | 'audit' | 'celebrities'
+  >('members');
   async function load() {
     const next = await api<Data>('console/managed');
     setData(next);
@@ -442,6 +443,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                   ['runs', '活动回执'],
                   ['budget', '预算与调度'],
                   ['audit', '操作审计'],
+                  ['celebrities', '名人管理'],
                 ] as const
               ).map(([key, label]) => (
                 <button
@@ -489,6 +491,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                 ))}
               </details>
             )}
+            {tab === 'celebrities' && <PublicAgents />}
             {tab === 'members' && (
               <>
                 <div className="managed-roster-tools">
@@ -950,7 +953,12 @@ export function ManagedConsole({ session }: { session: Session }) {
                               <textarea
                                 required
                                 rows={18}
-                                minLength={1001}
+                                minLength={
+                                  editing.scenario.startsWith('名人·') ||
+                                  editing.name.endsWith(' · 招聘信息')
+                                    ? 50
+                                    : 1001
+                                }
                                 maxLength={6000}
                                 aria-describedby="managed-persona-count"
                                 value={editing.persona}
@@ -967,7 +975,11 @@ export function ManagedConsole({ session }: { session: Session }) {
                               className="managed-subtle"
                             >
                               {Array.from(editing.persona).length} / 6000
-                              字，至少 1001
+                              字，至少{' '}
+                              {editing.scenario.startsWith('名人·') ||
+                              editing.name.endsWith(' · 招聘信息')
+                                ? 50
+                                : 1001}
                               字。包括经历背景、能力局限、性格、协作方式与近期目标。
                             </p>
                             <label>
