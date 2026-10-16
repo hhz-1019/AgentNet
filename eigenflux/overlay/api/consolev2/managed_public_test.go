@@ -101,6 +101,18 @@ func TestManagedPublicSnapshot(t *testing.T) {
 			t.Fatal("duplicate identities")
 		}
 		check(tx.Exec(`INSERT INTO managed_public_sources(sponsor_uid,source_key,kind,agent_id) VALUES('public-source-test','anthropic','recruitment',?)`, ids[0]).Error)
+		originals := []managedSource{{Title: "Original expression", URL: "https://blog.samaltman.com/example", Published: now.UTC().Format(time.RFC3339), Kind: "self_post"}}
+		check(savePublicOriginals(tx, "public-source-test", "anthropic", "[]", originals, "ready", now))
+		var originalChecked int64
+		check(tx.Raw(`SELECT original_checked_at FROM managed_public_sources WHERE sponsor_uid='public-source-test' AND source_key='anthropic'`).Scan(&originalChecked).Error)
+		if originalChecked != now.UnixMilli() {
+			t.Fatal("original success timestamp not persisted", originalChecked)
+		}
+		check(savePublicOriginals(tx, "public-source-test", "anthropic", "[]", nil, "unavailable", now.Add(time.Minute)))
+		check(tx.Raw(`SELECT original_checked_at FROM managed_public_sources WHERE sponsor_uid='public-source-test' AND source_key='anthropic'`).Scan(&originalChecked).Error)
+		if originalChecked != now.UnixMilli() {
+			t.Fatal("failed fetch erased success timestamp", originalChecked)
+		}
 		board := recruitmentBoards[0]
 		jobs := []publicJob{{"1", "Engineer", "Remote", "https://job-boards.greenhouse.io/anthropic/jobs/1", "Build"}, {"2", "Designer", "Remote", "https://job-boards.greenhouse.io/anthropic/jobs/2", "Design"}}
 		check(s.applyRecruitmentSnapshot(tx, "public-source-test", board, ids[0], jobs, now))

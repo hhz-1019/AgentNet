@@ -218,7 +218,7 @@ func savePublicOriginals(tx *gorm.DB, owner, key string, old string, fresh []man
 	if status == "ready" || status == "partial" {
 		checked = now.UnixMilli()
 	}
-	return tx.Exec(`UPDATE managed_public_sources SET originals=?::jsonb,original_status=?,original_checked_at=CASE WHEN ?>0 THEN ? ELSE original_checked_at END WHERE sponsor_uid=? AND source_key=?`, string(raw), status, checked, checked, owner, key).Error
+	return tx.Exec(`UPDATE managed_public_sources SET originals=?::jsonb,original_status=?,original_checked_at=CASE WHEN ?::bigint>0 THEN ? ELSE original_checked_at END WHERE sponsor_uid=? AND source_key=?`, string(raw), status, checked, checked, owner, key).Error
 }
 func (s *Service) celebrityOriginalSamples(ctx context.Context, job managedJob) []managedSource {
 	p := celebrityForJob(job)
