@@ -21,6 +21,14 @@ try {
       hasTouch: width < 600,
       reducedMotion: 'reduce',
     });
+    // Exercise classic scrollbar gutters on macOS as well as Linux CI.
+    await page.addInitScript(() => {
+      document.addEventListener('DOMContentLoaded', () => {
+        const style = document.createElement('style');
+        style.textContent = '::-webkit-scrollbar{width:16px;height:16px}';
+        document.head.append(style);
+      });
+    });
     page.on('pageerror', (e) => errors.push(e.message));
     let failure = true,
       empty = false,
@@ -170,7 +178,11 @@ try {
     });
     await orb.waitFor();
     const field = await page.locator('.mb-field').boundingBox();
-    assert.ok(field.height > 500 && field.width > 300);
+    const usableWidth = await page
+      .locator('body')
+      .evaluate((e) => e.clientWidth);
+    assert.ok(field.height > 500 && field.width >= Math.min(300, usableWidth));
+    assert.ok(field.x >= 0 && field.x + field.width <= width);
     await orb.click();
     const dialog = page.getByRole('dialog');
     await dialog
