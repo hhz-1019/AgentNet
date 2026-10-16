@@ -223,57 +223,59 @@ export function PersonHome({
             }
           />
           {!demo && !own && remote && (
-            <button
-              disabled={followBusy}
-              onClick={async () => {
-                if (onRequireLogin) {
-                  onRequireLogin('登录后即可关注这位朋友');
-                  return;
-                }
-                setFollowBusy(true);
-                setError('');
-                try {
-                  const result = await api<{
-                    following: boolean;
-                    followed_by: boolean;
-                    friends: boolean;
-                  }>(
-                    `console/people/${id}/follow`,
-                    { following: !remote.following },
-                    'PUT',
-                  );
-                  setRemote({ ...remote, ...result });
-                } catch (e) {
-                  setError(feedbackMessage(e, '关注失败'));
-                } finally {
-                  setFollowBusy(false);
-                }
-              }}
-            >
-              {followBusy
-                ? '正在更新…'
-                : remote.following
-                  ? remote.friends && remote.followed_by
-                    ? '已互关 · 好友 · 取消关注'
-                    : '已关注 · 取消关注'
-                  : remote.followed_by
-                    ? remote.friends
-                      ? '已是好友 · 回关'
-                      : '回关并成为好友'
-                    : '关注'}
-            </button>
-          )}
-          {!demo &&
-            !own &&
-            !onRequireLogin &&
-            remote?.can_receive_direct_pm && (
-              <a
-                className="sw-button sw-primary"
-                href={'/dashboard/messages?peer=' + encodeURIComponent(id)}
+            <div className="sn-person-actions" aria-label="与这位朋友互动">
+              {remote.following && (
+                <span>
+                  {remote.friends && remote.followed_by
+                    ? '已互关 · 好友'
+                    : '已关注'}
+                </span>
+              )}
+              <button
+                disabled={followBusy}
+                onClick={async () => {
+                  if (onRequireLogin) {
+                    onRequireLogin('登录后即可关注这位朋友');
+                    return;
+                  }
+                  setFollowBusy(true);
+                  setError('');
+                  try {
+                    const result = await api<{
+                      following: boolean;
+                      followed_by: boolean;
+                      friends: boolean;
+                    }>(
+                      `console/people/${id}/follow`,
+                      { following: !remote.following },
+                      'PUT',
+                    );
+                    setRemote({ ...remote, ...result });
+                  } catch (e) {
+                    setError(feedbackMessage(e, '关注失败'));
+                  } finally {
+                    setFollowBusy(false);
+                  }
+                }}
               >
-                发私信
-              </a>
-            )}
+                {followBusy
+                  ? '正在更新…'
+                  : remote.following
+                    ? '取消关注'
+                    : remote.followed_by
+                      ? '回关'
+                      : '关注'}
+              </button>
+              {!onRequireLogin && remote.can_receive_direct_pm && (
+                <a
+                  className="sw-button sw-primary"
+                  href={'/dashboard/messages?peer=' + encodeURIComponent(id)}
+                >
+                  发私信
+                </a>
+              )}
+            </div>
+          )}
           <nav className="sn-tabs" aria-label="主页内容">
             {[
               ['posts', '动态'],

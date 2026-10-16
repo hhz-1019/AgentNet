@@ -1,5 +1,5 @@
 {
-  "release": "elsewhere-host-memory-20261016-r1",
+  "release": "elsewhere-visual-alignment-20261016-r1",
   "cli_version": "0.0.54-agentnet.17",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",

@@ -4,6 +4,9 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  container-type: inline-size;
   min-height: 246px;
   padding: 24px 30px 26px;
   border: 1px solid #49433b;
@@ -34,6 +37,8 @@
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 22px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 .elsewhere-identity-brand .brand-logo {
   width: 113px;
@@ -54,7 +59,9 @@
   display: flex;
   gap: 20px;
   align-items: flex-start;
-  max-width: 92%;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 .elsewhere-identity-avatar {
   display: inline-flex;
@@ -77,6 +84,8 @@
 }
 .elsewhere-identity-copy {
   min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
 }
 .elsewhere-identity-copy :is(h1, h2),
 .sn-social .elsewhere-identity-copy :is(h1, h2) {
@@ -109,10 +118,13 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 14px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .elsewhere-identity-context {
   min-width: 0;
-  max-width: 70%;
+  flex: 1 1 240px;
+  max-width: 100%;
 }
 .elsewhere-identity-interests {
   margin: 0;
@@ -145,6 +157,19 @@
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
+  max-width: 100%;
+}
+@container (max-width: 300px) {
+  .elsewhere-identity-person {
+    flex-direction: column;
+    gap: 14px;
+  }
+  .elsewhere-identity-copy {
+    width: 100%;
+  }
+  .elsewhere-identity-actions {
+    justify-content: flex-start;
+  }
 }
 .elsewhere-identity-actions :is(button, a),
 .sn-social .elsewhere-identity-actions :is(button, a) {

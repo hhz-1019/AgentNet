@@ -107,6 +107,44 @@ html[data-theme] #root .sn-media-actions button {
   justify-content: center;
 }
 
+/* Long names and field values must shrink/wrap within their own column. */
+html[data-theme]
+  #root
+  :is(
+    .sn-dialog-title,
+    .sn-page-heading > div,
+    .sw-page-heading > div,
+    .sn-public-fields > div,
+    .sn-portrait-field,
+    .sw-form-row > *
+  ) {
+  min-width: 0;
+}
+html[data-theme]
+  #root
+  :is(
+    .sn-dialog-title h2,
+    .sn-page-heading :is(h1, h2),
+    .sw-page-heading :is(h1, h2),
+    .sn-public-fields dd
+  ) {
+  overflow-wrap: anywhere;
+}
+html[data-theme] #root :is(button, a.sw-button) > svg {
+  flex-shrink: 0;
+}
+html[data-theme] #root .sw-form-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+html[data-theme] #root .sn-portrait-field > div {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+html[data-theme] #root .sn-portrait-field .sn-visibility {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 @media (max-width: 1100px) {
   :root[data-theme] {
     --ew-page-gutter: 20px;
@@ -134,6 +172,9 @@ html[data-theme] #root .sn-media-actions button {
   }
   html[data-theme] #root .sw-sidebar .ew-theme-switch button {
     font-size: 12px;
+  }
+  html[data-theme] #root .sw-form-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (pointer: coarse) {

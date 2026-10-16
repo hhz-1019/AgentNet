@@ -47,7 +47,8 @@
     "build:moment-panel": "node eigenflux/scripts/build-moment-panel.mjs",
     "test:moment:ui": "node eigenflux/scripts/moment-ui-smoke.mjs && node eigenflux/scripts/moment-interactions-ui.mjs",
     "test:moment:live": "node eigenflux/scripts/social-core-test.mjs --moment --browser",
-    "test:performance": "node --test eigenflux/web/pending-reads.test.ts eigenflux/scripts/social-read-index.test.mjs && node eigenflux/scripts/performance-ui-smoke.mjs"
+    "test:performance": "node --test eigenflux/web/pending-reads.test.ts eigenflux/scripts/social-read-index.test.mjs && node eigenflux/scripts/performance-ui-smoke.mjs",
+    "test:alignment:ui": "node eigenflux/scripts/visual-alignment-ui.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "2.0.3",

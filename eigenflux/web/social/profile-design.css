@@ -2,12 +2,38 @@
   min-width: 0;
 }
 .sn-person-home .sn-person-toolbar {
-  margin-bottom: 14px;
+  margin-bottom: 20px;
 }
 .sn-person-home .sn-person-toolbar .sn-back {
   margin: 0;
-  padding: 8px 0 8px 12px;
+  padding: 10px 16px;
+  gap: 8px;
+  flex-shrink: 0;
   color: var(--ew-muted);
+}
+.sn-person-home .sn-person-toolbar .sn-back svg {
+  flex-shrink: 0;
+}
+.sn-person-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.sn-person-actions > span {
+  color: var(--ew-muted);
+  font-size: 0.875rem;
+}
+.sn-person-actions :is(button, a) {
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 18px;
+}
+.sn-person-home .elsewhere-identity-bio {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 .sn-person-home > .sn-tabs {
   margin-top: 24px;
