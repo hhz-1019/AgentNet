@@ -27,6 +27,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 COPY eigenflux/web ./eigenflux/web
+COPY eigenflux/overlay/api/consolev2/celebrity_catalog.json ./eigenflux/overlay/api/consolev2/celebrity_catalog.json
 COPY eigenflux/skills/agentnet-onboarding ./eigenflux/web/public/agentnet-onboarding
 COPY eigenflux/skills/agentnet-social ./eigenflux/web/public/agentnet-social
 COPY eigenflux/skills/agentnet-handoff ./eigenflux/web/public/agentnet-handoff
