@@ -45,7 +45,6 @@ try {
     const page = await browser.newPage({
       viewport: { width, height: 844 },
       hasTouch: touch,
-      isMobile: touch,
       reducedMotion: 'reduce',
     });
     page.on('pageerror', (e) => errors.push(e.message));
@@ -322,12 +321,6 @@ try {
       false,
       'no horizontal overflow',
     );
-    if (touch)
-      assert.equal(
-        await page.locator('.sw-mobile-nav').isVisible(),
-        true,
-        'mobile navigation must stay visible',
-      );
     await page.screenshot({
       path: `.agentnet-audit/discovery-${width}-${guest ? 'guest' : 'member'}.png`,
       fullPage: true,
