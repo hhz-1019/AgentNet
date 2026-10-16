@@ -45,6 +45,7 @@ try {
     const page = await browser.newPage({
       viewport: { width, height: 844 },
       hasTouch: touch,
+      isMobile: touch,
       reducedMotion: 'reduce',
     });
     page.on('pageerror', (e) => errors.push(e.message));
@@ -132,9 +133,10 @@ try {
       .click();
     await page.locator('.sw-feed-grid .sw-post').first().waitFor();
     await page
-      .getByRole('navigation', { name: '搜索类型' })
-      .getByRole('button', { name: '用户', exact: true })
+      .getByRole('button', { name: '搜索动态或用户', exact: true })
       .click();
+    await page.getByRole('navigation', { name: '搜索结果类型' }).waitFor();
+    assert.ok(page.url().includes('search'));
     await page.locator('#post-search').fill('旧名');
     await page.waitForRequest(
       (r) =>
@@ -146,93 +148,173 @@ try {
       .locator('.ew-person-result')
       .filter({ hasText: '知遥' })
       .waitFor();
+    await page.locator('.sw-feed-grid .sw-post').first().waitFor();
     await page.waitForTimeout(850);
     assert.equal(await page.locator('.ew-person-result').innerText(), '知遥');
+    assert.ok(
+      requestLog.some((u) => u.includes('q=' + encodeURIComponent('知遥'))),
+    );
+    if (!touch) await page.reload();
+    await page
+      .locator('.ew-person-result')
+      .filter({ hasText: '知遥' })
+      .waitFor();
+    assert.equal(
+      await page.locator('#post-search').inputValue(),
+      '知遥',
+      'direct reload preserves search',
+    );
+    await page.screenshot({
+      path:
+        '.agentnet-audit/unified-search-' +
+        width +
+        '-' +
+        (guest ? 'guest' : 'member') +
+        '.png',
+      fullPage: true,
+    });
     await page.locator('.ew-person-result').click();
     await page
       .locator('.elsewhere-identity')
       .filter({ hasText: '知遥' })
       .waitFor();
+    const authorRefresh = page.getByRole('button', {
+      name: '刷新动态',
+      exact: true,
+    });
+    await page.waitForFunction(
+      () => !document.querySelector('.ew-feed-refresh').disabled,
+    );
+    const authorBefore = calls.length;
+    await authorRefresh.click();
+    await page.waitForTimeout(100);
+    assert.ok(calls.length > authorBefore, 'public author feed refreshes');
     await page.getByRole('button', { name: '退出主页' }).click();
+    await page.getByRole('navigation', { name: '搜索结果类型' }).waitFor();
+    assert.equal(await page.locator('#post-search').inputValue(), '知遥');
     await page
-      .getByRole('navigation', { name: '搜索类型' })
-      .getByRole('button', { name: '用户', exact: true })
-      .click();
+      .locator('.ew-person-result')
+      .filter({ hasText: '知遥' })
+      .waitFor();
     await page.locator('#post-search').fill('没有');
     await page.getByText('没有找到这个名字', { exact: true }).waitFor();
-    await page.getByRole('button', { name: '清空搜索' }).click();
     await page
-      .getByRole('navigation', { name: '搜索类型' })
-      .getByRole('button', { name: '动态', exact: true })
+      .getByRole('navigation', { name: '搜索结果类型' })
+      .getByRole('button', { name: '用户', exact: true })
       .click();
-    await page.getByRole('button', { name: '刷新推荐', exact: true }).waitFor();
+    await page.getByRole('button', { name: '清空搜索' }).click();
+    await page.getByRole('button', { name: '返回发现' }).click();
+    await page
+      .getByRole('navigation', { name: '发现频道' })
+      .getByRole('button', { name: '推荐', exact: true })
+      .click();
     await page.waitForFunction(
-      () => !document.querySelector('.ew-recommendation-refresh').disabled,
+      () => !document.querySelector('.ew-feed-refresh').disabled,
     );
     const before = calls.length;
-    if (touch) {
-      await page.evaluate(() =>
-        window.scrollTo(0, document.documentElement.scrollHeight),
-      );
-      await page.waitForTimeout(100);
-      const region = page.locator('.ew-recommendation-region');
-      const gesture = (type, init) =>
-        region.evaluate(
-          (el, { type, init }) => {
+    const gesture = async (dy, dx = 2, cancelled = false) => {
+      const region = page.locator('.ew-feed-region');
+      for (const [type, y, touches] of [
+        ['touchstart', 300, true],
+        ['touchmove', 300 + dy, true],
+        [cancelled ? 'touchcancel' : 'touchend', 300 + dy, false],
+      ]) {
+        await region.evaluate(
+          (el, { type, y, touches, dx }) =>
             el.dispatchEvent(
               new TouchEvent(type, {
                 bubbles: true,
-                touches: init.touches.map(
-                  (t) => new Touch({ identifier: 1, target: el, ...t }),
-                ),
+                cancelable: true,
+                touches: touches
+                  ? [
+                      new Touch({
+                        identifier: 1,
+                        target: el,
+                        clientX: 150 + (type === 'touchmove' ? dx : 0),
+                        clientY: y,
+                      }),
+                    ]
+                  : [],
               }),
-            );
-          },
-          { type, init },
+            ),
+          { type, y, touches, dx },
         );
-      await gesture('touchstart', {
-        touches: [{ clientX: 150, clientY: 650 }],
-      });
-      await gesture('touchmove', {
-        touches: [{ clientX: 152, clientY: 610 }],
-      });
-      await gesture('touchend', { touches: [] });
+      }
+    };
+    if (touch) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await gesture(40);
+      await gesture(-100);
+      await gesture(100, 80);
+      await gesture(100, 2, true);
       assert.equal(
         calls.length,
         before,
-        'short gesture must not refresh ' +
-          JSON.stringify({ width, guest, requestLog }),
+        'short/upward/horizontal/cancel gestures must not refresh',
       );
-      await gesture('touchstart', {
-        touches: [{ clientX: 150, clientY: 650 }],
-      });
-      await gesture('touchmove', {
-        touches: [{ clientX: 152, clientY: 550 }],
-      });
-      await page.getByRole('button', { name: '松开刷新推荐' }).waitFor();
-      await gesture('touchend', { touches: [] });
+      await page.evaluate(() => window.scrollTo(0, 200));
+      await gesture(100);
+      assert.equal(calls.length, before, 'mid-page pull must not refresh');
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await gesture(110);
     } else
-      await page.getByRole('button', { name: '刷新推荐', exact: true }).click();
+      await page.getByRole('button', { name: '刷新动态', exact: true }).click();
     await page
       .getByRole('button', { name: '查看动态：推荐片段 100', exact: true })
       .waitFor();
     assert.equal(calls.at(-1), 'batch-2');
-    assert.equal(
-      await page
-        .getByRole('button', { name: '查看动态：推荐片段 1', exact: true })
-        .count(),
-      0,
-    );
+    assert.equal(await page.locator('.sw-post[data-post-id="1"]').count(), 0);
     assert.equal(await page.evaluate(() => window.scrollY), 0);
+    assert.equal(
+      await page.locator('.ew-feed-refresh').innerText(),
+      '',
+      'refresh is icon only',
+    );
     fail = true;
-    await page.getByRole('button', { name: '刷新推荐', exact: true }).click();
+    await page.getByRole('button', { name: '刷新动态', exact: true }).click();
     await page.getByText('刷新未完成，请重试', { exact: true }).waitFor();
     assert.equal(await page.locator('.sw-post[data-post-id="100"]').count(), 1);
     fail = false;
-    await page.getByRole('button', { name: '刷新推荐', exact: true }).click();
+    await page.getByRole('button', { name: '刷新动态', exact: true }).click();
     await page
       .getByRole('button', { name: '查看动态：推荐片段 1', exact: true })
       .waitFor();
+    for (const channel of ['最新', ...(!guest ? ['关注'] : [])]) {
+      await page
+        .getByRole('navigation', { name: '发现频道' })
+        .getByRole('button', { name: channel, exact: true })
+        .click();
+      await page.waitForFunction(
+        () => !document.querySelector('.ew-feed-refresh').disabled,
+      );
+      const n = calls.length;
+      await page.getByRole('button', { name: '刷新动态', exact: true }).click();
+      await page.waitForTimeout(100);
+      assert.ok(calls.length > n, channel + ' supports refresh');
+      assert.ok(
+        calls.slice(n).includes(''),
+        'non-recommended refresh reads the first page',
+      );
+    }
+    if (!guest)
+      for (const route of ['me', 'liked', 'saved', 'drafts']) {
+        await page.goto(origin + 'dashboard/' + route);
+        await page.waitForFunction(
+          () =>
+            document.querySelector('.ew-feed-refresh') &&
+            !document.querySelector('.ew-feed-refresh').disabled,
+        );
+        const n = calls.length;
+        if (touch) {
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await gesture(110);
+        } else
+          await page
+            .getByRole('button', { name: '刷新动态', exact: true })
+            .click();
+        await page.waitForTimeout(100);
+        assert.ok(calls.length > n, route + ' supports refresh');
+      }
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth + 1,
@@ -254,7 +336,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: member/guest name search, profile navigation, empty results, recommendation replacement, upward pull threshold, failed refresh preservation/retry, desktop/mobile themes.',
+    'PASS: unified independent search, query/history restoration, user and post results, refresh across all feeds and profiles, downward pull thresholds/cancellation, error preservation, desktop/mobile themes.',
   );
 } finally {
   await browser.close();

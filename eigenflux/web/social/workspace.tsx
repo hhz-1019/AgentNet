@@ -1,6 +1,6 @@
 import { feedbackMessage } from '../feedback-message';
 import { PeopleSearch } from './people-search';
-import { RecommendationPull } from './recommendation-refresh';
+import { FeedPull, RefreshButton } from './feed-refresh';
 import { FeedViewCache } from './view-cache';
 import { ContentState, ContentBoundary } from '../recovery';
 import { ErrorBox } from '../shared';
@@ -31,7 +31,6 @@ import {
   MessageCircle,
   Plus,
   Search,
-  RefreshCw,
   Settings2,
   Shield,
   UserRound,
@@ -139,7 +138,13 @@ function readRoute(demo: boolean) {
   if (route === 'relations') return 'network';
   if (['crossing', 'crossing/encounters', 'crossing/traces'].includes(route))
     return route;
-  return ['explore', 'messages', 'network', ...personalRoutes].includes(route)
+  return [
+    'explore',
+    'search',
+    'messages',
+    'network',
+    ...personalRoutes,
+  ].includes(route)
     ? route
     : 'explore';
 }
@@ -187,12 +192,22 @@ export function SocialWorkspace({
     return guest && personalRoutes.has(r) && r !== 'settings' ? 'explore' : r;
   });
   const hasUnreadMessages = useUnreadMessages(demo, session.agent_id, !guest);
-  const [query, setQuery] = useState('');
-  const [search, setSearch] = useState('');
-  const [searchKind, setSearchKind] = useState<'posts' | 'people'>('posts');
-  const peopleSearch = route === 'explore' && searchKind === 'people';
-  const [refreshingRecommendations, setRefreshingRecommendations] =
-    useState(false);
+  const initialSearch =
+    route === 'search'
+      ? new URLSearchParams(location.search).get('q') || ''
+      : '';
+  const [query, setQuery] = useState(initialSearch);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState(initialSearch);
+  const [searchKind, setSearchKind] = useState<'all' | 'posts' | 'people'>(
+    'all',
+  );
+  const searchRoute = route === 'search';
+  useEffect(() => {
+    if (searchRoute) searchInput.current?.focus({ preventScroll: true });
+  }, [searchRoute]);
+  const peopleSearch = searchRoute && searchKind === 'people';
+  const [refreshingFeed, setRefreshingFeed] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState('');
   const manualFeedRefresh = useRef<{
     cursor: string;
@@ -304,13 +319,22 @@ export function SocialWorkspace({
     delegated?: boolean;
     sponsor_number?: string;
   }>(demo || guest ? null : 'console/managed/access');
-  const feedRoute = ['explore', 'me', 'liked', 'saved', 'drafts'].includes(
-    route,
-  );
+  const feedRoute = [
+    'explore',
+    'search',
+    'me',
+    'liked',
+    'saved',
+    'drafts',
+  ].includes(route);
   const personRoute = route.startsWith('person/');
   const crossingRoute = route === 'crossing' || route.startsWith('crossing/');
   useEntryPreparation(
-    (feedRoute && !page && !error) || (personRoute && !personReady),
+    (feedRoute &&
+      (!searchRoute || Boolean(search.trim())) &&
+      !page &&
+      !error) ||
+      (personRoute && !personReady),
     feedRoute && Boolean(error) && !page,
   );
   const personal = personalRoutes.has(route) && !crossingRoute;
@@ -333,24 +357,27 @@ export function SocialWorkspace({
     setVersion((v) => v + 1);
     refreshData();
   }
-  function refreshRecommendations() {
+  function refreshFeed() {
     if (
       !feedSettled ||
       loading ||
-      refreshingRecommendations ||
-      route !== 'explore' ||
-      feed !== 'recommended' ||
-      peopleSearch
+      refreshingFeed ||
+      !feedRoute ||
+      peopleSearch ||
+      (searchRoute && !search.trim())
     )
       return;
     feedViews.current.clear();
     feedHistory.current.clear();
     manualFeedRefresh.current = {
-      cursor: page?.next_cursor || '',
+      cursor:
+        route === 'explore' && feed === 'recommended'
+          ? page?.next_cursor || ''
+          : '',
       key: JSON.stringify([route, search, topic, feed]),
       ids: page?.items.map((item) => item.id).join(',') || '',
     };
-    setRefreshingRecommendations(true);
+    setRefreshingFeed(true);
     setRefreshMessage('');
     setVersion((v) => v + 1);
   }
@@ -400,6 +427,7 @@ export function SocialWorkspace({
           search,
           topic,
           feed,
+          searchKind,
           cursor,
           feedSnapshot,
           detail,
@@ -433,6 +461,7 @@ export function SocialWorkspace({
       returnPosition.current = savedFeed.scroll;
     }
     setNotice('');
+    setRefreshMessage('');
     setDetail(undefined);
     setPage(savedFeed?.page);
     if (!savedFeed) window.scrollTo({ top: 0, behavior: 'auto' });
@@ -474,8 +503,16 @@ export function SocialWorkspace({
     history.replaceState(history.state, '', url);
   }
   useEffect(() => {
+    let appliedURL = '';
+    let appliedState: unknown;
     const sync = () => {
       if (hashRouting && location.hash === '#social-main') return;
+      // Query + fragment traversal may only emit popstate. A fragment-only
+      // traversal emits both; apply that history entry once.
+      if (appliedURL === location.href && appliedState === history.state)
+        return;
+      appliedURL = location.href;
+      appliedState = history.state;
       const requested = readRoute(hashRouting);
       const nextRoute =
         guest && personalRoutes.has(requested) && requested !== 'settings'
@@ -506,26 +543,31 @@ export function SocialWorkspace({
           });
       }
       setCursor(restoredPage ? view?.cursor || '' : '');
-      setQuery(view?.query || '');
-      setSearch(view?.search || '');
+      const restoredSearch =
+        view?.search ||
+        (nextRoute === 'search'
+          ? new URLSearchParams(location.search).get('q') || ''
+          : '');
+      setQuery(view?.query || restoredSearch);
+      setSearch(restoredSearch);
+      setSearchKind(view?.searchKind || 'all');
       setTopic(view?.topic || '');
       if (view?.feed) setFeed(view.feed);
       returnPosition.current = view?.scroll ?? 0;
       feedQuery.current = JSON.stringify([
         nextRoute,
-        view?.search || '',
+        restoredSearch,
         view?.topic || '',
         view?.feed || feed,
       ]);
       setPage(restoredPage);
       restoringFeed.current = Boolean(restoredPage);
     };
-    // Hash history traversal fires both events. Handle it once so a second
-    // event cannot clear the feed after its load has already completed.
-    const event = hashRouting ? 'hashchange' : 'popstate';
-    window.addEventListener(event, sync);
+    window.addEventListener('popstate', sync);
+    if (hashRouting) window.addEventListener('hashchange', sync);
     return () => {
-      window.removeEventListener(event, sync);
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener('hashchange', sync);
     };
   }, [demo, guest, hashRouting, store, feed]);
   useEffect(() => {
@@ -542,8 +584,16 @@ export function SocialWorkspace({
     return () => cancelAnimationFrame(frame);
   }, [route, feedRoute, loading, page, personRoute, personReady]);
   useEffect(() => {
-    document.title = `${crossingRoute ? '此刻' : personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
-  }, [route, personal, personRoute, crossingRoute]);
+    document.title = `${searchRoute ? '搜索' : crossingRoute ? '此刻' : personal ? '我的' : personRoute ? '个人主页' : nav.find(([id]) => id === route)?.[1] || '发现'} · elsewhere`;
+  }, [route, personal, personRoute, crossingRoute, searchRoute]);
+  useEffect(() => {
+    if (!searchRoute) return;
+    const url = new URL(location.href);
+    if (search.trim()) url.searchParams.set('q', search.trim());
+    else url.searchParams.delete('q');
+    if (url.href !== location.href)
+      history.replaceState(history.state, '', url);
+  }, [searchRoute, search]);
   useEffect(() => {
     if (query === search) return;
     const timer = setTimeout(() => {
@@ -553,7 +603,10 @@ export function SocialWorkspace({
     return () => clearTimeout(timer);
   }, [query, search]);
   useEffect(() => {
-    if (!feedRoute || peopleSearch) return;
+    if (!feedRoute || peopleSearch || (searchRoute && !search.trim())) {
+      setLoading(false);
+      return;
+    }
     const key = JSON.stringify([route, search, topic, feed]);
     const manual =
       manualFeedRefresh.current?.key === key ? manualFeedRefresh.current : null;
@@ -628,10 +681,10 @@ export function SocialWorkspace({
           if (manual) {
             setRefreshMessage(
               !p.items.length
-                ? '暂时没有更多推荐'
+                ? '已刷新'
                 : p.items.map((item) => item.id).join(',') === manual.ids
-                  ? '推荐已是最新'
-                  : '推荐已刷新',
+                  ? '已是最新'
+                  : '已刷新',
             );
             window.scrollTo({ top: 0, behavior: 'auto' });
           }
@@ -646,7 +699,13 @@ export function SocialWorkspace({
                     ),
                   }
                 : p;
-            if (manual && !p.items.length && previous?.items.length)
+            if (
+              manual &&
+              route === 'explore' &&
+              feed === 'recommended' &&
+              !p.items.length &&
+              previous?.items.length
+            )
               return { ...previous, next_cursor: '' };
             return mergeFeedPage(previous, incoming, mode, requestCursor);
           });
@@ -666,15 +725,16 @@ export function SocialWorkspace({
       .finally(() => {
         if (active) {
           setLoading(false);
-          if (manual) setRefreshingRecommendations(false);
+          if (manual) setRefreshingFeed(false);
         }
       });
     return () => {
       active = false;
-      if (manual) setRefreshingRecommendations(false);
+      if (manual) setRefreshingFeed(false);
     };
   }, [
     peopleSearch,
+    searchRoute,
     store,
     route,
     search,
@@ -692,6 +752,7 @@ export function SocialWorkspace({
       !node ||
       !feedRoute ||
       peopleSearch ||
+      (searchRoute && !search.trim()) ||
       (route === 'explore' && feed === 'recommended') ||
       loading ||
       error ||
@@ -720,7 +781,18 @@ export function SocialWorkspace({
       observer.disconnect();
       window.removeEventListener('resize', observe);
     };
-  }, [feedRoute, peopleSearch, route, feed, page, loading, error, cursor]);
+  }, [
+    feedRoute,
+    peopleSearch,
+    searchRoute,
+    search,
+    route,
+    feed,
+    page,
+    loading,
+    error,
+    cursor,
+  ]);
   useEffect(() => {
     if (demo || guest) return;
     const onRefresh = () => setVersion((v) => v + 1);
@@ -804,7 +876,13 @@ export function SocialWorkspace({
       ))}
     </nav>
   );
-  const activeNav = crossingRoute ? 'crossing' : personal ? 'me' : route;
+  const activeNav = crossingRoute
+    ? 'crossing'
+    : personal
+      ? 'me'
+      : searchRoute
+        ? 'explore'
+        : route;
   const renderNav = (
     ids: readonly string[] = ['crossing', 'explore', 'messages'],
   ) =>
@@ -903,7 +981,19 @@ export function SocialWorkspace({
           </span>
         </a>
       </aside>
-      <main id="social-main" className="sw-main">
+      <FeedPull
+        as="main"
+        id="social-main"
+        className="sw-main"
+        enabled={
+          feedRoute &&
+          Boolean(page) &&
+          !peopleSearch &&
+          (!searchRoute || Boolean(search.trim()))
+        }
+        busy={!feedSettled || loading || refreshingFeed}
+        onRefresh={refreshFeed}
+      >
         <ContentBoundary key={route}>
           {personal && !['me', 'liked', 'saved', 'drafts'].includes(route) && (
             <a
@@ -1035,21 +1125,20 @@ export function SocialWorkspace({
               onOpen={openDetail}
             />
           ) : feedRoute ? (
-            <RecommendationPull
-              enabled={
-                route === 'explore' &&
-                feed === 'recommended' &&
-                !peopleSearch &&
-                Boolean(page)
-              }
-              busy={!feedSettled || loading || refreshingRecommendations}
-              onRefresh={refreshRecommendations}
-            >
+            <>
               {route === 'explore' && <h1 className="sw-sr-only">发现</h1>}
               <div
-                className={`ew-feed-toolbar${route === 'explore' ? '' : ' ew-personal-toolbar'}`}
+                className={`ew-feed-toolbar${route === 'explore' ? '' : ' ew-personal-toolbar'}${searchRoute ? ' ew-search-page-toolbar' : ''}`}
               >
-                {route === 'explore' && (
+                {searchRoute ? (
+                  <button
+                    className="ew-search-back"
+                    aria-label="返回发现"
+                    onClick={() => go('explore')}
+                  >
+                    <ArrowLeft size={22} />
+                  </button>
+                ) : route === 'explore' ? (
                   <div className="sn-discover-heading">
                     <ContentTabs className="sn-tabs" label="发现频道">
                       {[
@@ -1065,7 +1154,6 @@ export function SocialWorkspace({
                               onRequireLogin?.('登录后查看关注的动态');
                               return;
                             }
-                            setSearchKind('posts');
                             setRefreshMessage('');
                             setFeed(id);
                             setCursor('');
@@ -1075,252 +1163,302 @@ export function SocialWorkspace({
                         </button>
                       ))}
                     </ContentTabs>
-                    {feed === 'recommended' && !peopleSearch && (
+                    <RefreshButton
+                      busy={!feedSettled || loading || refreshingFeed}
+                      onRefresh={refreshFeed}
+                    />
+                  </div>
+                ) : (
+                  <RefreshButton
+                    busy={!feedSettled || loading || refreshingFeed}
+                    onRefresh={refreshFeed}
+                  />
+                )}
+                {route === 'explore' ? (
+                  <button
+                    className="sw-search ew-search-entry"
+                    onClick={() => {
+                      go('search');
+                      setSearchKind('all');
+                    }}
+                    aria-label="搜索动态或用户"
+                  >
+                    <Search size={19} />
+                    <span>搜索动态或用户</span>
+                  </button>
+                ) : (
+                  <form
+                    className="sw-search"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      setSearch(query);
+                      setCursor('');
+                    }}
+                  >
+                    <Search size={19} />
+                    <label className="sw-sr-only" htmlFor="post-search">
+                      {searchRoute ? '搜索动态或用户' : '搜索动态'}
+                    </label>
+                    <input
+                      id="post-search"
+                      maxLength={100}
+                      value={query}
+                      ref={searchInput}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={
+                        searchRoute
+                          ? '搜索动态或用户'
+                          : route === 'liked'
+                            ? '搜索我赞过的内容'
+                            : route === 'saved'
+                              ? '搜索我的收藏'
+                              : route === 'drafts'
+                                ? '搜索草稿'
+                                : '搜索动态'
+                      }
+                    />
+                    {query && (
                       <button
-                        className="ew-recommendation-refresh"
-                        onClick={refreshRecommendations}
-                        disabled={
-                          !feedSettled || loading || refreshingRecommendations
-                        }
-                        aria-label="刷新推荐"
+                        type="button"
+                        aria-label="清空搜索"
+                        onClick={() => setQuery('')}
                       >
-                        <RefreshCw size={18} aria-hidden="true" />
-                        <span>
-                          {refreshingRecommendations ? '刷新中' : '刷新推荐'}
-                        </span>
+                        <X size={16} />
                       </button>
                     )}
-                  </div>
+                  </form>
                 )}
-                <form
-                  className="sw-search"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setSearch(query);
-                    setCursor('');
-                  }}
-                >
-                  <Search size={19} />
-                  <label className="sw-sr-only" htmlFor="post-search">
-                    {route === 'explore' ? '搜索动态或用户' : '搜索动态'}
-                  </label>
-                  <input
-                    id="post-search"
-                    maxLength={100}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={
-                      route === 'liked'
-                        ? '搜索我赞过的内容'
-                        : route === 'saved'
-                          ? '搜索我的收藏'
-                          : route === 'drafts'
-                            ? '搜索草稿'
-                            : peopleSearch
-                              ? '搜索用户名字'
-                              : '搜索内容或用户'
+                {searchRoute && (
+                  <RefreshButton
+                    disabled={!search.trim() || peopleSearch}
+                    busy={
+                      Boolean(search.trim()) &&
+                      (!feedSettled || loading || refreshingFeed)
                     }
+                    onRefresh={refreshFeed}
                   />
-                  {query && (
-                    <button
-                      type="button"
-                      aria-label="清空搜索"
-                      onClick={() => setQuery('')}
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </form>
+                )}
               </div>
-              {route === 'explore' && (
+              {searchRoute && (
                 <div className="ew-search-options">
-                  <ContentTabs className="sn-tabs" label="搜索类型">
-                    <button
-                      aria-pressed={!peopleSearch}
-                      onClick={() => setSearchKind('posts')}
-                    >
-                      动态
-                    </button>
-                    <button
-                      aria-pressed={peopleSearch}
-                      onClick={() => setSearchKind('people')}
-                    >
-                      用户
-                    </button>
+                  <ContentTabs className="sn-tabs" label="搜索结果类型">
+                    {(
+                      [
+                        ['all', '综合'],
+                        ['posts', '动态'],
+                        ['people', '用户'],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        aria-pressed={searchKind === id}
+                        onClick={() => setSearchKind(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </ContentTabs>
-                  {!peopleSearch && <output>{refreshMessage}</output>}
                 </div>
               )}
-              {peopleSearch ? (
-                <PeopleSearch
-                  key={search}
-                  query={search}
-                  demo={demo}
-                  onOpen={openProfile}
-                />
+              <output className="ew-refresh-status" aria-live="polite">
+                {refreshMessage}
+              </output>
+              {searchRoute && !search.trim() ? (
+                <ContentState title="搜索动态或用户" />
               ) : (
                 <>
-                  {topic && (
-                    <div className="sn-topic-heading">
-                      <span>话题 · #{topic}</span>
-                      <button
-                        onClick={() => {
-                          setTopic('');
-                          setCursor('');
-                        }}
-                      >
-                        返回全部
-                        <X size={14} />
-                      </button>
-                    </div>
+                  {searchRoute && searchKind === 'all' && (
+                    <section className="ew-search-people">
+                      <div className="ew-search-section-heading">
+                        <h2>用户</h2>
+                        <button onClick={() => setSearchKind('people')}>
+                          查看全部 <ArrowRight size={16} />
+                        </button>
+                      </div>
+                      <PeopleSearch
+                        key={search}
+                        query={search}
+                        demo={demo}
+                        onOpen={openProfile}
+                        limit={3}
+                      />
+                      <h2 className="ew-search-posts-heading">动态</h2>
+                    </section>
                   )}
-                  {error && !page ? (
-                    <ContentState
-                      title="动态暂时没有加载出来"
-                      action={reload}
+                  {peopleSearch ? (
+                    <PeopleSearch
+                      key={search}
+                      query={search}
+                      demo={demo}
+                      onOpen={openProfile}
                     />
-                  ) : loading && !page ? (
-                    <output className="ew-feed-loading" aria-busy="true">
-                      <span className="sw-sr-only">正在加载动态…</span>
-                      {Array.from({ length: 3 }, (_, i) => (
-                        <div
-                          className="ew-loading-page"
-                          key={i}
-                          aria-hidden="true"
-                        >
-                          <div />
-                          <span />
-                          <span />
-                          <span />
-                        </div>
-                      ))}
-                    </output>
                   ) : (
                     <>
-                      <div
-                        className="sw-feed-grid"
-                        ref={grid}
-                        aria-busy={loading}
-                      >
-                        {page?.items.map((p) => (
-                          <div
-                            key={p.id}
-                            className={
-                              pending.includes(p.id) ? 'sw-busy-post' : ''
-                            }
-                          >
-                            {route === 'drafts' ? (
-                              <button
-                                className="sw-draft-card"
-                                onClick={() => setPublisher(p)}
-                              >
-                                <small>仅自己可见</small>
-                                <h3>{plainText(p.document.title)}</h3>
-                                <p>{plainText(p.document.summary)}</p>
-                                <span>
-                                  继续编辑
-                                  <ArrowRight size={15} />
-                                </span>
-                              </button>
-                            ) : (
-                              <PostCard
-                                post={p}
-                                onOpen={() => openDetail(p)}
-                                onReaction={(k) => void react(p, k)}
-                                onTag={(t) => {
-                                  setTopic(t);
-                                  setCursor('');
-                                }}
-                                onAuthor={() => openProfile(p.agent_id)}
-                              />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      {!page?.items.length && (
-                        <div className="sw-empty">
-                          {route === 'liked' ? (
-                            <Heart size={32} />
-                          ) : route === 'saved' ? (
-                            <Bookmark size={32} />
-                          ) : route === 'drafts' ? (
-                            <FileText size={32} />
-                          ) : (
-                            <Compass size={32} />
-                          )}
-                          <h2>
-                            {query || topic
-                              ? '暂时没有相关内容'
-                              : route === 'liked'
-                                ? '还没有赞过的内容'
-                                : route === 'saved'
-                                  ? '还没有收藏'
-                                  : route === 'drafts'
-                                    ? '还没有草稿'
-                                    : route === 'me'
-                                      ? '还没有发布动态'
-                                      : '还没有新动态'}
-                          </h2>
+                      {topic && (
+                        <div className="sn-topic-heading">
+                          <span>话题 · #{topic}</span>
                           <button
                             onClick={() => {
-                              if (query || topic) {
-                                setQuery('');
-                                setSearch('');
-                                setTopic('');
-                                setCursor('');
-                              } else if (
-                                route === 'explore' &&
-                                feed !== 'latest'
-                              )
-                                setFeed('latest');
-                              else if (['saved', 'liked'].includes(route))
-                                go('explore');
-                              else if (guest)
-                                onRequireLogin?.('登录后即可发布动态');
-                              else setPublisher(true);
+                              setTopic('');
+                              setCursor('');
                             }}
                           >
-                            {query || topic
-                              ? '清除搜索'
-                              : route === 'explore' && feed !== 'latest'
-                                ? '去看看最新'
-                                : ['saved', 'liked'].includes(route)
-                                  ? '去发现'
-                                  : '发布动态'}
+                            返回全部
+                            <X size={14} />
                           </button>
                         </div>
                       )}
-                      <div
-                        ref={feedEnd}
-                        className="sw-feed-end"
-                        aria-live="polite"
-                      >
-                        {error ? (
-                          <ErrorBox
-                            error="接下来的动态还没加载出来。"
-                            retry={() => setFeedRetry((v) => v + 1)}
-                          />
-                        ) : loading ? (
-                          <output className="sw-feed-dots">
-                            <span className="sw-sr-only">
-                              正在加载更多动态…
-                            </span>
-                            <i aria-hidden="true" />
-                            <i aria-hidden="true" />
-                            <i aria-hidden="true" />
-                          </output>
-                        ) : page &&
-                          page.items.length > 0 &&
-                          !page.next_cursor &&
-                          !(route === 'explore' && feed === 'recommended') ? (
-                          '已经看完全部动态'
-                        ) : null}
-                      </div>
+                      {error && !page ? (
+                        <ContentState
+                          title="动态暂时没有加载出来"
+                          action={reload}
+                        />
+                      ) : loading && !page ? (
+                        <output className="ew-feed-loading" aria-busy="true">
+                          <span className="sw-sr-only">正在加载动态…</span>
+                          {Array.from({ length: 3 }, (_, i) => (
+                            <div
+                              className="ew-loading-page"
+                              key={i}
+                              aria-hidden="true"
+                            >
+                              <div />
+                              <span />
+                              <span />
+                              <span />
+                            </div>
+                          ))}
+                        </output>
+                      ) : (
+                        <>
+                          <div
+                            className="sw-feed-grid"
+                            ref={grid}
+                            aria-busy={loading}
+                          >
+                            {page?.items.map((p) => (
+                              <div
+                                key={p.id}
+                                className={
+                                  pending.includes(p.id) ? 'sw-busy-post' : ''
+                                }
+                              >
+                                {route === 'drafts' ? (
+                                  <button
+                                    className="sw-draft-card"
+                                    onClick={() => setPublisher(p)}
+                                  >
+                                    <small>仅自己可见</small>
+                                    <h3>{plainText(p.document.title)}</h3>
+                                    <p>{plainText(p.document.summary)}</p>
+                                    <span>
+                                      继续编辑
+                                      <ArrowRight size={15} />
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <PostCard
+                                    post={p}
+                                    onOpen={() => openDetail(p)}
+                                    onReaction={(k) => void react(p, k)}
+                                    onTag={(t) => {
+                                      setTopic(t);
+                                      setCursor('');
+                                    }}
+                                    onAuthor={() => openProfile(p.agent_id)}
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {!page?.items.length && (
+                            <div className="sw-empty">
+                              {route === 'liked' ? (
+                                <Heart size={32} />
+                              ) : route === 'saved' ? (
+                                <Bookmark size={32} />
+                              ) : route === 'drafts' ? (
+                                <FileText size={32} />
+                              ) : (
+                                <Compass size={32} />
+                              )}
+                              <h2>
+                                {query || topic
+                                  ? '暂时没有相关内容'
+                                  : route === 'liked'
+                                    ? '还没有赞过的内容'
+                                    : route === 'saved'
+                                      ? '还没有收藏'
+                                      : route === 'drafts'
+                                        ? '还没有草稿'
+                                        : route === 'me'
+                                          ? '还没有发布动态'
+                                          : '还没有新动态'}
+                              </h2>
+                              <button
+                                onClick={() => {
+                                  if (query || topic) {
+                                    setQuery('');
+                                    setSearch('');
+                                    setTopic('');
+                                    setCursor('');
+                                  } else if (
+                                    route === 'explore' &&
+                                    feed !== 'latest'
+                                  )
+                                    setFeed('latest');
+                                  else if (['saved', 'liked'].includes(route))
+                                    go('explore');
+                                  else if (guest)
+                                    onRequireLogin?.('登录后即可发布动态');
+                                  else setPublisher(true);
+                                }}
+                              >
+                                {query || topic
+                                  ? '清除搜索'
+                                  : route === 'explore' && feed !== 'latest'
+                                    ? '去看看最新'
+                                    : ['saved', 'liked'].includes(route)
+                                      ? '去发现'
+                                      : '发布动态'}
+                              </button>
+                            </div>
+                          )}
+                          <div
+                            ref={feedEnd}
+                            className="sw-feed-end"
+                            aria-live="polite"
+                          >
+                            {error ? (
+                              <ErrorBox
+                                error="接下来的动态还没加载出来。"
+                                retry={() => setFeedRetry((v) => v + 1)}
+                              />
+                            ) : loading ? (
+                              <output className="sw-feed-dots">
+                                <span className="sw-sr-only">
+                                  正在加载更多动态…
+                                </span>
+                                <i aria-hidden="true" />
+                                <i aria-hidden="true" />
+                                <i aria-hidden="true" />
+                              </output>
+                            ) : page &&
+                              page.items.length > 0 &&
+                              !page.next_cursor &&
+                              !(
+                                route === 'explore' && feed === 'recommended'
+                              ) ? (
+                              '已经看完全部动态'
+                            ) : null}
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
                 </>
               )}
-            </RecommendationPull>
+            </>
           ) : route === 'messages' ? (
             demo ? (
               <MessagePreview
@@ -1514,7 +1652,7 @@ export function SocialWorkspace({
             </section>
           )}
         </ContentBoundary>
-      </main>
+      </FeedPull>
       <nav className="sw-mobile-nav" aria-label="移动导航">
         {renderNav(['crossing', 'explore'])}
         <button

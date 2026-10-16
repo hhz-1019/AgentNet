@@ -327,12 +327,16 @@ try {
     'Closing a post preserves all loaded feed pages',
   );
   await page
+    .getByRole('button', { name: '搜索动态或用户', exact: true })
+    .click();
+  await page
     .getByRole('textbox', { name: '搜索动态或用户', exact: true })
     .fill('散步');
   await page.waitForFunction(
     () => document.querySelectorAll('.sw-feed-grid .sw-post').length === 1,
   );
   await page.getByRole('button', { name: '清空搜索', exact: true }).click();
+  await page.getByRole('button', { name: '返回发现', exact: true }).click();
   await cards.nth(23).waitFor();
   await page.getByRole('button', { name: '最新', exact: true }).click();
   await page.waitForFunction(

@@ -24,6 +24,43 @@ function equal(a, b, label) {
     );
 }
 try {
+  for (const theme of ['warm', 'cool', 'night']) {
+    const entry = await browser.newPage({
+      viewport: { width: 1280, height: 800 },
+    });
+    await entry.addInitScript((theme) => {
+      localStorage.setItem('elsewhere-appearance', theme);
+      document.addEventListener('DOMContentLoaded', () => {
+        const style = document.createElement('style');
+        style.textContent = '::-webkit-scrollbar{width:16px;height:16px}';
+        document.head.append(style);
+      });
+    }, theme);
+    await entry.goto(origin + 'preview?entry=replay#explore');
+    await entry.locator('.ew-brand-entry[open]').waitFor();
+    const colors = await entry
+      .locator('.ew-brand-entry')
+      .evaluate((el) => ({
+        backdrop: getComputedStyle(el, '::backdrop').backgroundColor,
+        root: getComputedStyle(document.documentElement).backgroundColor,
+      }));
+    assert.equal(
+      colors.backdrop,
+      'rgb(48, 44, 38)',
+      'entry backdrop covers viewport gutters',
+    );
+    assert.equal(
+      colors.root,
+      'rgb(48, 44, 38)',
+      'entry root cannot expose a white stripe',
+    );
+    await entry.screenshot({
+      path: '.agentnet-audit/entry-gutters-' + theme + '.png',
+    });
+    await entry.getByRole('button', { name: '跳过动画' }).click();
+    await entry.locator('.ew-brand-entry').waitFor({ state: 'detached' });
+    await entry.close();
+  }
   for (const [width, height, touch] of [
     [1440, 900, false],
     [1024, 600, false],

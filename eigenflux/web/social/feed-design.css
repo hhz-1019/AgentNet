@@ -283,33 +283,90 @@
   cursor: pointer;
 }
 
-/* Discovery actions share the same gutters in every theme and input mode. */
-.ew-social.sn-social .ew-recommendation-region {
+/* Shared refresh/search controls use one size across every feed. */
+.ew-social.sn-social .ew-feed-region {
   min-width: 0;
 }
 .ew-social.sn-social .sn-discover-heading {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
-.ew-social.sn-social .ew-recommendation-refresh {
+html[data-theme] #root .ew-feed-refresh,
+html[data-theme] #root .ew-search-back {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 14px;
-  min-height: 40px;
-  color: var(--ew-muted);
-  background: var(--ew-tint);
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 10px;
   border: 0;
-  border-radius: 999px;
-  white-space: nowrap;
+  border-radius: 50%;
+  background: var(--ew-tint);
+  color: var(--ew-muted);
+  box-shadow: none;
+  flex-shrink: 0;
+}
+html[data-theme] #root .ew-feed-refresh:hover:not(:disabled),
+html[data-theme] #root .ew-search-back:hover {
+  background: var(--ew-line);
+  color: var(--ew-ink);
+}
+html[data-theme] #root .ew-feed-refresh:disabled {
+  opacity: 0.5;
+}
+.ew-feed-refresh[aria-busy='true'] svg {
+  animation: ew-refresh-turn 1s linear infinite;
+}
+@keyframes ew-refresh-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+html:has(.ew-feed-region) {
+  overscroll-behavior-y: contain;
+}
+.ew-pull-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  color: var(--ew-muted);
+}
+.ew-refresh-status {
+  display: block;
+  min-height: 0;
+  color: var(--ew-muted);
+  font-size: 0.875rem;
+}
+.ew-refresh-status:not(:empty) {
+  padding: 0 0 16px;
+}
+html[data-theme] #root .ew-search-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  color: var(--ew-muted);
+  cursor: pointer;
+  font-size: inherit;
+}
+html[data-theme] #root .ew-search-page-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+html[data-theme] #root .ew-search-page-toolbar .sw-search {
+  flex: 1;
+  max-width: none;
+  min-width: 0;
 }
 .ew-social.sn-social .ew-search-options {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   min-height: 52px;
   margin-bottom: 16px;
@@ -317,14 +374,40 @@
 .ew-social.sn-social .ew-search-options .sn-tabs {
   margin: 0;
 }
-.ew-social.sn-social .ew-search-options [role='status'] {
+.ew-search-section-heading,
+.ew-profile-feed-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+html[data-theme] #root .ew-search-section-heading h2,
+html[data-theme] #root .ew-search-posts-heading {
+  font-size: 1.375rem;
+  margin: 0 0 16px;
+}
+.ew-search-section-heading button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--ew-muted);
-  font-size: 0.875rem;
+}
+html[data-theme] #root .ew-search-posts-heading {
+  margin-top: 32px;
+}
+.ew-profile-feed-heading {
+  margin: 20px 0;
+}
+.ew-profile-feed-heading .sn-tabs {
+  margin: 0;
 }
 .ew-social.sn-social .ew-people-results {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+.ew-social.sn-social .ew-search-people .ew-people-results {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .ew-social.sn-social .ew-person-result {
   display: flex;
@@ -362,55 +445,41 @@
   flex-shrink: 0;
 }
 .ew-social.sn-social .ew-people-paging {
-  grid-column: 1 / -1;
+  grid-column: 1/-1;
   display: flex;
   justify-content: center;
   gap: 16px;
 }
-.ew-social.sn-social .ew-pull-refresh {
-  display: flex;
-  justify-content: center;
-  min-height: 88px;
-  align-items: center;
-  padding: 16px;
-}
-.ew-social.sn-social .ew-pull-refresh button {
-  border: 0;
-  border-radius: 999px;
-  padding: 12px 22px;
-  background: var(--ew-tint);
-  color: var(--ew-muted);
-}
-@media (max-width: 760px) {
-  .ew-social.sn-social .ew-people-results {
+@media (max-width: 760px), (pointer: coarse) {
+  .ew-social.sn-social .ew-people-results,
+  .ew-social.sn-social .ew-search-people .ew-people-results {
     grid-template-columns: minmax(0, 1fr);
   }
-  .ew-social.sn-social .ew-recommendation-refresh {
-    padding: 10px;
-  }
-  .ew-social.sn-social .ew-recommendation-refresh span {
-    display: none;
+  .ew-social.sn-social .ew-person-result {
+    padding: 14px;
+    gap: 12px;
   }
   .ew-social.sn-social .ew-person-result strong {
     font-size: 16px;
   }
-}
-.ew-social.sn-social .ew-recommendation-refresh {
-  min-width: 112px;
-}
-.ew-pull-touch {
-  display: none;
-}
-@media (pointer: coarse) {
-  .ew-pull-touch {
-    display: inline;
+  html[data-theme] #root .ew-search-page-toolbar .sw-search {
+    width: auto;
   }
-  .ew-pull-pointer {
-    display: none;
+  html[data-theme] #root .ew-feed-refresh,
+  html[data-theme] #root .ew-search-back {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 8px;
+  }
+  .ew-search-section-heading h2,
+  html[data-theme] #root .ew-search-posts-heading {
+    font-size: 18px;
   }
 }
-@media (max-width: 760px) {
-  .ew-social.sn-social .ew-recommendation-refresh {
-    min-width: 40px;
+@media (prefers-reduced-motion: reduce) {
+  .ew-feed-refresh[aria-busy='true'] svg {
+    animation: none;
   }
 }
