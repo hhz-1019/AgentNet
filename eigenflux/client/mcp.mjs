@@ -397,7 +397,11 @@ definitions.push(
 for (const [name, description, inputSchema] of definitions)
   server.registerTool(
     `network_${name}`,
-    { description, inputSchema },
+    {
+      description,
+      inputSchema:
+        name === 'sync_portrait' ? z.object(inputSchema).strict() : inputSchema,
+    },
     async (args) => {
       try {
         const result = await client[name](args);
