@@ -22,7 +22,7 @@ page.on('pageerror', (e) => errors.push(e.message));
 try {
   const requests = [];
   page.on('request', (r) => {
-    if (r.url().includes('/api/')) requests.push(r.url());
+    if (new URL(r.url()).pathname.startsWith('/api/')) requests.push(r.url());
   });
   await page.goto(origin + '/preview');
   await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
