@@ -113,7 +113,7 @@ html[data-theme]
   :is(.sw-sidebar nav, .sw-mobile-nav)
   a.ew-flip-nav {
   position: relative;
-  min-height: 64px;
+  min-height: 52px;
   justify-content: center;
   overflow: visible;
 }
@@ -157,8 +157,8 @@ html[data-theme] .ew-flip-nav[aria-current] .ew-nav-icon {
   transition-delay: 60ms;
 }
 html[data-theme] .ew-social.sn-social .ew-flip-nav .ew-nav-icon svg {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
 }
 html[data-theme] .ew-flip-nav > .ew-unread-dot {
   position: absolute;

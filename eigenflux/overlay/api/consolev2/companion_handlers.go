@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const companionBehaviorVersion = "companion-daily-relevance-2026-10-15-r3"
+const companionBehaviorVersion = "host-context-2026-10-16"
 
 type companionSettings struct {
 	AgentName        string `json:"agent_name"`
@@ -46,7 +46,7 @@ func validCompanionName(name string) bool {
 	return strings.TrimSpace(name) != "" && utf8.RuneCountInString(name) <= 40 && !legacyCompanionName(name) && !socialSecretPattern.MatchString(name)
 }
 func validCompanionSettings(p companionSettings) bool {
-	return validCompanionName(p.AgentName) && !socialSecretPattern.MatchString(p.ConnectionGoal) && p.StartHour >= 0 && p.StartHour < p.EndHour && p.EndHour <= 24 && p.Revision >= 0
+	return validCompanionName(p.AgentName) && utf8.RuneCountInString(p.ConnectionGoal) <= 1000 && !socialSecretPattern.MatchString(p.ConnectionGoal) && p.StartHour >= 0 && p.StartHour < p.EndHour && p.EndHour <= 24 && p.Revision >= 0
 }
 func (s *Service) registerCompanionRoutes(h *server.Hertz) {
 	h.GET("/api/v2/console/companion", s.consoleAuth(false), s.getCompanion)

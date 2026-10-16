@@ -1,7 +1,6 @@
 import { feedbackMessage } from '../feedback-message';
 import { ContentState } from '../recovery';
 import { ErrorBox } from '../shared';
-import { plainText } from '../plain-text';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { X } from '../icons';
@@ -111,11 +110,6 @@ export function PersonHome({
           (f) => portrait.visible.includes(f.key) && f.key !== 'name',
         )
       : portraitFields.filter((f) => ['bio', 'interests'].includes(f.key));
-  const memories = !demo
-    ? remote?.memories || []
-    : own
-      ? portrait.memories.filter((m) => m.showOnHome)
-      : [];
   useEffect(() => {
     let active = true;
     const currentRequest = ++request.current;
@@ -195,7 +189,13 @@ export function PersonHome({
       </div>
       {!name ? (
         <ContentState
-          title={error ? '主页暂时没有打开' : !demo && !remote ? '正在打开主页' : '暂时找不到这个主页'}
+          title={
+            error
+              ? '主页暂时没有打开'
+              : !demo && !remote
+                ? '正在打开主页'
+                : '暂时找不到这个主页'
+          }
           loading={!error && !demo && !remote}
           action={error ? () => setRetry((n) => n + 1) : onBack}
           label={error ? '再试一次' : '返回'}
@@ -278,7 +278,6 @@ export function PersonHome({
             {[
               ['posts', '动态'],
               ['about', '资料'],
-              ...(memories.length ? [['memories', '记忆']] : []),
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -346,7 +345,7 @@ export function PersonHome({
                 </div>
               )}
             </>
-          ) : section === 'about' ? (
+          ) : (
             <dl className="sn-public-fields">
               {publicFields.map((f) => {
                 const value = !demo
@@ -364,34 +363,6 @@ export function PersonHome({
                 ) : null;
               })}
             </dl>
-          ) : (
-            <div className="sn-memory-list sn-person-feed">
-              {!demo && remote?.next_cursor && (
-                <button
-                  onClick={async () => {
-                    try {
-                      const page = await api<
-                        Portrait & { next_cursor: string }
-                      >(`console/people/${id}?cursor=${remote.next_cursor}`);
-                      setRemote({
-                        ...remote,
-                        memories: [...remote.memories, ...page.memories],
-                        next_cursor: page.next_cursor,
-                      });
-                    } catch (e) {
-                      setError(feedbackMessage(e, '读取失败'));
-                    }
-                  }}
-                >
-                  更多记忆
-                </button>
-              )}
-              {memories.map((m) => (
-                <article className="sn-memory" key={m.id}>
-                  <p>{plainText(m.content)}</p>
-                </article>
-              ))}
-            </div>
           )}
         </>
       )}

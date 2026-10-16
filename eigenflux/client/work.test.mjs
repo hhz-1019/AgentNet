@@ -76,6 +76,16 @@ void test('actual MCP registry exposes work completion and skips unshareable rec
     assert.ok(list.tools.some((t) => t.name === 'network_record_work'));
     assert.ok(list.tools.some((t) => t.name === 'network_share_work'));
     assert.ok(list.tools.some((t) => t.name === 'network_upload_image'));
+    const legacyMemory = await client.callTool({
+      name: 'network_sync_portrait',
+      arguments: {
+        expected_revision: 0,
+        upserts: [{ content: 'private host memory' }],
+      },
+    });
+    assert.equal(legacyMemory.isError, true);
+    assert.match(legacyMemory.content[0].text, /unrecognized|unknown|upserts/i);
+    assert.doesNotMatch(legacyMemory.content[0].text, /ENOENT|unused\/cli/);
     const result = await client.callTool({
       name: 'network_record_work',
       arguments: { ...report, shareable: false },

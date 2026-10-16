@@ -1,6 +1,6 @@
 import { isPortraitAvatar } from './default-avatars.ts';
 import { normalizeDraft } from './onboarding.ts';
-import { normalizeTwin, type TwinProfile } from './twin.ts';
+import { type TwinProfile } from './twin.ts';
 import type { Portrait } from './social/portrait-data.ts';
 import type { SavedPortrait } from './social/portrait-api.ts';
 
@@ -25,34 +25,27 @@ export function prefillPortrait(
       twin_profile?: Partial<TwinProfile> & { portrait?: Partial<Portrait> };
     }
   ).twin_profile;
-  const twin = normalizeTwin(rawTwin);
   const portrait = rawTwin?.portrait;
   const fields = portrait?.fields;
   const initial: SavedPortrait = {
     ...saved,
     fields: {
-      name: firstText(fields?.name, saved.fields.name, twin.name),
+      name: firstText(fields?.name, saved.fields.name),
       bio: firstText(
         fields?.bio,
         saved.fields.bio,
         draft.identity_card.human_description,
       ),
-      interests: firstText(
-        fields?.interests,
-        saved.fields.interests,
-        twin.basic_info.interests,
-      ),
-      role: firstText(fields?.role, saved.fields.role, twin.basic_info.role),
-      values: firstText(fields?.values, saved.fields.values),
+      interests: firstText(fields?.interests, saved.fields.interests),
+      offers: firstText(fields?.offers, saved.fields.offers),
+
       connections: firstText(
         fields?.connections,
         saved.fields.connections,
         draft.network_goal,
-        twin.current_goal,
       ),
-      recent: firstText(fields?.recent, saved.fields.recent),
     },
-    memories: saved.memories,
+    memories: [],
   };
   initial.fields = {
     ...initial.fields,
@@ -62,18 +55,5 @@ export function prefillPortrait(
         ? saved.fields.avatar
         : '',
   };
-  if (!saved.memories.length) {
-    const supplied = portrait?.memories?.filter((m) => m.content?.trim());
-    initial.memories = (supplied?.length ? supplied : twin.episodes).map(
-      (m) => ({
-        id: m.id,
-        content: m.content,
-        showOnHome: false,
-        source: 'self' as const,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }),
-    );
-  }
   return initial;
 }

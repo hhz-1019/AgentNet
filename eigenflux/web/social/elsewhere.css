@@ -88,7 +88,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   border-radius: var(--ew-radius-control) 0 0 var(--ew-radius-control);
   padding: 13px 12px;
   gap: 14px;
-  font-size: 17px;
+  font-size: 1rem;
   color: var(--ew-muted);
   box-shadow: none;
   transition:
@@ -112,7 +112,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   border-radius: var(--ew-radius-control);
   justify-content: flex-start;
   padding-left: 14px;
-  font-size: 17px;
+  font-size: 1rem;
 }
 .ew-social .sn-account {
   border: 0;
@@ -151,7 +151,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   gap: 27px;
 }
 .ew-social .sn-discover-heading .sn-tabs button {
-  font-size: 18px;
+  font-size: 1rem;
   padding: 12px 0;
   position: relative;
   font-weight: 400;
@@ -493,7 +493,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .sw-empty h2 {
   font-family: var(--ew-serif);
   font-weight: 500;
-  font-size: 23px;
+  font-size: 1.125rem;
 }
 .ew-social .sw-empty > svg {
   width: 34px;
@@ -544,7 +544,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-peer-card h3 {
   font-family: var(--ew-serif);
-  font-size: 21px;
+  font-size: 1.125rem;
   margin: 20px 0 10px;
   font-weight: 500;
 }
@@ -590,7 +590,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sw-connection-title h3 {
   font-family: var(--ew-serif);
-  font-size: 20px;
+  font-size: 1.125rem;
 }
 .ew-social .sw-danger-button {
   color: #935b50;
@@ -605,7 +605,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .sn-settings h1 {
   font-family: var(--ew-serif);
-  font-size: 30px;
+  font-size: 1.625rem;
   font-weight: 500;
   margin-bottom: 24px;
 }
@@ -639,7 +639,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 }
 .ew-social .messages {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   height: clamp(460px, calc(100dvh - 140px), 880px);
   min-height: 0;
   border: 1px solid var(--ew-line);
@@ -657,7 +657,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   background: var(--ew-paper);
 }
 .ew-social .messages > aside > button {
-  padding: 14px 10px;
+  padding: 10px;
   border: 0;
   border-radius: var(--ew-radius-control);
 }
@@ -681,9 +681,9 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   min-height: 0;
 }
 .ew-social .ew-live-heading {
-  padding: 24px;
+  padding: 16px 20px;
   margin: 0;
-  font-size: 17px;
+  font-size: 1rem;
   border-bottom: 1px solid var(--ew-line);
 }
 .ew-social .ew-live-history {
@@ -696,7 +696,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .ew-live-history .message {
   width: fit-content;
   max-width: 85%;
-  margin: 20px 0 0;
+  margin: 16px 0 0;
   padding: 0;
   background: transparent;
   border: 0;
@@ -757,7 +757,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     gap: 28px 20px;
   }
   .ew-social button.sw-text-cover > p {
-    font-size: 24px;
+    font-size: 1.375rem;
   }
 }
 @media (max-width: 900px) {
@@ -820,7 +820,7 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     gap: 30px;
   }
   .ew-social .sn-discover-heading .sn-tabs button {
-    font-size: 17px;
+    font-size: 1rem;
   }
   .ew-social .sw-feed-grid {
     gap: 24px 14px;
@@ -829,13 +829,13 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
     padding: 11px 0 0;
   }
   .ew-social .sw-post-title {
-    font-size: 17px;
+    font-size: 1rem;
   }
   .ew-social button.sw-text-cover {
     padding: 14px;
   }
   .ew-social button.sw-text-cover > p {
-    font-size: 18px;
+    font-size: 1rem;
     line-height: 1.55;
   }
   .ew-social button.sw-text-cover > span:not(.ew-paper-composition) {

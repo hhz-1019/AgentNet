@@ -23,8 +23,8 @@
 }
 .sn-person-home .sn-public-fields dd {
   margin-top: 12px;
-  font-size: 18px;
-  line-height: 1.85;
+  font-size: 1rem;
+  line-height: 1.65;
   color: var(--ew-ink);
 }
 .sn-social .sn-portrait,
@@ -37,7 +37,7 @@
   border-bottom: 1px solid var(--ew-line);
 }
 .sn-portrait > .sn-page-heading h1 {
-  font-size: 34px;
+  font-size: 1.75rem;
   font-weight: 500;
   line-height: 1.35;
   letter-spacing: -0.6px;
@@ -50,7 +50,7 @@
   font-size: 16px;
 }
 .sn-portrait .sn-portrait-details {
-  padding: 28px 0 0;
+  padding: 16px 0 0;
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -65,10 +65,11 @@
   color: var(--ew-ink);
 }
 .sn-portrait .sn-portrait-grid {
-  gap: 26px 30px;
+  gap: 20px 24px;
   padding: 0;
 }
 .sn-portrait .sn-portrait-form {
+  margin: 0;
   max-width: none;
 }
 .sn-portrait .sn-portrait-field > div {
@@ -85,16 +86,16 @@
   border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
   color: var(--ew-ink);
-  padding: 13px 15px;
-  font-size: 18px;
-  line-height: 1.85;
+  padding: 10px 12px;
+  font-size: 1rem;
+  line-height: 1.65;
   box-shadow: none;
 }
 .sn-portrait .sn-portrait-field textarea {
   min-height: 104px;
 }
 .sn-portrait .sn-portrait-field input:not([type='checkbox']) {
-  min-height: 52px;
+  min-height: 44px;
 }
 .sn-portrait .sn-visibility,
 .sn-memory-form .sn-visibility {
@@ -109,7 +110,7 @@
   accent-color: #302c26;
 }
 .sn-portrait .sn-memories {
-  padding-top: 30px;
+  padding-top: 16px;
   margin-top: 34px;
   border-top: 1px solid var(--ew-line);
 }
@@ -146,7 +147,7 @@
   border: 0;
   padding: 11px 0;
   margin: 0;
-  font-size: 18px;
+  font-size: 1rem;
 }
 .sn-portrait .sn-memory-list,
 .sn-person-home .sn-memory-list {
@@ -175,7 +176,7 @@
 }
 .sn-portrait .sn-memory-content,
 .sn-person-home .sn-memory > p {
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.9;
   color: var(--ew-ink);
   white-space: pre-wrap;
@@ -259,11 +260,11 @@
 }
 .sn-portrait .sn-section-intro h2,
 .sn-portrait .sn-memories h3 {
-  font-size: 24px;
+  font-size: 1.375rem;
   line-height: 1.45;
 }
 .sn-portrait .sn-portrait-grid {
-  gap: 28px 32px;
+  gap: 20px 24px;
 }
 .sn-portrait .sn-portrait-field > div {
   min-height: 32px;
@@ -354,7 +355,7 @@
 .sn-portrait .sn-portrait-actions button,
 .sn-portrait .portrait-confirm-actions button {
   min-height: 48px;
-  font-size: 18px;
+  font-size: 1rem;
   padding-inline: 24px;
 }
 .sw-dialog .sn-memory-form {
@@ -368,7 +369,7 @@
 }
 .sw-dialog .sn-memory-form textarea {
   min-height: 250px;
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.9;
   margin-top: 2px;
 }
@@ -400,11 +401,11 @@
   padding-top: 18px;
 }
 .sn-person-home .sn-public-fields dd {
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.9;
 }
 .sn-demo-settings h1 {
-  font-size: 34px;
+  font-size: 1.75rem;
   font-weight: 400;
   margin: 0 0 24px;
 }
@@ -415,7 +416,7 @@
   padding: 64px 24px;
 }
 .sn-demo-settings .sw-empty h2 {
-  font-size: 24px;
+  font-size: 1.375rem;
   font-weight: 400;
 }
 @media (max-width: 760px) {
@@ -446,11 +447,11 @@
   display: flex;
   gap: 24px;
   align-items: center;
-  margin: 18px 0 28px;
+  margin: 8px 0 12px;
 }
 .ew-personal-avatar-row > .ew-avatar-image {
-  width: 96px;
-  height: 96px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   object-fit: cover;
   flex: none;
@@ -471,7 +472,7 @@
     gap: 16px;
   }
   .ew-personal-avatar-row > .ew-avatar-image {
-    width: 76px;
-    height: 76px;
+    width: 64px;
+    height: 64px;
   }
 }

@@ -21,7 +21,7 @@ import { Moment } from './social/moment';
 import { createDemoStore } from './social/demo';
 import { PortraitEditor } from './social/portrait';
 import { readPortrait, savePortrait } from './social/portrait-data';
-import { richProfilePreview } from './rich-profile-preview';
+import { hostProfilePreview as richProfilePreview } from './host-profile-preview';
 import type { Session, Boundary } from './types';
 import { BoundaryFields } from './shared';
 import './preview.css';
@@ -208,7 +208,7 @@ function JoinPreview({
 
 function PortraitConfirmation({ rich = false }: { rich?: boolean }) {
   const [companion, setCompanion] = useState<CompanionSettings>({
-    agent_name: rich ? '知遥' : '林间',
+    agent_name: '林间',
     owner_name: '小林',
     connection_goal: rich
       ? richProfilePreview.fields.connections || ''
@@ -293,7 +293,9 @@ export default function VisualPreview() {
       return (
         <div className="sw-workspace sn-social ew-social">
           <main className="sw-main">
-            <div className="analytics-preview">本地空收件箱验证 · 不发送真实消息</div>
+            <div className="analytics-preview">
+              本地空收件箱验证 · 不发送真实消息
+            </div>
             <Messages session={session} />
           </main>
         </div>
@@ -366,6 +368,7 @@ export default function VisualPreview() {
       );
     case 'account-created':
       return <PreviewRedirect to="/preview/register?state=created" />;
+    case 'onboarding-host':
     case 'onboarding-rich':
       return <PortraitConfirmation rich />;
     case 'onboarding-profile':
@@ -418,9 +421,7 @@ export default function VisualPreview() {
     case 'performance':
       return <PerformancePreview />;
     case 'connection-error':
-      return (
-        <ConnectionPending />
-      );
+      return <ConnectionPending />;
     default:
       return <SocialPreview />;
   }

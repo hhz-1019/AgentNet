@@ -217,9 +217,31 @@ try {
     .waitFor();
   await detail.getByRole('button', { name: '关闭窗口', exact: true }).click();
   assert.equal(new URL(page.url()).searchParams.has('post'), false);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto(origin);
   const cards = page.locator('.sw-feed-grid .sw-post');
   await cards.nth(23).waitFor();
+  await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
+  const prefetched = await page
+    .locator('.sw-feed-grid > div')
+    .evaluateAll((nodes) =>
+      nodes
+        .filter((node) => node.getBoundingClientRect().top > innerHeight)
+        .map((node) => ({
+          opacity: getComputedStyle(node).opacity,
+          paused: node
+            .getAnimations()
+            .some((animation) => animation.playState === 'paused'),
+        })),
+    );
+  assert.ok(
+    prefetched.length > 0,
+    'fixture includes offscreen first-page cards',
+  );
+  assert.ok(
+    prefetched.every((card) => card.opacity === '1' && !card.paused),
+    'prefetched cards must not be hidden until the user scrolls to their row',
+  );
   assert.equal(await page.locator('.sw-workspace[data-guest]').count(), 1);
   assert.equal(
     await page.locator('.guest-home').count(),
@@ -231,10 +253,44 @@ try {
     await page.getByRole('button', { name: '下一页', exact: true }).count(),
     0,
   );
-  await page.locator('.sw-feed-end').scrollIntoViewIfNeeded();
+  const beforeAppend = await page.evaluate(() => {
+    const end = document.querySelector('.sw-feed-end');
+    // Stop before the footer enters the viewport: prefetch must begin early.
+    scrollTo(0, end.getBoundingClientRect().top + scrollY - innerHeight * 1.5);
+    return {
+      scroll: scrollY,
+      positions: [...document.querySelectorAll('.sw-feed-grid > div')].map(
+        (node) => node.getBoundingClientRect().top + scrollY,
+      ),
+    };
+  });
   await page.waitForFunction(
     () => document.querySelectorAll('.sw-feed-grid .sw-post').length === 26,
   );
+  const afterAppend = await page.evaluate(() => ({
+    scroll: scrollY,
+    positions: [...document.querySelectorAll('.sw-feed-grid > div')]
+      .slice(0, 24)
+      .map((node) => node.getBoundingClientRect().top + scrollY),
+    hidden: [...document.querySelectorAll('.sw-feed-grid > div')]
+      .filter((node) => node.getBoundingClientRect().top >= innerHeight)
+      .some((node) => getComputedStyle(node).opacity !== '1'),
+  }));
+  assert.ok(
+    Math.abs(beforeAppend.scroll - afterAppend.scroll) <= 1,
+    'appending a page must preserve the scroll position',
+  );
+  assert.deepEqual(
+    afterAppend.positions,
+    beforeAppend.positions,
+    'appending must not reposition existing cards',
+  );
+  assert.equal(
+    afterAppend.hidden,
+    false,
+    'offscreen appended cards are already visible',
+  );
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByText('已经看完全部动态', { exact: true }).waitFor();
   await cards.nth(23).waitFor();
   await page
@@ -589,9 +645,7 @@ try {
   await cards.nth(23).waitFor();
   feedMode = 'error';
   await page.reload();
-  await page
-    .getByRole('heading', { name: '动态暂时没有加载出来' })
-    .waitFor();
+  await page.getByRole('heading', { name: '动态暂时没有加载出来' }).waitFor();
   feedMode = 'empty';
   await page.getByRole('button', { name: '再试一次', exact: true }).click();
   await page.getByText('还没有新动态', { exact: true }).waitFor();

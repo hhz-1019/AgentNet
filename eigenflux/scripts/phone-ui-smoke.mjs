@@ -272,7 +272,7 @@ try {
   });
   await page.getByRole('checkbox').check();
   await submit.click();
-  await page.getByRole('heading', { name: '确认画像', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '确认资料', exact: true }).waitFor();
   assert.equal(await page.getByText('账号：10000', { exact: true }).count(), 0);
   assert.equal(
     await page.getByLabel('Agent 的名字', { exact: true }).inputValue(),
@@ -296,7 +296,7 @@ try {
   await page.getByLabel('账号', { exact: true }).fill('10000');
   await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
   await page.getByRole('button', { name: '登录', exact: true }).click();
-  await page.getByRole('heading', { name: '确认画像', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '确认资料', exact: true }).waitFor();
   assert.equal(claims, 1, 'login must reconnect the existing identity');
   assert.equal(
     await page

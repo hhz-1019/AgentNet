@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -50,6 +49,7 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	}
 	h.GET("/api/v2/console/avatars", auth, s.getAvatars)
 	h.GET("/api/v2/console/portrait", auth, s.getPortrait)
+	h.GET("/api/v2/console/portrait/export", auth, s.exportLegacyProfile)
 	h.PUT("/api/v2/console/portrait", auth, s.putPortrait)
 	h.PUT("/api/v2/agent-context/portrait", auth, s.putPortrait)
 	h.GET("/people/:person_id", auth, s.getPerson)
@@ -83,16 +83,25 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	if p["revision"] != float64(0) {
 		t.Fatal(p)
 	}
-	memories := []map[string]any{}
-	for i := 1; i <= 121; i++ {
-		memories = append(memories, map[string]any{"id": fmt.Sprintf("00000000-0000-4000-8000-%012d", i), "content": fmt.Sprintf("记忆%d", i), "showOnHome": i == 1})
+	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "本人昵称", "bio": "公开介绍", "interests": "画画", "connections": "找一起画画的人", "avatar": "citrus"}, "visible": []string{"name", "bio"}}, 200)
+	// Seed a pre-upgrade archive; normal reads must not expose it, export must preserve it.
+	if e := db.Exec(`INSERT INTO portrait_memories(user_id,memory_id,content,show_on_home,edited_by,created_at,updated_at) VALUES('ew-a','00000000-0000-4000-8000-000000000001','旧的私人经历',true,'human',1,1);INSERT INTO legacy_profile_archives SELECT user_id,to_jsonb(u),1 FROM twin_users u WHERE user_id='ew-a'`).Error; e != nil {
+		t.Fatal(e)
 	}
-	memories[0]["content"] = "记忆1" + strings.Repeat("完整经历", 5000)
-	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "本人昵称", "bio": strings.Repeat("公开介绍", 600), "interests": strings.Repeat("兴趣细节", 600), "connections": strings.Repeat("连接方向", 600), "role": "私人身份", "avatar": "citrus"}, "visible": []string{"name", "bio"}, "upserts": memories}, 200)
 	p = call("GET", "/api/v2/console/portrait", nil, 200)
-	if len(p["memories"].([]any)) != 12 || p["total"] != float64(121) || p["next_cursor"] != "12" {
-		t.Fatal("pagination", p)
+	if len(p["memories"].([]any)) != 0 || p["total"] != float64(0) {
+		t.Fatal("archive leaked", p)
 	}
+	exported := call("GET", "/api/v2/console/portrait/export", nil, 200)
+	if len(exported["portrait_memories"].([]any)) != 1 {
+		t.Fatal("archive missing", exported)
+	}
+	other := call("GET", "/api/v2/console/portrait/export?viewer=202", nil, 200)
+	if len(other["portrait_memories"].([]any)) != 0 {
+		t.Fatal("other owner archive leaked")
+	}
+	call("GET", "/api/v2/console/portrait/export?handoff=1", nil, 403)
+	call("GET", "/api/v2/console/portrait/export?agent=1", nil, 403)
 	avatars := call("GET", "/api/v2/console/avatars?ids=201,202&viewer=202", nil, 200)["avatars"].(map[string]any)
 	if avatars["201"] != "citrus" || avatars["202"] != "" {
 		t.Fatal("saved/default avatars", avatars)
@@ -107,25 +116,19 @@ func TestElsewherePortraitMessagingAndPublishing(t *testing.T) {
 	if _, exists := p["fields"].(map[string]any)["role"]; exists {
 		t.Fatal("private field leaked")
 	}
-	if p["memories"].([]any)[0].(map[string]any)["content"] != memories[0]["content"] {
-		t.Fatal("long memory truncated")
-	}
-	if len(p["memories"].([]any)) != 1 {
-		t.Fatal("private memories leaked")
+	if len(p["memories"].([]any)) != 0 {
+		t.Fatal("public archive leaked")
 	}
 	call("GET", "/api/v2/console/portrait?handoff=1", nil, 403)
 	call("PUT", "/api/v2/agent-context/portrait?agent=1", map[string]any{"expected_revision": 1, "fields": map[string]string{"name": "Agent 覆盖"}}, 409)
 	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 0, "fields": map[string]string{"name": "陈旧版本"}}, 409)
-	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 1, "upserts": []map[string]any{{"id": memories[0]["id"], "content": "只更新一条", "showOnHome": true}}}, 200)
-	p = call("GET", "/api/v2/console/portrait", nil, 200)
-	if p["total"] != float64(121) {
-		t.Fatal("partial sync erased memories")
-	}
-	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 2, "deletes": []any{memories[0]["id"]}}, 200)
-	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 3, "upserts": []any{memories[0]}}, 200)
-	p = call("GET", "/api/v2/console/portrait?q=记忆1", nil, 200)
-	if p["total"] != float64(33) {
-		t.Fatal("search/undo", p)
+	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 1, "upserts": []any{map[string]string{"content": "新记忆"}}}, 409)
+	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 1, "deletes": []string{"00000000-0000-4000-8000-000000000001"}}, 409)
+	call("PUT", "/api/v2/agent-context/portrait?agent=1", map[string]any{"expected_revision": 1, "fields": map[string]string{"connections": "擅改目标"}}, 403)
+	var retained int64
+	db.Raw("SELECT count(*) FROM portrait_memories WHERE user_id='ew-a' AND NOT deleted").Scan(&retained)
+	if retained != 1 {
+		t.Fatal("legacy archive deleted")
 	}
 	request := map[string]any{"receiver_id": "202", "content": "本人发出的真实私信", "idempotency_key": "pm-unique-request"}
 	sent := call("POST", "/api/v2/console/pm/send", request, 201)

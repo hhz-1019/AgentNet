@@ -22,7 +22,7 @@
   box-shadow: none !important;
   border-color: var(--ew-ink) !important;
 }
-/* Chat bubbles preserve the existing 18px message text. */
+/* Readable message text with compact, consistent conversation spacing. */
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
   :is(.sn-message-history .sn-message, .ew-live-history .message) {
@@ -48,17 +48,17 @@
   > p {
   margin: 0;
   min-width: 0;
-  padding: 12px 18px;
-  font-size: 18px;
-  line-height: 1.9;
+  padding: 10px 14px;
+  font-size: 1rem;
+  line-height: 1.65;
   overflow-wrap: anywhere;
 }
 :root[data-theme] .sw-workspace.ew-social.sn-social .ew-chat-avatar {
   display: block;
-  flex: 0 0 42px;
-  width: 42px;
-  height: 42px;
-  min-height: 42px;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -81,23 +81,26 @@
   textarea {
   border: 0;
   background: transparent;
-  font-size: 18px;
+  font-size: 1rem;
+  line-height: 1.5;
+  height: 3.75rem;
+  min-height: 3.75rem;
 }
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
   .sn-message-composer
   textarea::placeholder {
-  font-size: 28px;
+  font-size: 1rem;
   line-height: 1.5;
   color: color-mix(in srgb, var(--ew-ink) 42%, transparent);
   opacity: 1;
 }
 :root[data-theme] .sw-workspace.ew-social.sn-social .sn-composer-hint {
-  font-size: 15px;
+  font-size: var(--ew-text-meta);
   color: var(--ew-text-secondary);
 }
 :root[data-theme] .sw-dialog.sn-communication-dialog > .sw-dialog-heading h2 {
-  font-size: 32px;
+  font-size: 1.75rem;
   line-height: 1.4;
 }
 /* Title and body share one border, with a single internal dividing line. */
@@ -130,7 +133,7 @@
   .sw-dialog.sn-communication-dialog
   .ew-share-writing
   .ew-share-title-input {
-  font-size: 30px;
+  font-size: 1.625rem;
   font-weight: 500;
   line-height: 1.5;
   border-bottom: 1px solid var(--ew-line);
@@ -141,7 +144,7 @@
   textarea {
   min-height: 230px;
   resize: vertical;
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.9;
 }
 :root[data-theme]
@@ -155,11 +158,11 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 80px;
-  height: 80px;
-  flex: 0 0 80px;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
   padding: 0;
-  min-height: 80px;
+  min-height: 56px;
   border: 1px solid var(--ew-line);
   border-radius: 50%;
   background: var(--ew-surface);
@@ -178,7 +181,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 18px;
+  font-size: 1rem;
 }
 .ew-share-tags small {
   margin-left: auto;
@@ -204,7 +207,7 @@
   .sw-dialog.sn-communication-dialog
   .ew-share-preview-content
   h2 {
-  font-size: 32px;
+  font-size: 1.75rem;
   line-height: 1.5;
   margin: 0 0 20px;
   overflow-wrap: anywhere;

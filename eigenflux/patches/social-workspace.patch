@@ -172,13 +172,13 @@ index 371798b..77ca489 100644
 +		capability("elsewhere.avatar", "eigenflux elsewhere avatar", "profile", "write", "上传个人头像供主人确认", "Upload a personal avatar for owner review"),
 +		capability("elsewhere.companion", "eigenflux elsewhere companion", "profile", "read", "读取伙伴身份与连接目标", "Read companion identity and connection goal"),
 +		capability("elsewhere.name", "eigenflux elsewhere name", "profile", "write", "仅为工具名身份自取个人名字", "Repair a legacy tool name while preserving identity"),
-+		capability("elsewhere.portrait", "eigenflux elsewhere portrait", "profile", "read", "读取私有画像", "Read private portrait"),
-+		capability("elsewhere.sync_portrait", "eigenflux elsewhere sync-portrait", "profile", "write", "增量同步私有画像", "Sync private portrait"),
++		capability("elsewhere.portrait", "eigenflux elsewhere portrait", "profile", "read", "读取简洁网络资料", "Read minimal network profile"),
++		capability("elsewhere.sync_portrait", "eigenflux elsewhere sync-portrait", "profile", "write", "更新简洁网络资料（记忆留宿主）", "Update minimal network profile; memory stays in host"),
 +		capability("elsewhere.groups", "eigenflux elsewhere groups", "network", "read", "读取群列表", "Read groups"),
 +		capability("elsewhere.create_group", "eigenflux elsewhere create-group", "network", "write", "按主人授权创建群", "Create an owner-authorized group"),
 +		capability("elsewhere.messages", "eigenflux elsewhere messages", "network", "read", "读取群消息", "Read group messages"),
 +		capability("elsewhere.send", "eigenflux elsewhere send", "network", "write", "按主人授权发送群消息", "Send owner-authorized group messages"),
-+		capability("twin.show", "eigenflux twin show", "profile", "read", "读取旧版孪生资料", "Read legacy private twin"),
++		capability("twin.show", "eigenflux twin show", "profile", "read", "读取简洁网络资料（旧命令兼容）", "Read minimal profile through legacy alias"),
 +		capability("twin.policy", "eigenflux twin policy", "profile", "read", "读取每日活动额度", "Read daily activity limits"),
 +		capability("handoff.notify", "eigenflux handoff notify", "runtime", "read", "读取交接提醒", "Read handoff notifications"),
 +		capability("handoff.setup_codex", "eigenflux handoff setup-codex", "runtime", "write", "配置授权的本地提醒", "Configure authorized local reminders"),
@@ -317,6 +317,15 @@ diff --git a/api/consolev2/onboarding_handlers.go b/api/consolev2/onboarding_han
 index b73670e..3a69c61 100644
 --- a/api/consolev2/onboarding_handlers.go
 +++ b/api/consolev2/onboarding_handlers.go
+@@ -82,7 +82,7 @@ func normalizeLoadedOnboardingDraft(draft onboardingDraft) (onboardingDraft, error)
+ 	if err != nil {
+ 		return draft, err
+ 	}
+-	draft.DraftData = normalizedData
++	draft.DraftData = sanitizeLoadedNetworkDraft(normalizedData)
+ 	draft.FieldProvenance = normalizedProvenance
+ 	return draft, nil
+ }
 @@ -469,6 +469,7 @@ type identityCardDraft struct {
  }
  

@@ -73,6 +73,28 @@ try {
     });
     await page.goto(origin + 'dashboard/messages?peer=202');
     await page.getByLabel('输入消息', { exact: true }).waitFor();
+    const composer = await page
+      .locator('.sn-message-composer')
+      .evaluate((node) => {
+        const input = node.querySelector('textarea');
+        return {
+          height: node.getBoundingClientRect().height,
+          text: parseFloat(getComputedStyle(input).fontSize),
+          placeholder: parseFloat(
+            getComputedStyle(input, '::placeholder').fontSize,
+          ),
+        };
+      });
+    assert.ok(composer.text >= 16, 'message input remains readable');
+    assert.equal(
+      composer.placeholder,
+      composer.text,
+      'placeholder is not an oversized heading',
+    );
+    assert.ok(
+      composer.height < 160,
+      'composer leaves room for conversation history',
+    );
     assert.equal(await page.getByText('页面暂时无法显示', { exact: true }).count(), 0);
     await page.getByLabel('输入消息', { exact: true }).fill('你好，这是本地首条私信验收。');
     const historyLoaded = page.waitForResponse((response) => response.url().includes('/conversations/900/messages'));

@@ -21,7 +21,7 @@ import (
 )
 
 var errPortraitConflict = errors.New("portrait revision conflict")
-var portraitKeys = map[string]int{"name": 80, "bio": 0, "interests": 0, "role": 0, "values": 0, "recent": 0, "connections": 0, "avatar": 100}
+var portraitKeys = networkProfileLimits
 
 // Optional initial Agent prefill inside the existing onboarding twin_profile envelope.
 type portraitDraft struct {
@@ -31,11 +31,9 @@ type portraitDraft struct {
 }
 
 func validatePortraitDraft(p portraitDraft) error {
-	if p.PrefillVersion != "" {
-		raw, _ := json.Marshal(map[string]any{"twin_profile": map[string]any{"portrait": p}})
-		if err := validateRichPortrait(raw); err != nil {
-			return err
-		}
+	raw, _ := json.Marshal(map[string]any{"twin_profile": map[string]any{"portrait": p}})
+	if err := validateRichPortrait(raw); err != nil {
+		return err
 	}
 	for k, v := range p.Fields {
 		limit, ok := portraitKeys[k]
@@ -83,6 +81,7 @@ func (s *Service) registerElsewhereRoutes(h *server.Hertz) {
 	h.GET("/api/v2/guest/people", s.getGuestPeople)
 	h.GET("/api/v2/guest/people/:person_id", s.getGuestPerson)
 	h.GET("/api/v2/console/avatars", s.consoleAuth(false), s.requireCompleted, s.getAvatars)
+	h.GET("/api/v2/console/portrait/export", s.consoleAuth(false), s.exportLegacyProfile)
 	h.GET("/api/v2/console/portrait", s.consoleAuth(false), s.getPortrait)
 	h.PUT("/api/v2/console/portrait", s.consoleAuth(true), s.putPortrait)
 	h.POST("/api/v2/console/portrait/confirm", s.consoleAuth(true), s.confirmPortrait)
@@ -104,7 +103,7 @@ func readPortraitRow(db *gorm.DB, owner string, lock bool) (portraitRow, error) 
 	return r, e
 }
 func (s *Service) getPortrait(ctx context.Context, c *app.RequestContext) {
-	owner, _, ok := s.twinOwner(c)
+	owner, id, ok := s.twinOwner(c)
 	if !ok {
 		return
 	}
@@ -127,45 +126,16 @@ func (s *Service) getPortrait(ctx context.Context, c *app.RequestContext) {
 			fields[k] = ""
 		}
 	}
-	memories, next, e := readPortraitMemories(s.db.WithContext(ctx), owner, c.Query("cursor"), c.Query("q"), false)
+	settings, e := readCompanion(s.db.WithContext(ctx), owner, id)
 	if e != nil {
-		fail(c, 400, "INVALID_QUERY", "记忆查询失败，请检查分页参数", nil)
-		return
-	}
-	var total int64
-	if e = s.db.Raw(`SELECT count(*) FROM portrait_memories WHERE user_id=? AND NOT deleted AND strpos(lower(content),lower(?))>0`, owner, c.Query("q")).Scan(&total).Error; e != nil {
 		s.socialFailure(c, e)
 		return
 	}
-	reply(c, 200, map[string]any{"fields": fields, "visible": json.RawMessage(r.Visible), "revision": r.Revision, "memories": memories, "next_cursor": next, "total": total})
-}
-func readPortraitMemories(db *gorm.DB, owner, cursor, query string, public bool) ([]portraitMemory, string, error) {
-	rows := []portraitMemory{}
-	offset := 0
-	if cursor != "" {
-		var e error
-		offset, e = strconv.Atoi(cursor)
-		if e != nil || offset < 0 {
-			return rows, "", errors.New("invalid cursor")
-		}
-	}
-	if utf8.RuneCountInString(query) > 100 {
-		return rows, "", errors.New("invalid query")
-	}
-	q := `SELECT memory_id,content,show_on_home,created_at,updated_at FROM portrait_memories WHERE user_id=? AND NOT deleted AND strpos(lower(content),lower(?))>0`
-	if public {
-		q += " AND show_on_home"
-	}
-	e := db.Raw(q+` ORDER BY created_at DESC,memory_id DESC LIMIT 13 OFFSET ?`, owner, query, offset).Scan(&rows).Error
-	next := ""
-	if len(rows) > 12 {
-		rows = rows[:12]
-		next = strconv.Itoa(offset + 12)
-	}
-	for i := range rows {
-		rows[i].Source = "self"
-	}
-	return rows, next, e
+	fields = networkProfileFields(fields)
+	fields["connections"] = settings.ConnectionGoal
+	visible := []string{}
+	_ = json.Unmarshal([]byte(r.Visible), &visible)
+	reply(c, 200, map[string]any{"fields": fields, "visible": networkVisible(visible), "revision": r.Revision, "memories": []portraitMemory{}, "next_cursor": "", "total": 0, "memory_mode": "host"})
 }
 func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 	owner, id, ok := s.twinOwner(c)
@@ -183,7 +153,24 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 		fail(c, 400, "INVALID_PORTRAIT", "资料格式无效", nil)
 		return
 	}
+	if len(req.Upserts) > 0 || len(req.Deletes) > 0 {
+		fail(c, 409, "HOST_MEMORY_REQUIRED", "旧记忆仅保留导出；请更新接入指令，完整记忆留在宿主", nil)
+		return
+	}
+	for k, v := range req.Fields {
+		if !networkProfileKey(k) && strings.TrimSpace(v) != "" {
+			fail(c, 400, "HOST_MEMORY_REQUIRED", "请只保存简洁网络资料，具体经历留在宿主", nil)
+			return
+		}
+	}
 	human := strings.HasPrefix(string(c.Path()), "/api/v2/console/")
+	if !human {
+		if _, exists := req.Fields["connections"]; exists {
+			fail(c, 403, "OWNER_GOAL_REQUIRED", "连接目标由本人确认", nil)
+			return
+		}
+	}
+
 	if !human && req.Visible != nil {
 		fail(c, 403, "HUMAN_VISIBILITY_REQUIRED", "主页可见范围由本人设置", nil)
 		return
@@ -219,26 +206,6 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 			*req.Visible = append(*req.Visible, "name")
 		}
 	}
-	seen := map[string]bool{}
-	for _, m := range req.Upserts {
-		if !twinUUID.MatchString(m.ID) || seen[m.ID] || strings.TrimSpace(m.Content) == "" || (!human && m.ShowOnHome) {
-			fail(c, 400, "INVALID_MEMORY", "记忆内容或可见范围无效", nil)
-			return
-		}
-		seen[m.ID] = true
-	}
-	for _, id := range req.Deletes {
-		if !twinUUID.MatchString(id) || seen[id] {
-			fail(c, 400, "INVALID_MEMORY", "记忆编号无效或重复", nil)
-			return
-		}
-		seen[id] = true
-	}
-	for i := range req.Upserts {
-		req.Upserts[i].CreatedAt = 0
-		req.Upserts[i].UpdatedAt = 0
-		req.Upserts[i].Source = ""
-	}
 	payload, _ := json.Marshal(req)
 	writeHash := fmt.Sprintf("%t:%x", human, sha256.Sum256(payload))
 	now := time.Now().UnixMilli()
@@ -270,6 +237,12 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 			if !human && protected && fields[k] != v {
 				return errPortraitConflict
 			}
+			if k == "connections" {
+				if err := setCompanionGoal(tx, id, v, now); err != nil {
+					return err
+				}
+				continue
+			}
 			fields[k] = v
 			if human && !protected {
 				locked = append(locked, k)
@@ -279,32 +252,6 @@ func (s *Service) putPortrait(ctx context.Context, c *app.RequestContext) {
 		_ = json.Unmarshal([]byte(r.Visible), &visible)
 		if req.Visible != nil {
 			visible = *req.Visible
-		}
-		actor := "agent"
-		if human {
-			actor = "human"
-		}
-		for _, m := range req.Upserts {
-			if !human {
-				var protected bool
-				if e := tx.Raw(`SELECT EXISTS(SELECT 1 FROM portrait_memories WHERE user_id=? AND memory_id=? AND edited_by='human')`, owner, m.ID).Scan(&protected).Error; e != nil {
-					return e
-				}
-				if protected {
-					return errPortraitConflict
-				}
-			}
-			if e := tx.Exec(`INSERT INTO portrait_memories(user_id,memory_id,content,show_on_home,edited_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,memory_id) DO UPDATE SET content=EXCLUDED.content,show_on_home=EXCLUDED.show_on_home,edited_by=EXCLUDED.edited_by,updated_at=EXCLUDED.updated_at,deleted=false`, owner, m.ID, strings.TrimSpace(m.Content), m.ShowOnHome, actor, now, now).Error; e != nil {
-				return e
-			}
-		}
-		for _, mid := range req.Deletes {
-			if !human {
-				return errPortraitConflict
-			}
-			if e := tx.Exec(`UPDATE portrait_memories SET deleted=true,edited_by='human',updated_at=? WHERE user_id=? AND memory_id=?`, now, owner, mid).Error; e != nil {
-				return e
-			}
 		}
 		f, _ := json.Marshal(fields)
 		v, _ := json.Marshal(visible)
@@ -384,17 +331,25 @@ func (s *Service) getPerson(ctx context.Context, c *app.RequestContext) {
 			_ = json.Unmarshal([]byte(r.Visible), &visible)
 			fields = map[string]string{}
 			for _, k := range visible {
-				fields[k] = raw[k]
+				if networkProfileKey(k) {
+					fields[k] = raw[k]
+				}
 			}
 			fields["avatar"] = raw["avatar"]
 			fields["owner_name"] = fields["name"]
 			fields["name"] = p.AgentName
 		}
-		memories, next, e = readPortraitMemories(s.db.WithContext(ctx), p.OwnerUID, c.Query("cursor"), "", true)
-		if e != nil {
-			s.socialFailure(c, e)
+		settings, err := readCompanion(s.db.WithContext(ctx), p.OwnerUID, id)
+		if err != nil {
+			s.socialFailure(c, err)
 			return
 		}
+		for _, k := range visible {
+			if k == "connections" {
+				fields[k] = settings.ConnectionGoal
+			}
+		}
+		visible = networkVisible(visible)
 	}
 	var following bool
 	if e = s.db.Raw(`SELECT EXISTS(SELECT 1 FROM social_follows WHERE follower_id=? AND followed_id=?)`, viewer, id).Scan(&following).Error; e != nil {

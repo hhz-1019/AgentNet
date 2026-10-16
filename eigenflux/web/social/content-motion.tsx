@@ -131,17 +131,9 @@ export function useFeedMotion(items?: WorkPost[], restored = false) {
       [...previous.keys()].every((id, index) => items[index]?.id === id);
     const next = readPositions(appended && !existingLayoutChanged);
     let addedIndex = 0;
-    // Prefetched cards animate when they reach the viewport, so the entrance
-    // is still visible even when the network finishes a screen ahead.
-    const waiting = new Map<Element, Animation>();
-    const entranceObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        waiting.get(entry.target)?.play();
-        waiting.delete(entry.target);
-        entranceObserver.unobserve(entry.target);
-      });
-    });
+    // First paint and offscreen prefetches are ready immediately. Only newly
+    // appended cards already in view enter; scrolling never reveals a paused
+    // opacity-zero row. Image decoding owns its separate blur transition.
     children.forEach((child, index) => {
       const id = items[index]?.id;
       const point = id ? next.get(id) : undefined;
@@ -149,14 +141,11 @@ export function useFeedMotion(items?: WorkPost[], restored = false) {
       const before = previous.get(id);
       if (media.matches || restored || !child.animate) return;
       const retained = entrances.current.get(id);
-      if (retained?.child === child) {
-        if (retained.animation.playState === 'paused') {
-          waiting.set(child, retained.animation);
-          entranceObserver.observe(child);
-        }
-        return;
-      }
+      if (retained?.child === child) return;
       if (!before) {
+        const rect = child.getBoundingClientRect();
+        if (!appended || rect.top >= window.innerHeight || rect.bottom <= 0)
+          return;
         const animation = child.animate(
           [
             { transform: 'translateY(24px)', opacity: 0 },
@@ -170,15 +159,12 @@ export function useFeedMotion(items?: WorkPost[], restored = false) {
             fill: 'both',
           },
         );
-        animation.pause();
         animation.onfinish = () => {
           animation.cancel();
           if (entrances.current.get(id)?.animation === animation)
             entrances.current.delete(id);
         };
         entrances.current.set(id, { child, animation });
-        waiting.set(child, animation);
-        entranceObserver.observe(child);
         return;
       }
       const x = before.x - point.x;
@@ -241,7 +227,6 @@ export function useFeedMotion(items?: WorkPost[], restored = false) {
       disposed = true;
       cancelAnimationFrame(layoutFrame);
       observer.disconnect();
-      entranceObserver.disconnect();
       media.removeEventListener('change', reduceMotion);
       stopLayoutAnimations();
       // Keep existing spans across append effects; removing them temporarily

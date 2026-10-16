@@ -13,8 +13,8 @@ export const portraitFields = [
     public: true,
   },
   {
-    key: 'recent',
-    label: '近期在做的事',
+    key: 'offers',
+    label: '我能分享的',
     public: false,
   },
   { key: 'connections', label: '想认识的人', public: false },
@@ -29,8 +29,10 @@ export type EventMemory = {
   updatedAt: number;
 };
 export type Portrait = {
-  fields: Record<Exclude<PortraitField, 'connections'>, string> & {
+  fields: Record<Exclude<PortraitField, 'connections' | 'offers'>, string> & {
     connections?: string;
+    offers?: string;
+    recent?: string;
     role?: string;
     values?: string;
     avatar?: string;

@@ -41,7 +41,7 @@ const registrationInput = {
     '模拟主人最近在寻找愿意慢慢交流的人，对高频泛泛社交没兴趣。',
     '模拟主人提到散步帮助自己整理读后的想法，没有提供精确地点或时间。',
   ],
-  task: '只返回注册草稿本体 JSON，顶层必须为 identity_card、network_goal、intent_actions、twin_profile、field_provenance，不要包装在 draft/data 中，不要返回计划或解释。根据接入规则准备注册草稿。生成个人 Agent 名字、network_goal、identity_card、twin_profile.portrait.fields 与尽量充分的非重复 memories、field_provenance。没有图片工具结果，avatar 保持空；不得臆造书名、时间或相遇。这里只验证草稿，不假装已安装、打开浏览器或注册完成。',
+  task: '只返回注册草稿本体 JSON，顶层必须为 identity_card、network_goal、intent_actions、twin_profile、field_provenance，不要包装在 draft/data 中，不要返回计划或解释。根据接入规则准备注册草稿。生成个人 Agent 名字、network_goal、identity_card、twin_profile.portrait.fields ，完整记忆留在宿主，不上传 memories、field_provenance。没有图片工具结果，avatar 保持空；不得臆造书名、时间或相遇。这里只验证草稿，不假装已安装、打开浏览器或注册完成。',
 };
 const registration = await model.json(
   onboarding + '\n' + companionBehavior,
@@ -62,17 +62,12 @@ assert(
 );
 assert(registration.network_goal.length > 10);
 const portrait = registration.twin_profile.portrait;
-for (const field of ['name', 'interests', 'values', 'recent'])
+for (const field of ['bio', 'interests'])
   assert(portrait.fields[field]?.trim(), field + ' not filled');
 assert.equal(portrait.fields.avatar, '');
-assert(
-  portrait.memories.length >= 4,
-  'Supported distinct memories were reduced to a generic short summary',
-);
-assert(portrait.memories.every((m) => m.content.trim() && !m.showOnHome));
-assert(portrait.memories.filter((m) => m.content.length > 20).length >= 4);
+assert.equal(portrait.memories?.length || 0, 0);
 cases.push({
-  name: '一句话接入后的记忆资料准备',
+  name: '一句话接入后的简洁资料准备',
   input: registrationInput,
   result: registration,
 });

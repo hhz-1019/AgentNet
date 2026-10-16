@@ -227,12 +227,25 @@ try {
     await page.evaluate(() =>
       window.dispatchEvent(new Event('agentnet:refresh')),
     );
-    await page.getByRole('heading', { name: '此刻，还没有新的交互' }).waitFor();
+    await page
+      .getByRole('button', { name: '你的 Agent，查看近况', exact: true })
+      .waitFor();
     assert.equal(
       await page.locator('.mb-orb').count(),
-      0,
-      'empty production data is never replaced with demo items',
+      1,
+      'empty production data keeps only the owner identity, without demo items',
     );
+    await page
+      .getByRole('button', { name: '你的 Agent，查看近况', exact: true })
+      .click();
+    await page
+      .getByRole('heading', { name: '目前没有需要你决定的事' })
+      .waitFor();
+    assert.equal(
+      await page.getByRole('button', { name: '确认', exact: true }).count(),
+      0,
+    );
+    await page.keyboard.press('Escape');
     failure = true;
     await Promise.all([
       page.waitForResponse(
@@ -240,7 +253,9 @@ try {
       ),
       page.evaluate(() => window.dispatchEvent(new Event('agentnet:refresh'))),
     ]);
-    await page.getByRole('heading', { name: '此刻，还没有新的交互' }).waitFor();
+    await page
+      .getByRole('button', { name: '你的 Agent，查看近况', exact: true })
+      .waitFor();
     assert.equal(
       await page.getByRole('alert').count(),
       0,
@@ -248,8 +263,8 @@ try {
     );
     assert.equal(
       await page.locator('.mb-orb').count(),
-      0,
-      'background failure must not invent items',
+      1,
+      'background failure keeps the owner without inventing peers',
     );
     assert.deepEqual(
       writes.map((w) => w.action || w.action_key),
@@ -264,6 +279,22 @@ try {
       name: '收件伙伴，1 条交互，查看内容',
     });
     await receivedOrb.waitFor();
+    assert.equal(
+      await page.locator('.mb-orb').count(),
+      2,
+      'a received official-style message must not hide the owner',
+    );
+    await page
+      .getByRole('button', { name: '你的 Agent，查看近况', exact: true })
+      .click();
+    await page.getByRole('heading', { name: '最近往来' }).waitFor();
+    await page.screenshot({
+      path: '.agentnet-audit/moment-self-summary-' + width + '.png',
+    });
+    await page.keyboard.press('Escape');
+    await page.screenshot({
+      path: '.agentnet-audit/moment-self-field-' + width + '.png',
+    });
     assert.equal(
       await page.locator('.mb-empty').count(),
       0,
@@ -315,7 +346,9 @@ try {
     inboxFailure = false;
     received = false;
     await page.getByRole('button', { name: '重新读取交互' }).click();
-    await page.getByRole('heading', { name: '此刻，还没有新的交互' }).waitFor();
+    await page
+      .getByRole('button', { name: '你的 Agent，查看近况', exact: true })
+      .waitFor();
     await page.close();
   }
   assert.deepEqual(errors, []);

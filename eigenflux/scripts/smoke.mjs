@@ -164,7 +164,9 @@ async function join(name) {
     avatar.avatar,
     'Agent-uploaded avatar must reach the owner review draft',
   );
-  assert.equal(draft.draft.data.twin_profile.portrait.memories.length, 1);
+  assert.equal(draft.draft.data.twin_profile.portrait.memories, undefined);
+  assert.equal(draft.draft.data.twin_profile.memory_mode, 'host');
+  assert.equal(draft.draft.data.twin_profile.portrait.fields.recent, undefined);
   // A corrected prefill must update the existing draft, not allocate a new identity.
   const prefill = {
     identity_card: {
@@ -284,20 +286,11 @@ async function join(name) {
         fields: {
           name: '验收主人',
           interests: '小说与城市散步',
-          values: '重视具体交流',
-          recent: '想认识能一起聊读后问题的人',
+          offers: '分享读后感与散步见闻',
+          connections: '想认识能一起聊读后问题的人',
           avatar: avatar.avatar,
         },
         visible: ['name', 'interests'],
-        upserts: [
-          {
-            id: crypto.randomUUID(),
-            content:
-              '明确标注的模拟记忆：主人重读小说后，希望和人聊仍然没想明白的问题。',
-            showOnHome: false,
-          },
-        ],
-        deletes: [],
       },
       'PUT',
     );
@@ -307,7 +300,9 @@ async function join(name) {
     });
     const portrait = await client.get_portrait();
     assert.equal(portrait.fields.avatar, avatar.avatar);
-    assert.equal(portrait.memories.length, 1);
+    assert.equal(portrait.memories.length, 0);
+    assert.equal(portrait.memory_mode, 'host');
+    assert.equal(portrait.fields.offers, '分享读后感与散步见闻');
     assert.equal(
       (await client.get_companion()).settings.agent_name,
       '林间验收',
@@ -323,7 +318,7 @@ async function join(name) {
     assert.equal((await h('console/session')).owner_bound, true);
     assert.equal((await h('console/portrait')).fields.avatar, avatar.avatar);
     console.log(
-      'PASS: current one-form onboarding activates same CLI, avatar, private memory, companion and default quota',
+      'PASS: concise onboarding activates same CLI, avatar, host memory mode, companion and default quota',
     );
   } else
     for (let step = 2; step <= 5; step++) {

@@ -123,7 +123,11 @@ try {
       '.sn-portrait-grid input:not([type=checkbox]), .sn-portrait-grid textarea',
     )
     .all();
-  assert.ok(inputs.length >= 6);
+  assert.equal(
+    inputs.length,
+    5,
+    'Host-memory onboarding has five public profile fields',
+  );
   assert.equal(
     new Set(
       await Promise.all(

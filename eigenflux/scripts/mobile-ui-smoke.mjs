@@ -204,7 +204,7 @@ try {
   await page.locator('textarea').first().waitFor();
   assert.equal(await font(page.locator('textarea').first()), '16px');
   await noOverflow();
-  // The desktop editorial scale remains unchanged; only tab selection changes.
+  // Desktop cards use the product title scale, independent of page headings.
   await page.close();
   page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
@@ -215,7 +215,7 @@ try {
   await page.locator('.sw-post').first().waitFor();
   assert.equal(
     await font(page.locator('.sw-feed-grid .sw-post-title').first()),
-    '32px',
+    '18px',
   );
   await page
     .getByRole('navigation', { name: '发现频道' })

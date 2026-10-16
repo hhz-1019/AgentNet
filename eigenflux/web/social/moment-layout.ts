@@ -85,10 +85,10 @@ export function momentViewportScale(
   return scale;
 }
 
-// Pack in priority order around the most urgent Agent. Tangent candidates keep
+// Keep the owner at the center; pack peers by priority. Tangent candidates keep
 // the cluster dense; the radial floor prevents a lower rank displacing it.
 export function packMoments(
-  groups: { id: string; priority: number }[],
+  groups: { id: string; priority: number; own?: boolean }[],
 ): MomentCircle[] {
   const circles: MomentCircle[] = [];
   // Only the currently emphasized face grows; reserving both neighbors' full
@@ -97,7 +97,10 @@ export function packMoments(
     a + b + Math.max(a, b) * (MOMENT_HOVER_SCALE - 1) + 2;
   let radialFloor = 0;
   for (const group of [...groups].sort(
-    (a, b) => b.priority - a.priority || a.id.localeCompare(b.id),
+    (a, b) =>
+      Number(Boolean(b.own)) - Number(Boolean(a.own)) ||
+      b.priority - a.priority ||
+      a.id.localeCompare(b.id),
   )) {
     const radius =
       32 + 132 * (Math.max(0, Math.min(130, group.priority)) / 130) ** 3;

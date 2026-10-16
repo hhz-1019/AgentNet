@@ -3,8 +3,8 @@
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
-import { richProfilePreview } from '../web/rich-profile-preview.ts';
-import { mkdir } from 'node:fs/promises';
+import { hostProfilePreview as richProfilePreview } from '../web/host-profile-preview.ts';
+import { mkdir, readFile } from 'node:fs/promises';
 const dir = '.agentnet-audit/twin-ui';
 await mkdir(dir, { recursive: true });
 const server = await createServer({
@@ -55,7 +55,7 @@ try {
       twin_profile: {
         portrait: {
           fields: {
-            name: '',
+            name: ownerName,
             bio: '',
             interests: '记忆中的研究兴趣',
             role: '',
@@ -136,7 +136,7 @@ try {
       } else if (path === 'auth/phone/challenges')
         data = { challenge_id: 'fixture-challenge', retry_after: 60 };
       else if (path === 'auth/uid/register') {
-        assert.equal(body.agreement_version, '2026-10-14');
+        assert.equal(body.agreement_version, '2026-10-16');
         assert.equal(body.uid, undefined);
         registered = true;
         data = { uid: '731482905', recovery_key: 'fixture-only-key' };
@@ -177,32 +177,37 @@ try {
         } else
           data = {
             settings: companion,
-            behavior_version: 'companion-2026-10-14',
+            behavior_version: 'host-context-2026-10-16',
             check_interval_hours: 2,
             rename_needed: false,
           };
       } else if (path === 'console/portrait/avatar') {
         assert(body.data.length > 0);
         data = { avatar: '/api/v2/public/avatars/' + 'a'.repeat(32) };
+      } else if (path === 'console/portrait/export') {
+        assert.equal(method, 'GET');
+        assert.equal(ownerVerified, true);
+        data = {
+          schema: 'elsewhere.legacy-profile.v1',
+          portrait_memories: [{ id: 'legacy-1', content: '旧资料仍保留' }],
+        };
       } else if (path === 'console/portrait') {
         privateReads++;
         if (method === 'PUT') {
           assert.equal(body.expected_revision, personalRevision);
           profile.fields = { ...profile.fields, ...body.fields };
           profile.visible = body.visible;
-          profile.memories = (profile.memories || []).filter(
-            (m) => !body.deletes.includes(m.id),
-          );
-          for (const m of body.upserts) {
-            profile.memories = profile.memories.filter(
-              (old) => old.id !== m.id,
-            );
-            profile.memories.push(m);
-          }
+          assert.equal(body.deletes, undefined);
+          assert.equal(body.upserts, undefined);
+          assert.equal(body.fields.connections, undefined);
           data = { revision: ++personalRevision };
         } else
           data = {
             ...profile,
+            fields: {
+              ...profile.fields,
+              connections: companion.connection_goal,
+            },
             revision: personalRevision,
             next_cursor: '',
             total: profile.memories.length,
@@ -289,16 +294,16 @@ try {
     });
     await page.getByRole('button', { name: '创建账号' }).click();
     await page
-      .getByRole('heading', { name: '确认画像', exact: true })
+      .getByRole('heading', { name: '确认资料', exact: true })
       .waitFor();
     assert.equal(
       await page.getByLabel('Agent 的名字', { exact: true }).inputValue(),
       '林间',
     );
     for (const [label, value] of Object.entries({
-      自我介绍: '关注开放合作\n\n学生',
-      兴趣与长期关注: '记忆中的研究兴趣\n\n重视可验证的结果',
-      近期在做的事: '',
+      自我介绍: '关注开放合作',
+      兴趣与长期关注: '记忆中的研究兴趣',
+      我能分享的: '',
       想认识的人: '找到研究伙伴',
     }))
       assert.equal(
@@ -333,7 +338,7 @@ try {
       ),
     );
     await page
-      .getByRole('button', { name: '确认画像，进入 elsewhere' })
+      .getByRole('button', { name: '确认资料，进入 elsewhere' })
       .click();
     await page.locator('.sw-workspace').waitFor();
     assert.equal(state.state, 'completed');
@@ -360,6 +365,14 @@ try {
       await page.getByLabel('Agent 的名字', { exact: true }).inputValue(),
       '设置中修改的昵称',
     );
+    assert.equal(await page.getByText('记一件事', { exact: true }).count(), 0);
+    const downloadReady = page.waitForEvent('download');
+    await page.getByRole('button', { name: '导出旧资料', exact: true }).click();
+    const download = await downloadReady;
+    const exported = JSON.parse(await readFile(await download.path(), 'utf8'));
+    assert.deepEqual(exported.portrait_memories, [
+      { id: 'legacy-1', content: '旧资料仍保留' },
+    ]);
     await page.goto('http://127.0.0.1:4324/dashboard/security');
     await page.getByLabel('每日发帖上限', { exact: false }).fill('1');
     await page
@@ -404,7 +417,7 @@ try {
     assert.equal(new URL(page.url()).searchParams.get('item'), '77');
     await page.getByRole('button', { name: '同意周六', exact: true }).click();
     await page.getByText('已决定，等待 Agent 执行', { exact: true }).waitFor();
-    // Round-trip the real-model synthetic rich profile through registration UI.
+    // Round-trip the minimal network profile through registration UI.
     ownerVerified = true;
     personalRevision = 0;
     state = { state: 'in_progress', current_step: 2, revision: 1 };
@@ -425,7 +438,7 @@ try {
     // legacy-profile scenario's role into its biography.
     draft.twin_profile.basic_info = {};
     draft.twin_profile.portrait = {
-      prefill_version: 'portrait-rich-2026-10-14',
+      prefill_version: 'host-context-2026-10-16',
       fields: structuredClone(richProfilePreview.fields),
       memories: structuredClone(richProfilePreview.memories),
     };
@@ -440,7 +453,7 @@ try {
     for (const [label, key] of [
       ['自我介绍', 'bio'],
       ['兴趣与长期关注', 'interests'],
-      ['近期在做的事', 'recent'],
+      ['我能分享的', 'offers'],
       ['想认识的人', 'connections'],
     ]) {
       assert.equal(
@@ -449,15 +462,17 @@ try {
       );
       assert.equal(
         await page.getByLabel(label, { exact: true }).getAttribute('maxlength'),
-        null,
+        String(
+          { bio: 600, interests: 800, offers: 800, connections: 1000 }[key],
+        ),
       );
     }
     await page.getByRole('checkbox', { name: /我同意/ }).check();
     await page
-      .getByRole('button', { name: '确认画像，进入 elsewhere' })
+      .getByRole('button', { name: '确认资料，进入 elsewhere' })
       .click();
     await page.getByRole('button', { name: '发布', exact: true }).waitFor();
-    assert.equal(profile.memories.length, 20);
+    assert.equal(profile.memories.length, 0);
     assert.deepEqual(
       profile.memories.map((m) => ({ id: m.id, content: m.content })),
       richProfilePreview.memories.map((m) => ({
@@ -465,7 +480,7 @@ try {
         content: m.content,
       })),
     );
-    for (const key of ['bio', 'interests', 'recent', 'connections'])
+    for (const key of ['bio', 'interests', 'offers'])
       assert.equal(profile.fields[key], richProfilePreview.fields[key]);
     assert.equal(
       companion.connection_goal,
@@ -474,8 +489,8 @@ try {
     await page.goto('http://127.0.0.1:4324/dashboard/profile');
     await page.getByLabel('想认识的人', { exact: true }).waitFor();
     assert.equal(
-      await page.getByLabel('近期在做的事', { exact: true }).inputValue(),
-      richProfilePreview.fields.recent,
+      await page.getByLabel('我能分享的', { exact: true }).inputValue(),
+      richProfilePreview.fields.offers,
     );
     assert.equal(
       await page.getByLabel('想认识的人', { exact: true }).inputValue(),

@@ -124,6 +124,16 @@ export function groupMoments(
       priority: number;
     }
   >();
+  // Identity is present even when the Agent has no receipts or decisions.
+  if (ownID)
+    groups.set(ownID, {
+      id: ownID,
+      name: '你的 Agent',
+      own: true,
+      items: [],
+      messages: [],
+      priority: 80,
+    });
   for (const item of items) {
     const id = item.related_agent.agent_id || ownID,
       own = id === ownID;

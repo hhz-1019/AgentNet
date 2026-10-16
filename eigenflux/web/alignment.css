@@ -1,7 +1,7 @@
 /* Shared content edges; internal gutters must not accumulate across wrappers. */
 :root[data-theme] {
-  --ew-page-gutter: 40px;
-  --ew-sidebar-gutter: 24px;
+  --ew-page-gutter: 32px;
+  --ew-sidebar-gutter: 20px;
   --ew-detail-gutter: 28px;
 }
 html[data-theme] #root .sw-main {
@@ -59,8 +59,8 @@ html[data-theme] #root .sn-chat > header {
   gap: 12px;
 }
 html[data-theme] #root .sn-chat-avatar {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
 }
 html[data-theme] #root .sn-chat > .sw-empty {
   flex: 1;

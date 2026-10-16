@@ -105,6 +105,10 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page
     .locator('.sw-sidebar')
+    .getByRole('link', { name: '消息', exact: true })
+    .click();
+  await page
+    .getByRole('navigation', { name: '消息与通讯录' })
     .getByRole('link', { name: '通讯录', exact: true })
     .click();
   assert.equal(

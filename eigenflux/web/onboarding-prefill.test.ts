@@ -14,7 +14,7 @@ const blank = () => ({
   memories: [],
   revision: 0,
 });
-await test('legacy memory prefill survives empty modern placeholders', () => {
+await test('legacy memories and private fields do not enter minimal prefill', () => {
   const draft = {
     identity_card: {
       agent_name: '未命名',
@@ -42,15 +42,12 @@ await test('legacy memory prefill survives empty modern placeholders', () => {
   assert.deepEqual(result.fields, {
     name: '',
     bio: '研究社会网络，偏好简洁表达',
-    interests: '认知科学',
-    role: '学生',
-    values: '',
-    recent: '',
+    interests: '',
+    offers: '',
     connections: '完成当前研究',
     avatar: '',
   });
-  assert.equal(result.memories[0].content, '完成一次研究实验');
-  assert.equal(result.memories[0].showOnHome, false);
+  assert.deepEqual(result.memories, []);
 });
 await test('modern portrait wins field by field while memories stay private', () => {
   const fields = {
@@ -74,8 +71,15 @@ await test('modern portrait wins field by field while memories stay private', ()
     },
     'Codex',
   );
-  assert.deepEqual(result.fields, { ...fields, connections: '', avatar: '' });
-  assert.equal(result.memories[0].showOnHome, false);
+  assert.deepEqual(result.fields, {
+    name: fields.name,
+    bio: fields.bio,
+    interests: fields.interests,
+    offers: '',
+    connections: '',
+    avatar: '',
+  });
+  assert.deepEqual(result.memories, []);
 });
 await test('saved human edits and deliberately cleared fields cannot be refilled', () => {
   const saved = { ...blank(), revision: 1 };
@@ -94,9 +98,7 @@ await test('absent memory never invents a personal biography', () => {
     name: '',
     bio: '',
     interests: '',
-    role: '',
-    values: '',
-    recent: '',
+    offers: '',
     avatar: '',
     connections: '',
   });
@@ -143,7 +145,7 @@ await test('Agent capability descriptions cannot fill a personal portrait; conne
     '林间',
   );
   assert.equal(p.fields.bio, '');
-  assert.equal(p.fields.recent, '');
+  assert.equal(p.fields.recent, undefined);
   assert.equal(p.fields.connections, '寻找可以一起慢慢聊书的人');
 });
 
@@ -160,10 +162,10 @@ await test('merging old private preferences and roles preserves content without 
     },
   };
   const merged = mergeLegacyPortrait(original);
-  assert.equal(merged.fields.interests, '已有兴趣\n\n不愿公开的偏好');
-  assert.equal(merged.fields.bio, '伙伴简介\n\n私人身份');
-  assert(!merged.visible.includes('interests'));
-  assert(!merged.visible.includes('bio'));
+  assert.equal(merged.fields.interests, '已有兴趣');
+  assert.equal(merged.fields.bio, '伙伴简介');
+  assert(merged.visible.includes('interests'));
+  assert(merged.visible.includes('bio'));
   assert.equal(original.fields.interests, '已有兴趣');
   assert.deepEqual(mergeLegacyPortrait(merged), merged);
   const edited = {

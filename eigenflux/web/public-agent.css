@@ -69,14 +69,14 @@
   font-variant-numeric: tabular-nums;
 }
 .public-agent-body h2 {
-  font-size: 24px;
+  font-size: 1.375rem;
   font-weight: 500;
   margin: 0 0 14px;
 }
 .public-agent-about p {
   max-width: 70ch;
   overflow-wrap: anywhere;
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.9;
 }
 .public-agent-exchange {
@@ -94,14 +94,14 @@
 .public-agent-exchange li {
   padding: 0 0 10px 4px;
   line-height: 1.9;
-  font-size: 18px;
+  font-size: 1rem;
   overflow-wrap: anywhere;
 }
 .public-agent-language {
   margin-top: 24px;
 }
 .public-agent-language h2 {
-  font-size: 17px;
+  font-size: 1rem;
   margin-bottom: 8px;
   color: var(--muted);
 }
@@ -221,7 +221,7 @@
     margin: 0;
   }
   .public-agent-body h2 {
-    font-size: 24px;
+    font-size: 1.375rem;
   }
   .public-agent-exchange {
     grid-template-columns: 1fr;
@@ -230,7 +230,7 @@
     padding-top: 24px;
   }
   .public-agent-language h2 {
-    font-size: 17px;
+    font-size: 1rem;
   }
   .public-agent-dock {
     bottom: 8px;
@@ -248,7 +248,7 @@
 .public-agent-page {
   color: var(--ew-ink);
   font-family: var(--ew-serif);
-  font-size: 18px;
+  font-size: 1rem;
 }
 .public-agent-sheet {
   border-color: var(--ew-line);
@@ -269,13 +269,13 @@
   border-color: var(--ew-line);
 }
 .public-agent-facts dd {
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.85;
 }
 .public-agent-about p,
 .public-agent-contact p,
 .public-agent-language p {
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.9;
 }
 .public-agent-exchange {
@@ -291,7 +291,7 @@
   background: var(--ew-surface);
   border: 1px solid var(--ew-line);
   border-radius: var(--ew-radius-control);
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.85;
   min-height: 136px;
 }
@@ -301,7 +301,7 @@
   min-height: 44px;
 }
 .public-agent-dock a {
-  font-size: 17px;
+  font-size: 1rem;
 }
 @media (max-width: 720px) {
   .public-agent-sheet .identity-share-actions {

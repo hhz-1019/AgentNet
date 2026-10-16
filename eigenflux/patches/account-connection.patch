@@ -247,6 +247,14 @@
  		value, err := strconv.ParseInt(raw, 10, 64)
 --- a/api/consolev2/control_handlers.go
 +++ b/api/consolev2/control_handlers.go
+@@ -84,6 +84,7 @@
+ 		if err := lockContextHead(tx, id, req.ExpectedContextRevision); err != nil {
+ 			return err
+ 		}
++		if err := syncCompanionGoal(tx,id,req.GoalText,now);err!=nil{return err}
+ 		if err := tx.Exec(`UPDATE agent_network_goals SET status = 'deleted', updated_at = ?
+ 			WHERE agent_id = ? AND status = 'active'`, now, id).Error; err != nil {
+ 			return err
 @@ -297,6 +297,8 @@
  
  type securityBoundaryRequest struct {
@@ -344,3 +352,80 @@
  	h.POST("/api/v2/social/media", s.agentAuth("broadcast:write"), s.requireCompleted, s.uploadSocialMedia)
  	h.POST("/api/v2/social/drafts", s.agentAuth("broadcast:write"), s.requireCompleted, s.createSocialDraft)
  	h.POST("/api/v2/handoffs", s.agentAuth("communication:write"), s.requireCompleted, s.sendProjectHandoff)
+
+--- a/api/consolev2/feed_handlers.go
++++ b/api/consolev2/feed_handlers.go
+@@ -166,7 +166,7 @@
+ 		"next_cursor": nil, "has_more": feedResp.HasMore,
+ 		"capabilities_applied": []string{"feed=v2", "delivery=latest", "personalization=" + mode},
+ 	}
+-	if contract := feedcontract.ForMode(mode); contract != "" {
++	if contract := feedcontract.ElsewhereForMode(mode); contract != "" {
+ 		response["output_contract"] = contract
+ 	}
+ 	encoded, _ := json.Marshal(response)
+--- a/api/handler_gen/eigenflux/api/feed_contract.go
++++ b/api/handler_gen/eigenflux/api/feed_contract.go
+@@ -19,7 +19,7 @@
+ // string, in which case the handler omits the field and clients fall back to
+ // their own bundled copy.
+ func feedOutputContract() string {
+-	return feedcontract.Default()
++	return feedcontract.ElsewhereForMode("intent_aligned")
+ }
+ 
+ // loadFeedContract reads and trims the contract file, returning "" (and logging
+--- a/cli/cmd/feed.go
++++ b/cli/cmd/feed.go
+@@ -85,6 +85,10 @@
+ 		}
+ 		if resp.Code != 0 {
+ 			return fmt.Errorf("%s", resp.Msg)
++		}
++		resp.Data, err = normalizeElsewhereFeed(serverName, resp.Data)
++		if err != nil {
++			return err
+ 		}
+ 		if resolveFormat() == "agent" {
+ 			if err := output.PrintFeedForAgent(json.RawMessage(resp.Data)); err != nil {
+--- a/cli/cmd/feed_v2.go
++++ b/cli/cmd/feed_v2.go
+@@ -182,10 +182,14 @@
+ 			return err
+ 		}
+ 	}
++	payload, err = normalizeElsewhereFeed(serverName, payload)
++	if err != nil {
++		return err
++	}
+ 	if err := renderFeedV2(cmd, payload); err != nil {
+ 		return err
+ 	}
+-	cache.SaveFeedResponse(serverName, response.Data)
++	cache.SaveFeedResponse(serverName, payload)
+ 	cache.Cleanup(serverName, "broadcasts")
+ 	return nil
+ }
+--- a/cli/cmd/profile_refresh_prompt.go
++++ b/cli/cmd/profile_refresh_prompt.go
+@@ -120,6 +120,9 @@
+ }
+ 
+ func maybePromptProfileRefreshFor(srv, agentID string) {
++	if srv == "agentnet" {
++		return
++	} // Daily review is host-owned, not a platform profile task.
+ 	// Plugin hosts own their refresh loop and discard CLI stderr. Keep this
+ 	// gate in the scoped implementation so feed poll cannot bypass it.
+ 	meta := clientMetaForServerName(srv)
+--- a/cli/cmd/profile_refresh.go
++++ b/cli/cmd/profile_refresh.go
+@@ -48,5 +48,8 @@
+     --session-snippet "Working on Project Halcyon (Rust edge inference)" \
+     --session-snippet "Debugging operator fusion memory peaks"`,
+ 	RunE: func(cmd *cobra.Command, args []string) error {
++		if activeServerName() == "agentnet" {
++			return elsewhereHostReview(cmd)
++		}
+ 		memDirs, _ := cmd.Flags().GetStringArray("memory-dir")
+ 		sessionSnippets := filterNonEmpty(mustStringArray(cmd, "session-snippet"))

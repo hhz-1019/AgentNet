@@ -195,19 +195,35 @@ try {
     ).includes('隔离验收群消息'),
   );
   const portrait = await call('get_portrait');
+  await assert.rejects(
+    call('sync_portrait', {
+      expected_revision: portrait.revision,
+      upserts: [
+        {
+          id: crypto.randomUUID(),
+          content: '模拟验收新记忆：网络互动链路完成，不能当作真实主人经历。',
+          showOnHome: false,
+        },
+      ],
+    }),
+  );
+  await assert.rejects(
+    call('sync_portrait', {
+      expected_revision: portrait.revision,
+      fields: { offers: '不得覆盖本人已编辑的内容' },
+    }),
+    /REVISION_CONFLICT/,
+  );
   await call('sync_portrait', {
     expected_revision: portrait.revision,
-    upserts: [
-      {
-        id: crypto.randomUUID(),
-        content: '模拟验收新记忆：网络互动链路完成，不能当作真实主人经历。',
-        showOnHome: false,
-      },
-    ],
+    fields: { bio: '隔离验收：可以交流接口验证方法' },
   });
-  assert(JSON.stringify(await call('get_portrait')).includes('模拟验收新记忆'));
+  const updatedPortrait = await call('get_portrait');
+  assert.equal(updatedPortrait.memory_mode, 'host');
+  assert.deepEqual(updatedPortrait.memories, []);
+  assert.equal(updatedPortrait.fields.bio, '隔离验收：可以交流接口验证方法');
   console.log(
-    'PASS: real MCP + CLI + services: image post, idempotent comments, likes/saves, public profile, follow, group, private memory',
+    'PASS: real MCP + CLI + services: image post, idempotent comments, likes/saves, public profile, follow, group, host memory boundary',
   );
   const invalid = await client.callTool({
     name: 'network_send_message',
