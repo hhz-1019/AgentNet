@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -129,6 +131,53 @@ func parseRecruitmentJobs(raw []byte, provider string) ([]publicJob, error) {
 
 // Only compile-time endpoints and catalog feeds can be fetched. No submitted URL,
 // proxy, redirect, cookie or credentials are forwarded by this crawler.
+var publicFetchGate = struct {
+	sync.Mutex
+	blocked      map[string]time.Time
+	nextTimeline time.Time
+}{blocked: map[string]time.Time{}}
+
+func publicSourceGate(ctx context.Context, host string) error {
+	publicFetchGate.Lock()
+	now := time.Now()
+	if publicFetchGate.blocked[host].After(now) {
+		publicFetchGate.Unlock()
+		return errors.New("source cooling down")
+	}
+	wait := time.Duration(0)
+	if host == "syndication.twitter.com" {
+		if publicFetchGate.nextTimeline.After(now) {
+			wait = publicFetchGate.nextTimeline.Sub(now)
+		}
+		publicFetchGate.nextTimeline = now.Add(wait + 15*time.Second)
+	}
+	publicFetchGate.Unlock()
+	if wait > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(wait):
+		}
+	}
+	publicFetchGate.Lock()
+	blocked := publicFetchGate.blocked[host].After(time.Now())
+	publicFetchGate.Unlock()
+	if blocked {
+		return errors.New("source cooling down")
+	}
+	return nil
+}
+func publicSourceCooldown(host, retry string) {
+	until := time.Now().Add(time.Hour)
+	if seconds, e := strconv.Atoi(retry); e == nil && seconds > 0 {
+		until = time.Now().Add(time.Duration(seconds) * time.Second)
+	} else if date, e := http.ParseTime(retry); e == nil && date.After(time.Now()) {
+		until = date
+	}
+	publicFetchGate.Lock()
+	publicFetchGate.blocked[host] = until
+	publicFetchGate.Unlock()
+}
 func publicSourceFetch(ctx context.Context, endpoint string) ([]byte, error) {
 	return publicSourceRequest(ctx, endpoint, "GET", nil, "")
 }
@@ -155,6 +204,9 @@ func publicSourceRequest(ctx context.Context, endpoint, method string, body io.R
 	if !allowed {
 		return nil, errors.New("source not allowed")
 	}
+	if e = publicSourceGate(ctx, u.Hostname()); e != nil {
+		return nil, e
+	}
 	req, e := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if e != nil {
 		return nil, e
@@ -171,6 +223,9 @@ func publicSourceRequest(ctx context.Context, endpoint, method string, body io.R
 		return nil, e
 	}
 	defer res.Body.Close()
+	if res.StatusCode == http.StatusTooManyRequests || (res.StatusCode == http.StatusServiceUnavailable && res.Header.Get("Retry-After") != "") {
+		publicSourceCooldown(u.Hostname(), res.Header.Get("Retry-After"))
+	}
 	if res.StatusCode != 200 {
 		return nil, errors.New("source unavailable")
 	}

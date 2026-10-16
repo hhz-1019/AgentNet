@@ -269,3 +269,25 @@ func TestManagedPublicLiveSources(t *testing.T) {
 		t.Fatal("no original timeline evidence")
 	}
 }
+func TestManagedPublicSiteCooldown(t *testing.T) {
+	transport := http.DefaultTransport
+	defer func() {
+		http.DefaultTransport = transport
+		publicFetchGate.Lock()
+		delete(publicFetchGate.blocked, "news.google.com")
+		publicFetchGate.Unlock()
+	}()
+	calls := 0
+	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{StatusCode: 429, Header: http.Header{"Retry-After": []string{"600"}}, Body: io.NopCloser(strings.NewReader("limited"))}, nil
+	})
+	for _, endpoint := range []string{"https://news.google.com/rss/search?q=one", "https://news.google.com/rss/search?q=two"} {
+		if _, e := publicSourceFetch(context.Background(), endpoint); e == nil {
+			t.Fatal("rate limit accepted")
+		}
+	}
+	if calls != 1 {
+		t.Fatal("host cooldown failed", calls)
+	}
+}

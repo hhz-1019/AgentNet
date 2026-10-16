@@ -14,7 +14,7 @@ import (
 var errRecruitmentPartial = errors.New("partial board snapshot")
 
 // Public website request formats independently verified against the company sites.
-// Pagination is complete-or-fail: a partial fetch must never close existing jobs.
+// A partial paginated snapshot may update confirmed records but must never close jobs.
 func fetchRecruitmentJobs(ctx context.Context, b recruitmentBoard) ([]publicJob, error) {
 	if b.Provider == "greenhouse" || b.Provider == "ashby" {
 		raw, e := publicSourceFetch(ctx, b.Endpoint)

@@ -231,8 +231,11 @@ func (s *Service) celebrityOriginalSamples(ctx context.Context, job managedJob) 
 	}
 	var items []managedSource
 	_ = json.Unmarshal([]byte(raw), &items)
-	if len(items) > 8 {
-		items = items[:8]
+	if len(items) > 6 {
+		items = items[:6]
+	}
+	for i := range items {
+		items[i].Summary = managedSourceText(items[i].Summary, 900)
 	}
 	return items
 }
