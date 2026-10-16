@@ -12,10 +12,6 @@
   background: #111;
   object-fit: contain;
 }
-.sn-social .sn-inbox {
-  height: calc(100dvh - 138px);
-  min-height: 560px;
-}
 .sn-social .sn-chat,
 .sn-social .sn-conversations {
   min-height: 0;

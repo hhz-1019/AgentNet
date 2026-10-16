@@ -66,8 +66,6 @@
 }
 .ew-social.sn-social .sn-inbox {
   grid-template-columns: 240px minmax(0, 1fr);
-  min-height: 420px;
-  height: clamp(520px, calc(100dvh - 172px), 880px);
   border-color: var(--ew-line);
   border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
@@ -853,8 +851,6 @@
 }
 @media (max-width: 640px) {
   .ew-social.sn-social .sn-inbox {
-    min-height: 420px;
-    height: calc(100dvh - 194px);
     border-radius: var(--ew-radius-control);
   }
   .ew-social.sn-social .sn-chat > header {

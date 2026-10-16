@@ -253,6 +253,12 @@ try {
     await page.getByRole('button', { name: '下一页', exact: true }).count(),
     0,
   );
+  // Latest retains infinite pagination; recommendations use explicit batch refresh.
+  await page.getByRole('button', { name: '最新', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelector('.sw-post')?.dataset.postId === '26',
+  );
+  await cards.nth(23).waitFor();
   const beforeAppend = await page.evaluate(() => {
     const end = document.querySelector('.sw-feed-end');
     // Stop before the footer enters the viewport: prefetch must begin early.
@@ -321,7 +327,7 @@ try {
     'Closing a post preserves all loaded feed pages',
   );
   await page
-    .getByRole('textbox', { name: '搜索动态', exact: true })
+    .getByRole('textbox', { name: '搜索动态或用户', exact: true })
     .fill('散步');
   await page.waitForFunction(
     () => document.querySelectorAll('.sw-feed-grid .sw-post').length === 1,
