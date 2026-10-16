@@ -62,10 +62,14 @@ try {
         'test',
         './api/consolev2',
         '-run',
-        process.argv.includes('--analytics')
-          ? '^TestAnalytics'
-          : 'TestManaged|TestAccountConnection',
+        process.argv.includes('--presence-provider')
+          ? '^TestManagedPresenceRealProviderComparison$'
+          : process.argv.includes('--analytics')
+            ? '^TestAnalytics'
+            : 'TestManaged|TestAccountConnection',
         '-count=1',
+        '-timeout',
+        process.argv.includes('--presence-provider') ? '50m' : '10m',
         '-v',
       ],
       {
@@ -76,7 +80,14 @@ try {
           GOMAXPROCS: '2',
           GOFLAGS: '-p=2',
           AGENTNET_MANAGED_WORKER: 'false',
-          AGENTNET_RECRUITER_CATALOG_FILE: resolve('eigenflux/data/recruiters.json'),
+          AGENTNET_MANAGED_PRESENCE_ACCEPTANCE: process.argv.includes(
+            '--presence-provider',
+          )
+            ? 'true'
+            : 'false',
+          AGENTNET_RECRUITER_CATALOG_FILE: resolve(
+            'eigenflux/data/recruiters.json',
+          ),
           AGENTNET_MANAGED_TEST_DSN: `host=127.0.0.1 port=${port} user=postgres dbname=postgres sslmode=disable`,
         },
       },
@@ -105,9 +116,12 @@ try {
     );
     await verifyManagedLabelMigration(
       db,
-      (await readFile(
-        `${dir}/migrations/000136_remove_post_provenance.sql`, 'utf8',
-      )).split('-- +goose Down')[0],
+      (
+        await readFile(
+          `${dir}/migrations/000136_remove_post_provenance.sql`,
+          'utf8',
+        )
+      ).split('-- +goose Down')[0],
     );
     const down = (
       await readFile(`${dir}/migrations/000115_managed_community.sql`, 'utf8')

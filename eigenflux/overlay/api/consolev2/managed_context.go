@@ -23,7 +23,7 @@ type managedReplyInput struct {
 type managedPostHistory struct {
 	AuthorID string `json:"author_id"`
 	Title    string `json:"title"`
-	Body     string `json:"body"`
+	Body     string `json:"body,omitempty"`
 	Date     int64  `json:"date"`
 }
 type managedMessageTarget struct {
@@ -48,6 +48,7 @@ type managedContext struct {
 	RecentComments []managedReplyInput    `json:"recent_comments"`
 	Message        *managedMessageTarget  `json:"private_conversation,omitempty"`
 	Messages       []managedThreadMessage `json:"private_messages,omitempty"`
+	PublicEvents   []managedPublicEvent   `json:"public_events,omitempty"`
 	Targets        managedTargets         `json:"-"`
 }
 type managedThreadMessage struct {
@@ -61,7 +62,12 @@ type managedThreadMessage struct {
 func (s *Service) managedContext(ctx context.Context, job managedJob) (managedContext, error) {
 	c := managedContext{Targets: managedTargets{Enforced: true, Likes: map[int64]bool{}, Comments: map[int64]bool{}, Replies: map[int64]managedReplyInput{}, Messages: map[int64]managedMessageTarget{}}}
 	db := s.db.WithContext(ctx)
-	msg, thread, err := s.managedMessageCandidate(db, job)
+	var msg *managedMessageTarget
+	var thread []managedThreadMessage
+	var err error
+	if job.Action != "post" {
+		msg, thread, err = s.managedMessageCandidate(db, job)
+	}
 	if err != nil {
 		return c, err
 	}
@@ -70,6 +76,9 @@ func (s *Service) managedContext(ctx context.Context, job managedJob) (managedCo
 		c.Targets.Private = true
 		c.Targets.Messages[socialDecimal(msg.RecipientID)] = *msg
 		// Private messages are never fed to a post/comment generation round.
+		return c, nil
+	}
+	if job.Action == "message" {
 		return c, nil
 	}
 	err = db.Raw(`SELECT p.post_id::text AS id,
@@ -121,6 +130,9 @@ func (s *Service) managedContext(ctx context.Context, job managedJob) (managedCo
  FROM social_work_comments c JOIN social_work_posts p USING(post_id) JOIN managed_members m ON m.agent_id=c.agent_id
  WHERE m.sponsor_uid=? AND p.state='published' AND p.visibility='public' AND c.created_at>?
  AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2 AND ((b.from_uid=? AND b.to_uid=c.agent_id) OR (b.to_uid=? AND b.from_uid=c.agent_id) OR (b.from_uid=? AND b.to_uid=p.agent_id) OR (b.to_uid=? AND b.from_uid=p.agent_id))) ORDER BY c.created_at DESC LIMIT 8`, job.SponsorUID, time.Now().Add(-7*24*time.Hour).UnixMilli(), job.AgentID, job.AgentID, job.AgentID, job.AgentID).Scan(&c.RecentComments).Error
+	}
+	if err == nil && managedPresencePilot(job) {
+		c.PublicEvents, err = managedPublicEvents(db, job, time.Now())
 	}
 	return c, err
 }

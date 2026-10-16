@@ -26,6 +26,7 @@ export function ManagedRolePanel({
 }) {
   const [data, setData] = useState<RoleStatus>();
   const [topic, setTopic] = useState('');
+  const [taskKey, setTaskKey] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -88,8 +89,11 @@ export function ManagedRolePanel({
             try {
               await api(`console/managed/members/${session.agent_id}/run`, {
                 topic,
+                action: 'post',
+                request_key: taskKey,
               });
               setTopic('');
+              setTaskKey(crypto.randomUUID());
               setNotice('讨论已排队，请在活动回执查看结果。');
             } catch (e) {
               setError(feedbackMessage(e, '安排失败，请重试'));
@@ -105,7 +109,10 @@ export function ManagedRolePanel({
               maxLength={600}
               rows={5}
               value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              onChange={(e) => {
+                setTopic(e.target.value);
+                setTaskKey(crypto.randomUUID());
+              }}
             />
           </label>
           <p>

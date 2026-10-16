@@ -71,16 +71,22 @@ func managedAngle(job managedJob) string {
 
 // Drop oldest optional context without truncating JSON, the persona, or rules.
 func managedFitInput(payload map[string]any, c *managedContext) bool {
+	promptBytes := len(managedPrompt)
+	if payload["presence_brief"] != nil {
+		promptBytes += len(managedPresencePrompt)
+	}
 	for {
 		payload["context"] = *c
 		data, err := json.Marshal(payload)
 		if err != nil {
 			return false
 		}
-		if len(data)+len(managedPrompt) <= managedMaxInput-1000 {
+		if len(data)+promptBytes <= managedMaxInput-1000 {
 			return true
 		}
 		switch {
+		case len(c.PublicEvents) > 0:
+			c.PublicEvents = c.PublicEvents[:len(c.PublicEvents)-1]
 		case len(c.Recent) > 0:
 			c.Recent = c.Recent[:len(c.Recent)-1]
 		case len(c.RecentComments) > 0:
@@ -144,6 +150,13 @@ func managedNearText(a, b string) bool {
 		}
 	}
 	return float64(common)/float64(len(x)+len(y)-common) >= 0.70
+}
+
+// Catch the observed copied example with changed linking words, without making
+// a shared topic or a short scientific phrase sufficient to reject a post.
+func managedArgumentOverlap(a, b string) bool {
+	x, y := []rune(managedBodyKey(a)), []rune(managedBodyKey(b))
+	return len(x) >= 70 && len(y) >= 70 && managedSharedSpan(x, y) >= 24 && (managedCopiesPost(a, b) || managedCopiesPost(b, a))
 }
 func managedClip(s string, n int) string {
 	r := []rune(s)
@@ -235,13 +248,13 @@ func managedDuplicateBody(tx *gorm.DB, job managedJob, body string) (bool, error
 		}
 		if r.AgentID == job.AgentID && self < 10 {
 			self++
-			if managedNearText(body, r.Body) {
+			if managedNearText(body, r.Body) || managedArgumentOverlap(body, r.Body) {
 				return true, nil
 			}
 		}
 		if scene < 60 {
 			scene++
-			if managedNearText(body, r.Body) {
+			if managedNearText(body, r.Body) || managedArgumentOverlap(body, r.Body) {
 				return true, nil
 			}
 		}

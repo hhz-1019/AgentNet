@@ -154,6 +154,9 @@ const data = {
 let failedSave = true,
   loginCount = 0;
 let queuedRecipient = '';
+let queuedAction = '',
+  queuedSchedule;
+const queueKeys = [];
 let queuedTopic = '',
   queueBlocked = true;
 let returnedOperator = false;
@@ -191,6 +194,7 @@ await page.route('**/api/v2/**', async (route) => {
     return send({ revoked: 2 });
   }
   if (path.endsWith('/run')) {
+    queueKeys.push(body.request_key);
     if (queueBlocked) {
       queueBlocked = false;
       return route.fulfill({
@@ -205,7 +209,13 @@ await page.route('**/api/v2/**', async (route) => {
     }
     queuedTopic = body.topic;
     queuedRecipient = body.recipient_number;
-    return send({ queued: true });
+    queuedAction = body.action;
+    queuedSchedule = body.schedule;
+    return send({
+      queued: true,
+      task_id: body.request_key,
+      revision: body.schedule ? body.schedule.revision + 1 : 1,
+    });
   }
   if (path.endsWith('/managed/pause')) {
     data.campaign.enabled = false;
@@ -340,6 +350,9 @@ try {
   await page
     .getByText('角色已删除，活动和登录已停止。', { exact: true })
     .waitFor();
+  await page
+    .getByRole('button', { name: '编辑新角色验收', exact: true })
+    .waitFor({ state: 'detached' });
   assert.equal(await page.locator('tbody tr').count(), 100);
   await page
     .getByRole('combobox', { name: '筛选场景' })
@@ -369,8 +382,11 @@ try {
   await page
     .getByLabel('下一次讨论主题', { exact: true })
     .fill('用一个假设场景讨论共同制定团队规则');
+  await page.getByLabel('本次活动', { exact: true }).selectOption('message');
   await page.getByLabel('私信对象UID', { exact: true }).fill('10002');
-  await page.getByRole('button', { name: '安排一次活动', exact: true }).click();
+  await page
+    .getByRole('button', { name: '保存节奏并安排私信', exact: true })
+    .click();
   await page
     .getByRole('alert')
     .filter({ hasText: '已达到今日尝试上限，可修改上限或明日再安排' })
@@ -379,11 +395,23 @@ try {
     await page.getByLabel('下一次讨论主题', { exact: true }).inputValue(),
     '用一个假设场景讨论共同制定团队规则',
   );
-  await page.getByRole('button', { name: '安排一次活动', exact: true }).click();
+  await page
+    .getByRole('button', { name: '保存节奏并安排私信', exact: true })
+    .click();
   await page
     .getByText('已安排活动；仍遵守时段、预算与每日上限。', { exact: true })
     .waitFor();
   assert.equal(queuedRecipient, '10002');
+  assert.equal(queuedAction, 'message');
+  assert.equal(queuedSchedule.daily_limit, data.members[0].daily_limit);
+  assert.equal(queueKeys[0], queueKeys[1]);
+  assert.match(queueKeys[0], /^[a-f0-9-]{36}$/);
+  assert.equal(
+    await page
+      .getByRole('button', { name: '保存节奏并安排私信', exact: true })
+      .isDisabled(),
+    true,
+  );
   assert.equal(queuedTopic, '用一个假设场景讨论共同制定团队规则');
   await page
     .getByRole('button', { name: '撤销此角色的登录', exact: true })

@@ -152,7 +152,7 @@ func (s *Service) changeManagedArchive(ctx context.Context, c *app.RequestContex
 			state = "managed_archived"
 			action = "delete_member"
 		}
-		r := tx.Exec(`UPDATE managed_members SET enabled=false,deleted_at=?,pending_topic='',pending_recipient_id=NULL,revision=revision+1 WHERE agent_id=? AND sponsor_uid=? AND revision=? AND (deleted_at>0)=?`, deleted, id, owner, req.Revision, !remove)
+		r := tx.Exec(`UPDATE managed_members SET enabled=false,deleted_at=?,pending_topic='',pending_recipient_id=NULL,pending_action='',pending_task_id='',pending_task_digest='',revision=revision+1 WHERE agent_id=? AND sponsor_uid=? AND revision=? AND (deleted_at>0)=?`, deleted, id, owner, req.Revision, !remove)
 		if r.Error != nil {
 			return r.Error
 		}

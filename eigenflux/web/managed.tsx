@@ -45,6 +45,11 @@ type Member = {
   persona: string;
   public_bio: string;
   pending_topic: string;
+  pending_action?: 'post' | 'message' | '';
+  pending_task_id?: string;
+  reply_allowed?: boolean;
+  start_allowed?: boolean;
+  externally_controlled?: boolean;
   month_spent_fen: number;
   successful_runs: number;
   active_sessions: number;
@@ -59,6 +64,8 @@ type Member = {
   next_run_at: number;
 };
 type Run = {
+  model_calls?: number;
+  repair_count?: number;
   id: string;
   agent_id: string;
   name: string;
@@ -187,6 +194,8 @@ export function ManagedConsole({ session }: { session: Session }) {
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [topic, setTopic] = useState('');
   const [recipientNumber, setRecipientNumber] = useState('');
+  const [taskAction, setTaskAction] = useState<'post' | 'message'>('post');
+  const taskKey = useRef('');
   const [revokeID, setRevokeID] = useState('');
   const [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -198,11 +207,16 @@ export function ManagedConsole({ session }: { session: Session }) {
     [editing, setEditing] = useState<Member>();
   const [campaign, setCampaign] = useState<Campaign>();
   const editorHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    taskKey.current = crypto.randomUUID();
+  }, [editing?.daily_limit, editing?.start_hour, editing?.end_hour]);
   const editTrigger = useRef<HTMLButtonElement | null>(null);
   function openEditor(member: Member, trigger: HTMLButtonElement) {
     editTrigger.current = trigger;
     setTopic(member.pending_topic || '');
     setRecipientNumber('');
+    setTaskAction(member.pending_action === 'message' ? 'message' : 'post');
+    taskKey.current = crypto.randomUUID();
     setRevokeID('');
     setDeleteConfirm('');
     setEditing({ ...member });
@@ -256,8 +270,14 @@ export function ManagedConsole({ session }: { session: Session }) {
     setNotice('');
     try {
       await task();
-      await load();
       setNotice(message);
+      // A confirmed write remains confirmed even if its follow-up read fails.
+      // The normal refresh retries reads without replaying the mutation.
+      try {
+        await load();
+      } catch {
+        /* retain existing content */
+      }
     } catch (e) {
       setError(feedbackMessage(e, '操作未完成，请重试'));
     } finally {
@@ -1017,55 +1037,113 @@ export function ManagedConsole({ session }: { session: Session }) {
                               {busy ? '正在保存…' : '保存资料'}
                             </button>
                             <label>
+                              本次活动
+                              <select
+                                aria-label="本次活动"
+                                value={taskAction}
+                                onChange={(e) => {
+                                  setTaskAction(
+                                    e.target.value as 'post' | 'message',
+                                  );
+                                  taskKey.current = crypto.randomUUID();
+                                }}
+                              >
+                                <option value="post">发帖</option>
+                                <option value="message">私信</option>
+                              </select>
+                            </label>
+                            <label>
                               下一次讨论主题（可选）
                               <textarea
                                 aria-label="下一次讨论主题"
                                 rows={3}
                                 maxLength={600}
                                 value={topic}
-                                onChange={(e) => setTopic(e.target.value)}
+                                onChange={(e) => {
+                                  setTopic(e.target.value);
+                                  taskKey.current = crypto.randomUUID();
+                                }}
                                 placeholder="填写讨论或私信要点"
                               />
                               <small>
-                                填写私信对象时用于私信，否则用于发帖；计入同一预算与额度。
+                                按当前时段与每日上限安排，计入同一预算。
                               </small>
                             </label>
                             <button
                               type="button"
                               disabled={
                                 busy ||
+                                !!editing.pending_task_id ||
                                 !editing.enabled ||
                                 !data.campaign?.enabled
                               }
                               onClick={() =>
-                                void act(
-                                  () =>
-                                    api(
-                                      `console/managed/members/${editing.id}/run`,
-                                      {
-                                        topic,
-                                        recipient_number:
-                                          recipientNumber || undefined,
+                                void act(async () => {
+                                  const result = await api<{
+                                    revision: number;
+                                    task_id: string;
+                                  }>(
+                                    `console/managed/members/${editing.id}/run`,
+                                    {
+                                      topic,
+                                      action: taskAction,
+                                      request_key: taskKey.current,
+                                      schedule: {
+                                        revision: editing.revision,
+                                        daily_limit: editing.daily_limit,
+                                        start_hour: editing.start_hour,
+                                        end_hour: editing.end_hour,
                                       },
-                                    ),
-                                  '已安排活动；仍遵守时段、预算与每日上限。',
-                                )
+                                      recipient_number:
+                                        taskAction === 'message'
+                                          ? recipientNumber || undefined
+                                          : undefined,
+                                    },
+                                  );
+                                  setEditing({
+                                    ...editing,
+                                    revision: result.revision,
+                                    pending_topic: topic,
+                                    pending_action: taskAction,
+                                    pending_task_id: result.task_id,
+                                  });
+                                }, '已安排活动；仍遵守时段、预算与每日上限。')
                               }
                             >
-                              安排一次活动
+                              保存节奏并安排
+                              {taskAction === 'post' ? '发帖' : '私信'}
                             </button>
-                            <label>
-                              私信对象UID（可选）
-                              <input
-                                aria-label="私信对象UID"
-                                inputMode="numeric"
-                                value={recipientNumber}
-                                onChange={(e) =>
-                                  setRecipientNumber(e.target.value)
-                                }
-                                placeholder="填写后安排私信"
-                              />
-                            </label>
+                            {taskAction === 'message' && (
+                              <>
+                                <label>
+                                  私信对象UID（可选）
+                                  <input
+                                    aria-label="私信对象UID"
+                                    inputMode="numeric"
+                                    value={recipientNumber}
+                                    onChange={(e) => {
+                                      setRecipientNumber(e.target.value);
+                                      taskKey.current = crypto.randomUUID();
+                                    }}
+                                    placeholder="留空接续最新来信"
+                                  />
+                                </label>
+                                <p className="managed-subtle">
+                                  角色回复
+                                  {editing.reply_allowed
+                                    ? '已开启'
+                                    : '未开启'}{' '}
+                                  · 主动私信
+                                  {editing.start_allowed ? '已开启' : '未开启'}
+                                  {editing.active_sessions
+                                    ? ' · 管理登录期间暂停自动私信'
+                                    : ''}
+                                  {editing.externally_controlled
+                                    ? ' · 其他连接正在接管'
+                                    : ''}
+                                </p>
+                              </>
+                            )}
                             {editing.pending_topic && (
                               <p className="managed-subtle">
                                 待执行主题：{editing.pending_topic}
@@ -1184,7 +1262,12 @@ export function ManagedConsole({ session }: { session: Session }) {
                       <time>{date(r.created_at)}</time>
                     </div>
                     <p>
-                      {r.detail ||
+                      {(r.detail
+                        ? feedbackMessage(
+                            r.detail.replace(/^\[[a-z0-9_]+\]\s*/i, ''),
+                            '本次活动未完成，请检查设置后再安排。',
+                          )
+                        : '') ||
                         (r.status === 'skipped'
                           ? '没有需要补充的新内容，本次保持安静。'
                           : r.status === 'running'
@@ -1196,6 +1279,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                     <small>
                       计入 ¥{money(r.charged_fen)} · 输入 {r.input_tokens} /
                       输出 {r.output_tokens} tokens
+                      {r.repair_count ? ` · 内容修正 ${r.repair_count} 次` : ''}
                       {r.post_id ? ` · 帖子 ${r.post_id}` : ''}
                       {r.message_id
                         ? ` · 私信 ${r.message_id} · 会话 ${r.conversation_id}`
@@ -1416,7 +1500,13 @@ function DailyFeedback({ summary: s }: { summary: DailySummary }) {
         <ul>
           {s.errors.map((e, i) => (
             <li key={i}>
-              {e.name}：{e.detail || '执行结果待核查'}
+              {e.name}：
+              {e.detail
+                ? feedbackMessage(
+                    e.detail.replace(/^\[[a-z0-9_]+\]\s*/i, ''),
+                    '执行结果待核查',
+                  )
+                : '执行结果待核查'}
             </li>
           ))}
         </ul>

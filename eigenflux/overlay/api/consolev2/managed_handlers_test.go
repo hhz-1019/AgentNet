@@ -519,6 +519,7 @@ func TestManagedFullSchema(t *testing.T) {
 	// A quiet turn must not call the provider or retain a billing reservation.
 	quiet := *queued
 	quiet.Topic = ""
+	quiet.Action = ""
 	quiet.RunID = 9000000
 	for managedVariation(quiet.AgentID, quiet.RunID, "participation")%100 >= 45 {
 		quiet.RunID++

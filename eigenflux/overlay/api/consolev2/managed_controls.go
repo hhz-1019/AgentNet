@@ -84,6 +84,9 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 // Call under the same advisory lock used by the scheduler; queueing cannot
 // promise execution while the budget, hours, or daily policy reject the task.
 func managedQueueBlock(tx *gorm.DB, owner string, id int64, now time.Time) (string, error) {
+	return managedQueueBlockWithSchedule(tx, owner, id, now, nil)
+}
+func managedQueueBlockWithSchedule(tx *gorm.DB, owner string, id int64, now time.Time, schedule *managedQueueSchedule) (string, error) {
 	var member struct {
 		AgentID                        int64
 		Enabled                        bool
@@ -94,6 +97,11 @@ func managedQueueBlock(tx *gorm.DB, owner string, id int64, now time.Time) (stri
 	}
 	if member.AgentID == 0 {
 		return "", errUnauthorized
+	}
+	if schedule != nil {
+		member.DailyLimit = schedule.DailyLimit
+		member.StartHour = schedule.StartHour
+		member.EndHour = schedule.EndHour
 	}
 	var campaign managedCampaign
 	if err := tx.Raw(`SELECT * FROM managed_campaigns WHERE sponsor_uid=? FOR UPDATE`, owner).Scan(&campaign).Error; err != nil {
