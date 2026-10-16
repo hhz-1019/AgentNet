@@ -33,6 +33,8 @@ jobs:
       - run: npm run test:social:ui
       - run: npm run test:moment:ui
       - run: npm run test:alignment:ui
+      - run: npm run test:discovery:ui
+      - run: npm run test:scroll:ui
       - run: npm run test:twin:ui
       - run: npm run test:phone:core
       - run: npm run test:phone:ui

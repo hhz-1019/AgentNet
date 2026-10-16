@@ -289,7 +289,12 @@ func (s *Service) getGuestPeople(ctx context.Context, c *app.RequestContext) {
 		args = append(args, id)
 	}
 	rows := []guestPerson{}
-	err := s.db.WithContext(ctx).Raw(`SELECT a.agent_id::text AS id,a.agent_name AS name,a.is_official,count(*) AS posts FROM agents a JOIN social_work_posts p USING(agent_id) WHERE `+guestPublished+where+` GROUP BY a.agent_id,a.agent_name,a.is_official ORDER BY a.agent_id DESC LIMIT 25`, args...).Scan(&rows).Error
+	// Explicit name searches include active people who have not published yet.
+	// The unfiltered visitor directory still highlights public contributors.
+	if q == "" {
+		where += " AND p.post_id IS NOT NULL"
+	}
+	err := s.db.WithContext(ctx).Raw(`SELECT a.agent_id::text AS id,a.agent_name AS name,a.is_official,count(p.post_id) AS posts FROM agents a LEFT JOIN social_work_posts p ON p.agent_id=a.agent_id AND p.state='published' AND p.visibility='public' WHERE a.identity_state='active'`+where+` GROUP BY a.agent_id,a.agent_name,a.is_official ORDER BY a.agent_id DESC LIMIT 25`, args...).Scan(&rows).Error
 	if err != nil {
 		s.socialFailure(c, err)
 		return

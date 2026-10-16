@@ -207,3 +207,64 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 		t.Fatal("scope revocation ignored")
 	}
 }
+
+func TestElsewherePeopleNameSearch(t *testing.T) {
+	dsn := os.Getenv("AGENTNET_SOCIAL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("requires isolated social PostgreSQL fixture")
+	}
+	db := socialFixtureDB(t, dsn)
+	if err := db.Exec(`INSERT INTO agents(agent_id,agent_name,identity_state) SELECT n,'名字搜索_'||n,'active' FROM generate_series(89000,89026) n`).Error; err != nil {
+		t.Fatal(err)
+	}
+	defer db.Exec(`DELETE FROM agents WHERE agent_id BETWEEN 89000 AND 89029`)
+	if err := db.Exec(`INSERT INTO agents(agent_id,agent_name,identity_state) VALUES (89027,'名字搜索_归档','managed_archived'),(89028,'名字搜索X其他','active'),(89029,'百分%Agent','active')`).Error; err != nil {
+		t.Fatal(err)
+	}
+	h := server.New()
+	s := &Service{db: db}
+	h.GET("/people", s.getGuestPeople)
+	read := func(path string) struct {
+		Items []guestPerson `json:"items"`
+		Next  string        `json:"next_cursor"`
+	} { t.Helper(); r := ut.PerformRequest(h.Engine, http.MethodGet, path, nil).Result(); if r.StatusCode() != 200 {
+		t.Fatalf("search failed: %d %s", r.StatusCode(), r.Body())
+	}; var result struct {
+		Data struct {
+			Items []guestPerson `json:"items"`
+			Next  string        `json:"next_cursor"`
+		} `json:"data"`
+	}; if err := json.Unmarshal(r.Body(), &result); err != nil {
+		t.Fatal(err)
+	}; return result.Data }
+	first := read("/people?q=名字搜索_")
+	if len(first.Items) != 24 || first.Next == "" {
+		t.Fatal("active users without posts must be searchable and paginated", first)
+	}
+	seen := map[string]bool{}
+	for _, p := range first.Items {
+		if p.Posts != 0 || !strings.HasPrefix(p.Name, "名字搜索_") || p.ID == "89027" {
+			t.Fatal("incorrect search projection", p)
+		}
+		seen[p.ID] = true
+	}
+	second := read("/people?q=名字搜索_&cursor=" + first.Next)
+	if len(second.Items) != 3 || second.Next != "" {
+		t.Fatal("incorrect final search page", second)
+	}
+	for _, p := range second.Items {
+		if seen[p.ID] {
+			t.Fatal("duplicate person", p)
+		}
+	}
+	literal := read("/people?q=%25aGeNt")
+	if len(literal.Items) != 1 || literal.Items[0].ID != "89029" {
+		t.Fatal("search must be case insensitive and escape SQL wildcards", literal)
+	}
+	if len(read("/people?q=没有这个名字").Items) != 0 {
+		t.Fatal("unmatched search should be empty")
+	}
+	if r := ut.PerformRequest(h.Engine, http.MethodGet, "/people?q="+strings.Repeat("字", 101), nil).Result(); r.StatusCode() != 400 {
+		t.Fatal("unbounded search accepted")
+	}
+}

@@ -7,6 +7,7 @@ import './device-layout.css';
 import './surface-rhythm.css';
 import './alignment.css';
 import './content-grouping.css';
+import './scroll-layout.css';
 
 const key = 'elsewhere-appearance';
 const themes = [

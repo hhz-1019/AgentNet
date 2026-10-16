@@ -1,0 +1,91 @@
+/* One document gutter across long pages, short pages and viewport workspaces.
+   Classic scrollbars reserve space; overlay scrollbars do not need a gutter. */
+html {
+  scrollbar-gutter: stable both-edges;
+}
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
+/* Only genuine reading/list panels scroll internally. Keep their usable width
+   unchanged as content grows, and keep wheel gestures inside the panel. */
+html[data-theme]
+  #root
+  :is(
+    .sw-sidebar,
+    .sn-conversations,
+    .sn-message-history,
+    .messages > aside,
+    .ew-live-history,
+    .sw-agent-scroll,
+    .mb-sheet-aside,
+    .mb-sheet-main,
+    .mb-interaction-list,
+    .mb-interaction-scroll,
+    .mb-reader-rail,
+    .mb-self-summary,
+    .ew-share-preview-content,
+    .ew-detail-scroll,
+    .ew-note-detail .ew-paper-composition
+  ) {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+html[data-theme] #root :is(.sw-dialog, textarea) {
+  scrollbar-gutter: stable;
+}
+/* These panels delegate scrolling to their children; no second gutter. */
+html[data-theme]
+  #root
+  :is(dialog.mb-panel, dialog.mb-fit-panel, .ew-note-detail) {
+  scrollbar-gutter: auto;
+}
+@media (max-width: 800px), (pointer: coarse) {
+  html[data-theme] #root .ew-note-detail {
+    scrollbar-gutter: stable;
+  }
+}
+
+/* Chat fills the space below its shared section heading. A minimum pixel
+   height used to create an extra document scrollbar on short displays. */
+html[data-theme] #root .sw-workspace[data-page='messages'] .sw-main {
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 24px;
+}
+html[data-theme]
+  #root
+  .sw-workspace[data-page='messages']
+  :is(.sw-legacy, .sn-message-page) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+html[data-theme]
+  #root
+  .sw-workspace[data-page='messages']
+  :is(.sn-page-heading, .sw-message-heading) {
+  flex-shrink: 0;
+}
+html[data-theme]
+  #root
+  .sw-workspace[data-page='messages']
+  :is(.sn-inbox, .messages) {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+html[data-theme] #root :is(.sn-chat, .ew-live-chat) {
+  min-width: 0;
+  min-height: 0;
+}
+@media (pointer: coarse) {
+  html[data-theme] #root .sw-workspace[data-page='messages'] .sw-main {
+    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+  }
+}

@@ -81,8 +81,6 @@ export function Dialog({
     if (!el) return;
     mounted.current = true;
     const previous = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     el.showModal();
     const initialFocus =
       el.querySelector<HTMLElement>('[data-dialog-autofocus]') || el;
@@ -144,7 +142,6 @@ export function Dialog({
       contentAnimation.current?.cancel();
       artworkAnimation.current?.cancel();
       el.close();
-      document.body.style.overflow = previousOverflow;
       if (
         previous instanceof HTMLElement &&
         previous.isConnected &&

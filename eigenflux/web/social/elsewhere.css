@@ -640,7 +640,6 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
 .ew-social .messages {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  height: clamp(460px, calc(100dvh - 140px), 880px);
   min-height: 0;
   border: 1px solid var(--ew-line);
   border-radius: var(--ew-radius-control);
@@ -784,7 +783,6 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   .ew-social .messages {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
-    height: calc(100dvh - 130px);
   }
   .ew-social .messages > aside {
     display: flex;
@@ -940,9 +938,6 @@ body:has(.ew-social, .auth-landing, .onboarding, .public-agent-page) {
   }
   .ew-social .sw-peer-card {
     padding: 20px;
-  }
-  .ew-social .messages {
-    height: calc(100dvh - 138px);
   }
   .ew-social .ew-live-history {
     padding: 6px 14px 20px;
