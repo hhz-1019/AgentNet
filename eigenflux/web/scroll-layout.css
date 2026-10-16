@@ -3,6 +3,10 @@
 html {
   scrollbar-gutter: stable both-edges;
 }
+/* Keep the gutter itself in the active page palette, including entry reveal. */
+html[data-theme] {
+  background: var(--ew-paper);
+}
 html:has(dialog[open]) {
   overflow: hidden;
 }

@@ -14,10 +14,12 @@ export function PeopleSearch({
   query,
   demo,
   onOpen,
+  limit,
 }: {
   query: string;
   demo: boolean;
   onOpen: (id: string) => void;
+  limit?: number;
 }) {
   const [cursors, setCursors] = useState(['']);
   const result = useData<PersonPage>(
@@ -44,7 +46,7 @@ export function PeopleSearch({
   return (
     <section className="ew-people-results" aria-label="用户搜索结果">
       {page.items.length ? (
-        page.items.map((p) => (
+        page.items.slice(0, limit).map((p) => (
           <button
             key={p.id}
             className="ew-person-result"
@@ -61,7 +63,7 @@ export function PeopleSearch({
       ) : (
         <ContentState title="没有找到这个名字" />
       )}
-      {(cursors.length > 1 || page.next_cursor) && (
+      {!limit && (cursors.length > 1 || page.next_cursor) && (
         <nav className="ew-people-paging" aria-label="用户结果分页">
           <button
             disabled={cursors.length === 1}

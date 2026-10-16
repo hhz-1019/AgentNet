@@ -6,7 +6,13 @@
   visibility: hidden !important;
 }
 .ew-brand-entry::backdrop {
+  background: #302c26;
+}
+.ew-brand-entry[data-entry-phase='reveal']::backdrop {
   background: transparent;
+}
+html[data-theme]:has(.ew-brand-entry[open]:not([data-entry-phase='reveal'])) {
+  background: #302c26;
 }
 .ew-brand-entry {
   position: fixed;

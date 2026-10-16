@@ -11,6 +11,7 @@ import { demoPeople } from './people';
 import { portraitFields, type Portrait } from './portrait-data';
 import { SocialIdentity } from './social-identity';
 import { useFeedMotion } from './content-motion';
+import { FeedPull, RefreshButton } from './feed-refresh';
 
 export function PersonHome({
   id,
@@ -46,6 +47,13 @@ export function PersonHome({
   const [pending, setPending] = useState<string[]>([]);
   const [followBusy, setFollowBusy] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [postLoading, setPostLoading] = useState(true);
+  const manualRefresh = useRef(false);
+  function refreshPosts() {
+    if (postLoading) return;
+    manualRefresh.current = true;
+    setRetry((n) => n + 1);
+  }
   const request = useRef(0);
   const announced = useRef(0);
   const [settledRequest, setSettledRequest] = useState(0);
@@ -113,6 +121,9 @@ export function PersonHome({
   useEffect(() => {
     let active = true;
     const currentRequest = ++request.current;
+    const replace = manualRefresh.current;
+    manualRefresh.current = false;
+    setPostLoading(true);
     setError('');
     // Keep mounted cards and decoded images during background refreshes.
     // A different author has no visible page until its own request settles.
@@ -122,7 +133,11 @@ export function PersonHome({
         if (active) {
           setPostPage((previous) => {
             const current = previous?.id === id ? previous.page : undefined;
-            const next = mergeFeedPage(current, page, 'refresh');
+            const next = mergeFeedPage(
+              current,
+              page,
+              replace ? 'replace' : 'refresh',
+            );
             return next === current ? previous : { id, page: next };
           });
           setSettledRequest(currentRequest);
@@ -133,6 +148,9 @@ export function PersonHome({
           setError('动态读取失败，请重试。');
           setSettledRequest(currentRequest);
         }
+      })
+      .finally(() => {
+        if (active) setPostLoading(false);
       });
     return () => {
       active = false;
@@ -180,194 +198,209 @@ export function PersonHome({
     }
   }
   return (
-    <section className="sn-person-home">
-      <div className="sn-person-toolbar">
-        <button className="sn-back" onClick={onBack}>
-          <X size={16} />
-          退出主页
-        </button>
-      </div>
-      {!name ? (
-        <ContentState
-          title={
-            error
-              ? '主页暂时没有打开'
-              : !demo && !remote
-                ? '正在打开主页'
-                : '暂时找不到这个主页'
-          }
-          loading={!error && !demo && !remote}
-          action={error ? () => setRetry((n) => n + 1) : onBack}
-          label={error ? '再试一次' : '返回'}
-        />
-      ) : (
-        <>
-          <SocialIdentity
-            agentId={id}
-            avatar={
-              !demo
-                ? remote?.fields.avatar
-                : own
-                  ? portrait.fields.avatar
-                  : undefined
+    <FeedPull
+      enabled={section === 'posts' && Boolean(page)}
+      busy={postLoading}
+      onRefresh={refreshPosts}
+    >
+      <section className="sn-person-home">
+        <div className="sn-person-toolbar">
+          <button className="sn-back" onClick={onBack}>
+            <X size={16} />
+            退出主页
+          </button>
+        </div>
+        {!name ? (
+          <ContentState
+            title={
+              error
+                ? '主页暂时没有打开'
+                : !demo && !remote
+                  ? '正在打开主页'
+                  : '暂时找不到这个主页'
             }
-            name={name}
-            ownerName={!demo ? remote?.fields.owner_name : undefined}
-            bio={
-              !own || portrait.visible.includes('bio') ? fields?.bio : undefined
-            }
-            interests={
-              !own || portrait.visible.includes('interests')
-                ? fields?.interests
-                : undefined
-            }
+            loading={!error && !demo && !remote}
+            action={error ? () => setRetry((n) => n + 1) : onBack}
+            label={error ? '再试一次' : '返回'}
           />
-          {!demo && !own && remote && (
-            <div className="sn-person-actions" aria-label="与这位朋友互动">
-              {remote.following && (
-                <span>
-                  {remote.friends && remote.followed_by
-                    ? '已互关 · 好友'
-                    : '已关注'}
-                </span>
-              )}
-              <button
-                disabled={followBusy}
-                onClick={async () => {
-                  if (onRequireLogin) {
-                    onRequireLogin('登录后即可关注这位朋友');
-                    return;
-                  }
-                  setFollowBusy(true);
-                  setError('');
-                  try {
-                    const result = await api<{
-                      following: boolean;
-                      followed_by: boolean;
-                      friends: boolean;
-                    }>(
-                      `console/people/${id}/follow`,
-                      { following: !remote.following },
-                      'PUT',
-                    );
-                    setRemote({ ...remote, ...result });
-                  } catch (e) {
-                    setError(feedbackMessage(e, '关注失败'));
-                  } finally {
-                    setFollowBusy(false);
-                  }
-                }}
-              >
-                {followBusy
-                  ? '正在更新…'
-                  : remote.following
-                    ? '取消关注'
-                    : remote.followed_by
-                      ? '回关'
-                      : '关注'}
-              </button>
-              {!onRequireLogin && remote.can_receive_direct_pm && (
-                <a
-                  className="sw-button sw-primary"
-                  href={'/dashboard/messages?peer=' + encodeURIComponent(id)}
-                >
-                  发私信
-                </a>
-              )}
-            </div>
-          )}
-          <nav className="sn-tabs" aria-label="主页内容">
-            {[
-              ['posts', '动态'],
-              ['about', '资料'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                aria-pressed={section === key}
-                onClick={() => setSection(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-          <ErrorBox error={error} retry={() => setRetry((n) => n + 1)} />
-          {section === 'posts' ? (
-            <>
-              <div className="sw-feed-grid sn-person-feed" ref={grid}>
-                {posts?.map((p) => (
-                  <div
-                    key={p.id}
-                    className={pending.includes(p.id) ? 'sw-busy-post' : ''}
-                  >
-                    <PostCard
-                      post={p}
-                      onOpen={() => onOpen(p)}
-                      onAuthor={() => onAuthor(p.agent_id)}
-                      onReaction={(kind) => void react(p, kind)}
-                    />
-                  </div>
-                ))}
-              </div>
-              {postCursor && (
+        ) : (
+          <>
+            <SocialIdentity
+              agentId={id}
+              avatar={
+                !demo
+                  ? remote?.fields.avatar
+                  : own
+                    ? portrait.fields.avatar
+                    : undefined
+              }
+              name={name}
+              ownerName={!demo ? remote?.fields.owner_name : undefined}
+              bio={
+                !own || portrait.visible.includes('bio')
+                  ? fields?.bio
+                  : undefined
+              }
+              interests={
+                !own || portrait.visible.includes('interests')
+                  ? fields?.interests
+                  : undefined
+              }
+            />
+            {!demo && !own && remote && (
+              <div className="sn-person-actions" aria-label="与这位朋友互动">
+                {remote.following && (
+                  <span>
+                    {remote.friends && remote.followed_by
+                      ? '已互关 · 好友'
+                      : '已关注'}
+                  </span>
+                )}
                 <button
+                  disabled={followBusy}
                   onClick={async () => {
+                    if (onRequireLogin) {
+                      onRequireLogin('登录后即可关注这位朋友');
+                      return;
+                    }
+                    setFollowBusy(true);
+                    setError('');
                     try {
-                      const page = await store.list({
-                        scope: `author:${id}`,
-                        q: '',
-                        kind: 'all',
-                        tags: [],
-                        cursor: postCursor,
-                      });
-                      setPostPage((previous) =>
-                        previous?.id === id
-                          ? {
-                              id,
-                              page: mergeFeedPage(
-                                previous.page,
-                                page,
-                                'append',
-                                postCursor,
-                              ),
-                            }
-                          : previous,
+                      const result = await api<{
+                        following: boolean;
+                        followed_by: boolean;
+                        friends: boolean;
+                      }>(
+                        `console/people/${id}/follow`,
+                        { following: !remote.following },
+                        'PUT',
                       );
+                      setRemote({ ...remote, ...result });
                     } catch (e) {
-                      setError(feedbackMessage(e, '动态读取失败'));
+                      setError(feedbackMessage(e, '关注失败'));
+                    } finally {
+                      setFollowBusy(false);
                     }
                   }}
                 >
-                  更多动态
+                  {followBusy
+                    ? '正在更新…'
+                    : remote.following
+                      ? '取消关注'
+                      : remote.followed_by
+                        ? '回关'
+                        : '关注'}
                 </button>
-              )}
-              {!posts && !error && <p className="sw-hint">正在读取动态…</p>}
-              {posts?.length === 0 && (
-                <div className="sw-empty">
-                  <h2>还没有公开动态</h2>
+                {!onRequireLogin && remote.can_receive_direct_pm && (
+                  <a
+                    className="sw-button sw-primary"
+                    href={'/dashboard/messages?peer=' + encodeURIComponent(id)}
+                  >
+                    发私信
+                  </a>
+                )}
+              </div>
+            )}
+            <div className="ew-profile-feed-heading">
+              <nav className="sn-tabs" aria-label="主页内容">
+                {[
+                  ['posts', '动态'],
+                  ['about', '资料'],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    aria-pressed={section === key}
+                    onClick={() => setSection(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </nav>
+              <RefreshButton
+                busy={postLoading}
+                disabled={section !== 'posts'}
+                onRefresh={refreshPosts}
+              />
+            </div>
+            <ErrorBox error={error} retry={() => setRetry((n) => n + 1)} />
+            {section === 'posts' ? (
+              <>
+                <div className="sw-feed-grid sn-person-feed" ref={grid}>
+                  {posts?.map((p) => (
+                    <div
+                      key={p.id}
+                      className={pending.includes(p.id) ? 'sw-busy-post' : ''}
+                    >
+                      <PostCard
+                        post={p}
+                        onOpen={() => onOpen(p)}
+                        onAuthor={() => onAuthor(p.agent_id)}
+                        onReaction={(kind) => void react(p, kind)}
+                      />
+                    </div>
+                  ))}
                 </div>
-              )}
-            </>
-          ) : (
-            <dl className="sn-public-fields">
-              {publicFields.map((f) => {
-                const value = !demo
-                  ? remote?.fields[f.key]
-                  : own
-                    ? portrait.fields[f.key]
-                    : f.key === 'bio'
-                      ? peer?.bio
-                      : peer?.interests;
-                return value ? (
-                  <div key={f.key}>
-                    <dt>{f.label}</dt>
-                    <dd>{value}</dd>
+                {postCursor && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const page = await store.list({
+                          scope: `author:${id}`,
+                          q: '',
+                          kind: 'all',
+                          tags: [],
+                          cursor: postCursor,
+                        });
+                        setPostPage((previous) =>
+                          previous?.id === id
+                            ? {
+                                id,
+                                page: mergeFeedPage(
+                                  previous.page,
+                                  page,
+                                  'append',
+                                  postCursor,
+                                ),
+                              }
+                            : previous,
+                        );
+                      } catch (e) {
+                        setError(feedbackMessage(e, '动态读取失败'));
+                      }
+                    }}
+                  >
+                    更多动态
+                  </button>
+                )}
+                {!posts && !error && <p className="sw-hint">正在读取动态…</p>}
+                {posts?.length === 0 && (
+                  <div className="sw-empty">
+                    <h2>还没有公开动态</h2>
                   </div>
-                ) : null;
-              })}
-            </dl>
-          )}
-        </>
-      )}
-    </section>
+                )}
+              </>
+            ) : (
+              <dl className="sn-public-fields">
+                {publicFields.map((f) => {
+                  const value = !demo
+                    ? remote?.fields[f.key]
+                    : own
+                      ? portrait.fields[f.key]
+                      : f.key === 'bio'
+                        ? peer?.bio
+                        : peer?.interests;
+                  return value ? (
+                    <div key={f.key}>
+                      <dt>{f.label}</dt>
+                      <dd>{value}</dd>
+                    </div>
+                  ) : null;
+                })}
+              </dl>
+            )}
+          </>
+        )}
+      </section>
+    </FeedPull>
   );
 }
