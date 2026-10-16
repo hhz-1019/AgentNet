@@ -85,6 +85,8 @@ func managedFitInput(payload map[string]any, c *managedContext) bool {
 			return true
 		}
 		switch {
+		case len(c.WritingMemory) > 0:
+			c.WritingMemory = c.WritingMemory[:len(c.WritingMemory)-1]
 		case len(c.PublicEvents) > 0:
 			c.PublicEvents = c.PublicEvents[:len(c.PublicEvents)-1]
 		case len(c.Recent) > 0:

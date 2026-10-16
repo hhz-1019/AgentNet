@@ -19,7 +19,7 @@ func TestManagedPresenceRealProviderComparison(t *testing.T) {
 	if !managedModelConfigured() {
 		t.Fatal("configure the platform model privately before paid comparison")
 	}
-	count := 5
+	count := 15
 	if value := os.Getenv("AGENTNET_MANAGED_PRESENCE_SAMPLES"); value != "" {
 		n, err := strconv.Atoi(value)
 		if err != nil || n < 1 || n > 15 {
@@ -51,13 +51,17 @@ func TestManagedPresenceRealProviderComparison(t *testing.T) {
 	for i, seed := range managedPresenceSeeds[:count] {
 		role := managedCatalog()[seed]
 		job := managedJob{AgentID: int64(1000 + seed), RunID: 1, SeedIndex: &seed, Name: role.Name, Scenario: role.Scenario, Persona: role.Persona, Action: "post", Topic: topics[i/5]}
-		for _, variant := range []string{"A_current_local", "B_presence_pilot"} {
+		for _, variant := range []string{"A_previous_presence", "B_presence_v2"} {
 			payload := map[string]any{"name": job.Name, "persona": job.Persona, "scenario": job.Scenario, "character_brief": job.characterBrief(), "operator_topic": job.Topic, "required_action": "post", "angle_hint": managedAngle(job), "writing_brief": managedWritingBrief(job.AgentID, job.RunID), "perspective_brief": managedPerspective(job, 0), "context": managedContext{}}
-			if variant == "B_presence_pilot" {
-				managedApplyPresence(payload, job)
-			}
+			managedApplyPresence(payload, job)
 			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-			result, callErr := callManagedModel(ctx, payload)
+			var result managedModelResult
+			var callErr error
+			if variant == "A_previous_presence" {
+				result, callErr = callManagedModelWithPrompt(ctx, payload, managedPrompt+managedPresencePromptV1)
+			} else {
+				result, callErr = callManagedModel(ctx, payload)
+			}
 			cancel()
 			originalDraft := result.Value
 			summaryRepaired := false

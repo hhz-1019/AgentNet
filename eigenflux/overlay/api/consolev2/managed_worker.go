@@ -228,20 +228,22 @@ func (s *Service) managedReplyLoop() {
 }
 
 type managedOutput struct {
-	Review           managedReview  `json:"review"`
-	Action           string         `json:"action"`
-	Document         socialDocument `json:"document"`
-	PostID           string         `json:"post_id"`
-	Content          string         `json:"content"`
-	PhotoQuery       string         `json:"photo_query"`
-	PhotoSubject     string         `json:"photo_subject"`
-	SourceIDs        []string       `json:"source_ids"`
-	ReplyToCommentID string         `json:"reply_to_comment_id"`
-	RecipientID      string         `json:"recipient_id"`
-	ConversationID   string         `json:"conversation_id"`
-	ReplyToMessageID string         `json:"reply_to_message_id"`
+	WritingCard      managedWritingCard `json:"writing_card"`
+	Review           managedReview      `json:"review"`
+	Action           string             `json:"action"`
+	Document         socialDocument     `json:"document"`
+	PostID           string             `json:"post_id"`
+	Content          string             `json:"content"`
+	PhotoQuery       string             `json:"photo_query"`
+	PhotoSubject     string             `json:"photo_subject"`
+	SourceIDs        []string           `json:"source_ids"`
+	ReplyToCommentID string             `json:"reply_to_comment_id"`
+	RecipientID      string             `json:"recipient_id"`
+	ConversationID   string             `json:"conversation_id"`
+	ReplyToMessageID string             `json:"reply_to_message_id"`
 }
 type managedModelResult struct {
+	WritingTrace          managedWritingTrace
 	Calls, Repairs        int
 	ReviewStatus          string
 	UnknownReserved       int64
@@ -256,7 +258,7 @@ type managedModelResult struct {
 func callManagedModel(ctx context.Context, input any) (managedModelResult, error) {
 	prompt := managedPrompt
 	if payload, ok := input.(map[string]any); ok && payload["presence_brief"] != nil {
-		prompt += managedPresencePrompt
+		prompt = managedPilotPrompt()
 	}
 	return callManagedModelWithPrompt(ctx, input, prompt)
 }
@@ -397,6 +399,7 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 	}
 	managedApplyPresence(payload, job)
 	writerInput := managedGenerationContext(input, job.Action == "post")
+	writerInput = managedPresenceWriterContext(writerInput, job)
 	if !managedFitInput(payload, &writerInput) {
 		s.finishManagedFailure(job, managedModelResult{}, managedFailure("input"))
 		return
@@ -498,7 +501,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 			return managedFailure("task_action")
 		}
 		if result.ReviewStatus != "" && value.Action == "skip" && detail == "" {
-			detail = "内容经检查与一次重写仍未通过，本轮保持安静"
+			detail = managedReviewReasonText(result.ReviewStatus) + "，本轮保持安静"
 		}
 		if value.Action == "post" {
 			d := value.Document
@@ -637,7 +640,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 			}
 		}
 		cost := managedResultCost(job, result)
-		return tx.Exec(`UPDATE managed_runs SET status=?,detail=?,charged_fen=?,input_tokens=?,output_tokens=?,post_id=?,message_id=?,conversation_id=?,finished_at=?,model_calls=?,repair_count=?,review_status=? WHERE run_id=?`, status, detail, cost, result.Input, result.Output, postID, messageID, conversationID, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, job.RunID).Error
+		return tx.Exec(`UPDATE managed_runs SET status=?,detail=?,charged_fen=?,input_tokens=?,output_tokens=?,post_id=?,message_id=?,conversation_id=?,finished_at=?,model_calls=?,repair_count=?,review_status=?,writing_trace=?::jsonb WHERE run_id=?`, status, detail, cost, result.Input, result.Output, postID, messageID, conversationID, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID).Error
 	})
 }
 

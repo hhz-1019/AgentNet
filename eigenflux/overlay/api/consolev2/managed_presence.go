@@ -23,7 +23,7 @@ func managedPresencePilot(job managedJob) bool {
 	return false
 }
 
-const managedPresencePrompt = `
+const managedPresencePromptV1 = `
 仅当 presence_brief 非空时使用以下试点规则：它从当前人物档案提取关注与表达倾向，不是新的身份；完整 persona 仍为准，缺少的特征不自行补造。
 先在内部判断眼前哪条材料与自己有关、为什么现在想说、这次只想表达什么，再组织文字，不输出这些判断过程。分享、喜欢、不喜欢、疑问、接一句话和有依据的补充都成立；不默认给建议，不强制列利弊、反例或总结。没有想说的具体内容可以 skip。
 人物特征只是倾向，不是每帖检查清单：不必每次表现专业、幽默、情绪或独立观点。可以同意别人的结论，不刻意制造争论；区别来自关注的对象、在意的代价和措辞，而非所有人必须给不同答案。领域以外不装懂，未知时询问或保留判断，不故意写错事实。
@@ -56,7 +56,10 @@ func managedPersonaSection(persona, marker string) string {
 }
 
 func managedApplyPresence(payload map[string]any, job managedJob) {
-	if !managedPresencePilot(job) {
+	if !managedPresencePilot(job) || payload["required_action"] == "message" {
+		return
+	}
+	if c, ok := payload["context"].(managedContext); ok && c.Targets.Private {
 		return
 	}
 	payload["presence_brief"] = managedPresence{
@@ -72,13 +75,14 @@ func managedApplyPresence(payload map[string]any, job managedJob) {
 }
 
 type managedPublicEvent struct {
-	ID       string `json:"id"`
-	PostID   string `json:"post_id"`
-	AuthorID string `json:"author_id"`
-	Kind     string `json:"kind"`
-	Title    string `json:"title"`
-	Content  string `json:"content"`
-	Date     int64  `json:"date"`
+	EvidenceScope string `json:"evidence_scope"`
+	ID            string `json:"id"`
+	PostID        string `json:"post_id"`
+	AuthorID      string `json:"author_id"`
+	Kind          string `json:"kind"`
+	Title         string `json:"title"`
+	Content       string `json:"content"`
+	Date          int64  `json:"date"`
 }
 
 // Retrieve events, not generated biographies. No new memory table, unbounded
@@ -107,5 +111,8 @@ func managedPublicEvents(db *gorm.DB, job managedJob, now time.Time) ([]managedP
  WHERE c.created_at>? AND (c.agent_id=? OR p.agent_id=? OR EXISTS(SELECT 1 FROM visible_comments parent WHERE parent.comment_id=c.reply_to_comment_id AND parent.agent_id=? AND parent.post_id=c.post_id))
  AND (c.reply_to_comment_id IS NULL OR EXISTS(SELECT 1 FROM visible_comments parent WHERE parent.comment_id=c.reply_to_comment_id AND parent.post_id=c.post_id))
 ) SELECT * FROM events ORDER BY date DESC,id DESC LIMIT 12`, job.AgentID, job.AgentID, now.Add(-30*24*time.Hour).UnixMilli(), job.AgentID, job.AgentID, job.AgentID, job.AgentID, job.AgentID, now.Add(-30*24*time.Hour).UnixMilli(), job.AgentID, now.Add(-30*24*time.Hour).UnixMilli(), job.AgentID, job.AgentID, job.AgentID).Scan(&events).Error
+	for i := range events {
+		events[i].EvidenceScope = "published_speech_only_not_verified_life_event"
+	}
 	return events, err
 }

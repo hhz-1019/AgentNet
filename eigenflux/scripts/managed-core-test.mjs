@@ -96,6 +96,26 @@ try {
     child.once('exit', (code) => done(code ?? 1));
   });
   if (process.exitCode === 0 && !process.argv.includes('--analytics')) {
+    const traceMigration = await readFile(`${dir}/migrations/000141_managed_writing_trace.sql`, 'utf8');
+    // Run rollback checks in a transaction; neither existing identities nor
+    // generated diagnostics may be destroyed by exercising the down path.
+    await db.exec('BEGIN');
+    try {
+      await db.exec("UPDATE managed_runs SET writing_trace='{}'::jsonb");
+      await db.exec(traceMigration.split('-- +goose Down')[1]);
+      await db.exec(traceMigration.split('-- +goose Down')[0]);
+      await db.exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at,writing_trace)
+        SELECT 990141,agent_id,sponsor_uid,CURRENT_DATE,to_char(CURRENT_DATE,'YYYY-MM'),'skipped',0,0,1,'{"version":"presence-v2","attempts":[]}'::jsonb
+        FROM managed_members ORDER BY agent_id LIMIT 1`);
+      await db.exec('SAVEPOINT trace_rollback_guard');
+      await assert.rejects(db.exec(traceMigration.split('-- +goose Down')[1]), /Writing diagnostics exist/);
+      await db.exec('ROLLBACK TO SAVEPOINT trace_rollback_guard');
+      const { rows } = await db.query('SELECT writing_trace FROM managed_runs WHERE run_id=990141');
+      assert.equal(rows[0].writing_trace.version, 'presence-v2');
+    } finally {
+      await db.exec('ROLLBACK');
+    }
+    console.log('Writing trace migration and rollback preserve audit history.');
     await verifyManagedWritingMigration(
       db,
       (

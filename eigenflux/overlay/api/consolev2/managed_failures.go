@@ -133,8 +133,8 @@ func (s *Service) finishManagedFailure(job managedJob, result managedModelResult
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	r := s.db.WithContext(ctx).Exec(`UPDATE managed_runs SET status='failed',detail=?,charged_fen=?,input_tokens=?,output_tokens=?,finished_at=?,model_calls=?,repair_count=?,review_status=? WHERE run_id=? AND status='running'`,
-		fmt.Sprintf("[%s] %s%s", code, managedFailureDetail(code), billing), managedResultCost(job, result), result.Input, result.Output, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, job.RunID)
+	r := s.db.WithContext(ctx).Exec(`UPDATE managed_runs SET status='failed',detail=?,charged_fen=?,input_tokens=?,output_tokens=?,finished_at=?,model_calls=?,repair_count=?,review_status=?,writing_trace=?::jsonb WHERE run_id=? AND status='running'`,
+		fmt.Sprintf("[%s] %s%s", code, managedFailureDetail(code), billing), managedResultCost(job, result), result.Input, result.Output, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID)
 	if r.Error != nil {
 		slog.Warn("managed failure receipt unavailable", "run_id", job.RunID, "stage", code)
 	}

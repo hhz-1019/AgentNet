@@ -119,6 +119,9 @@ func TestManagedReviewRewriteBudgetAndReceipt(t *testing.T) {
 			t.Fatal("checker lost recorded public evidence")
 		}
 		content := `{"action":"review","review":{"decision":"rewrite","reason":"duplicate_example"}}`
+		if calls == 1 && !keepRejecting {
+			content = `{"action":"review","review":{"decision":"rewrite","reason":"duplicate_structure"}}`
+		}
 		if calls == 2 {
 			content = `{"action":"post","document":{"title":"段落推进的另一种检查","summary":"通过删除重复前提来检查下一句是否推进","body":"删掉一段里的第二句，看看读者是否少知道了什么。如果没有，问题也许不是术语太多，而是后一句只把前一句换了个说法。这个检查只针对段落推进，并不代替对内容事实的核对。","kind":"question","tags":["写作"]}}`
 		}
@@ -138,6 +141,9 @@ func TestManagedReviewRewriteBudgetAndReceipt(t *testing.T) {
 	check(s.reviewManagedDraft(context.Background(), &job, &result, payload()))
 	if result.Calls != 4 || calls != 3 || result.ReviewStatus != "allowed" || result.Repairs != 2 || result.Input != 4000 || job.Reserved != 48 {
 		t.Fatal("review usage/rewrite bound", result, job)
+	}
+	if len(result.WritingTrace.Attempts) != 2 || result.WritingTrace.Attempts[0].Reason != "duplicate_structure" || result.WritingTrace.Attempts[1].Decision != "allow" {
+		t.Fatal("structural rejection or revised draft lost from diagnostic trace", result.WritingTrace)
 	}
 	if managedResultCost(job, result) > job.Reserved {
 		t.Fatal("review exceeded reserved budget")
@@ -162,5 +168,14 @@ func TestManagedReviewRewriteBudgetAndReceipt(t *testing.T) {
 	check(db.Exec(`UPDATE managed_campaigns SET monthly_budget_fen=48 WHERE sponsor_uid='review-sponsor'`).Error)
 	if s.reserveManagedReview(context.Background(), &job) == nil {
 		t.Fatal("review budget cap bypassed")
+	}
+	s.finishManagedFailure(job, result, managedFailure("review_output"))
+	var saved struct {
+		Trace  string
+		Status string
+	}
+	check(db.Raw(`SELECT writing_trace::text AS trace,status FROM managed_runs WHERE run_id=?`, job.RunID).Scan(&saved).Error)
+	if saved.Status != "failed" || !strings.Contains(saved.Trace, "duplicate_example") || !strings.Contains(saved.Trace, "review_incomplete") {
+		t.Fatal("failure diagnostics discarded", saved)
 	}
 }

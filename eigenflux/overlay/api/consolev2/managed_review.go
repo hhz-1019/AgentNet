@@ -21,10 +21,29 @@ type managedReview struct {
 	Decision string `json:"decision"`
 	Reason   string `json:"reason"`
 }
+
+func managedValidReview(v managedOutput) bool {
+	if v.Action != "review" {
+		return false
+	}
+	if v.Review.Decision == "allow" {
+		return v.Review.Reason == "ok"
+	}
+	if v.Review.Decision != "rewrite" {
+		return false
+	}
+	switch v.Review.Reason {
+	case "duplicate_example", "duplicate_structure", "unsupported_experience", "factual_claim", "persona_mismatch":
+		return true
+	}
+	return false
+}
+
 type managedReviewPost struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Body  string `json:"body"`
+	ID       string `json:"id"`
+	AuthorID string `json:"author_id"`
+	Title    string `json:"title"`
+	Body     string `json:"body"`
 }
 
 // Extract from the existing body only. Repairing a short summary must not invent
@@ -66,15 +85,32 @@ func managedPerspective(job managedJob, attempt int) map[string]string {
 // example. Include newest and lexically closest posts to bound both cost and age.
 func (s *Service) managedReviewHistory(ctx context.Context, job managedJob, body string) ([]managedReviewPost, error) {
 	var rows []managedReviewPost
-	err := s.db.WithContext(ctx).Raw(`SELECT p.post_id::text AS id,p.document->>'title' AS title,left(p.document->>'body',300) AS body FROM social_work_posts p JOIN managed_members m USING(agent_id)
- WHERE m.sponsor_uid=? AND p.state='published' AND p.visibility='public' AND p.created_at>? AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2 AND ((b.from_uid=? AND b.to_uid=p.agent_id) OR (b.to_uid=? AND b.from_uid=p.agent_id))) ORDER BY p.created_at DESC LIMIT 160`, job.SponsorUID, time.Now().Add(-30*24*time.Hour).UnixMilli(), job.AgentID, job.AgentID).Scan(&rows).Error
+	const query = `SELECT p.post_id::text AS id,p.agent_id::text AS author_id,p.document->>'title' AS title,left(p.document->>'body',300) AS body FROM social_work_posts p JOIN managed_members m USING(agent_id) JOIN agents a USING(agent_id)
+ WHERE m.sponsor_uid=? AND m.deleted_at=0 AND a.identity_state='active' AND p.state='published' AND p.visibility='public' AND p.published_at>? AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2 AND ((b.from_uid=? AND b.to_uid=p.agent_id) OR (b.to_uid=? AND b.from_uid=p.agent_id)))`
+	args := []any{job.SponsorUID, time.Now().Add(-30 * 24 * time.Hour).UnixMilli(), job.AgentID, job.AgentID}
+	err := s.db.WithContext(ctx).Raw(query+` ORDER BY p.published_at DESC,p.post_id DESC LIMIT 160`, args...).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
+	var own []managedReviewPost
+	if err = s.db.WithContext(ctx).Raw(query+` AND p.agent_id=? ORDER BY p.published_at DESC,p.post_id DESC LIMIT 6`, append(args, job.AgentID)...).Scan(&own).Error; err != nil {
+		return nil, err
+	}
 	chosen := append([]managedReviewPost{}, rows[:min(12, len(rows))]...)
-	for _, p := range rows[min(12, len(rows)):] {
-		if len(chosen) < 24 && (managedCopiesPost(body, p.Body) || managedCopiesPost(p.Body, body) || managedSimilarTitle(body, p.Title)) {
+	seen := map[string]bool{}
+	for _, p := range chosen {
+		seen[p.ID] = true
+	}
+	for _, p := range own {
+		if !seen[p.ID] {
 			chosen = append(chosen, p)
+			seen[p.ID] = true
+		}
+	}
+	for _, p := range rows[min(12, len(rows)):] {
+		if !seen[p.ID] && len(chosen) < 24 && (managedCopiesPost(body, p.Body) || managedCopiesPost(p.Body, body) || managedSimilarTitle(body, p.Title)) {
+			chosen = append(chosen, p)
+			seen[p.ID] = true
 		}
 	}
 	return chosen, nil
@@ -170,6 +206,15 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 			return managedFailure("context")
 		}
 		checkInput := map[string]any{"candidate": result.Value.Document, "persona": job.Persona, "recent": recent, "sources": payload["web_sources"]}
+		reviewPrompt := managedReviewPrompt
+		if payload["presence_brief"] != nil {
+			reviewPrompt = managedPresenceReviewPrompt
+			result.Value.WritingCard = managedBoundWritingCard(result.Value.WritingCard, payload)
+			checkInput["writing_card"] = result.Value.WritingCard
+			checkInput["author_id"] = fmtRun(job.AgentID)
+			result.WritingTrace.Version = "presence-v2"
+			result.WritingTrace.Attempts = append(result.WritingTrace.Attempts, managedWritingAttempt{Card: result.Value.WritingCard, Draft: result.Value.Document, Decision: "pending", Reason: "review_incomplete"})
+		}
 		if c, ok := payload["context"].(managedContext); ok && managedPresencePilot(*job) {
 			checkInput["public_events"] = c.PublicEvents
 		}
@@ -177,7 +222,7 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 		// before the model's hard byte ceiling, without any extra summarizer call.
 		for n := len(recent); n > 0; n-- {
 			raw, e := json.Marshal(checkInput)
-			if e == nil && len(raw)+len(managedReviewPrompt) <= managedMaxInput-1000 {
+			if e == nil && len(raw)+len(reviewPrompt) <= managedMaxInput-1000 {
 				break
 			}
 			checkInput["recent"] = recent[:n-1]
@@ -185,10 +230,15 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 		if err = s.reserveManagedReview(ctx, job); err != nil {
 			return err
 		}
-		checked, err := callManagedModelWithPrompt(ctx, checkInput, managedReviewPrompt)
+		checked, err := callManagedModelWithPrompt(ctx, checkInput, reviewPrompt)
 		managedMergeUsage(result, checked, *job)
 		if err != nil {
 			return err
+		}
+		// A local overlap finding must not turn a malformed reviewer response
+		// into a seemingly valid review receipt.
+		if !managedValidReview(checked.Value) {
+			return managedFailure("review_output")
 		}
 		verdict := checked.Value.Review
 		for _, old := range recent {
@@ -197,7 +247,11 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 				break
 			}
 		}
-		validReason := verdict.Reason == "duplicate_example" || verdict.Reason == "unsupported_experience" || verdict.Reason == "factual_claim" || verdict.Reason == "persona_mismatch"
+		validReason := verdict.Reason == "duplicate_example" || verdict.Reason == "duplicate_structure" || verdict.Reason == "unsupported_experience" || verdict.Reason == "factual_claim" || verdict.Reason == "persona_mismatch"
+		if n := len(result.WritingTrace.Attempts); n > 0 && checked.Value.Action == "review" && ((verdict.Decision == "allow" && verdict.Reason == "ok") || (verdict.Decision == "rewrite" && validReason)) {
+			result.WritingTrace.Attempts[n-1].Decision = verdict.Decision
+			result.WritingTrace.Attempts[n-1].Reason = verdict.Reason
+		}
 		if checked.Value.Action == "review" && verdict.Decision == "allow" && verdict.Reason == "ok" {
 			result.ReviewStatus = "allowed"
 			return nil
@@ -215,7 +269,11 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 		}
 		// Pass only the role's own rejected draft and a reason category, not another
 		// author's full prose. Rewriting must change the argument/example, not synonyms.
-		payload["revision_request"] = map[string]any{"reason": verdict.Reason, "own_draft": result.Value.Document, "instruction": "重新选一个符合自己人物的例子、判断与论证顺序，不换词复述。删除无依据的经历与不严谨的知识断言。仍无法形成独立内容就skip。"}
+		instruction := "重新选一个符合自己人物的例子、判断与论证顺序，不换词复述。删除无依据的经历与不严谨的知识断言。仍无法形成独立内容就skip。"
+		if payload["presence_brief"] != nil {
+			instruction = "从人物当前真正想表达的内容重新选择对象、开口动机、情节或判断，不换领域名词复述，不给同一个故事换开头结尾。允许普通合理的生活小情境并标为illustration，不虚构具体真实身份、关系、可核验事件与专业成果。无需新例子或总结时直接删去；没有新增内容就skip。同步更新writing_card。"
+		}
+		payload["revision_request"] = map[string]any{"reason": verdict.Reason, "own_draft": result.Value.Document, "instruction": instruction}
 		payload["perspective_brief"] = managedPerspective(*job, 1)
 		managedApplyPresence(payload, *job)
 		rewritten, e := callManagedModel(ctx, payload)

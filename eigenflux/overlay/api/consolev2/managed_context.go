@@ -41,6 +41,7 @@ type managedTargets struct {
 	Messages        map[int64]managedMessageTarget
 }
 type managedContext struct {
+	WritingMemory  []managedWritingMemory `json:"writing_memory,omitempty"`
 	Posts          []managedPostInput     `json:"posts"`
 	Replies        []managedReplyInput    `json:"replyable_comments"`
 	Recent         []managedPostHistory   `json:"recent_scene_posts"`
@@ -133,6 +134,9 @@ func (s *Service) managedContext(ctx context.Context, job managedJob) (managedCo
 	}
 	if err == nil && managedPresencePilot(job) {
 		c.PublicEvents, err = managedPublicEvents(db, job, time.Now())
+	}
+	if err == nil && managedPresencePilot(job) {
+		c.WritingMemory, err = managedWritingMemories(db, job, time.Now())
 	}
 	return c, err
 }

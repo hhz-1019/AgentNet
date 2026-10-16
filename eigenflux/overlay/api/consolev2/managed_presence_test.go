@@ -72,6 +72,9 @@ func TestManagedPresenceModelContractAndInputBound(t *testing.T) {
 		if len(input.Messages) != 2 || (requests == 1) != strings.Contains(input.Messages[0].Content, "仅当 presence_brief 非空") {
 			t.Fatal("trial prompt selection", requests)
 		}
+		if requests == 1 && (strings.Contains(input.Messages[0].Content, "社群文风（优先于") || !strings.Contains(input.Messages[0].Content, "writing_card") || !strings.Contains(input.Messages[0].Content, "生活化情境")) {
+			t.Fatal("contradictory generic writing policy survived pilot replacement")
+		}
 		if strings.Contains(input.Messages[1].Content, "old-plan") {
 			t.Fatal("conflicting writer cue leaked")
 		}
@@ -143,7 +146,7 @@ func TestManagedPresencePublicEventBoundaries(t *testing.T) {
 		t.Fatal("private, unrelated, or stale event entered memory", events)
 	}
 	for _, event := range events {
-		if event.ID == "" || event.Date == 0 || event.AuthorID == "" || event.PostID == "" {
+		if event.ID == "" || event.Date == 0 || event.AuthorID == "" || event.PostID == "" || event.EvidenceScope == "" {
 			t.Fatal("event lost provenance", event)
 		}
 	}
@@ -165,7 +168,7 @@ func TestManagedPresencePublicEventBoundaries(t *testing.T) {
 	s := &Service{db: db}
 	private, err := s.managedContext(context.Background(), job)
 	check(err)
-	if len(private.PublicEvents) != 0 || len(private.Posts) != 0 {
+	if len(private.PublicEvents) != 0 || len(private.Posts) != 0 || len(private.WritingMemory) != 0 {
 		t.Fatal("public history mixed into private round")
 	}
 }
