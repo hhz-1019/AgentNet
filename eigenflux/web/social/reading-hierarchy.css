@@ -1,8 +1,22 @@
-/* Ink hierarchy: primary titles are twice the size of readable metadata. */
+/* Product typography: compact UI labels, readable prose, distinct page headings. */
 :root[data-theme] {
-  --ew-text-title: 32px;
-  --ew-text-heading: 36px;
+  --ew-text-title: 1.125rem;
+  --ew-text-heading: 1.75rem;
   --ew-text-secondary: color-mix(in srgb, var(--ew-ink) 68%, var(--ew-paper));
+}
+/* Live and preview messages share the same compact supporting text. */
+:root[data-theme]
+  .sw-workspace.ew-social.sn-social
+  :is(
+    .sn-conversation-preview,
+    .sn-conversation-meta,
+    .messages aside small,
+    .sn-message-time,
+    .sn-sender-kind,
+    .ew-live-history .message small
+  ) {
+  font-size: var(--ew-text-meta);
+  line-height: 1.5;
 }
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
@@ -19,7 +33,7 @@
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
   :is(.sw-peer-card h3, .sw-peer-card h3 a, .sw-peer-card h3 button) {
-  font-size: 22px;
+  font-size: 1.25rem;
   font-weight: 500;
   line-height: 1.45;
 }
@@ -33,14 +47,14 @@
   .sw-post.expanded
   .ew-reading-intro
   h2 {
-  font-size: 36px;
+  font-size: 1.75rem;
   font-weight: 500;
   line-height: 1.5;
 }
 :root[data-theme]
   .auth-scene
   :is(.auth-entry h1, .onboarding > h1, .auth-form h2) {
-  font-size: 36px;
+  font-size: 1.75rem;
   line-height: 1.4;
 }
 :root[data-theme]
@@ -68,7 +82,7 @@
     .sn-message small,
     .ew-live-history small
   ) {
-  font-size: 16px;
+  font-size: var(--ew-text-control);
   line-height: 1.65;
   color: var(--ew-text-secondary);
 }
@@ -97,11 +111,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 60px;
-  padding: 14px 16px;
+  min-height: 48px;
+  padding: 10px 12px;
   cursor: pointer;
   list-style: none;
-  font-size: 20px;
+  font-size: 1.125rem;
   line-height: 1.5;
   font-weight: 500;
   color: var(--ew-ink);
@@ -165,7 +179,7 @@
   .sw-connection-body
   > p {
   margin: 0 0 12px;
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.9;
 }
 :root[data-theme] .sw-workspace.ew-social.sn-social .sw-connection-actions {
@@ -188,7 +202,7 @@
   background: var(--ew-surface);
   background-image: none;
   box-shadow: none;
-  font-size: 16px;
+  font-size: var(--ew-text-control);
   line-height: 1.5;
   font-weight: 400;
   text-decoration: none;
@@ -212,7 +226,7 @@
 }
 @media (max-width: 760px) {
   :root[data-theme] {
-    --ew-text-heading: 32px;
+    --ew-text-heading: 1.5rem;
   }
   :root[data-theme]
     .sw-workspace.ew-social.sn-social
@@ -226,7 +240,7 @@
     .sw-post.expanded
     .ew-reading-intro
     h2 {
-    font-size: 32px;
+    font-size: 1.75rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -247,21 +261,26 @@
 }
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
-  :is(.sn-chat h2, .sn-chat h2 .sw-name-link, .ew-live-heading h2) {
-  font-size: 32px;
+  :is(
+    .sn-chat h2,
+    .sn-chat h2 .sw-name-link,
+    .ew-live-heading,
+    .ew-live-heading h2
+  ) {
+  font-size: 1.125rem;
   line-height: 1.45;
 }
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
   :is(.sn-conversation strong, .messages aside button strong) {
-  font-size: 28px;
+  font-size: 1rem;
   line-height: 1.45;
 }
 :root[data-theme]
   .sw-workspace.ew-social.sn-social
   :is(.sn-conversation p, .messages aside button p) {
-  font-size: 16px;
-  line-height: 1.7;
+  font-size: var(--ew-text-control);
+  line-height: 1.5;
   color: var(--ew-text-secondary);
 }
 :root[data-theme]
@@ -272,7 +291,7 @@
     .ew-comment-byline .sw-name-link,
     .sw-comments > h3
   ) {
-  font-size: 16px;
+  font-size: var(--ew-text-control);
   color: var(--ew-text-secondary);
 }
 :root[data-theme]
@@ -280,7 +299,7 @@
   .ew-card-meta
   .sw-post-author
   :is(strong, button:not(.sw-avatar)) {
-  font-size: 16px;
+  font-size: var(--ew-text-control);
   color: var(--ew-text-secondary);
 }
 /* Dialog and inset-card action groups use the same sibling palette as contacts. */

@@ -1,12 +1,12 @@
 /* Natural-height pages, packed in source order by useFeedMotion. */
 .ew-social.sn-social .sw-feed-grid {
-  --ew-feed-gap: 30px;
+  --ew-feed-gap: 24px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-flow: row;
   grid-auto-rows: 1px;
   align-items: start;
-  column-gap: 24px;
+  column-gap: 20px;
   row-gap: 0;
   /* Appended/animated cards must not become browser scroll anchors. */
   overflow-anchor: none;
@@ -63,7 +63,7 @@
   place-items: center;
   padding: 24px;
   color: var(--ew-muted);
-  font-size: 16px;
+  font-size: var(--ew-text-control);
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
@@ -76,7 +76,7 @@
   border-radius: var(--ew-radius-control);
   background: rgb(47 40 31 / 72%);
   color: var(--ew-on-action);
-  font-size: 16px;
+  font-size: var(--ew-text-control);
   line-height: 1.6;
   pointer-events: none;
 }
@@ -98,7 +98,7 @@
   border: 0;
   background: transparent;
   color: var(--ew-ink);
-  font-size: 22px;
+  font-size: 1.25rem;
   font-weight: 500;
   line-height: 1.55;
   text-align: left;
@@ -149,7 +149,7 @@
   border: 0;
   background: transparent;
   color: var(--ew-muted);
-  font-size: 16px;
+  font-size: var(--ew-text-control);
   font-weight: 400;
   line-height: 1.75;
   white-space: nowrap;
@@ -169,7 +169,7 @@
   background: transparent;
   box-shadow: none;
   color: var(--ew-muted);
-  font-size: 16px;
+  font-size: var(--ew-text-control);
   line-height: 1.5;
   transform: none;
 }
@@ -179,7 +179,7 @@
 }
 .ew-social.sn-social .sw-feed-grid .sw-match-reason {
   margin: 0 0 8px;
-  font-size: 16px;
+  font-size: var(--ew-text-control);
   line-height: 1.7;
 }
 
@@ -209,7 +209,7 @@
 .ew-social.sn-social .sw-feed-grid .sw-text-cover:focus-visible {
   outline-offset: 5px;
 }
-@media (min-width: 1760px) {
+@media (min-width: 1280px) {
   .ew-social.sn-social .sw-feed-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -224,7 +224,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .ew-social.sn-social .sw-feed-grid .sw-post:not(.expanded) .sw-post-title {
-    font-size: 23px;
+    font-size: 1.125rem;
   }
 }
 

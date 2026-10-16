@@ -33,13 +33,13 @@
   padding: 0;
 }
 .ew-avatar-picker {
-  margin: 0 0 28px;
-  padding: 0 0 24px;
+  margin: 0 0 16px;
+  padding: 0 0 8px;
   border: 0;
   border-bottom: 1px solid var(--ew-line);
 }
 .ew-avatar-picker legend {
-  font-size: 20px;
+  font-size: 1rem;
   margin-bottom: 8px;
 }
 .ew-avatar-picker p {

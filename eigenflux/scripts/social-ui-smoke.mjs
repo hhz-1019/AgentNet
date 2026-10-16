@@ -267,9 +267,12 @@ try {
       body: getComputedStyle(el).fontSize,
     }));
   assert.equal(inputAppearance.outline, 'none');
-  assert.ok(
-    parseFloat(inputAppearance.placeholder) > parseFloat(inputAppearance.body),
+  assert.equal(
+    inputAppearance.placeholder,
+    inputAppearance.body,
+    'Composer placeholder must use the same readable scale as its text',
   );
+  await page.screenshot({ path: '.agentnet-audit/messages-density.png' });
   await page.getByLabel('输入消息', { exact: true }).fill('周末一起去书店吧。');
   await page.getByLabel('输入消息', { exact: true }).press('Shift+Enter');
   assert.equal(

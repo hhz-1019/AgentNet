@@ -21,12 +21,12 @@
     inset 0 1px 0 rgb(255 253 246 / 95%);
   --ew-paper-pressed:
     0 0 1px rgb(73 53 30 / 10%), inset 0 1px 2px rgb(73 53 30 / 10%);
-  --ew-text-meta: 16px;
-  --ew-text-control: 18px;
-  --ew-text-body: 18px;
-  --ew-text-title: 24px;
+  --ew-text-meta: 0.8125rem;
+  --ew-text-control: 0.875rem;
+  --ew-text-body: 1rem;
+  --ew-text-title: 1.125rem;
   font-family: var(--ew-serif);
-  font-size: 18px;
+  font-size: 100%;
   color: var(--ew-ink);
   background: var(--ew-paper);
   font-synthesis: none;
@@ -90,19 +90,19 @@ button:disabled {
   outline-offset: 3px;
 }
 h1 {
-  font-size: 32px;
+  font-size: 1.75rem;
   letter-spacing: -1px;
   line-height: 1.25;
   margin: 0 0 12px;
   font-weight: 600;
 }
 h2 {
-  font-size: 20px;
+  font-size: 1.125rem;
   letter-spacing: -0.3px;
   margin: 34px 0 16px;
 }
 h3 {
-  font-size: 20px;
+  font-size: 1.125rem;
   margin: 12px 0 8px;
 }
 p {
@@ -222,7 +222,7 @@ article {
   align-items: center;
   gap: 8px;
   text-decoration: none;
-  font-size: 24px;
+  font-size: 1.375rem;
   letter-spacing: -1px;
   font-weight: 650;
   color: var(--ew-ink);
@@ -256,7 +256,7 @@ article {
 }
 .lead {
   color: var(--ew-muted);
-  font-size: 18px;
+  font-size: 1rem;
   max-width: 440px;
 }
 .join-copy {
@@ -465,7 +465,7 @@ nav a[aria-current] {
 }
 .summary b {
   display: block;
-  font-size: 36px;
+  font-size: 1.75rem;
   font-weight: 500;
   letter-spacing: -1px;
   color: var(--ew-ink);
@@ -645,7 +645,7 @@ dd {
     padding: 20px 22px;
   }
   h1 {
-    font-size: 27px;
+    font-size: 1.5rem;
   }
   .peer-grid {
     grid-template-columns: 1fr;
@@ -677,7 +677,7 @@ dd {
     grid-template-columns: 110px 1fr;
   }
   .summary b {
-    font-size: 32px;
+    font-size: 1.75rem;
   }
   .steps {
     gap: 14px;

@@ -129,7 +129,7 @@
   height: 100%;
   padding: 32px;
   color: var(--ew-muted);
-  font-size: 18px;
+  font-size: 1rem;
 }
 .ew-note-detail .ew-gallery-arrow {
   position: absolute;
@@ -240,7 +240,7 @@
   padding: 0;
   border: 0;
   background: none;
-  font-size: 18px;
+  font-size: 1rem;
   font-weight: 500;
   line-height: 1.55;
   text-align: left;
@@ -275,7 +275,7 @@
 }
 .ew-note-detail.sw-dialog .sw-post.expanded .ew-reading-intro h2 {
   margin: 0 0 16px;
-  font-size: 26px;
+  font-size: 1.5rem;
   line-height: 1.55;
   font-weight: 600;
 }
@@ -290,13 +290,13 @@
   padding: 0;
   border: 0;
   background: none;
-  font-size: 18px;
-  line-height: 1.9;
+  font-size: 1rem;
+  line-height: 1.75;
   color: var(--ew-ink);
 }
 .ew-note-detail.sw-dialog .sw-post.expanded .ew-reading-body {
-  font-size: 18px;
-  line-height: 1.95;
+  font-size: 1rem;
+  line-height: 1.75;
 }
 .ew-note-detail.sw-dialog .sw-post.expanded .ew-reading-body p {
   margin: 0 0 16px;
@@ -370,7 +370,7 @@
     inset 0 1px 0 #fff8,
     0 1px 3px #47332212;
   color: var(--ew-muted);
-  font-size: 18px;
+  font-size: 1rem;
 }
 .ew-note-detail .ew-comment-avatar:disabled {
   opacity: 1;
@@ -410,7 +410,7 @@
 .ew-note-detail.sw-dialog .sw-comments .ew-comment-content p {
   margin: 4px 0 8px;
   color: var(--ew-ink);
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.75;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -526,7 +526,7 @@
   textarea {
   height: 86px;
   border-radius: 16px;
-  font-size: 18px;
+  font-size: 1rem;
 }
 .ew-note-detail
   .ew-detail-footer:is(.is-writing, :has(.ew-detail-composer:focus-within))
@@ -578,7 +578,7 @@
     max-height: none;
   }
   .ew-note-detail .ew-detail-stage .ew-paper-heading {
-    font-size: 28px;
+    font-size: 1.5rem;
   }
   .ew-note-detail .ew-detail-stage .ew-paper-leaf {
     min-height: 240px;

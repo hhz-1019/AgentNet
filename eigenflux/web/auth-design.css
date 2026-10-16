@@ -47,7 +47,7 @@
 }
 .landing.auth-landing h1 {
   margin-top: 56px;
-  font-size: 38px;
+  font-size: 2rem;
 }
 .landing.auth-landing .join-copy {
   margin: 26px 0 0;
@@ -86,12 +86,12 @@
 }
 .login-form.auth-form h2 {
   margin: 0 0 24px;
-  font-size: 34px;
+  font-size: 1.75rem;
   line-height: 1.45;
   color: var(--ew-ink);
 }
 .login-form.auth-form > p {
-  font-size: 18px;
+  font-size: 1rem;
   color: var(--ew-muted);
 }
 .login-form.auth-form label {
@@ -108,7 +108,7 @@
   background: var(--ew-surface);
   box-shadow: none;
   color: var(--ew-ink);
-  font-size: 18px;
+  font-size: 1rem;
 }
 .login-form.auth-form :is(input, button):focus-visible {
   outline: 2px solid var(--ew-line);
@@ -186,7 +186,7 @@
 }
 .onboarding > h1 {
   margin: 0 0 24px;
-  font-size: 28px;
+  font-size: 1.5rem;
   line-height: 1.4;
 }
 .onboarding.auth-state {
@@ -201,7 +201,7 @@
   background: var(--ew-surface);
 }
 .auth-state > section h2 {
-  font-size: 17px;
+  font-size: 1rem;
   margin: 0 0 10px;
 }
 .auth-state > p {
@@ -223,7 +223,7 @@
   }
   .landing.auth-landing h1 {
     margin-top: 32px;
-    font-size: 32px;
+    font-size: 1.75rem;
   }
   .login-form.auth-form {
     padding: 24px;
@@ -238,7 +238,7 @@
 .onboarding,
 .phone-binding {
   font-family: var(--ew-serif);
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.85;
 }
 .auth-entry::before,
@@ -253,7 +253,7 @@
   display: block;
   white-space: normal;
   overflow-wrap: anywhere;
-  font-size: 18px;
+  font-size: 1rem;
   color: var(--ew-ink);
   line-height: 1.9;
 }
@@ -263,7 +263,7 @@
 }
 .landing.auth-landing .join-copy > button {
   min-height: 46px;
-  font-size: 17px;
+  font-size: 1rem;
 }
 .auth-copy-status {
   display: block;
@@ -281,13 +281,13 @@
   line-height: 1.65;
 }
 .login-form.auth-form :is(input:not([type='checkbox']), select) {
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.6;
   background: var(--ew-surface);
 }
 .login-form.auth-form > button {
   min-height: 48px;
-  font-size: 17px;
+  font-size: 1rem;
 }
 .login-form.auth-form .phone-code-row {
   gap: 12px;
@@ -323,7 +323,7 @@
 }
 .login-form.auth-form .account-recovery code {
   font-family: var(--ew-serif);
-  font-size: 18px;
+  font-size: 1rem;
   letter-spacing: 0.025em;
 }
 .onboarding.auth-state {
@@ -332,16 +332,16 @@
 }
 .onboarding.auth-state > h1 {
   margin-top: 0;
-  font-size: 34px;
+  font-size: 1.75rem;
   letter-spacing: -0.025em;
 }
 .onboarding.auth-state > p {
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.9;
 }
 .onboarding.auth-state > button {
   min-height: 48px;
-  font-size: 17px;
+  font-size: 1rem;
   margin: 8px 10px 0 0;
 }
 .onboarding.auth-state > section {
@@ -349,7 +349,7 @@
   margin-block: 24px;
 }
 .onboarding.auth-state > section h2 {
-  font-size: 22px;
+  font-size: 1.25rem;
 }
 .onboarding.auth-review {
   padding-top: 48px;
@@ -358,7 +358,7 @@
   max-width: 620px;
 }
 .onboarding.join-review > .row {
-  font-size: 18px;
+  font-size: 1rem;
   padding-block: 16px;
   border-color: var(--ew-line);
 }
@@ -377,23 +377,23 @@
   border-color: var(--ew-line);
 }
 .onboarding.portrait-review .sn-portrait {
-  font-size: 18px;
+  font-size: 1rem;
 }
 .onboarding.page-directory {
   max-width: 820px;
 }
 .onboarding.page-directory h2 {
-  font-size: 26px;
+  font-size: 1.5rem;
   font-weight: 400;
 }
 .onboarding.page-directory details {
   padding-block: 20px;
 }
 .onboarding.page-directory :is(a, summary) {
-  font-size: 18px;
+  font-size: 1rem;
 }
 .phone-binding h2 {
-  font-size: 28px;
+  font-size: 1.5rem;
   font-weight: 400;
   margin-bottom: 24px;
 }
@@ -405,7 +405,7 @@
 }
 .phone-binding input {
   min-height: 52px;
-  font-size: 18px;
+  font-size: 1rem;
   border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
 }
@@ -420,7 +420,7 @@
 }
 .onboarding.twin-onboarding
   :is(input:not([type='checkbox']), textarea, select) {
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.85;
   border-radius: var(--ew-radius-control);
   background: var(--ew-surface);
@@ -442,7 +442,7 @@
   }
   .onboarding.auth-state > h1,
   .onboarding > h1 {
-    font-size: 30px;
+    font-size: 1.625rem;
   }
 }
 @media (max-width: 420px) {

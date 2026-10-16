@@ -34,7 +34,7 @@ html[data-theme] #root .sn-settings-list > a > svg:last-child {
   flex-shrink: 0;
 }
 html[data-theme] #root .sn-settings-list strong {
-  font-size: 18px;
+  font-size: 1rem;
   font-weight: 500;
 }
 html[data-theme] #root :is(.sn-public-fields > div, .ew-identity-fragment) {

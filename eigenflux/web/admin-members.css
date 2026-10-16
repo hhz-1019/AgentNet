@@ -9,7 +9,7 @@
 }
 .members-summary strong {
   display: block;
-  font-size: 38px;
+  font-size: 1.75rem;
   font-weight: 500;
 }
 .members-main .members-filters {
@@ -114,7 +114,7 @@
     border-top: 1px solid var(--an-line);
   }
   .members-summary strong {
-    font-size: 30px;
+    font-size: 1.5rem;
   }
   .members-main .analytics-heading {
     flex-wrap: wrap;

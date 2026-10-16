@@ -11,7 +11,7 @@
   min-height: 100svh;
   color: var(--ew-ink);
   font-family: var(--ew-serif);
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.8;
 }
 
@@ -51,7 +51,7 @@
 
 .auth-scene .onboarding > h1 {
   margin: 0 0 18px;
-  font-size: 34px;
+  font-size: 1.75rem;
   line-height: 1.4;
   font-weight: 400;
 }
@@ -110,7 +110,7 @@
 
 .auth-scene .login-form.auth-form label {
   margin: 18px 0;
-  font-size: 18px;
+  font-size: 1rem;
   font-weight: 400;
   line-height: 1.65;
   color: var(--ew-ink);
@@ -125,7 +125,7 @@
     inset 0 1px 2px rgb(76 55 29 / 5%),
     0 1px 0 rgb(255 254 249 / 75%);
   font-family: var(--ew-serif);
-  font-size: 18px;
+  font-size: 1rem;
   color: var(--ew-ink);
   transition:
     border-color 140ms,
@@ -164,7 +164,7 @@
   box-shadow: var(--auth-contact);
   color: var(--ew-ink);
   font-family: var(--ew-serif);
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.55;
   transition:
     background-color 140ms,
@@ -180,7 +180,7 @@
   min-height: 52px;
   margin: 0;
   padding-inline: 16px;
-  font-size: 17px;
+  font-size: 1rem;
 }
 
 .auth-scene
@@ -225,7 +225,7 @@
   border-color: transparent;
   background: transparent;
   box-shadow: none;
-  font-size: 17px;
+  font-size: 1rem;
   text-decoration: underline;
   text-decoration-color: rgb(113 94 65 / 45%);
   text-underline-offset: 5px;
@@ -282,7 +282,7 @@
 
 .auth-scene .landing.auth-landing .join-copy > p {
   color: var(--ew-muted);
-  font-size: 18px;
+  font-size: 1rem;
 }
 
 .auth-scene :is(button, a):focus-visible {

@@ -1,4 +1,4 @@
-/* One reading hierarchy. Explicit roles replace the legacy compact UI sizes. */
+/* Semantic product roles. Body text stays readable; labels remain subordinate. */
 .sw-workspace.ew-social,
 .sw-dialog.sn-communication-dialog {
   font-size: 16px;
@@ -8,21 +8,21 @@
 }
 .ew-social.sn-social :is(input, textarea, select),
 .sn-communication-dialog :is(input, textarea, select) {
-  font-size: 18px;
+  font-size: 1rem;
 }
 .ew-social.sn-social .sw-sidebar nav a,
 .ew-social.sn-social .sw-sidebar .sw-create {
-  font-size: 17px;
+  font-size: 1rem;
 }
 .ew-social.sn-social .sn-account strong {
-  font-size: 17px;
+  font-size: 1rem;
   line-height: 1.7;
 }
 .ew-social.sn-social .sn-tabs :is(a, button),
 .ew-social.sn-social .sn-discover-heading .sn-tabs button {
-  font-size: 20px;
+  font-size: 1rem;
   font-weight: 500;
-  padding: 13px 0 17px;
+  padding: 10px 0;
 }
 .ew-social.sn-social .sn-tabs {
   gap: 30px;
@@ -36,8 +36,8 @@
   line-height: 1.6;
 }
 .ew-social.sn-social .sw-post:not(.expanded) .sw-post-summary {
-  font-size: 18px;
-  line-height: 1.85;
+  font-size: 1rem;
+  line-height: 1.65;
   color: var(--ew-muted);
   margin-bottom: 16px;
 }
@@ -84,7 +84,7 @@
   font-size: 16px;
 }
 .ew-social.sn-social .elsewhere-identity-bio {
-  font-size: 18px;
+  font-size: 1rem;
 }
 .ew-social.sn-social .elsewhere-identity-interests,
 .ew-social.sn-social .elsewhere-identity-actions button,
@@ -94,7 +94,7 @@
 }
 .ew-social.sn-social
   :is(.sn-page-heading h1, .sn-portrait > .sn-page-heading h1) {
-  font-size: 32px;
+  font-size: 1.75rem;
   line-height: 1.4;
   font-weight: 500;
 }
@@ -104,7 +104,7 @@
   line-height: 1.8;
 }
 .ew-social.sn-social :is(.sn-section-intro h2, .sn-memories h3) {
-  font-size: 22px;
+  font-size: 1.25rem;
   font-weight: 500;
 }
 .ew-social.sn-social
@@ -130,7 +130,7 @@
 }
 .ew-social.sn-social .sn-conversation strong,
 .ew-social.sn-social .sn-person-name {
-  font-size: 17px;
+  font-size: 1rem;
   font-weight: 500;
 }
 .ew-social.sn-social .sn-conversation :is(p, small),
@@ -139,8 +139,8 @@
 .ew-social.sn-social .sn-sender-kind,
 .ew-social.sn-social .sn-composer-hint,
 .ew-social.sn-social .ew-live-history .message small {
-  font-size: 16px;
-  line-height: 1.65;
+  font-size: var(--ew-text-control);
+  line-height: 1.5;
 }
 .ew-social.sn-social
   :is(
@@ -153,7 +153,7 @@
   line-height: 1.85;
 }
 .ew-social.sn-social :is(.sn-chat h2, .ew-live-heading, .sw-peer-card h3) {
-  font-size: 22px;
+  font-size: 1.25rem;
   font-weight: 500;
 }
 .sn-communication-dialog
@@ -169,19 +169,18 @@
   line-height: 1.65;
 }
 .sn-communication-dialog .sw-dialog-heading h2 {
-  font-size: 24px;
+  font-size: 1.375rem;
   font-weight: 500;
 }
 .sn-communication-dialog .sw-primary {
-  font-size: 17px;
+  font-size: 1rem;
 }
 .ew-social.sn-social .sw-mobile-nav span {
   font-size: 16px;
 }
 /* Historical drafts keep their contract, with the same readable typography. */
-.sw-dialog.sn-communication-dialog
-  :is(.sw-editor, .sw-publish-preview) {
-  font-size: 18px;
+.sw-dialog.sn-communication-dialog :is(.sw-editor, .sw-publish-preview) {
+  font-size: 1rem;
 }
 .sw-dialog.sn-communication-dialog
   :is(
@@ -203,18 +202,18 @@
 .sw-dialog.sn-communication-dialog
   .sw-publish-preview
   :is(.sw-post-summary, .sw-post-body) {
-  font-size: 18px;
+  font-size: 1rem;
   line-height: 1.9;
 }
 @media (max-width: 640px) {
   .ew-social.sn-social .sw-post .sw-post-title {
-    font-size: 20px;
+    font-size: 1.125rem;
   }
   .ew-social.sn-social button.sw-text-cover {
     padding: 24px;
   }
   .ew-social.sn-social button.sw-text-cover > p {
-    font-size: 27px;
+    font-size: 1.5rem;
   }
   .ew-social.sn-social .sw-post .sw-post-author .sw-avatar {
     width: 44px;
@@ -230,10 +229,10 @@
   }
   .ew-social.sn-social
     :is(.sn-page-heading h1, .sn-portrait > .sn-page-heading h1) {
-    font-size: 28px;
+    font-size: 1.5rem;
   }
   .ew-social.sn-social :is(.sn-chat h2, .ew-live-heading) {
-    font-size: 20px;
+    font-size: 1.125rem;
   }
   .ew-social.sn-social .sn-tabs :is(a, button) {
     font-size: 19px;
