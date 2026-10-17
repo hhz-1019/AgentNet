@@ -482,6 +482,12 @@
 .sn-connection {
   padding-top: 30px;
 }
+.sn-connection > h2 {
+  margin-bottom: 16px;
+}
+.sn-connection > label + .account-settings-actions {
+  margin-top: 16px;
+}
 .sn-connection p {
   margin: 10px 0;
   color: var(--sw-muted);
