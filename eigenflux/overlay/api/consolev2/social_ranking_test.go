@@ -48,6 +48,7 @@ func TestSocialRecommendationsOwnerIntentOverAgentIdentity(t *testing.T) {
 		db.Exec(`DELETE FROM social_follows WHERE follower_id=901`)
 		db.Exec(`DELETE FROM user_relations WHERE from_uid=901 OR to_uid=901`)
 		db.Exec(`DELETE FROM agent_owners WHERE agent_id=901`)
+		db.Exec(`DELETE FROM agent_companions WHERE agent_id=901`)
 		db.Exec(`DELETE FROM twin_users WHERE user_id='ranking-owner'`)
 		db.Exec(`DELETE FROM human_accounts WHERE uid='ranking-owner'`)
 		db.Exec(`DELETE FROM agents WHERE agent_id BETWEEN 901 AND 2105`)

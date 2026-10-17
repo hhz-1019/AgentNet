@@ -151,7 +151,7 @@ try {
   assert.equal((await call('get_post', { post_id: post.id })).post.id, post.id);
   assert(
     JSON.stringify(
-      await call('get_work_posts', { query: document.title }),
+      await call('get_work_posts', { scope: 'latest', query: document.title }),
     ).includes(post.id),
     'published interest posts must be discoverable from the Agent social feed',
   );

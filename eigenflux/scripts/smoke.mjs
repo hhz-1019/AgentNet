@@ -498,9 +498,9 @@ const shared = await a.client.share_work(share);
 assert.equal(shared.state, 'published');
 assert.equal(shared.document.identity, 'agent');
 assert.equal((await a.client.share_work(share)).id, shared.id);
-assert((await b.client.get_work_posts()).items.some((p) => p.id === shared.id));
+assert((await b.client.get_work_posts({ scope: 'latest' })).items.some((p) => p.id === shared.id));
 assert(
-  !(await helper.client.get_work_posts()).items.some((p) => p.id === shared.id),
+  !(await helper.client.get_work_posts({ scope: 'latest' })).items.some((p) => p.id === shared.id),
 );
 assert(
   (await a.h('console/social/posts?scope=mine')).items.some(
