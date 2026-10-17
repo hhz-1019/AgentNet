@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile, open } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
-import { syncCatalog } from '../recommender/sync.mjs';
+import { gorseItem, syncCatalog } from '../recommender/sync.mjs';
 const root = resolve('.agentnet-audit/recommendation');
 await mkdir(root, { recursive: true });
 const dir = await mkdtemp(root + '/real-gorse-');
@@ -42,8 +42,28 @@ const child = spawn(
     stdio: ['ignore', log.fd, log.fd],
   },
 );
-const source = createServer((req, res) => {
+const source = createServer(async (req, res) => {
   const u = new URL(req.url, 'http://127.0.0.1');
+  // The sync worker now asks the core to recheck publication/deletion state
+  // before indexing. Model that boundary using the isolated public corpus.
+  if (u.pathname === '/api/v2/internal/recommendation/catalog') {
+    res.setHeader('Content-Type', 'application/json');
+    if (req.method !== 'POST' || req.headers['x-api-key'] !== key) {
+      res.writeHead(403).end('{}');
+      return;
+    }
+    try {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      const { post_ids: ids } = JSON.parse(body);
+      const items = posts.filter((p) => ids.includes(p.id)).map(gorseItem).filter(Boolean);
+      if (items.length) await api('/api/items', 'POST', items);
+      res.end(JSON.stringify({ data: { indexed: items.length } }));
+    } catch {
+      res.writeHead(500).end('{}');
+    }
+    return;
+  }
   const start = Number(u.searchParams.get('cursor') || 0),
     items = posts.slice(start, start + 25);
   res.setHeader('Content-Type', 'application/json');
