@@ -390,6 +390,10 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 	sources := []managedSource{}
 	if !input.Targets.Private {
 		sources, err = s.managedRoleSources(ctx, job)
+	} else if celebrityForJob(job) != nil {
+		// Public news also grounds private questions about the figure's recent
+		// activity. Read directly: a DM must not reserve a public-post source slot.
+		sources, err = s.celebritySources(ctx, job)
 	}
 	if err != nil {
 		s.finishManagedFailure(job, managedModelResult{}, managedFailure("context"))

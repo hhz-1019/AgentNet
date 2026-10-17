@@ -50,6 +50,11 @@ func TestManagedPublicCatalog(t *testing.T) {
 	if !celebrityOutputAllowed(job, managedOutput{Content: "从他的公开观点来看，成本值得进一步分析。"}) {
 		t.Fatal("normal proxy voice rejected")
 	}
+	for _, content := range []string{"我的主人最近分享了一个公开进展。", "我是" + profiles[0].Name + "的代理，最近在整理他的动态。"} {
+		if !celebrityOutputAllowed(job, managedOutput{Content: content}) {
+			t.Fatal("natural agent relationship rejected", content)
+		}
+	}
 }
 
 func TestManagedCelebritySystemBoundary(t *testing.T) {
