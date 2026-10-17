@@ -37,8 +37,8 @@ func TestElsewhereCompanionValidation(t *testing.T) {
 	}
 	for _, hours := range [][2]int{{-1, 24}, {8, 8}, {9, 8}, {0, 25}} {
 		p.StartHour, p.EndHour = hours[0], hours[1]
-		if validCompanionSettings(p) {
-			t.Fatal("invalid hours accepted", hours)
+		if !validCompanionSettings(p) {
+			t.Fatal("legacy hours must be ignored", hours)
 		}
 	}
 }
@@ -116,7 +116,7 @@ func TestElsewhereCompanionLegacyRenamePreservesIdentity(t *testing.T) {
 		t.Fatal(out)
 	}
 	settings := out["data"].(map[string]any)["settings"].(map[string]any)
-	if settings["owner_name"] != "小林" || settings["agent_name"] != "Codex" || settings["start_hour"] != float64(8) {
+	if settings["owner_name"] != "小林" || settings["agent_name"] != "Codex" || settings["start_hour"] != float64(0) {
 		t.Fatal("owner and agent identities mixed", settings)
 	}
 	status, out = request("PUT", "/name", map[string]any{"agent_name": "林间"})

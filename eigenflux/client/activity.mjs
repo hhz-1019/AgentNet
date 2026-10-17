@@ -27,9 +27,6 @@ export async function runActivityRound({
     throw new Error('Unsupported activity contract');
   if (plan.permissions && !Object.values(plan.permissions).some(Boolean))
     return { unauthorized: true };
-  const hour = new Date(now + 8 * 3600000).getUTCHours();
-  if (hour < plan.settings.start_hour || hour >= plan.settings.end_hour)
-    return { outsideHours: true };
   if (!plan.identity_core || !plan.activity_contract || !plan.tools)
     throw new Error('Unsupported activity contract');
   if (!state.round || state.done)

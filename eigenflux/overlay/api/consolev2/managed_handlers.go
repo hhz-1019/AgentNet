@@ -117,7 +117,7 @@ func (s *Service) getManaged(_ context.Context, c *app.RequestContext) {
 	err := s.db.Raw(`SELECT json_build_object('sponsor_number',a.account_number::text,
  'campaign',COALESCE((SELECT row_to_json(c) FROM (SELECT dm_reply_enabled,dm_start_enabled,enabled,monthly_budget_fen,input_fen_per_million,output_fen_per_million,revision FROM managed_campaigns WHERE sponsor_uid=a.uid)c),'null'::json),
  'spent_fen',COALESCE((SELECT sum(charged_fen) FROM managed_runs WHERE sponsor_uid=a.uid AND month=?),0),
- 'members',COALESCE((SELECT json_agg(m ORDER BY seed_index) FROM (SELECT m.agent_id::text AS id,h.account_number::text AS number,m.seed_index,m.name,m.scenario,m.persona,m.enabled,m.daily_limit,m.start_hour,m.end_hour,m.revision,m.next_run_at,m.pending_topic,m.pending_action,m.pending_task_id,m.deleted_at,m.profile_version,m.persona_edited,agent.bio AS public_bio,(SELECT profile_data FROM agent_profiles WHERE agent_id=m.agent_id) AS public_identity,
+ 'members',COALESCE((SELECT json_agg(m ORDER BY seed_index) FROM (SELECT m.agent_id::text AS id,h.account_number::text AS number,m.seed_index,m.name,m.scenario,m.persona,m.enabled,m.daily_limit,0 AS start_hour,24 AS end_hour,m.revision,m.next_run_at,m.pending_topic,m.pending_action,m.pending_task_id,m.deleted_at,m.profile_version,m.persona_edited,agent.bio AS public_bio,(SELECT profile_data FROM agent_profiles WHERE agent_id=m.agent_id) AS public_identity,
  COALESCE((SELECT g.auto_reply_pm FROM agent_settings g WHERE g.agent_id=m.agent_id),false) AS reply_allowed,
  COALESCE((SELECT g.auto_start_pm FROM agent_settings g WHERE g.agent_id=m.agent_id),false) AS start_allowed,
  EXISTS(SELECT 1 FROM agent_principals ap WHERE ap.agent_id=m.agent_id AND ap.status='active') AS externally_controlled,
@@ -395,8 +395,8 @@ func (s *Service) putManagedMember(ctx context.Context, c *app.RequestContext) {
 	if publicKind != "" {
 		minPersona = 50
 	}
-	if decodeBody(c, &req) != nil || strings.TrimSpace(req.Name) == "" || utf8.RuneCountInString(req.Name) > 30 || (managedSceneIndex(req.Scenario) < 0 && !(publicKind == "celebrity" && strings.HasPrefix(req.Scenario, "名人·"))) || strings.TrimSpace(req.Persona) == "" || utf8.RuneCountInString(req.Persona) < minPersona || utf8.RuneCountInString(req.Persona) > 6000 || socialSecretPattern.MatchString(req.Persona+"\n"+req.Name+"\n"+req.Scenario) || req.DailyLimit < 0 || req.DailyLimit > 12 || req.StartHour < 0 || req.EndHour > 24 || req.StartHour >= req.EndHour {
-		fail(c, 400, "MANAGED_MEMBER_INVALID", "身份档案须为 1001–6000 字；请检查支持的场景、时段和每日次数（0–12）", nil)
+	if decodeBody(c, &req) != nil || strings.TrimSpace(req.Name) == "" || utf8.RuneCountInString(req.Name) > 30 || (managedSceneIndex(req.Scenario) < 0 && !(publicKind == "celebrity" && strings.HasPrefix(req.Scenario, "名人·"))) || strings.TrimSpace(req.Persona) == "" || utf8.RuneCountInString(req.Persona) < minPersona || utf8.RuneCountInString(req.Persona) > 6000 || socialSecretPattern.MatchString(req.Persona+"\n"+req.Name+"\n"+req.Scenario) || req.DailyLimit < 0 || req.DailyLimit > 12 {
+		fail(c, 400, "MANAGED_MEMBER_INVALID", "身份档案须为 1001–6000 字；请检查支持的场景和每日次数（0–12）", nil)
 		return
 	}
 	if req.PublicBio != nil && (utf8.RuneCountInString(*req.PublicBio) > 1000 || socialSecretPattern.MatchString(*req.PublicBio) || managedPrivatePattern.MatchString(*req.PublicBio)) {
@@ -404,7 +404,7 @@ func (s *Service) putManagedMember(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		r := tx.Exec(`UPDATE managed_members SET persona_edited=persona_edited OR persona<>?,name=?,scenario=?,persona=?,enabled=?,daily_limit=?,start_hour=?,end_hour=?,revision=revision+1 WHERE agent_id=? AND sponsor_uid=? AND deleted_at=0 AND revision=?`, req.Persona, req.Name, req.Scenario, req.Persona, req.Enabled, req.DailyLimit, req.StartHour, req.EndHour, id, owner, req.Revision)
+		r := tx.Exec(`UPDATE managed_members SET persona_edited=persona_edited OR persona<>?,name=?,scenario=?,persona=?,enabled=?,daily_limit=?,start_hour=?,end_hour=?,revision=revision+1 WHERE agent_id=? AND sponsor_uid=? AND deleted_at=0 AND revision=?`, req.Persona, req.Name, req.Scenario, req.Persona, req.Enabled, req.DailyLimit, 0, 24, id, owner, req.Revision)
 		if r.Error != nil {
 			return r.Error
 		}

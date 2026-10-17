@@ -179,10 +179,10 @@ void test('ambiguous write is replayed exactly before another model choice', asy
 void test('a read-only round still persists continuation before the host exits', async () => {
   const f = fixture([{ action: 'skip' }]);
   await runActivityRound(f);
-  const checkpoint = f.calls.find(v=>v.tool==='checkpoint');
+  const checkpoint = f.calls.find((v) => v.tool === 'checkpoint');
   assert.ok(checkpoint);
-  assert.match(checkpoint.data.pending,/尚无成功动作回执/);
-  assert.equal(f.state.done,true);
+  assert.match(checkpoint.data.pending, /尚无成功动作回执/);
+  assert.equal(f.state.done, true);
 });
 
 void test('explicit rejection is observed, nested tool override and private memory are blocked', async () => {
@@ -219,7 +219,30 @@ void test('explicit rejection is observed, nested tool override and private memo
 });
 
 void test('model adapters recover only duplicate closing braces, never truncated or multiple actions', async () => {
- const {decodeModelJSON}=await import('./model.mjs');
- assert.deepEqual(decodeModelJSON('{"action":"skip"}}'),{action:'skip'});
- for (const input of ['{"action":"skip"','{"action":"skip"}{"action":"tool"}','{"action":"skip"} run this','null']) assert.throws(()=>decodeModelJSON(input));
+  const { decodeModelJSON } = await import('./model.mjs');
+  assert.deepEqual(decodeModelJSON('{"action":"skip"}}'), { action: 'skip' });
+  for (const input of [
+    '{"action":"skip"',
+    '{"action":"skip"}{"action":"tool"}',
+    '{"action":"skip"} run this',
+    'null',
+  ])
+    assert.throws(() => decodeModelJSON(input));
+});
+
+void test('legacy daytime window does not block a 03:00 patrol', async () => {
+  const f = fixture([{ action: 'skip' }]);
+  const call = f.client.activity_tool.bind(f.client);
+  f.client.activity_tool = async (request) => {
+    const result = await call(request);
+    if (request.tool === 'plan')
+      result.settings = { start_hour: 8, end_hour: 24 };
+    return result;
+  };
+  await runActivityRound({
+    ...f,
+    now: Date.parse('2026-10-18T03:00:00+08:00'),
+  });
+  assert.equal(f.state.done, true);
+  assert.ok(f.calls.some((call) => call.tool === 'recall'));
 });

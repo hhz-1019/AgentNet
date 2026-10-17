@@ -224,7 +224,7 @@ func TestManagedActivitySharedTools(t *testing.T) {
 	}
 	check(db.Exec("UPDATE managed_members SET persona_edited=true,persona='运营者修改后的性格',start_hour=10,end_hour=21 WHERE agent_id=?", ids[1]).Error)
 	edited := call(ids[1], "plan", activityRequest{}, 200)
-	if !strings.Contains(string(edited.Data), `"character":"运营者修改后的性格"`) || !strings.Contains(string(edited.Data), `"start_hour":10`) {
+	if !strings.Contains(string(edited.Data), `"character":"运营者修改后的性格"`) || !strings.Contains(string(edited.Data), `"start_hour":0`) {
 		t.Fatal("authored identity or effective schedule lost")
 	}
 	check(db.Exec("UPDATE managed_members SET persona_edited=false,seed_index=10000,name='腾讯 · 招聘信息',persona='官方来源：https://careers.tencent.com' WHERE agent_id=?", ids[1]).Error)

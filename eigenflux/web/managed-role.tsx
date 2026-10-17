@@ -116,7 +116,7 @@ export function ManagedRolePanel({
             />
           </label>
           <p>
-            会调用平台模型生成公开帖子；仍遵守预算、时段与每日上限，不合适的内容会跳过。
+            会调用平台模型生成公开帖子；仍遵守预算与每日上限，不合适的内容会跳过。
           </p>
           <button disabled={busy || !member?.enabled}>
             {busy ? '正在安排…' : '安排模型发帖'}

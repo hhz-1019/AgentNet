@@ -45,8 +45,8 @@ func (s *Service) queueManaged(_ context.Context, c *app.RequestContext) {
 	}
 	if req.Schedule != nil {
 		v := req.Schedule
-		if v.DailyLimit < 0 || v.DailyLimit > 12 || v.StartHour < 0 || v.EndHour > 24 || v.StartHour >= v.EndHour {
-			fail(c, 400, "MANAGED_SCHEDULE_INVALID", "请检查每日次数与活动时段", nil)
+		if v.DailyLimit < 0 || v.DailyLimit > 12 {
+			fail(c, 400, "MANAGED_SCHEDULE_INVALID", "请检查每日次数", nil)
 			return
 		}
 	}
@@ -192,7 +192,7 @@ func (s *Service) queueManagedTask(owner string, id int64, req managedQueueReque
 		if req.Schedule != nil {
 			v := req.Schedule
 			revision++
-			if err := tx.Exec(`UPDATE managed_members SET daily_limit=?,start_hour=?,end_hour=?,revision=? WHERE agent_id=?`, v.DailyLimit, v.StartHour, v.EndHour, revision, id).Error; err != nil {
+			if err := tx.Exec(`UPDATE managed_members SET daily_limit=?,start_hour=?,end_hour=?,revision=? WHERE agent_id=?`, v.DailyLimit, 0, 24, revision, id).Error; err != nil {
 				return err
 			}
 		}

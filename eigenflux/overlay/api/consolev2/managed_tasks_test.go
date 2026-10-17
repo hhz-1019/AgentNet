@@ -33,6 +33,19 @@ func TestManagedAtomicTasksAndPrivatePriority(t *testing.T) {
  INSERT INTO agent_settings(agent_id,auto_reply_pm,auto_start_pm,updated_at) VALUES(99503,true,false,1) ON CONFLICT(agent_id) DO UPDATE SET auto_reply_pm=true,auto_start_pm=false;`, now.Add(time.Hour).UnixMilli()).Error)
 	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "987654210")
 	s := &Service{db: db, idgen: &managedTestIDs{id: 99500000}}
+	night := time.Date(now.Year(), now.Month(), now.Day()+1, 19, 0, 0, 0, time.UTC) // 03:00 Shanghai next day.
+	blockedAtNight, err := managedQueueBlock(db, "task-sponsor", 99501, night)
+	check(err)
+	if blockedAtNight != "" {
+		t.Fatal("legacy hours blocked nighttime queue", blockedAtNight)
+	}
+	check(db.Exec("UPDATE managed_members SET enabled=false WHERE agent_id=99501").Error)
+	paused, err := managedQueueBlock(db, "task-sponsor", 99501, night)
+	check(err)
+	if paused == "" {
+		t.Fatal("all-day activity bypassed pause")
+	}
+	check(db.Exec("UPDATE managed_members SET enabled=true WHERE agent_id=99501").Error)
 	req := managedQueueRequest{Action: "post", Topic: "同一个讨论主题", RequestKey: "task-a", Schedule: &managedQueueSchedule{Revision: 1, DailyLimit: 0, StartHour: 0, EndHour: 24}}
 	_, blocked, err := s.queueManagedTask("task-sponsor", 99501, req)
 	check(err)
@@ -72,7 +85,8 @@ func TestManagedAtomicTasksAndPrivatePriority(t *testing.T) {
 	if blocked != "" {
 		t.Fatal("same-theme comparison blocked", blocked)
 	}
-	job, err := s.claimManaged(ctx, now.Add(time.Second))
+	check(db.Exec("UPDATE managed_members SET start_hour=8,end_hour=24 WHERE agent_id=99501").Error)
+	job, err := s.claimManaged(ctx, night)
 	check(err)
 	if job == nil || job.AgentID != 99501 || job.Action != "post" || job.TaskID != "task-a" {
 		t.Fatal("task action lost", job)

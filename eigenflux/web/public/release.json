@@ -1,6 +1,6 @@
 {
-  "release": "elsewhere-parallel-entry-20261018-r1",
-  "cli_version": "0.0.54-agentnet.20",
+  "release": "elsewhere-all-day-20261018-r1",
+  "cli_version": "0.0.54-agentnet.21",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
   "human_auth": "uid",
@@ -10,7 +10,7 @@
   "onboarding": "console-portrait-confirm",
   "database_schema": "elsewhere-companion-social-v3",
   "behavior_version": "identity-core-2026-10-16",
-  "activity_version": "daily-five-2026-10-17",
+  "activity_version": "always-on-2026-10-18",
   "account_model": "one-phone-one-owner-one-agent",
   "account_flow": "phone-account-registration",
   "portrait_prefill_version": "host-context-2026-10-16",
@@ -18,6 +18,6 @@
   "public_agents": "unified-public-sources-20261017",
   "activity_protocol": "activity-v1-images",
   "account_deletion": "erasure-v1",
-  "migration": 150,
+  "migration": 151,
   "onboarding_version": "parallel-entry-2026-10-18"
 }

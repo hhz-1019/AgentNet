@@ -716,7 +716,6 @@ export function ManagedConsole({ session }: { session: Session }) {
                                       : m.enabled
                                         ? '已启用'
                                         : '已暂停'}{' '}
-                                    · {m.start_hour}:00–{m.end_hour}:00
                                   </small>
                                 </td>
                                 <td>
@@ -995,40 +994,6 @@ export function ManagedConsole({ session }: { session: Session }) {
                                 }
                               />
                             </label>
-                            <div className="managed-hours">
-                              <label>
-                                开始时间
-                                <input
-                                  type="number"
-                                  required
-                                  min={0}
-                                  max={23}
-                                  value={editing.start_hour}
-                                  onChange={(e) =>
-                                    setEditing({
-                                      ...editing,
-                                      start_hour: Number(e.target.value),
-                                    })
-                                  }
-                                />
-                              </label>
-                              <label>
-                                结束时间
-                                <input
-                                  type="number"
-                                  required
-                                  min={editing.start_hour + 1}
-                                  max={24}
-                                  value={editing.end_hour}
-                                  onChange={(e) =>
-                                    setEditing({
-                                      ...editing,
-                                      end_hour: Number(e.target.value),
-                                    })
-                                  }
-                                />
-                              </label>
-                            </div>
                             <label className="managed-check">
                               <input
                                 type="checkbox"
@@ -1074,9 +1039,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                 }}
                                 placeholder="填写讨论或私信要点"
                               />
-                              <small>
-                                按当前时段与每日上限安排，计入同一预算。
-                              </small>
+                              <small>按每日上限安排，计入同一预算。</small>
                             </label>
                             <button
                               type="button"
@@ -1116,7 +1079,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                     pending_action: taskAction,
                                     pending_task_id: result.task_id,
                                   });
-                                }, '已安排活动；仍遵守时段、预算与每日上限。')
+                                }, '已安排活动；仍遵守预算与每日上限。')
                               }
                             >
                               保存节奏并安排

@@ -82,17 +82,17 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 }
 
 // Call under the same advisory lock used by the scheduler; queueing cannot
-// promise execution while the budget, hours, or daily policy reject the task.
+// promise execution while the budget or daily policy reject the task.
 func managedQueueBlock(tx *gorm.DB, owner string, id int64, now time.Time) (string, error) {
 	return managedQueueBlockWithSchedule(tx, owner, id, now, nil)
 }
 func managedQueueBlockWithSchedule(tx *gorm.DB, owner string, id int64, now time.Time, schedule *managedQueueSchedule) (string, error) {
 	var member struct {
-		AgentID                        int64
-		Enabled                        bool
-		DailyLimit, StartHour, EndHour int
+		AgentID    int64
+		Enabled    bool
+		DailyLimit int
 	}
-	if err := tx.Raw(`SELECT agent_id,enabled,daily_limit,start_hour,end_hour FROM managed_members WHERE agent_id=? AND sponsor_uid=?`, id, owner).Scan(&member).Error; err != nil {
+	if err := tx.Raw(`SELECT agent_id,enabled,daily_limit FROM managed_members WHERE agent_id=? AND sponsor_uid=?`, id, owner).Scan(&member).Error; err != nil {
 		return "", err
 	}
 	if member.AgentID == 0 {
@@ -100,8 +100,6 @@ func managedQueueBlockWithSchedule(tx *gorm.DB, owner string, id int64, now time
 	}
 	if schedule != nil {
 		member.DailyLimit = schedule.DailyLimit
-		member.StartHour = schedule.StartHour
-		member.EndHour = schedule.EndHour
 	}
 	var campaign managedCampaign
 	if err := tx.Raw(`SELECT * FROM managed_campaigns WHERE sponsor_uid=? FOR UPDATE`, owner).Scan(&campaign).Error; err != nil {
@@ -114,9 +112,6 @@ func managedQueueBlockWithSchedule(tx *gorm.DB, owner string, id int64, now time
 		return "全部活动已暂停，请先在预算与调度中开启", nil
 	}
 	local := now.UTC().Add(8 * time.Hour)
-	if local.Hour() < member.StartHour || local.Hour() >= member.EndHour {
-		return "当前不在该角色的北京时间活动时段内", nil
-	}
 	var counts struct{ Today, Running int64 }
 	if err := tx.Raw(`SELECT count(*) FILTER(WHERE day=?::date) AS today,count(*) FILTER(WHERE status='running') AS running FROM managed_runs WHERE agent_id=?`, local.Format("2006-01-02"), id).Scan(&counts).Error; err != nil {
 		return "", err

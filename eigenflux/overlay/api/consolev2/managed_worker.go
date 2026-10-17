@@ -86,12 +86,12 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
  FROM managed_members m JOIN managed_campaigns c USING(sponsor_uid) JOIN human_accounts a ON a.uid=m.sponsor_uid JOIN agents agent ON agent.agent_id=m.agent_id AND agent.identity_state='active'
  WHERE m.enabled AND m.deleted_at=0 AND c.enabled AND c.monthly_budget_fen>0 AND c.input_fen_per_million>0 AND c.output_fen_per_million>0
  AND (NOT ? OR m.pending_action='message' OR `+managedIncomingSQL+`)
- AND (m.next_run_at<=? OR `+managedIncomingSQL+`) AND m.start_hour<=? AND m.end_hour>?
+ AND (m.next_run_at<=? OR `+managedIncomingSQL+`)
  AND NOT EXISTS(SELECT 1 FROM managed_runs WHERE agent_id=m.agent_id AND status='running')
  AND NOT (SELECT count(*)=3 AND bool_and(r.status='failed' AND r.detail LIKE '[provider_%') AND max(r.finished_at)>?
  FROM (SELECT status,detail,finished_at FROM managed_runs WHERE sponsor_uid=m.sponsor_uid AND status<>'skipped' ORDER BY created_at DESC LIMIT 3) r)
  AND (SELECT count(*) FROM managed_runs WHERE agent_id=m.agent_id AND day=?::date)<m.daily_limit
- ORDER BY CASE WHEN m.pending_action='message' OR `+managedIncomingSQL+` THEN 0 WHEN m.pending_task_id<>'' THEN 1 ELSE 2 END,m.next_run_at,m.agent_id LIMIT 100`, repliesOnly, now.UnixMilli(), local.Hour(), local.Hour(), now.Add(-10*time.Minute).UnixMilli(), local.Format("2006-01-02")).Scan(&candidates).Error
+ ORDER BY CASE WHEN m.pending_action='message' OR `+managedIncomingSQL+` THEN 0 WHEN m.pending_task_id<>'' THEN 1 ELSE 2 END,m.next_run_at,m.agent_id LIMIT 100`, repliesOnly, now.UnixMilli(), now.Add(-10*time.Minute).UnixMilli(), local.Format("2006-01-02")).Scan(&candidates).Error
 		if err != nil {
 			return err
 		}

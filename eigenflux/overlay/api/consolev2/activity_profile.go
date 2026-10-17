@@ -50,7 +50,7 @@ func (s *Service) activityProfile(ctx context.Context, id int64, settings compan
 		profile["context_source"] = "public_search"
 		profile["character"] = activityCharacter(managedJob(managed.ActivityManagedJob))
 		profile["intent"] = managedJob(managed.ActivityManagedJob).identitySnapshot()["intent"]
-		profile["runtime_status"] = map[string]any{"enabled": managed.Enabled, "start_hour": managed.StartHour, "end_hour": managed.EndHour, "attempt_limit": managed.DailyLimit, "attempts": managed.Attempts, "next_run_at": managed.NextRunAt, "attempt_budget_exhausted": managed.Attempts >= managed.DailyLimit}
+		profile["runtime_status"] = map[string]any{"enabled": managed.Enabled, "start_hour": 0, "end_hour": 24, "attempt_limit": managed.DailyLimit, "attempts": managed.Attempts, "next_run_at": managed.NextRunAt, "attempt_budget_exhausted": managed.Attempts >= managed.DailyLimit}
 		if p := celebrityForJob(managedJob(managed.ActivityManagedJob)); p != nil {
 			profile["represented_subject"] = p.Name
 			profile["source_hints"] = append([]string{p.Reference}, p.OfficialSites...)

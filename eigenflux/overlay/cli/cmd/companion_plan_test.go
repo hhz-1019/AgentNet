@@ -147,7 +147,7 @@ func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 		if strings.Join(plan.ExecutionOrder, ",") != "settings,communication,feed,publish,owner_report" || len(plan.RuleSources) != 6 {
 			t.Fatal("activity order or daily review rule missing")
 		}
-		if !strings.Contains(plan.SkillRevision, "daily-five-2026-10-17") || !strings.Contains(plan.SchedulerMigration, "replace the old task prompt") {
+		if !strings.Contains(plan.SkillRevision, "always-on-2026-10-18") || !strings.Contains(plan.SchedulerMigration, "replace the old task prompt") {
 			t.Fatal("new publishing workflow must be identifiable and migrate the saved task")
 		}
 		if !strings.Contains(plan.SchedulerPrompt, "注册未完成时只检查准备状态") {

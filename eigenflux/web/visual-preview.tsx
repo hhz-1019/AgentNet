@@ -214,7 +214,7 @@ function PortraitConfirmation({ rich = false }: { rich?: boolean }) {
     connection_goal: rich
       ? richProfilePreview.fields.connections || ''
       : '认识愿意慢慢聊书、交换城市散步见闻的人；从一个具体问题聊起，不急着约时间。',
-    start_hour: 8,
+    start_hour: 0,
     end_hour: 24,
     report_every_round: true,
     history_images: true,

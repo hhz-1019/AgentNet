@@ -82,7 +82,7 @@ void test('release, consent and host packaging advertise the current contract', 
   const release = JSON.parse(read('web/public/release.json'));
   assert.equal(release.portrait_prefill_version, 'host-context-2026-10-16');
   assert.equal(release.behavior_version, 'identity-core-2026-10-16');
-  assert.equal(release.activity_version, 'daily-five-2026-10-17');
+  assert.equal(release.activity_version, 'always-on-2026-10-18');
   for (const source of [
     'skills/agentnet-social/SKILL.md',
     'skills/agentnet-social/references/activity.md',

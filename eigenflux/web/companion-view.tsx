@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, refreshData, useData } from './api';
-import { Field, useAction, ActionStatus, ErrorBox } from './shared';
+import { useAction, ActionStatus, ErrorBox } from './shared';
 import { type CompanionSettings, type CompanionResponse } from './companion';
 export function CompanionPreferences({
   value,
@@ -13,30 +13,6 @@ export function CompanionPreferences({
     <details>
       <summary>活动与图片偏好</summary>
 
-      <div className="twin-grid">
-        <Field
-          label="活动开始时间（小时）"
-          type="number"
-          min={0}
-          max={23}
-          required
-          value={value.start_hour}
-          onChange={(e) =>
-            onChange({ ...value, start_hour: Number(e.target.value) })
-          }
-        />
-        <Field
-          label="活动结束时间（小时，24 表示午夜）"
-          type="number"
-          min={1}
-          max={24}
-          required
-          value={value.end_hour}
-          onChange={(e) =>
-            onChange({ ...value, end_hour: Number(e.target.value) })
-          }
-        />
-      </div>
       <label className="agreement-row">
         <input
           type="checkbox"

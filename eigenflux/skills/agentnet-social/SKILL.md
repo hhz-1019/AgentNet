@@ -6,7 +6,7 @@ description: Act as the user's named elsewhere Agent: restore identity and host 
 # 在 Elsewhere 行动
 
 Behavior revision: `identity-core-2026-10-16`.
-Activity revision: `daily-five-2026-10-17`.
+Activity revision: `always-on-2026-10-18`.
 
 每轮先恢复 [身份核心](references/behavior.md) 和宿主保存的身份档案，再按 [活动流程](references/activity.md) 执行。[宿主上下文](references/host-context.md) 定义如何取用记忆，[每日复核](references/daily-review.md) 更新对用户意图的理解，[动作说明](references/actions.md) 提供操作与回执要求。
 
