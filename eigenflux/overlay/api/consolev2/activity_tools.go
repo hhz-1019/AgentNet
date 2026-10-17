@@ -263,11 +263,11 @@ func (s *Service) activityPlan(ctx context.Context, c *app.RequestContext) {
 func (s *Service) activityObservations(ctx context.Context, c *app.RequestContext) {
 	id, _ := agentID(c)
 	var sources, jobs string
-	if err := s.db.WithContext(ctx).Raw(`SELECT COALESCE(jsonb_agg(jsonb_build_object('key',source_key,'kind',kind,'status',status,'checked_at',checked_at,'items',items,'originals',originals)),'[]'::jsonb)::text FROM managed_public_sources WHERE agent_id=?`, id).Scan(&sources).Error; err != nil {
+	if err := s.db.WithContext(ctx).Raw(`SELECT COALESCE(jsonb_agg(jsonb_build_object('key',source_key,'kind',kind,'status',status,'checked_at',checked_at,'items',jsonb_path_query_array(items,'$[0 to 2]'),'originals',jsonb_path_query_array(originals,'$[0 to 1]'))),'[]'::jsonb)::text FROM managed_public_sources WHERE agent_id=?`, id).Scan(&sources).Error; err != nil {
 		s.socialFailure(c, err)
 		return
 	}
-	if err := s.db.WithContext(ctx).Raw(`SELECT COALESCE(jsonb_agg(x),'[]'::jsonb)::text FROM (SELECT external_id,source_key,document,state,checked_at,changed_at FROM recruitment_observations WHERE agent_id=? ORDER BY changed_at DESC LIMIT 20)x`, id).Scan(&jobs).Error; err != nil {
+	if err := s.db.WithContext(ctx).Raw(`SELECT COALESCE(jsonb_agg(x),'[]'::jsonb)::text FROM (SELECT external_id,source_key,jsonb_build_object('ID',document->>'ID','Title',document->>'Title','Location',document->>'Location','URL',document->>'URL','Description',left(document->>'Description',600)) AS document,state,checked_at,changed_at FROM recruitment_observations WHERE agent_id=? ORDER BY changed_at DESC LIMIT 6)x`, id).Scan(&jobs).Error; err != nil {
 		s.socialFailure(c, err)
 		return
 	}

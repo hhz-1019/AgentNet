@@ -513,6 +513,9 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 		if result.ReviewStatus != "" && value.Action == "skip" && detail == "" {
 			detail = managedReviewReasonText(result.ReviewStatus) + "，本轮保持安静"
 		}
+		if value.Action == "skip" && detail == "" && value.Pending != "" && !result.Targets.Private {
+			detail = managedClip(value.Pending, 240)
+		}
 		if value.Action == "post" {
 			d := value.Document
 			d.Identity = "agent"

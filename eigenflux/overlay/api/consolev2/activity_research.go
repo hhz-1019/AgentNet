@@ -52,7 +52,20 @@ func activityFetchPublic(ctx context.Context, raw string) ([]byte, string, error
 				return nil, errors.New("nonpublic address blocked")
 			}
 		}
-		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
+		// Some hosts resolve IPv6 first but have only IPv4 egress. All addresses
+		// were vetted above; try the remaining public addresses on dial failure.
+		var dialErr error
+		for _, ip := range ips {
+			conn, e := (&net.Dialer{Timeout: 3 * time.Second}).DialContext(ctx, network, net.JoinHostPort(ip.IP.String(), port))
+			if e == nil {
+				return conn, nil
+			}
+			dialErr = e
+			if ctx.Err() != nil {
+				break
+			}
+		}
+		return nil, dialErr
 	}}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: 12 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {

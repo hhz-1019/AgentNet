@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -51,14 +52,24 @@ func TestManagedActivityRealProvider(t *testing.T) {
 	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES('activity-live',987654228,'!x','!x',1)`).Error)
 	s := &Service{db: db, idgen: &managedTestIDs{id: 369800000001000000}}
 	role := managedCatalog()[0]
-	ids, e := s.provisionManagedEntries(context.Background(), "activity-live", map[int]managedPersona{0: role})
+	seed := 0
+	if os.Getenv("AGENTNET_ACTIVITY_CELEBRITY") == "true" {
+		seed = 20001
+		role = celebrityPersona(celebrityCatalog()[1])
+	}
+	ids, e := s.provisionManagedEntries(context.Background(), "activity-live", map[int]managedPersona{seed: role})
 	check(e)
 	check(db.Exec(`UPDATE managed_campaigns SET enabled=true,monthly_budget_fen=10000,input_fen_per_million=1,output_fen_per_million=1 WHERE sponsor_uid='activity-live'; UPDATE managed_members SET enabled=true,start_hour=0,end_hour=24 WHERE sponsor_uid='activity-live'`).Error)
-	seed := 0
-	job := managedJob{AgentID: ids[0], SponsorUID: "activity-live", Name: role.Name, Persona: role.Persona, Scenario: role.Scenario, SeedIndex: &seed, Revision: 1, RunID: 369800000001009999, InputRate: 1, OutputRate: 1, Reserved: 1}
+	job := managedJob{Action: "post", AgentID: ids[0], SponsorUID: "activity-live", Name: role.Name, Persona: role.Persona, Scenario: role.Scenario, SeedIndex: &seed, Revision: 1, RunID: 369800000001009999, InputRate: 1, OutputRate: 1, Reserved: 1}
 	check(db.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at) VALUES(?,?,?,'2026-10-17','2026-10','running',1,1,?)`, job.RunID, job.AgentID, job.SponsorUID, time.Now().UnixMilli()).Error)
 	input := managedContext{Targets: managedTargets{Enforced: true, Comments: map[int64]bool{}, Likes: map[int64]bool{}}}
 	payload := map[string]any{"agent_identity": job.identitySnapshot(), "name": job.Name, "character_brief": job.characterBrief(), "context": input, "operator_topic": "这是隔离验收中的假设讨论材料，不是真实活动新闻：学校读书会允许旁听，但报名表要求每位参加者先提交一个问题。先用 observations 查看是否有补充材料，再围绕这两条规则可能产生的张力自主提出一个具体问题或观点。请使用 publish 工具分享，读回帖子核验，然后留下待续事项。不要编造参加经历或实际主办方。"}
+	if seed == 20001 {
+		payload["celebrity_profile"] = celebrityForJob(job)
+		payload["background_documents"] = strings.Repeat("历史资料，不能当作当前事实。", 3000)
+		payload["operator_topic"] = "这是隔离验收中的假设产品规则，不是真实新闻：一款行动助手要求每步都确认，同时承诺不用用户反复照看。先用 observations 查看补充材料，再自主选择一个具体矛盾发表有依据的观点或问题。请用 publish 工具发布并核验回执；不得编造本人经历、企业内部进展或事实来源。"
+	}
+	payload["required_action"] = "post"
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 	result, e := s.managedActivityModel(ctx, &job, payload, &input)

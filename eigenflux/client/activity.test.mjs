@@ -57,6 +57,18 @@ function fixture(decisions) {
   };
 }
 
+void test('expired continuation uses the normal cadence without replaying missed rounds', async () => {
+  const f = fixture([{ action: 'skip' }]),
+    now = Date.now();
+  const original = f.client.activity_tool.bind(f.client);
+  f.client.activity_tool = async (request) =>
+    request.tool === 'recall'
+      ? { revision: 1, next_check_at: now - 3600000 }
+      : original(request);
+  await runActivityRound({ ...f, now });
+  assert.equal(f.state.nextAt, now + 2 * 3600000);
+});
+
 void test('host observes, publishes, verifies an exact receipt and saves continuation', async () => {
   const f = fixture([
     { action: 'tool', tool: 'post', arguments: { id: '123' } },

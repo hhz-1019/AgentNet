@@ -97,6 +97,7 @@ export async function runActivityRound({
         continuation,
         records,
         tools: plan.tools,
+        steps_remaining: 8 - state.step,
         tool_results: state.results,
       },
       { signal },
@@ -137,7 +138,7 @@ export async function runActivityRound({
   });
   state.nextAt = Math.max(
     now + 5 * 60000,
-    latest.next_check_at || now + 2 * 3600000,
+    latest.next_check_at > now ? latest.next_check_at : now + 2 * 3600000,
   );
   await save();
   return { receipts: state.results, nextAt: state.nextAt };

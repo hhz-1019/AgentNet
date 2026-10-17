@@ -213,3 +213,23 @@ func TestManagedActivityResearchBoundary(t *testing.T) {
 		t.Fatal("noncontent HTML retained", text)
 	}
 }
+
+func TestManagedActivityBoundsLargeEvidence(t *testing.T) {
+	trace := []map[string]any{}
+	for i := 0; i < 4; i++ {
+		trace = append(trace, map[string]any{"tool": "read", "result": activityJSON(200, map[string]any{"id": fmtRun(int64(i + 1)), "text": strings.Repeat("有日期和链接的公开材料", 600)})})
+	}
+	input := managedContext{Targets: managedTargets{Comments: map[int64]bool{}, Likes: map[int64]bool{}}}
+	payload := map[string]any{"activity_mode": true, "tool_results": trace, "background_documents": strings.Repeat("旧背景", 12000), "original_samples": strings.Repeat("表达样本", 6000)}
+	if !managedFitActivityInput(payload, &input) {
+		t.Fatal("large observations prevent continuation")
+	}
+	raw, e := json.Marshal(payload)
+	if e != nil || len(raw)+len(managedActivityPrompt()) > managedMaxInput-1000 {
+		t.Fatal("input still exceeds provider budget")
+	}
+	kept := payload["tool_results"].([]map[string]any)
+	if len(kept) == 0 || !strings.Contains(string(kept[len(kept)-1]["result"].(activityResult).Data), `"id":"4"`) {
+		t.Fatal("latest evidence lost")
+	}
+}

@@ -30,6 +30,7 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	planData := activityData(plan)
 	delete(planData, "identity_core")
 	delete(planData, "activity_contract")
+	delete(planData, "tools")
 	payload["activity_plan"] = planData
 	scope := "public"
 	if input.Targets.Private && input.Message != nil && input.Message.ConversationID != "" {
@@ -59,6 +60,8 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	payload["activity_mode"] = true
 	trace := []map[string]any{}
 	formatRepair := false
+	completionChecked := false
+	publishedThisRound := false
 	for step := 0; step < 8; step++ {
 		if step > 0 {
 			if err := s.reserveManagedReview(ctx, job); err != nil {
@@ -66,9 +69,12 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 			}
 		}
 		payload["tool_results"] = trace
-		if !managedFitInput(payload, input) {
+		payload["steps_remaining"] = 8 - step
+		delete(payload, "research")
+		if !managedFitActivityInput(payload, input) {
 			return total, managedFailure("input")
 		}
+		trace, _ = payload["tool_results"].([]map[string]any)
 		next, err := callManagedModelWithPrompt(ctx, payload, managedActivityPrompt())
 		managedMergeUsage(&total, next, *job)
 		total.Value = next.Value
@@ -81,6 +87,14 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 			return total, err
 		}
 		delete(payload, "format_feedback")
+		delete(payload, "completion_feedback")
+		if next.Value.Action == "skip" && job.Action == "post" && !completionChecked {
+			if !publishedThisRound {
+				completionChecked = true
+				payload["completion_feedback"] = "当前明确任务是发帖，但还没有实际发布回执。请复核是否把检索失败误当成完全没有可表达的内容：已提供的明确假设、背景或讨论可以支撑自己的有条件观点和具体问题，不需要补造新闻来源。能完成就调用 publish；确有权限、证据或重复内容阻塞才结束并说明具体原因。"
+				continue
+			}
+		}
 		if next.Value.Action != "tool" {
 			return total, nil
 		}
@@ -124,11 +138,16 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 		}
 		// Evidence must survive into the review, but large feeds must not overwhelm
 		// the bounded input. Structured receipt IDs are kept verbatim.
-		if len(result.Data) > 14000 {
-			result = activityJSON(result.Status, map[string]any{"excerpt": managedClip(string(result.Data), 4000), "truncated": true})
+		if len(result.Data) > 8000 {
+			result = activityJSON(result.Status, map[string]any{"excerpt": managedClip(string(result.Data), 1800), "truncated": true})
 		}
-		observation := map[string]any{"tool": name, "arguments": req, "result": result}
+		// The generated document is already in the result/readback; never echo
+		// its full request a second time into every following model call.
+		observedRequest := req
+		observedRequest.Data = nil
+		observation := map[string]any{"tool": name, "arguments": observedRequest, "result": result}
 		if name == "publish" && result.Status == 201 {
+			publishedThisRound = true
 			id := activityString(activityData(result), "id")
 			verified, e := s.activityTool(ctx, job.AgentID, "post", activityRequest{ID: id})
 			if e != nil {
@@ -140,7 +159,7 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 		if len(trace) > 4 {
 			trace = trace[len(trace)-4:]
 		}
-		payload["research"] = trace
+		payload["tool_results"] = trace
 		if name == "post" && result.Status == 200 {
 			id := socialDecimal(req.ID)
 			if id > 0 {
@@ -152,6 +171,30 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	}
 	total.Value = managedOutput{Action: "skip", Pending: "本轮工具步数已用完，下一轮从已保存回执和待续事项继续。"}
 	return total, nil
+}
+
+func managedFitActivityInput(payload map[string]any, input *managedContext) bool {
+	for {
+		if managedFitInput(payload, input) {
+			return true
+		}
+		trace, _ := payload["tool_results"].([]map[string]any)
+		if len(trace) > 1 {
+			payload["tool_results"] = trace[1:]
+			continue
+		}
+		removed := false
+		for _, key := range []string{"background_documents", "original_samples", "public_background"} {
+			if _, ok := payload[key]; ok {
+				delete(payload, key)
+				removed = true
+				break
+			}
+		}
+		if !removed {
+			return false
+		}
+	}
 }
 
 func (s *Service) managedActivityWrite(ctx context.Context, job managedJob, name string, req activityRequest) (activityResult, error) {

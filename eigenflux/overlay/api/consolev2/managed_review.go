@@ -207,7 +207,7 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 			return managedFailure("context")
 		}
 		checkInput := map[string]any{"candidate": result.Value.Document, "persona": job.Persona, "recent": recent, "sources": payload["web_sources"]}
-		checkInput["research"] = payload["research"]
+		checkInput["research"] = payload["tool_results"]
 		reviewPrompt := managedReviewPrompt
 		if payload["presence_brief"] != nil {
 			reviewPrompt = managedPresenceReviewPrompt
@@ -275,6 +275,12 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 			return managedFailure("review_output")
 		}
 		result.ReviewStatus = verdict.Reason
+		// An autonomous writer receives this rejection as a tool observation and
+		// can research or revise next. Do not start a competing one-shot writer.
+		if payload["activity_mode"] == true {
+			result.Value.Action = "skip"
+			return nil
+		}
 		if attempt == 1 {
 			result.Value.Action = "skip"
 			return nil
