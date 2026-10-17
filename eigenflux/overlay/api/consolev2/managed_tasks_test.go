@@ -22,7 +22,8 @@ func TestManagedAtomicTasksAndPrivatePriority(t *testing.T) {
 	}
 	now := time.Now()
 	ctx := context.Background()
-	for _, id := range []int64{99501, 99502, 99503, 99504} {
+	// Production-sized receiver IDs expose SQL inference of NULLIF parameters.
+	for _, id := range []int64{99501, 99502, 99503, 369454428261974016} {
 		check(insertProvisionedAgent(db, id, fmtRun(id)+"@task.invalid", "任务验收", now.UnixMilli()))
 	}
 	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES('task-sponsor',987654210,'!x','!x',1),('task-a',987654211,'!x','!x',1),('task-b',987654212,'!x','!x',1),('task-c',987654213,'!x','!x',1);
@@ -82,8 +83,8 @@ func TestManagedAtomicTasksAndPrivatePriority(t *testing.T) {
 	}
 	// A reply wakes a role whose next public slot is an hour away and takes the
 	// private lane without consuming/replacing role B's queued public task.
-	check(db.Exec(`INSERT INTO conversations(conv_id,participant_a,participant_b,initiator_id,last_sender_id,origin_type,origin_id,updated_at,topic_status) VALUES(995500,99503,99504,99504,99504,'direct',0,?,1);
- INSERT INTO private_messages(msg_id,conv_id,sender_id,receiver_id,content,created_at) VALUES(995501,995500,99504,99503,'我只读了半本书，第一次在读书会上怎样开口？',?);`, now.UnixMilli(), now.UnixMilli()).Error)
+	check(db.Exec(`INSERT INTO conversations(conv_id,participant_a,participant_b,initiator_id,last_sender_id,origin_type,origin_id,updated_at,topic_status) VALUES(995500,99503,369454428261974016,369454428261974016,369454428261974016,'direct',0,?,1);
+ INSERT INTO private_messages(msg_id,conv_id,sender_id,receiver_id,content,created_at) VALUES(995501,995500,369454428261974016,99503,'我只读了半本书，第一次在读书会上怎样开口？',?);`, now.UnixMilli(), now.UnixMilli()).Error)
 	replyJob, err := s.claimManagedMode(ctx, now.Add(2*time.Second), true)
 	check(err)
 	if replyJob == nil || replyJob.AgentID != 99503 || replyJob.Action != "message" {
@@ -95,7 +96,7 @@ func TestManagedAtomicTasksAndPrivatePriority(t *testing.T) {
 	if pending != "task-b" {
 		t.Fatal("reply stole public task")
 	}
-	explicit := managedQueueRequest{Action: "message", RecipientID: "99504", RequestKey: "reply-existing"}
+	explicit := managedQueueRequest{Action: "message", RecipientID: "369454428261974016", RequestKey: "reply-existing"}
 	_, blocked, err = s.queueManagedTask("task-sponsor", 99503, explicit)
 	check(err)
 	if blocked != "" {

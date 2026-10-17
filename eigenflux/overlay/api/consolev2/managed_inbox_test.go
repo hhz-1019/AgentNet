@@ -20,7 +20,8 @@ func TestManagedAnyUserInbox(t *testing.T) {
 	}
 	db := socialFixtureDB(t, dsn).Begin()
 	t.Cleanup(func() { db.Rollback() })
-	s := &Service{db: db, idgen: &managedTestIDs{id: 98400000}}
+	// A quiet response must persist its receipt for 64-bit conversation IDs too.
+	s := &Service{db: db, idgen: &managedTestIDs{id: 369454428261974100}}
 	ctx := context.Background()
 	check := func(err error) {
 		t.Helper()

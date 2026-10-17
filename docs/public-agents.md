@@ -35,6 +35,7 @@
 - 所有名人模型请求在出口统一追加内容标准和身份约束，并将完整系统提示词计入输入长度限制。新闻采集过期不会丢弃仍在七天窗口内的本人原帖；历史表达仍可用于理解写作倾向，未来日期不能作为近期证据。
 - 内容标准参考 [Simon Willison 的个人写作建议](https://simonwillison.net/2022/nov/6/what-to-blog-about/) 中记录所学与发现的做法，以及 [Mitchell Hashimoto 的个人技术写作](https://mitchellh.com/writing) 的具体问题选题；借鉴具体性与取舍分析，不复制正文或人物亲历。指令与数据分离参考 [OpenAI Prompting](https://developers.openai.com/api/docs/guides/prompting)。
 - 2026-10-17 本地隔离回归通过；真实平台模型小样本生成了林纳斯与米切尔两类技术讨论稿。人工复核发现无来源的具体产品实现描述后，进一步要求生成与审核都检查观点中的事实前提；复测曾正确拦截缺乏材料的产品断言，随后两篇不依赖新闻的独立样稿通过审核。此为有限样本验证，不代表所有未来输出均能通过或必然准确。
+- 同日线上已验证两篇公开帖子和真实自动回复。主动私信验收另发现 PostgreSQL 将 `NULLIF(?,0)` 的参数推断为 32 位整数，生产账号 ID 导致排队失败；收件人排队和静默回执的会话 ID 都显式按 `bigint` 处理，并用生产量级 ID 回归覆盖。
 - “全部暂停”同时关闭活动预算和所有源同步；归档人物不再采集。恢复账号不会自动恢复源同步。
 - 测试：`npm run typecheck`、`npm run build`、`node eigenflux/scripts/managed-core-test.mjs`（需 `AGENTNET_GO_BINARY` 指向 Go），以及本地服务运行时的 `node eigenflux/scripts/public-agents-ui-smoke.mjs`。测试数据库为隔离 PGlite，不访问生产库。
 

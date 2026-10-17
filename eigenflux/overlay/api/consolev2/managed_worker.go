@@ -674,7 +674,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 		// to reconsider the same incoming message every subsequent schedule.
 		if result.Targets.Private && result.Value.Action == "skip" && value.Action == "skip" && detail == "" {
 			for peer, target := range result.Targets.Messages {
-				if err := tx.Exec(`INSERT INTO managed_message_receipts(run_id,sender_id,receiver_id,conv_id,trigger_key,decision,created_at,notified_at) VALUES(?,?,?,NULLIF(?,0),?,'skipped',?,?) ON CONFLICT(sender_id,trigger_key) DO NOTHING`, job.RunID, job.AgentID, peer, socialDecimal(target.ConversationID), target.TriggerKey, time.Now().UnixMilli(), time.Now().UnixMilli()).Error; err != nil {
+				if err := tx.Exec(`INSERT INTO managed_message_receipts(run_id,sender_id,receiver_id,conv_id,trigger_key,decision,created_at,notified_at) VALUES(?,?,?,NULLIF(?::bigint,0),?,'skipped',?,?) ON CONFLICT(sender_id,trigger_key) DO NOTHING`, job.RunID, job.AgentID, peer, socialDecimal(target.ConversationID), target.TriggerKey, time.Now().UnixMilli(), time.Now().UnixMilli()).Error; err != nil {
 					return err
 				}
 			}

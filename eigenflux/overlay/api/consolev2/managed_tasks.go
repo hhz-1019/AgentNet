@@ -196,7 +196,7 @@ func (s *Service) queueManagedTask(owner string, id int64, req managedQueueReque
 				return err
 			}
 		}
-		if err := tx.Exec(`UPDATE managed_members SET next_run_at=?,pending_topic=?,pending_recipient_id=NULLIF(?,0),pending_action=?,pending_task_id=?,pending_task_digest=? WHERE agent_id=?`, time.Now().UnixMilli(), strings.TrimSpace(req.Topic), peer, action, key, digest, id).Error; err != nil {
+		if err := tx.Exec(`UPDATE managed_members SET next_run_at=?,pending_topic=?,pending_recipient_id=NULLIF(?::bigint,0),pending_action=?,pending_task_id=?,pending_task_digest=? WHERE agent_id=?`, time.Now().UnixMilli(), strings.TrimSpace(req.Topic), peer, action, key, digest, id).Error; err != nil {
 			return err
 		}
 		return managedAudit(tx, owner, "queue_member", id)
