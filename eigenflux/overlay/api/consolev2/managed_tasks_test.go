@@ -25,6 +25,7 @@ func TestManagedAtomicTasksAndPrivatePriority(t *testing.T) {
 	// Production-sized receiver IDs expose SQL inference of NULLIF parameters.
 	for _, id := range []int64{99501, 99502, 99503, 369454428261974016} {
 		check(insertProvisionedAgent(db, id, fmtRun(id)+"@task.invalid", "任务验收", now.UnixMilli()))
+		activityFixtureGrants(t, db, id)
 	}
 	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES('task-sponsor',987654210,'!x','!x',1),('task-a',987654211,'!x','!x',1),('task-b',987654212,'!x','!x',1),('task-c',987654213,'!x','!x',1);
  INSERT INTO managed_campaigns(sponsor_uid,enabled,monthly_budget_fen,input_fen_per_million,output_fen_per_million,dm_reply_enabled,dm_start_enabled) VALUES('task-sponsor',true,10000,1,1,true,false);

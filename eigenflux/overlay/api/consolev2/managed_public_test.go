@@ -190,47 +190,42 @@ func TestManagedPublicSnapshot(t *testing.T) {
 		board := recruitmentBoards[0]
 		jobs := []publicJob{{"1", "Engineer", "Remote", "https://job-boards.greenhouse.io/anthropic/jobs/1", "Build"}, {"2", "Designer", "Remote", "https://job-boards.greenhouse.io/anthropic/jobs/2", "Design"}}
 		check(s.applyRecruitmentSnapshot(tx, "public-source-test", board, ids[0], jobs, now))
-		var posts []struct{ PostID, Revision int64 }
+		var observations []struct {
+			ExternalID, State, Document string
+			ChangedAt                   int64
+		}
 		read := func() {
-			check(tx.Raw(`SELECT post_id,revision FROM social_work_posts WHERE agent_id=? ORDER BY post_id`, ids[0]).Scan(&posts).Error)
+			check(tx.Raw("SELECT external_id,state,document::text,changed_at FROM recruitment_observations WHERE agent_id=? ORDER BY external_id", ids[0]).Scan(&observations).Error)
 		}
 		read()
-		if len(posts) != 2 {
-			t.Fatal(posts)
+		if len(observations) != 2 {
+			t.Fatal(observations)
 		}
-		first := posts[0].PostID
+		var count int64
+		check(tx.Raw("SELECT count(*) FROM social_work_posts WHERE agent_id=?", ids[0]).Scan(&count).Error)
+		if count != 0 {
+			t.Fatal("collector published without agent decision")
+		}
 		check(s.applyRecruitmentSnapshot(tx, "public-source-test", board, ids[0], jobs, now.Add(time.Minute)))
 		read()
-		if len(posts) != 2 || posts[0].Revision != 1 {
-			t.Fatal("duplicate or unchanged rewrite", posts)
+		if len(observations) != 2 || observations[0].ChangedAt != now.UnixMilli() {
+			t.Fatal("unchanged observation rewritten", observations)
 		}
 		check(s.applyRecruitmentSnapshotMode(tx, "public-source-test", board, ids[0], jobs[:1], now.Add(time.Minute), false))
-		var remaining string
-		check(tx.Raw(`SELECT state FROM managed_recruitment_jobs WHERE sponsor_uid='public-source-test' AND source_key='anthropic' AND external_id='2'`).Scan(&remaining).Error)
-		if remaining != "open" {
-			t.Fatal("partial snapshot closed unseen job")
+		read()
+		if observations[1].State != "open" {
+			t.Fatal("partial fetch closed unseen job")
 		}
 		jobs[0].Location = "London"
 		check(s.applyRecruitmentSnapshot(tx, "public-source-test", board, ids[0], jobs[:1], now.Add(2*time.Minute)))
 		read()
-		if posts[0].PostID != first || posts[0].Revision != 2 {
-			t.Fatal("post identity changed", posts)
-		}
-		var doc string
-		check(tx.Raw(`SELECT document::text FROM social_work_posts WHERE post_id=?`, posts[1].PostID).Scan(&doc).Error)
-		if !strings.Contains(doc, "已关闭") {
-			t.Fatal(doc)
+		if !strings.Contains(observations[0].Document, "London") || observations[0].ChangedAt != now.Add(2*time.Minute).UnixMilli() || observations[1].State != "closed" {
+			t.Fatal(observations)
 		}
 		check(s.applyRecruitmentSnapshot(tx, "public-source-test", board, ids[0], jobs, now.Add(3*time.Minute)))
 		read()
-		if len(posts) != 2 {
-			t.Fatal("reopen duplicated")
-		}
-		var value map[string]any
-		check(tx.Raw(`SELECT document::text FROM social_work_posts WHERE post_id=?`, posts[1].PostID).Scan(&doc).Error)
-		check(json.Unmarshal([]byte(doc), &value))
-		if strings.Contains(value["title"].(string), "已关闭") {
-			t.Fatal("reopen failed")
+		if len(observations) != 2 || observations[1].State != "open" {
+			t.Fatal("reopen failed", observations)
 		}
 		originalTransport := http.DefaultTransport
 		defer func() { http.DefaultTransport = originalTransport }()
@@ -241,8 +236,8 @@ func TestManagedPublicSnapshot(t *testing.T) {
 			t.Fatal("failed fetch reported success")
 		}
 		read()
-		if len(posts) != 2 {
-			t.Fatal("failed fetch removed posts")
+		if len(observations) != 2 {
+			t.Fatal("failed fetch removed observations")
 		}
 		var status string
 		check(tx.Raw("SELECT status FROM managed_public_sources WHERE sponsor_uid='public-source-test' AND source_key='anthropic'").Scan(&status).Error)

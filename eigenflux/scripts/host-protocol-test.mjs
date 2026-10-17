@@ -156,6 +156,19 @@ try {
       }
       assert.equal(req.headers.authorization, 'Bearer local-fixture-access');
       switch (path) {
+        case '/api/v2/activity/plan':
+          assert.equal(req.method, 'POST');
+          assert.deepEqual(body, {});
+          data = {
+            version: 'activity-v1',
+            settings: { start_hour: 0, end_hour: 24 },
+            identity_core: 'shared',
+            activity_contract: 'JSON',
+            tools: {},
+            permissions: {},
+            publishing_progress: { published: 2, remaining_to_minimum: 3 },
+          };
+          break;
         case '/api/v2/agent-attention-items:publish':
           assert.equal(
             body.items[0].context_ref.moment.executor_id,
@@ -263,7 +276,11 @@ try {
           data = { claim_until: Date.now() + 120000 };
           break;
         case '/api/v2/social/posts':
-          data = { items: [], next_cursor: '', ranking_version: 'gorse-0.5.11' };
+          data = {
+            items: [],
+            next_cursor: '',
+            ranking_version: 'gorse-0.5.11',
+          };
           break;
         case '/api/v2/agent-commands/' + command.command_id + '/complete':
           assert.equal(body.claim_token, proof);
@@ -520,6 +537,15 @@ try {
   assert.ok(
     paths.slice(priorPaths).every((p) => p.startsWith('/api/v2/handoffs')),
   );
+  assert.deepEqual(await client.activity_tool({ tool: 'plan' }), {
+    version: 'activity-v1',
+    settings: { start_hour: 0, end_hour: 24 },
+    identity_core: 'shared',
+    activity_contract: 'JSON',
+    tools: {},
+    permissions: {},
+    publishing_progress: { published: 2, remaining_to_minimum: 3 },
+  });
   console.log(
     'PASS actual patched CLI → SDK host → model/dedicated decision executor → fenced completion; scoped Attention publication, claim, renewal and receipt; private draft/share and handoff hooks. Credentials/executors/server are test fixtures.',
   );

@@ -31,7 +31,7 @@ for (const patch of [
     { cwd: dir },
   );
 await cp('eigenflux/overlay', dir, { recursive: true });
-const db = await PGlite.create({extensions:{pg_trgm}});
+const db = await PGlite.create({ extensions: { pg_trgm } });
 await db.exec(
   `CREATE TABLE agents (agent_id BIGINT PRIMARY KEY,agent_name TEXT); INSERT INTO agents VALUES (1,'我的 Agent'),(2,'伙伴 Agent'),(3,'第三位 Agent'); ALTER TABLE agents ADD COLUMN is_official BOOLEAN NOT NULL DEFAULT false; CREATE TABLE user_relations (from_uid BIGINT,to_uid BIGINT,rel_type INTEGER); CREATE TABLE agent_commands(command_id BIGINT PRIMARY KEY,agent_id BIGINT,command_type TEXT,payload JSONB,status TEXT,result JSONB,created_at BIGINT); ALTER TABLE agent_commands ADD claim_epoch BIGINT, ADD claim_token_hash TEXT, ADD claim_until BIGINT; INSERT INTO agent_commands(command_id,agent_id,command_type,payload,status,result,created_at) VALUES (3,1,'human_instruction','{"instruction":"测试指令"}','completed','{"reply":"真实执行回执"}',1);`,
 );
@@ -69,6 +69,11 @@ await db.exec(
 );
 for (const migration of migrations)
   await db.exec(migration.split('-- +goose Down')[0]);
+// Shared comment handler now supports the parent field introduced by managed
+// social quality; this lightweight fixture deliberately omits managed tables.
+await db.exec(
+  'ALTER TABLE social_work_comments ADD COLUMN reply_to_comment_id BIGINT',
+);
 await db.exec(
   'CREATE TABLE managed_members(agent_id BIGINT PRIMARY KEY,deleted_at BIGINT NOT NULL DEFAULT 0); CREATE TABLE social_follow_friendships(from_uid BIGINT,to_uid BIGINT,PRIMARY KEY(from_uid,to_uid))',
 );

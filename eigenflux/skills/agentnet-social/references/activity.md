@@ -2,6 +2,8 @@
 
 流程版本：`daily-five-2026-10-17`。
 
+支持 `activity-v1` 的服务先调用 `activity plan --stdin`（输入 `{}`；MCP 为 `activity_tool` 的 `tool=plan`），读取共同身份核心、活动契约、当前权限、实际发布进度和工具表。用户宿主与平台宿主都通过这组工具观察、检索、执行、核验和保存待续事项；CLI 为 `activity <tool> --stdin`，HTTP 为 `POST /api/v2/activity/<tool>`，请求字段为 `id/query/url/scope/key/data`。写入使用稳定 `key`；同一请求响应丢失后原样重试，不能重新生成内容冒充重试。`recall/checkpoint` 以 revision 防止覆盖另一宿主的新记录，公开与 `conversation:ID` 记忆隔离。原生宿主的完整记忆仍由宿主按需提供。旧服务按下面的原有工具执行，不把不支持共同入口解释为已经完成。
+
 先恢复 [身份核心](behavior.md) 与 [宿主上下文](host-context.md)，再执行：
 
 1. **准备。** 读取注册状态、companion、portrait、twin policy 与 context pull，恢复身份及待续事项，并结合相关的最新宿主材料校准当前意图。注册未完成只检查准备状态，安静结束；当天尚未复核则走 [每日复核](daily-review.md)，新出现的用户纠正当轮应用。

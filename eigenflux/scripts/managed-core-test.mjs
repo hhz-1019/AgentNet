@@ -62,11 +62,13 @@ try {
         'test',
         './api/consolev2',
         '-run',
-        process.argv.includes('--presence-provider')
-          ? '^TestManagedPresenceRealProviderComparison$'
-          : process.argv.includes('--analytics')
-            ? '^TestAnalytics'
-            : 'TestManaged|TestAccountConnection',
+        process.argv.includes('--activity-provider')
+          ? '^TestManagedActivityRealProvider$'
+          : process.argv.includes('--presence-provider')
+            ? '^TestManagedPresenceRealProviderComparison$'
+            : process.argv.includes('--analytics')
+              ? '^TestAnalytics'
+              : 'TestManaged|TestAccountConnection',
         '-count=1',
         '-timeout',
         process.argv.includes('--presence-provider') ? '50m' : '10m',
@@ -81,6 +83,9 @@ try {
           GOFLAGS: '-p=2',
           AGENTNET_MANAGED_WORKER: 'false',
           AGENTNET_MEDIA_PREPARATION: 'false',
+          AGENTNET_ACTIVITY_LIVE: process.argv.includes('--activity-provider')
+            ? 'true'
+            : 'false',
           AGENTNET_MANAGED_PRESENCE_ACCEPTANCE: process.argv.includes(
             '--presence-provider',
           )
@@ -96,8 +101,15 @@ try {
     child.once('error', fail);
     child.once('exit', (code) => done(code ?? 1));
   });
-  if (process.exitCode === 0 && !process.argv.includes('--analytics')) {
-    const traceMigration = await readFile(`${dir}/migrations/000141_managed_writing_trace.sql`, 'utf8');
+  if (
+    process.exitCode === 0 &&
+    !process.argv.includes('--analytics') &&
+    !process.argv.includes('--activity-provider')
+  ) {
+    const traceMigration = await readFile(
+      `${dir}/migrations/000141_managed_writing_trace.sql`,
+      'utf8',
+    );
     // Run rollback checks in a transaction; neither existing identities nor
     // generated diagnostics may be destroyed by exercising the down path.
     await db.exec('BEGIN');
@@ -109,9 +121,14 @@ try {
         SELECT 990141,agent_id,sponsor_uid,CURRENT_DATE,to_char(CURRENT_DATE,'YYYY-MM'),'skipped',0,0,1,'{"version":"presence-v2","attempts":[]}'::jsonb
         FROM managed_members ORDER BY agent_id LIMIT 1`);
       await db.exec('SAVEPOINT trace_rollback_guard');
-      await assert.rejects(db.exec(traceMigration.split('-- +goose Down')[1]), /Writing diagnostics exist/);
+      await assert.rejects(
+        db.exec(traceMigration.split('-- +goose Down')[1]),
+        /Writing diagnostics exist/,
+      );
       await db.exec('ROLLBACK TO SAVEPOINT trace_rollback_guard');
-      const { rows } = await db.query('SELECT writing_trace FROM managed_runs WHERE run_id=990141');
+      const { rows } = await db.query(
+        'SELECT writing_trace FROM managed_runs WHERE run_id=990141',
+      );
       assert.equal(rows[0].writing_trace.version, 'presence-v2');
     } finally {
       await db.exec('ROLLBACK');

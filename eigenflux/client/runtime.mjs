@@ -23,6 +23,7 @@ import { networkBoundary } from './prompts.mjs';
 import { processDecision, interruptedDecision } from './decisions.mjs';
 import { createActivityReport } from './activity-report.mjs';
 import { publishedReceipt } from './receipts.mjs';
+import { runActivityRound } from './activity.mjs';
 
 const instructionPrompt = [
   networkBoundary,
@@ -370,7 +371,25 @@ export class AgentNetRuntime {
         (!this.journal.jobs[c.command_id] ||
           this.journal.jobs[c.command_id].phase === 'fenced'),
     );
-    if (!command || signal?.aborted) return;
+    if (signal?.aborted) return;
+    if (!command) {
+      if (this.client.activity_tool) {
+        this.journal.activity ||= {};
+        await runActivityRound({
+          client: this.client,
+          model: this.model,
+          state: this.journal.activity,
+          save: () => this.save(),
+          records: await this.records(true),
+          identity: await this.restoreIdentity(companion?.settings, portrait, {
+            signal,
+          }),
+          voice: companionVoice(companion?.settings, portrait),
+          signal,
+        });
+      }
+      return;
+    }
     const instruction = command.payload?.instruction;
     const previouslyFenced =
       this.journal.jobs[command.command_id]?.phase === 'fenced';
@@ -448,7 +467,11 @@ export class AgentNetRuntime {
           instruction,
           sharing,
           posts,
-          recommendation_context: { engine: page.ranking_version, feedback_count: page.feedback_count, intent_handling: page.intent_handling },
+          recommendation_context: {
+            engine: page.ranking_version,
+            feedback_count: page.feedback_count,
+            intent_handling: page.intent_handling,
+          },
           records,
           companion: companion?.settings,
           agent_identity: identity,

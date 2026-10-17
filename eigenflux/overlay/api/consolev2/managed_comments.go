@@ -111,16 +111,17 @@ func (s *Service) commitManagedComment(ctx context.Context, tx *gorm.DB, job man
 			}
 		}
 	}
-	comment, err := s.idgen.NextID()
+	data := map[string]any{"content": text, "idempotency_key": "managed:" + fmtRun(job.RunID)}
+	if parent > 0 {
+		data["reply_to_comment_id"] = fmtRun(parent)
+	}
+	raw, _ := json.Marshal(data)
+	receipt, err := scoped.activityTool(ctx, job.AgentID, "comment", activityRequest{ID: fmtRun(id), Key: "managed:" + fmtRun(job.RunID) + ":comment", Data: raw})
 	if err != nil {
 		return "", "", err
 	}
-	var reply any
-	if parent > 0 {
-		reply = parent
-	}
-	if err := tx.Exec(`INSERT INTO social_work_comments(comment_id,post_id,agent_id,content,idempotency_key,created_at,reply_to_comment_id) VALUES(?,?,?,?,?,?,?)`, comment, id, job.AgentID, text, "managed:"+fmtRun(job.RunID), now.UnixMilli(), reply).Error; err != nil {
-		return "", "", err
+	if receipt.Status != 200 || activityString(activityData(receipt), "comment_id") == "" {
+		return "", "", managedFailure("publication")
 	}
 	return "commented", "", nil
 }

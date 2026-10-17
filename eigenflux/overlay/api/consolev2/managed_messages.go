@@ -2,6 +2,7 @@ package consolev2
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -299,19 +300,23 @@ func (s *Service) commitManagedMessage(tx *gorm.DB, job managedJob, result manag
 			return 0, 0, "", err
 		}
 	}
-	msgID, err := s.idgen.NextID()
+	data := map[string]string{"content": content}
+	if reply {
+		data["conv_id"] = fmtRun(conv.ConvID)
+	} else {
+		data["receiver_id"] = fmtRun(peer)
+	}
+	raw, _ := json.Marshal(data)
+	child := *s
+	child.db = tx
+	child.redisClient = nil // The durable outbox notifies after commit.
+	receipt, err := child.activityTool(context.Background(), job.AgentID, "message", activityRequest{Key: "managed:" + fmtRun(job.RunID) + ":message", Data: raw})
 	if err != nil {
 		return 0, 0, "", err
 	}
-	sender, receiver := conv.ParticipantAName, conv.ParticipantBName
-	if job.AgentID != lo {
-		sender, receiver = receiver, sender
-	}
-	if err := pmdal.CreateMessage(tx, &pmdal.PrivateMessage{MsgID: msgID, ConvID: conv.ConvID, SenderID: job.AgentID, ReceiverID: peer, SenderName: sender, ReceiverName: receiver, Content: content}); err != nil {
-		return 0, 0, "", err
-	}
-	if err := pmdal.UpdateConversationAfterMessage(tx, conv.ConvID, job.AgentID); err != nil {
-		return 0, 0, "", err
+	msgID := socialDecimal(activityString(activityData(receipt), "msg_id"))
+	if receipt.Status != 200 || msgID == 0 {
+		return 0, 0, "", managedFailure("publication")
 	}
 	if err := tx.Exec(`INSERT INTO managed_message_receipts(run_id,sender_id,receiver_id,conv_id,msg_id,trigger_key,created_at) VALUES(?,?,?,?,?,?,?)`, job.RunID, job.AgentID, peer, conv.ConvID, msgID, target.TriggerKey, time.Now().UnixMilli()).Error; err != nil {
 		return 0, 0, "", err

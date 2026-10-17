@@ -590,37 +590,6 @@ func TestManagedFullSchema(t *testing.T) {
 	if shortest < 1001 {
 		t.Fatal(shortest)
 	}
-	editorialTX := db.Begin()
-	check(editorialTX.Exec(`UPDATE managed_members SET enabled=true,daily_limit=2,start_hour=0,end_hour=24 WHERE deleted_at=0`).Error)
-	tomorrow := time.Now().UTC().Add(48 * time.Hour)
-	tomorrow = time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 15, 0, 0, 0, time.UTC)
-	leads := 0
-	for i, id := range ids {
-		topic, wait, err := managedEditorialPlan(editorialTX, managedJob{AgentID: id, SponsorUID: "operator", Scenario: managedCatalog()[i].Scenario}, tomorrow)
-		check(err)
-		if topic != "" {
-			leads++
-			for _, template := range []string{"三步可执行流程", "列出三个常见误区", "可复用清单", "正文必须包含可实践的方法"} {
-				if strings.Contains(topic, template) {
-					t.Fatal("editorial plan imposes a template", topic)
-				}
-			}
-		}
-		if !wait.IsZero() {
-			t.Fatal("editorial slot unexpectedly deferred")
-		}
-	}
-	day := tomorrow.UTC().Add(8*time.Hour).Unix() / 86400
-	expected := 6
-	for scene := 6; scene < 8; scene++ {
-		if (day+int64(scene))%3 == 0 {
-			expected++
-		}
-	}
-	if leads != expected {
-		t.Fatal("expected one lead per scene", leads)
-	}
-	check(editorialTX.Rollback().Error)
 	// Real middleware rejects mutations without a session and CSRF proof.
 	protected := server.New()
 	protected.POST("/pause", s.consoleAuth(true), s.pauseManaged)

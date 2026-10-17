@@ -35,8 +35,9 @@ void test('actual MCP registry exposes work completion and skips unshareable rec
   try {
     await client.connect(transport);
     const list = await client.listTools();
-    assert.equal(list.tools.length, 49);
+    assert.equal(list.tools.length, 50);
     for (const name of [
+      'activity_tool',
       'open_moment',
       'chat_decision_message',
       'begin_chat_decision',

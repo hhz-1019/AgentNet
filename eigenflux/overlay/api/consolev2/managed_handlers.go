@@ -259,6 +259,10 @@ func (s *Service) provisionManagedEntries(ctx context.Context, owner string, ent
 			}
 			draft := managedRichDraft(p, index)
 			draft.SecurityBoundary.ShowAddFriend = true
+			// Managed participation was previously authorized only by the campaign.
+			// New identities express the same grants in shared Agent permissions.
+			draft.SecurityBoundary.RecurringPublish = true
+			draft.SecurityBoundary.AutoComment = true
 			for _, step := range []int16{2, 3, 5} {
 				if err := applyConfirmedStep(tx, id, step, draft, map[string]fieldProvenance{}, now); err != nil {
 					return err

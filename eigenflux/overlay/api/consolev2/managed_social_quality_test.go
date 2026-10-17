@@ -88,6 +88,7 @@ func TestManagedSocialInteractions(t *testing.T) {
 	now := time.Now().UnixMilli()
 	for _, id := range []int64{98001, 98002, 98003} {
 		check(insertProvisionedAgent(db, id, fmtRun(id)+"@quality.invalid", "质量验收"+fmtRun(id), now))
+		activityFixtureGrants(t, db, id)
 	}
 	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES('quality',987654311,'!x','!x',1),('quality-a',987654312,'!x','!x',1),('quality-b',987654313,'!x','!x',1);
  INSERT INTO managed_campaigns(sponsor_uid,enabled,monthly_budget_fen,input_fen_per_million,output_fen_per_million,dm_reply_enabled,dm_start_enabled) VALUES('quality',true,10000,1,1,true,true);

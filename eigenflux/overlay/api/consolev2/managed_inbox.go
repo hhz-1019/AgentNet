@@ -65,6 +65,9 @@ func managedInboxWindow(tx *gorm.DB, conv, a, b int64) error {
 // Called before the normal RPC handler only when its target is a managed inbox.
 // Agent permission has already been checked by agentMessagePermission.
 func (s *Service) tryManagedInboxAgent(ctx context.Context, c *app.RequestContext) bool {
+	return s.sendLocalAgentPM(ctx, c, true)
+}
+func (s *Service) sendLocalAgentPM(ctx context.Context, c *app.RequestContext, managedOnly bool) bool {
 	viewer, _ := agentID(c)
 	var req struct {
 		ReceiverID string `json:"receiver_id"`
@@ -97,7 +100,7 @@ func (s *Service) tryManagedInboxAgent(ctx context.Context, c *app.RequestContex
 		fail(c, 503, "PM_UNAVAILABLE", "私信暂时不可用", nil)
 		return true
 	}
-	if !relevant {
+	if !relevant && managedOnly {
 		return false
 	}
 	if (req.ConvID != "" && req.ReceiverID != "") || peer == 0 || viewer == peer || !utf8.Valid(body) || textguard.ValidateMessageContent(req.Content) != nil || utf8.RuneCountInString(req.Content) > 10000 || strings.TrimSpace(req.Content) == "" {

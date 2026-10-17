@@ -106,22 +106,6 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 			if !managedAdminNumber(number) {
 				continue
 			}
-			if candidate.Topic == "" && candidate.RecipientID == 0 && candidate.Action == "" {
-				topic, notBefore, err := managedEditorialPlan(tx, candidate, now)
-				if err != nil {
-					return err
-				}
-				if !notBefore.IsZero() {
-					if err := tx.Exec(`UPDATE managed_members SET next_run_at=? WHERE agent_id=?`, notBefore.UnixMilli(), candidate.AgentID).Error; err != nil {
-						return err
-					}
-					continue
-				}
-				candidate.Topic = topic
-				if topic != "" && celebrityForJob(candidate) != nil {
-					candidate.Action = "post"
-				}
-			}
 			var campaign managedCampaign
 			if err := tx.Raw(`SELECT * FROM managed_campaigns WHERE sponsor_uid=? FOR UPDATE`, candidate.SponsorUID).Scan(&campaign).Error; err != nil {
 				return err
@@ -157,10 +141,7 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 			}
 			// Stable spread avoids synchronized waves. Attempts, including failures and
 			// skips, count against the daily limit; manual queue cannot bypass it.
-			next := now.Add(time.Duration(60+managedVariation(candidate.AgentID, runID, "interval")%301) * time.Minute).UnixMilli()
-			if celebrityForJob(candidate) != nil {
-				next = now.Add(time.Duration(60+managedVariation(candidate.AgentID, runID, "interval")%61) * time.Minute).UnixMilli()
-			}
+			next := now.Add(time.Duration(90+managedVariation(candidate.AgentID, runID, "interval")%61) * time.Minute).UnixMilli()
 			if err := tx.Exec(`UPDATE managed_members SET next_run_at=?,pending_topic='',pending_recipient_id=NULL,pending_action='',pending_task_id='',pending_task_digest='' WHERE agent_id=?`, next, candidate.AgentID).Error; err != nil {
 				return err
 			}
@@ -219,6 +200,9 @@ func (s *Service) managedReplyLoop() {
 }
 
 type managedOutput struct {
+	Tool             string             `json:"tool,omitempty"`
+	Arguments        activityRequest    `json:"arguments,omitempty"`
+	Pending          string             `json:"pending,omitempty"`
 	WritingCard      managedWritingCard `json:"writing_card"`
 	Review           managedReview      `json:"review"`
 	Action           string             `json:"action"`
@@ -248,6 +232,9 @@ type managedModelResult struct {
 
 func callManagedModel(ctx context.Context, input any) (managedModelResult, error) {
 	prompt := managedPrompt
+	if payload, ok := input.(map[string]any); ok && payload["activity_mode"] == true {
+		return callManagedModelWithPrompt(ctx, input, managedActivityPrompt())
+	}
 	if payload, ok := input.(map[string]any); ok && payload["presence_brief"] != nil {
 		prompt = managedPilotPrompt()
 	}
@@ -255,6 +242,9 @@ func callManagedModel(ctx context.Context, input any) (managedModelResult, error
 }
 func callManagedModelWithPrompt(ctx context.Context, input any, prompt string) (managedModelResult, error) {
 	result := managedModelResult{}
+	if !strings.Contains(prompt, companionpolicy.Identity) {
+		prompt = companionpolicy.Identity + prompt
+	}
 	// Apply after selecting the writer/reviewer prompt so other writing modes
 	// cannot replace celebrity constraints, including on repair requests.
 	if payload, ok := input.(map[string]any); ok && payload["celebrity_profile"] != nil {
@@ -369,12 +359,12 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 		return
 	}
 	sources := []managedSource{}
-	if !input.Targets.Private {
-		sources, err = s.managedRoleSources(ctx, job)
-	} else if celebrityForJob(job) != nil {
+	if celebrityForJob(job) != nil {
 		// Public news also grounds private questions about the figure's recent
 		// activity. Read directly: a DM must not reserve a public-post source slot.
 		sources, err = s.celebritySources(ctx, job)
+	} else if !input.Targets.Private {
+		sources = s.managedSources(ctx, job.Scenario)
 	}
 	if err != nil {
 		s.finishManagedFailure(job, managedModelResult{}, managedFailure("context"))
@@ -425,14 +415,7 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 		s.finishManagedFailure(job, managedModelResult{}, managedFailure("input"))
 		return
 	}
-	result, err := callManagedModel(ctx, payload)
-	result.Calls = 0
-	if result.Requested {
-		result.Calls = 1
-	}
-	if result.Requested && !result.UsageKnown {
-		result.UnknownReserved = managedCost(managedMaxInput, managedMaxOutput, job.InputRate, job.OutputRate)
-	}
+	result, err := s.managedActivityModel(ctx, &job, payload, &input)
 	result.Sources = sources
 	result.Targets = input.Targets
 	if err == nil && input.Targets.Private {
@@ -474,6 +457,8 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 	}
 	if err = s.commitManaged(ctx, job, result, eligible); err != nil {
 		s.finishManagedFailure(job, result, err)
+	} else {
+		s.managedActivityCheckpoint(ctx, job, result)
 	}
 }
 func (s *Service) commitManaged(ctx context.Context, job managedJob, result managedModelResult, eligible map[int64]bool) error {
@@ -586,17 +571,23 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 			if duplicate {
 				detail = "与近期内容重复，跳过发布"
 			} else {
-				id, err := s.idgen.NextID()
-				if err != nil {
-					return err
-				}
 				if err := s.addManagedPhoto(tx, job.AgentID, &d, result.Photo); err != nil {
 					return err
 				}
-				raw, _ := json.Marshal(d)
-				now := time.Now().UnixMilli()
-				if err := tx.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision,proposal_key) VALUES(?,?,'published',1,'public',?::jsonb,?,?,1,?)`, id, job.AgentID, string(raw), now, now, "managed:"+fmtRun(job.RunID)).Error; err != nil {
-					return err
+				raw, _ := json.Marshal(socialWriteRequest{Document: d, Visibility: "public", OwnerAuthorized: true, IdempotencyKey: "managed:" + fmtRun(job.RunID)})
+				child := *s
+				child.db = tx
+				receipt, e := child.activityTool(ctx, job.AgentID, "publish", activityRequest{Key: "managed:" + fmtRun(job.RunID) + ":publish", Data: raw})
+				if e != nil {
+					return e
+				}
+				if receipt.Status != 201 {
+					return managedFailure("publication")
+				}
+				data := activityData(receipt)
+				id := socialDecimal(activityString(data, "id"))
+				if id == 0 || activityString(data, "state") != "published" {
+					return managedFailure("publication")
 				}
 				postID = id
 				status = "published"
@@ -637,11 +628,14 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 			if err != nil {
 				return err
 			}
-			result := tx.Exec("INSERT INTO social_work_reactions(post_id,agent_id,kind) SELECT ?,?,'like' WHERE ? ON CONFLICT DO NOTHING", id, job.AgentID, available)
-			if result.Error != nil {
-				return result.Error
-			}
-			if result.RowsAffected > 0 {
+			if available && !row.Liked {
+				receipt, e := scoped.activityTool(ctx, job.AgentID, "react", activityRequest{ID: fmtRun(id), Key: "managed:" + fmtRun(job.RunID) + ":react", Data: json.RawMessage(`{"kind":"like","active":true}`)})
+				if e != nil {
+					return e
+				}
+				if receipt.Status != 200 {
+					return managedFailure("publication")
+				}
 				postID = id
 				status = "liked"
 			} else {
@@ -672,6 +666,23 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 			}
 		}
 		cost := managedResultCost(job, result)
+		// A tool may have completed an action before the model ended quietly.
+		// Actual publication progress is always read from social_work_posts.
+		if status == "skipped" {
+			var prior struct {
+				Tool string
+				Post string
+			}
+			if err := tx.Raw(`SELECT tool,COALESCE(result->'data'->>'id',result->'data'->>'post_id','') AS post FROM agent_activity_receipts WHERE agent_id=? AND operation_key LIKE ? AND tool IN ('publish','comment','react') ORDER BY created_at DESC LIMIT 1`, job.AgentID, "managed:"+fmtRun(job.RunID)+":tool:%").Scan(&prior).Error; err != nil {
+				return err
+			}
+			if prior.Tool != "" {
+				status = map[string]string{"publish": "published", "comment": "commented", "react": "liked"}[prior.Tool]
+				if id := socialDecimal(prior.Post); id > 0 {
+					postID = id
+				}
+			}
+		}
 		return tx.Exec(`UPDATE managed_runs SET status=?,detail=?,charged_fen=?,input_tokens=?,output_tokens=?,post_id=?,message_id=?,conversation_id=?,finished_at=?,model_calls=?,repair_count=?,review_status=?,writing_trace=?::jsonb WHERE run_id=?`, status, detail, cost, result.Input, result.Output, postID, messageID, conversationID, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID).Error
 	})
 }

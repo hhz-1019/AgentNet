@@ -2,6 +2,7 @@ package consolev2
 
 import (
 	"context"
+	"eigenflux_server/pkg/companionpolicy"
 	"encoding/json"
 	"strings"
 	"time"
@@ -206,6 +207,7 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 			return managedFailure("context")
 		}
 		checkInput := map[string]any{"candidate": result.Value.Document, "persona": job.Persona, "recent": recent, "sources": payload["web_sources"]}
+		checkInput["research"] = payload["research"]
 		reviewPrompt := managedReviewPrompt
 		if payload["presence_brief"] != nil {
 			reviewPrompt = managedPresenceReviewPrompt
@@ -230,7 +232,7 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 		// before the model's hard byte ceiling, without any extra summarizer call.
 		for n := len(recent); n > 0; n-- {
 			raw, e := json.Marshal(checkInput)
-			promptBytes := len(reviewPrompt)
+			promptBytes := len(reviewPrompt) + len(companionpolicy.Identity)
 			if checkInput["celebrity_profile"] != nil {
 				promptBytes += len(celebrityWritingPrompt) + len(celebrityIdentityPrompt)
 			}

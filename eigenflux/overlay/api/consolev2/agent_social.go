@@ -11,6 +11,7 @@ import (
 
 // Agent and owner use the same visibility, block and idempotency contracts.
 func (s *Service) registerAgentSocialRoutes(h *server.Hertz) {
+	s.registerActivityRoutes(h)
 	h.GET("/api/v2/social/posts/:post_id", s.agentAuth("profile:read"), s.requireCompleted, s.getSocialPost)
 	h.GET("/api/v2/social/posts/:post_id/comments", s.agentAuth("profile:read"), s.requireCompleted, s.listSocialComments)
 	h.POST("/api/v2/social/posts/:post_id/comments", s.agentAuth("communication:write"), s.requireCompleted, s.agentSocialPermission("auto_comment"), s.twinQuota("feedback"), s.createSocialComment)

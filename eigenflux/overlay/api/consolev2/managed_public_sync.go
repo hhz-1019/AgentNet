@@ -2,8 +2,6 @@ package consolev2
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -402,63 +400,24 @@ func (s *Service) applyRecruitmentSnapshot(tx *gorm.DB, owner string, board recr
 }
 func (s *Service) applyRecruitmentSnapshotMode(tx *gorm.DB, owner string, board recruitmentBoard, agent int64, jobs []publicJob, now time.Time, complete bool) error {
 	ids := []string{}
-	created := 0
 	for _, j := range jobs {
 		ids = append(ids, j.ID)
-		encoded, _ := json.Marshal(j)
-		digest := sha256.Sum256(encoded)
-		fingerprint := hex.EncodeToString(digest[:])
-		var old struct {
-			PostID             int64
-			Fingerprint, State string
-		}
-		if e := tx.Raw(`SELECT post_id,fingerprint,state FROM managed_recruitment_jobs WHERE sponsor_uid=? AND source_key=? AND external_id=?`, owner, board.Key, j.ID).Scan(&old).Error; e != nil {
-			return e
-		}
-		if old.Fingerprint == fingerprint && old.State == "open" {
-			if e := tx.Exec(`UPDATE managed_recruitment_jobs SET checked_at=? WHERE sponsor_uid=? AND source_key=? AND external_id=?`, now.UnixMilli(), owner, board.Key, j.ID).Error; e != nil {
-				return e
-			}
-			continue
-		}
-		body := "公司：" + board.Company + "\n工作地点：" + j.Location + "\n\n" + j.Description + "\n\n官方岗位与申请：" + j.URL + "\n信息核对：" + now.UTC().Add(8*time.Hour).Format("2006-01-02 15:04") + "（北京时间）\n由 elsewhere 整理，非企业官方账号；未列待遇以官网为准。"
-		doc := map[string]any{"title": board.Company + " · " + j.Title, "summary": j.Location, "body": body, "kind": "collab", "tags": []string{"招聘", board.Company}, "identity": "agent", "media": []any{}}
-		raw, _ := json.Marshal(doc)
-		post := old.PostID
-		if post == 0 {
-			if created >= 20 {
-				continue
-			}
-			created++
-			var e error
-			post, e = s.idgen.NextID()
-			if e != nil {
-				return e
-			}
-			if e = tx.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision,proposal_key) VALUES(?,?,'published',1,'public',?::jsonb,?,?,1,?)`, post, agent, string(raw), now.UnixMilli(), now.UnixMilli(), "recruitment:"+board.Key+":"+j.ID).Error; e != nil {
-				return e
-			}
-		} else {
-			if e := tx.Exec(`UPDATE social_work_posts SET document=?::jsonb,revision=revision+1,approved_revision=revision+1 WHERE post_id=? AND agent_id=?`, string(raw), post, agent).Error; e != nil {
-				return e
-			}
-		}
-		if e := tx.Exec(`INSERT INTO managed_recruitment_jobs(sponsor_uid,source_key,external_id,post_id,fingerprint,state,checked_at) VALUES(?,?,?,?,?,'open',?) ON CONFLICT(sponsor_uid,source_key,external_id) DO UPDATE SET fingerprint=EXCLUDED.fingerprint,state='open',checked_at=EXCLUDED.checked_at`, owner, board.Key, j.ID, post, fingerprint, now.UnixMilli()).Error; e != nil {
-			return e
+		raw, _ := json.Marshal(j)
+		if err := tx.Exec(`INSERT INTO recruitment_observations(agent_id,external_id,source_key,document,state,checked_at,changed_at) VALUES(?,?,?,?::jsonb,'open',?,?) ON CONFLICT(agent_id,external_id) DO UPDATE SET document=EXCLUDED.document,state='open',checked_at=EXCLUDED.checked_at,changed_at=CASE WHEN recruitment_observations.document<>EXCLUDED.document OR recruitment_observations.state<>'open' THEN EXCLUDED.changed_at ELSE recruitment_observations.changed_at END`, agent, j.ID, board.Key, string(raw), now.UnixMilli(), now.UnixMilli()).Error; err != nil {
+			return err
 		}
 	}
 	if !complete {
 		return nil
 	}
-	var closed []struct{ PostID int64 }
-	if e := tx.Raw(`SELECT post_id FROM managed_recruitment_jobs WHERE sponsor_uid=? AND source_key=? AND state='open' AND external_id NOT IN ?`, owner, board.Key, ids).Scan(&closed).Error; e != nil {
-		return e
+	if len(ids) == 0 {
+		ids = append(ids, "")
 	}
-	for _, j := range closed {
-		if e := tx.Exec(`UPDATE social_work_posts SET document=jsonb_set(jsonb_set(document,'{title}',to_jsonb('已关闭 · '||(document->>'title'))),'{body}',to_jsonb((document->>'body')||?::text)),revision=revision+1,approved_revision=revision+1 WHERE post_id=? AND agent_id=?`, "\n\n官网完整岗位列表已不包含此岗位。核对时间："+now.UTC().Format(time.RFC3339), j.PostID, agent).Error; e != nil {
-			return e
-		}
+	if err := tx.Exec(`UPDATE recruitment_observations SET state='closed',checked_at=?,changed_at=? WHERE agent_id=? AND state='open' AND external_id NOT IN ?`, now.UnixMilli(), now.UnixMilli(), agent, ids).Error; err != nil {
+		return err
 	}
+	// Preserve previously published posts and their IDs. Their listing state may
+	// close, but a collector no longer rewrites another Agent's authored content.
 	return tx.Exec(`UPDATE managed_recruitment_jobs SET state='closed',checked_at=? WHERE sponsor_uid=? AND source_key=? AND state='open' AND external_id NOT IN ?`, now.UnixMilli(), owner, board.Key, ids).Error
 }
 func (s *Service) publicSourceLoop() {

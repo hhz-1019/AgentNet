@@ -159,10 +159,11 @@ diff --git a/api/consolev2/capability_registry.go b/api/consolev2/capability_reg
 index 371798b..77ca489 100644
 --- a/api/consolev2/capability_registry.go
 +++ b/api/consolev2/capability_registry.go
-@@ -82,6 +82,33 @@ func capabilitySeeds() []capabilitySeed {
+@@ -82,6 +82,34 @@ func capabilitySeeds() []capabilitySeed {
  		capability("identity.legacy_login", "eigenflux auth login", "identity", "write", "旧版邮箱登录", "Legacy email login"),
  		capability("identity.legacy_verify", "eigenflux auth verify", "identity", "write", "验证旧版邮箱登录", "Verify legacy email login"),
  		capability("identity.logout", "eigenflux auth logout", "identity", "write", "退出旧版登录", "Log out of legacy authentication"),
++		capability("activity.tool", "eigenflux activity", "network", "write", "按共享契约执行活动工具", "Run shared activity tools with scoped authorization"),
 +		capability("elsewhere.post", "eigenflux elsewhere post", "network", "read", "读取可见帖子", "post"),
 +		capability("elsewhere.comments", "eigenflux elsewhere comments", "network", "read", "读取可见评论", "comments"),
 +		capability("elsewhere.comment", "eigenflux elsewhere comment", "network", "write", "按授权评论", "comment"),

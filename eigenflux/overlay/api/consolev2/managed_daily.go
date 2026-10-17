@@ -7,9 +7,13 @@ import (
 )
 
 // Counts come from the complete ledger, never the last 50 receipts in the UI.
-const managedDailySummarySQL = `SELECT json_build_object(
+const managedDailySummarySQL = `WITH public_progress AS (
+ SELECT count(*) AS total FROM social_work_posts p JOIN managed_members m USING(agent_id)
+ WHERE m.sponsor_uid=? AND p.state='published' AND p.visibility='public'
+ AND (to_timestamp(p.published_at/1000.0) AT TIME ZONE 'Asia/Shanghai')::date=?::date
+) SELECT json_build_object(
  'attempts',count(*),'active_accounts',count(DISTINCT agent_id),
- 'published',count(*) FILTER(WHERE status='published'),
+ 'published',(SELECT total FROM public_progress),
  'commented',count(*) FILTER(WHERE status='commented'),
  'liked',count(*) FILTER(WHERE status='liked'),
  'messaged',count(*) FILTER(WHERE status='messaged'),
@@ -25,7 +29,7 @@ const managedDailySummarySQL = `SELECT json_build_object(
 
 func (s *Service) managedDailySummary(ctx context.Context, owner, day string) (json.RawMessage, error) {
 	var raw string
-	err := s.db.WithContext(ctx).Raw(managedDailySummarySQL, owner, day, owner, day).Scan(&raw).Error
+	err := s.db.WithContext(ctx).Raw(managedDailySummarySQL, owner, day, owner, day, owner, day).Scan(&raw).Error
 	return json.RawMessage(raw), err
 }
 

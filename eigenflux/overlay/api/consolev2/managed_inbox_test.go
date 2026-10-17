@@ -31,6 +31,7 @@ func TestManagedAnyUserInbox(t *testing.T) {
 	}
 	for _, id := range []int64{98401, 98402, 98403} {
 		check(insertProvisionedAgent(db, id, fmtRun(id)+"@inbox.invalid", "验收"+fmtRun(id), 1))
+		activityFixtureGrants(t, db, id)
 	}
 	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES('inbox-operator',987654321,'!x','!x',1),('inbox-system',987654322,'!x','!x',1),('inbox-user',987654323,'!x','!x',1);
  INSERT INTO managed_campaigns(sponsor_uid,enabled,monthly_budget_fen,input_fen_per_million,output_fen_per_million,dm_reply_enabled,dm_start_enabled) VALUES('inbox-operator',true,10000,1,1,true,true);

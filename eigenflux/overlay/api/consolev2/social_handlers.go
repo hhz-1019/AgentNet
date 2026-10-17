@@ -224,6 +224,9 @@ func (s *Service) listSocialPosts(ctx context.Context, c *app.RequestContext) {
 	where := " WHERE " + socialAccess
 	args := []any{viewer, viewer, viewer, viewer, viewer, viewer, viewer, viewer}
 	scope := c.Query("scope")
+	if scope == "public" {
+		where += " AND p.visibility='public'"
+	}
 	if scope == "opportunities" {
 		s.getSocialOpportunities(ctx, c)
 		return
@@ -673,6 +676,7 @@ func (s *Service) createSocialComment(ctx context.Context, c *app.RequestContext
 	var req struct {
 		Content string `json:"content"`
 		Key     string `json:"idempotency_key"`
+		Parent  string `json:"reply_to_comment_id,omitempty"`
 	}
 	if decodeBody(c, &req) != nil || strings.TrimSpace(req.Content) == "" || utf8.RuneCountInString(req.Content) > 2000 || req.Key == "" || len(req.Key) > 128 || socialSecretPattern.MatchString(req.Content) {
 		fail(c, 400, "SOCIAL_INVALID", "评论需为 1–2000 字且不包含凭证", nil)
@@ -687,12 +691,24 @@ func (s *Service) createSocialComment(ctx context.Context, c *app.RequestContext
 		fail(c, 400, "NOT_PUBLISHED", "草稿尚未发布", nil)
 		return
 	}
+	parent := socialDecimal(req.Parent)
+	if req.Parent != "" {
+		var visible bool
+		if err := s.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM social_work_comments c WHERE c.comment_id=? AND c.post_id=? AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2 AND ((b.from_uid=? AND b.to_uid=c.agent_id) OR (b.to_uid=? AND b.from_uid=c.agent_id))))`, parent, id, viewer, viewer).Scan(&visible).Error; err != nil {
+			s.socialFailure(c, err)
+			return
+		}
+		if !visible {
+			fail(c, 404, "SOCIAL_NOT_FOUND", "评论不存在或不在可见范围内", nil)
+			return
+		}
+	}
 	commentID, err := s.idgen.NextID()
 	if err != nil {
 		s.socialFailure(c, err)
 		return
 	}
-	result := s.db.WithContext(ctx).Exec(`INSERT INTO social_work_comments (comment_id,post_id,agent_id,content,idempotency_key,created_at) VALUES (?,?,?,?,?,?) ON CONFLICT (agent_id,idempotency_key) DO NOTHING`, commentID, id, viewer, req.Content, req.Key, time.Now().UnixMilli())
+	result := s.db.WithContext(ctx).Exec(`INSERT INTO social_work_comments (comment_id,post_id,agent_id,content,idempotency_key,created_at,reply_to_comment_id) VALUES (?,?,?,?,?,?,NULLIF(?::bigint,0)) ON CONFLICT (agent_id,idempotency_key) DO NOTHING`, commentID, id, viewer, req.Content, req.Key, time.Now().UnixMilli(), parent)
 	if result.Error != nil {
 		s.socialFailure(c, result.Error)
 		return
@@ -701,12 +717,13 @@ func (s *Service) createSocialComment(ctx context.Context, c *app.RequestContext
 		CommentID string
 		PostID    int64
 		Content   string
+		Parent    int64
 	}
-	if err = s.db.WithContext(ctx).Raw(`SELECT comment_id::text AS comment_id,post_id,content FROM social_work_comments WHERE agent_id=? AND idempotency_key=?`, viewer, req.Key).Scan(&prior).Error; err != nil {
+	if err = s.db.WithContext(ctx).Raw(`SELECT comment_id::text AS comment_id,post_id,content,COALESCE(reply_to_comment_id,0) AS parent FROM social_work_comments WHERE agent_id=? AND idempotency_key=?`, viewer, req.Key).Scan(&prior).Error; err != nil {
 		s.socialFailure(c, err)
 		return
 	}
-	if prior.PostID != id || prior.Content != req.Content {
+	if prior.PostID != id || prior.Content != req.Content || prior.Parent != parent {
 		fail(c, 409, "COMMENT_CONFLICT", "此操作键对应另一条评论", nil)
 		return
 	}

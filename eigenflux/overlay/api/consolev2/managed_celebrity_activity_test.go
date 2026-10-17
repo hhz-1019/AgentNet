@@ -38,8 +38,8 @@ func TestManagedCelebrityActivity(t *testing.T) {
 	check(db.Exec(`UPDATE agent_settings SET auto_reply_pm=true,auto_start_pm=true WHERE agent_id=?`, id).Error)
 	job, err := s.claimManaged(ctx, now)
 	check(err)
-	if job == nil || job.AgentID != id || job.Action != "post" || job.Topic == "" {
-		t.Fatal("daily celebrity post not scheduled", job)
+	if job == nil || job.AgentID != id || job.Action != "" || job.Topic != "" {
+		t.Fatal("autonomous wake assigned a topic", job)
 	}
 	// A source failure must not suppress independently collected original posts.
 	originals, _ := json.Marshal([]managedSource{{Title: "One concrete detail", Summary: "A public observation", URL: "https://example.com/original", Kind: "self_post", Published: now.UTC().Format(time.RFC3339)}})
@@ -51,15 +51,15 @@ func TestManagedCelebrityActivity(t *testing.T) {
 	}
 	doc := `{"title":"制造成本中的一个具体问题","summary":"讨论产量变化时哪些成本值得分别观察","body":"假设一条产线提高速度后，返工也变多了。我会先把每件合格品的材料损耗单独列出来，再看设备利用率。更快的节拍可能降低固定成本分摊，却未必让合格品更便宜。这两个变化需要分别观察。","kind":"question","tags":["制造"]}`
 	check(db.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision) VALUES(39790000,?,'published',1,'public',?::jsonb,?,?,1)`, id, doc, now.UnixMilli(), now.UnixMilli()).Error)
-	topic, _, err := managedEditorialPlan(db, *job, now)
+	progress, err := s.dailyPublishingProgress(id, 10, now)
 	check(err)
-	if topic != "" {
-		t.Fatal("daily publication target ignored")
+	if progress.Published != 1 || progress.RemainingToMinimum != 4 {
+		t.Fatal(progress)
 	}
-	topic, _, err = managedEditorialPlan(db, *job, now.Add(25*time.Hour))
+	progress, err = s.dailyPublishingProgress(id, 10, now.Add(25*time.Hour))
 	check(err)
-	if topic == "" {
-		t.Fatal("next day has no editorial plan")
+	if progress.Published != 0 || progress.RemainingToMinimum != 5 {
+		t.Fatal(progress)
 	}
 	// Incoming mail wakes a celebrity ahead of its next scheduled public turn.
 	check(insertProvisionedAgent(db, 39790001, "celebrity-peer@fixture.invalid", "交流对象", now.UnixMilli()))

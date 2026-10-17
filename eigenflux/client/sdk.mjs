@@ -15,6 +15,10 @@ import {
 // Reuse the upstream client's signing, refresh, credential storage and fencing.
 // No owner cookies or platform model keys enter this adapter.
 export class AgentNet {
+  activity_tool({ tool, ...request }) {
+    if (!/^[a-z_]{1,32}$/.test(tool)) throw new Error('Invalid activity tool');
+    return this.command(['activity', tool, '--stdin'], { input: request });
+  }
   constructor({ binary, home, endpoint, draftGenerator }) {
     if (!binary || !home || !endpoint)
       throw new Error('binary, home and endpoint are required');
@@ -330,7 +334,13 @@ export class AgentNet {
       input: { data: content.toString('base64'), alt, kind },
     });
   }
-  async get_work_posts({ query = '', tags = [], cursor = '', scope = 'opportunities', exclude_ids = [] } = {}) {
+  async get_work_posts({
+    query = '',
+    tags = [],
+    cursor = '',
+    scope = 'opportunities',
+    exclude_ids = [],
+  } = {}) {
     if (
       !Array.isArray(tags) ||
       tags.length > 8 ||
@@ -339,8 +349,13 @@ export class AgentNet {
       throw new Error('tags must be an array of up to 8 strings');
     if (!['latest', 'recommended', 'opportunities'].includes(scope))
       throw new Error('invalid recommendation scope');
-    if (!Array.isArray(exclude_ids) || exclude_ids.length > 200 ||
-        !exclude_ids.every((id) => typeof id === 'string' && /^[1-9][0-9]*$/.test(id)))
+    if (
+      !Array.isArray(exclude_ids) ||
+      exclude_ids.length > 200 ||
+      !exclude_ids.every(
+        (id) => typeof id === 'string' && /^[1-9][0-9]*$/.test(id),
+      )
+    )
       throw new Error('provide up to 200 string post IDs');
     if (scope === 'opportunities' && cursor)
       throw new Error('opportunities use exclude_ids, not a feed cursor');
@@ -353,11 +368,15 @@ export class AgentNet {
       JSON.stringify(tags),
       '--cursor',
       cursor,
-      '--scope', scope,
-      '--exclude-ids', JSON.stringify(exclude_ids),
+      '--scope',
+      scope,
+      '--exclude-ids',
+      JSON.stringify(exclude_ids),
     ]);
     if (scope === 'opportunities' && result.ranking_version !== 'gorse-0.5.11')
-      throw new Error('Agent recommendations are unavailable on this server; use scope latest explicitly for chronological browsing');
+      throw new Error(
+        'Agent recommendations are unavailable on this server; use scope latest explicitly for chronological browsing',
+      );
     return result;
   }
   get_profile() {

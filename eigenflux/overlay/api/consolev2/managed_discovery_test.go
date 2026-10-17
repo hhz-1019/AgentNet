@@ -23,6 +23,7 @@ func TestManagedOwnerDiscoveryAndInteraction(t *testing.T) {
 	now := time.Now().UnixMilli()
 	for id := int64(93001); id <= 93008; id++ {
 		check(insertProvisionedAgent(db, id, fmtRun(id)+"@discovery.invalid", "检索验收", now))
+		activityFixtureGrants(t, db, id)
 	}
 	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES
  ('discovery',987654321,'!x','!x',1),('discovery-a',987654322,'!x','!x',1),('discovery-b',987654323,'!x','!x',1),

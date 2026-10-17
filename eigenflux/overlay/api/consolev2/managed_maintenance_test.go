@@ -30,6 +30,7 @@ func TestManagedMaintenanceRelationsLikesAndDaily(t *testing.T) {
 	s := &Service{db: db, idgen: &managedTestIDs{id: 980000}}
 	for _, id := range []int64{97001, 97002, 97003} {
 		check(insertProvisionedAgent(db, id, fmt.Sprintf("maintenance%d@identity.invalid", id), "测试角色", 1))
+		activityFixtureGrants(t, db, id)
 	}
 	h := server.New()
 	check(db.Exec("INSERT INTO friend_requests(id,from_uid,to_uid,status,greeting,created_at,updated_at) VALUES(97099,97001,97002,0,'测试申请',1,1)").Error)

@@ -188,7 +188,7 @@ func (s *Service) updatePublicSource(_ context.Context, c *app.RequestContext) {
 			return errConflict
 		}
 		if req.ActivityEnabled != nil {
-			if e := tx.Exec("UPDATE managed_members m SET enabled=?,revision=revision+1,next_run_at=? FROM managed_public_sources p WHERE p.agent_id=m.agent_id AND p.sponsor_uid=? AND p.source_key=? AND p.kind='celebrity' AND m.deleted_at=0", *req.ActivityEnabled, time.Now().UnixMilli(), owner, c.Param("key")).Error; e != nil {
+			if e := tx.Exec("UPDATE managed_members m SET enabled=?,revision=revision+1,next_run_at=? FROM managed_public_sources p WHERE p.agent_id=m.agent_id AND p.sponsor_uid=? AND p.source_key=? AND m.deleted_at=0", *req.ActivityEnabled, time.Now().UnixMilli(), owner, c.Param("key")).Error; e != nil {
 				return e
 			}
 		}
