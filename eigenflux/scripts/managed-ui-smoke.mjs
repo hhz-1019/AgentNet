@@ -400,7 +400,7 @@ try {
     .getByRole('button', { name: '保存节奏并安排私信', exact: true })
     .click();
   await page
-    .getByText('已安排活动；仍遵守时段、预算与每日上限。', { exact: true })
+    .getByText('已安排活动；仍遵守预算与每日上限。', { exact: true })
     .waitFor();
   assert.equal(queuedRecipient, '10002');
   assert.equal(queuedAction, 'message');
