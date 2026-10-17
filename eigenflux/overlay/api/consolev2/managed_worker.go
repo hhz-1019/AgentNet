@@ -126,6 +126,9 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 					continue
 				}
 				candidate.Topic = topic
+				if topic != "" && celebrityForJob(candidate) != nil {
+					candidate.Action = "post"
+				}
 			}
 			var campaign managedCampaign
 			if err := tx.Raw(`SELECT * FROM managed_campaigns WHERE sponsor_uid=? FOR UPDATE`, candidate.SponsorUID).Scan(&campaign).Error; err != nil {
@@ -163,6 +166,9 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 			// Stable spread avoids synchronized waves. Attempts, including failures and
 			// skips, count against the daily limit; manual queue cannot bypass it.
 			next := now.Add(time.Duration(60+managedVariation(candidate.AgentID, runID, "interval")%301) * time.Minute).UnixMilli()
+			if celebrityForJob(candidate) != nil {
+				next = now.Add(time.Duration(60+managedVariation(candidate.AgentID, runID, "interval")%61) * time.Minute).UnixMilli()
+			}
 			if err := tx.Exec(`UPDATE managed_members SET next_run_at=?,pending_topic='',pending_recipient_id=NULL,pending_action='',pending_task_id='',pending_task_digest='' WHERE agent_id=?`, next, candidate.AgentID).Error; err != nil {
 				return err
 			}
@@ -267,7 +273,7 @@ func callManagedModelWithPrompt(ctx context.Context, input any, prompt string) (
 	// Apply after selecting the writer/reviewer prompt so other writing modes
 	// cannot replace celebrity constraints, including on repair requests.
 	if payload, ok := input.(map[string]any); ok && payload["celebrity_profile"] != nil {
-		prompt += celebrityIdentityPrompt
+		prompt += celebrityWritingPrompt + celebrityIdentityPrompt
 	}
 	endpoint, ok := managedModelURL()
 	if !ok {
@@ -395,6 +401,10 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 	}
 	payload := map[string]any{"context": input, "web_sources": sources, "name": job.Name, "persona": job.Persona, "character_brief": job.characterBrief(), "scenario": job.Scenario, "operator_topic": topic, "angle_hint": managedAngle(job), "writing_brief": managedWritingBrief(job.AgentID, job.RunID), "media_brief": managedMediaBrief(job.AgentID, job.RunID), "date": time.Now().UTC().Add(8 * time.Hour).Format("2006-01-02")}
 	if p := celebrityForJob(job); p != nil {
+		// One coherent writing policy; ordinary-role style lotteries can conflict
+		// with the public figure's source-grounded voice.
+		delete(payload, "writing_brief")
+		delete(payload, "angle_hint")
 		payload["celebrity_profile"] = p
 		var background struct {
 			Background          string
@@ -416,7 +426,9 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 	if input.Targets.Private {
 		payload["message_brief"] = job.Topic
 	}
-	payload["perspective_brief"] = managedPerspective(job, 0)
+	if celebrityForJob(job) == nil {
+		payload["perspective_brief"] = managedPerspective(job, 0)
+	}
 	payload["required_action"] = job.Action
 	if input.Targets.Private {
 		payload["required_action"] = "message"

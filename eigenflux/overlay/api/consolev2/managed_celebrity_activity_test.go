@@ -1,0 +1,100 @@
+package consolev2
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestManagedCelebrityActivity(t *testing.T) {
+	dsn := os.Getenv("AGENTNET_MANAGED_TEST_DSN")
+	if dsn == "" {
+		t.Skip("isolated DB required")
+	}
+	db := socialFixtureDB(t, dsn).Begin()
+	defer db.Rollback()
+	check := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now()
+	ctx := context.Background()
+	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES('celebrity-activity',987654219,'!x','!x',1)`).Error)
+	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "987654219")
+	s := &Service{db: db, idgen: &managedTestIDs{id: 39700000}}
+	p := celebrityCatalog()[0]
+	ids, err := s.provisionManagedEntries(ctx, "celebrity-activity", map[int]managedPersona{20000: celebrityPersona(p)})
+	check(err)
+	id := ids[0]
+	check(db.Exec(`UPDATE managed_campaigns SET enabled=true,monthly_budget_fen=10000,input_fen_per_million=1,output_fen_per_million=1,dm_reply_enabled=true,dm_start_enabled=true WHERE sponsor_uid='celebrity-activity'`).Error)
+	check(db.Exec(`UPDATE managed_members SET enabled=true,daily_limit=4,start_hour=0,end_hour=24,next_run_at=0 WHERE agent_id=?`, id).Error)
+	check(db.Exec(`UPDATE agent_settings SET auto_reply_pm=true,auto_start_pm=true WHERE agent_id=?`, id).Error)
+	job, err := s.claimManaged(ctx, now)
+	check(err)
+	if job == nil || job.AgentID != id || job.Action != "post" || job.Topic == "" {
+		t.Fatal("daily celebrity post not scheduled", job)
+	}
+	// A source failure must not suppress independently collected original posts.
+	originals, _ := json.Marshal([]managedSource{{Title: "One concrete detail", Summary: "A public observation", URL: "https://example.com/original", Kind: "self_post", Published: now.UTC().Format(time.RFC3339)}})
+	check(db.Exec(`INSERT INTO managed_public_sources(sponsor_uid,source_key,kind,agent_id,checked_at,originals) VALUES('celebrity-activity',?,'celebrity',?,0,?::jsonb)`, p.Key, id, string(originals)).Error)
+	sources, err := s.celebritySources(ctx, *job)
+	check(err)
+	if len(sources) != 1 || sources[0].Kind != "self_post" {
+		t.Fatal("stale news erased original samples", sources)
+	}
+	doc := `{"title":"制造成本中的一个具体问题","summary":"讨论产量变化时哪些成本值得分别观察","body":"假设一条产线提高速度后，返工也变多了。我会先把每件合格品的材料损耗单独列出来，再看设备利用率。更快的节拍可能降低固定成本分摊，却未必让合格品更便宜。这两个变化需要分别观察。","kind":"question","tags":["制造"]}`
+	check(db.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision) VALUES(39790000,?,'published',1,'public',?::jsonb,?,?,1)`, id, doc, now.UnixMilli(), now.UnixMilli()).Error)
+	topic, _, err := managedEditorialPlan(db, *job, now)
+	check(err)
+	if topic != "" {
+		t.Fatal("daily publication target ignored")
+	}
+	topic, _, err = managedEditorialPlan(db, *job, now.Add(25*time.Hour))
+	check(err)
+	if topic == "" {
+		t.Fatal("next day has no editorial plan")
+	}
+	// Incoming mail wakes a celebrity ahead of its next scheduled public turn.
+	check(insertProvisionedAgent(db, 39790001, "celebrity-peer@fixture.invalid", "交流对象", now.UnixMilli()))
+	check(db.Exec(`UPDATE managed_runs SET status='skipped',charged_fen=0 WHERE run_id=?`, job.RunID).Error)
+	lo, hi := id, int64(39790001)
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	check(db.Exec(`INSERT INTO conversations(conv_id,participant_a,participant_b,initiator_id,last_sender_id,origin_type,origin_id,updated_at,topic_status) VALUES(39790002,?,?,39790001,39790001,'direct',0,?,1);
+INSERT INTO private_messages(msg_id,conv_id,sender_id,receiver_id,content,created_at) VALUES(39790003,39790002,39790001,?,'如何区分材料损耗与设备利用率带来的成本变化？',?)`, lo, hi, now.UnixMilli(), id, now.UnixMilli()).Error)
+	reply, err := s.claimManagedMode(ctx, now.Add(time.Second), true)
+	check(err)
+	if reply == nil || reply.AgentID != id || reply.Action != "message" {
+		t.Fatal("celebrity reply not prioritized", reply)
+	}
+	input, err := s.managedContext(ctx, *reply)
+	check(err)
+	if !input.Targets.Private || input.Message == nil || input.Message.ReplyToMessageID != "39790003" || len(input.Posts) != 0 {
+		t.Fatal("private reply not isolated")
+	}
+	check(db.Exec(`UPDATE managed_runs SET status='skipped',charged_fen=0 WHERE run_id=?`, reply.RunID).Error)
+	check(db.Exec(`UPDATE managed_campaigns SET enabled=false WHERE sponsor_uid='celebrity-activity'`).Error)
+	paused, err := s.claimManagedMode(ctx, now.Add(2*time.Second), true)
+	check(err)
+	if paused != nil {
+		t.Fatal("campaign pause bypassed")
+	}
+}
+
+func TestManagedCelebrityPromptBudget(t *testing.T) {
+	payload := map[string]any{"celebrity_profile": celebrityCatalog()[0], "persona": strings.Repeat("a", 30000)}
+	c := managedContext{Recent: []managedPostHistory{{Body: strings.Repeat("b", 15000)}}}
+	if !managedFitInput(payload, &c) {
+		t.Fatal("could not reduce optional history")
+	}
+	raw, _ := json.Marshal(payload)
+	if len(raw)+len(managedPrompt)+len(celebrityWritingPrompt)+len(celebrityIdentityPrompt) > managedMaxInput-1000 {
+		t.Fatal("celebrity system instructions not budgeted")
+	}
+}

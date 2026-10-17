@@ -351,6 +351,8 @@ func (s *Service) putManagedCampaign(_ context.Context, c *app.RequestContext) {
 }
 
 type managedMemberEdit struct {
+	ReplyAllowed   *bool              `json:"reply_allowed"`
+	StartAllowed   *bool              `json:"start_allowed"`
 	PublicIdentity *identityCardDraft `json:"public_identity"`
 	PublicBio      *string            `json:"public_bio"`
 	Name           string             `json:"name"`
@@ -394,6 +396,11 @@ func (s *Service) putManagedMember(ctx context.Context, c *app.RequestContext) {
 		}
 		if r.RowsAffected != 1 {
 			return errConflict
+		}
+		if req.ReplyAllowed != nil || req.StartAllowed != nil {
+			if err := tx.Exec(`UPDATE agent_settings SET auto_reply_pm=COALESCE(?,auto_reply_pm),auto_start_pm=COALESCE(?,auto_start_pm),updated_at=? WHERE agent_id=?`, req.ReplyAllowed, req.StartAllowed, time.Now().UnixMilli(), id).Error; err != nil {
+				return err
+			}
 		}
 		if req.PublicIdentity != nil {
 			raw, _ := json.Marshal(req.PublicIdentity)

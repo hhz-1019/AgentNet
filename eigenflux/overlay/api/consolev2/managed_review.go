@@ -232,7 +232,7 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 			raw, e := json.Marshal(checkInput)
 			promptBytes := len(reviewPrompt)
 			if checkInput["celebrity_profile"] != nil {
-				promptBytes += len(celebrityIdentityPrompt)
+				promptBytes += len(celebrityWritingPrompt) + len(celebrityIdentityPrompt)
 			}
 			if e == nil && len(raw)+promptBytes <= managedMaxInput-1000 {
 				break
@@ -287,7 +287,9 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 			instruction = "从人物当前真正想表达的内容重新选择对象、开口动机、情节或判断，不换领域名词复述，不给同一个故事换开头结尾。允许普通合理的生活小情境并标为illustration，不虚构具体真实身份、关系、可核验事件与专业成果。无需新例子或总结时直接删去；没有新增内容就skip。同步更新writing_card。"
 		}
 		payload["revision_request"] = map[string]any{"reason": verdict.Reason, "own_draft": result.Value.Document, "instruction": instruction}
-		payload["perspective_brief"] = managedPerspective(*job, 1)
+		if celebrityForJob(*job) == nil {
+			payload["perspective_brief"] = managedPerspective(*job, 1)
+		}
 		managedApplyPresence(payload, *job)
 		rewritten, e := callManagedModel(ctx, payload)
 		managedMergeUsage(result, rewritten, *job)

@@ -75,6 +75,9 @@ func managedFitInput(payload map[string]any, c *managedContext) bool {
 	if payload["presence_brief"] != nil {
 		promptBytes += len(managedPresencePrompt)
 	}
+	if payload["celebrity_profile"] != nil {
+		promptBytes += len(celebrityWritingPrompt) + len(celebrityIdentityPrompt)
+	}
 	for {
 		payload["context"] = *c
 		data, err := json.Marshal(payload)

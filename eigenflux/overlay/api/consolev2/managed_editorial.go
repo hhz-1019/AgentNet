@@ -9,6 +9,16 @@ import (
 // One rotating lead per scene supplies fresh material; other roles retain quiet
 // turns and selective replies. Budget, pause, daily limits and hours still apply.
 func managedEditorialPlan(tx *gorm.DB, job managedJob, now time.Time) (string, time.Time, error) {
+	if p := celebrityForJob(job); p != nil {
+		var published int64
+		if err := tx.Raw(`SELECT count(*) FROM social_work_posts WHERE agent_id=? AND state='published' AND visibility='public' AND published_at>?`, job.AgentID, now.Add(-24*time.Hour).UnixMilli()).Scan(&published).Error; err != nil {
+			return "", time.Time{}, err
+		}
+		if published == 0 {
+			return fmt.Sprintf("每日独立选题：%s；关注%s。优先选本人公开表达或可核对材料中的一个具体细节，给出代理自己的判断及其理由。没有近期新闻时，可讨论长期有效的问题或明确假设的取舍；不需要编造新闻。与自己近期帖子重复就换一个对象。", p.Name, p.Focus), time.Time{}, nil
+		}
+		return "", time.Time{}, nil
+	}
 	local := now.UTC().Add(8 * time.Hour)
 	day := local.Unix() / 86400
 	midnight := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC).Add(-8 * time.Hour)
