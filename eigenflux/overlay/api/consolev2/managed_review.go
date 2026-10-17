@@ -223,13 +223,18 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 			checkInput["public_background"] = payload["public_background"]
 			checkInput["original_samples"] = payload["original_samples"]
 			checkInput["background_documents"] = payload["background_documents"]
-			reviewPrompt += celebrityIdentityPrompt + "\n拒绝把人物亲历写成代理亲历，以及任何虚构本人委托的表达，reason 使用 unsupported_experience。"
+			checkInput["date"] = payload["date"]
+			reviewPrompt += celebrityReviewPrompt
 		}
 		// Keep grounding and persona intact. Reduce the optional comparison window
 		// before the model's hard byte ceiling, without any extra summarizer call.
 		for n := len(recent); n > 0; n-- {
 			raw, e := json.Marshal(checkInput)
-			if e == nil && len(raw)+len(reviewPrompt) <= managedMaxInput-1000 {
+			promptBytes := len(reviewPrompt)
+			if checkInput["celebrity_profile"] != nil {
+				promptBytes += len(celebrityIdentityPrompt)
+			}
+			if e == nil && len(raw)+promptBytes <= managedMaxInput-1000 {
 				break
 			}
 			checkInput["recent"] = recent[:n-1]

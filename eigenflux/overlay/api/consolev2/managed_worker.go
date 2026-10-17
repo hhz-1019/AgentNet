@@ -257,9 +257,6 @@ type managedModelResult struct {
 
 func callManagedModel(ctx context.Context, input any) (managedModelResult, error) {
 	prompt := managedPrompt
-	if payload, ok := input.(map[string]any); ok && payload["celebrity_profile"] != nil {
-		prompt += celebrityIdentityPrompt
-	}
 	if payload, ok := input.(map[string]any); ok && payload["presence_brief"] != nil {
 		prompt = managedPilotPrompt()
 	}
@@ -267,6 +264,11 @@ func callManagedModel(ctx context.Context, input any) (managedModelResult, error
 }
 func callManagedModelWithPrompt(ctx context.Context, input any, prompt string) (managedModelResult, error) {
 	result := managedModelResult{}
+	// Apply after selecting the writer/reviewer prompt so other writing modes
+	// cannot replace celebrity constraints, including on repair requests.
+	if payload, ok := input.(map[string]any); ok && payload["celebrity_profile"] != nil {
+		prompt += celebrityIdentityPrompt
+	}
 	endpoint, ok := managedModelURL()
 	if !ok {
 		return result, managedFailure("configuration")
