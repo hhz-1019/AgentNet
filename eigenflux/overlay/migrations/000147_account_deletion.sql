@@ -104,7 +104,9 @@ ALTER TABLE human_phone_challenges ADD CONSTRAINT purge_human_phone_challenges_s
 ALTER TABLE trade_order_events ADD CONSTRAINT purge_trade_order_events_order_id FOREIGN KEY (order_id) REFERENCES trade_orders(order_id) ON DELETE CASCADE NOT VALID;
 ALTER TABLE trade_transfer_receipts ADD CONSTRAINT purge_trade_transfer_receipts_order_id FOREIGN KEY (order_id) REFERENCES trade_orders(order_id) ON DELETE CASCADE NOT VALID;
 ALTER TABLE trading_service_stats ADD CONSTRAINT purge_trading_service_stats_service_id FOREIGN KEY (service_id) REFERENCES trading_services(service_id) ON DELETE CASCADE NOT VALID;
-ALTER TABLE trading_service_stats_daily ADD CONSTRAINT purge_trading_service_stats_daily_service_id FOREIGN KEY (service_id) REFERENCES trading_services(service_id) ON DELETE CASCADE NOT VALID;
+-- PostgreSQL 16 does not support NOT VALID foreign keys on partitioned tables.
+-- Validate this partitioned table without discarding any existing statistics.
+ALTER TABLE trading_service_stats_daily ADD CONSTRAINT purge_trading_service_stats_daily_service_id FOREIGN KEY (service_id) REFERENCES trading_services(service_id) ON DELETE CASCADE;
 CREATE TABLE account_deletion_jobs (
  job_id TEXT PRIMARY KEY, owner_uid VARCHAR(64) UNIQUE NOT NULL,
  payload JSONB NOT NULL, created_at BIGINT NOT NULL,

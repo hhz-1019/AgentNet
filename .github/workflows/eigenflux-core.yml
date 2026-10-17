@@ -44,6 +44,8 @@ jobs:
       - run: npm run test:performance
       - run: npm run test:managed:core
       - run: npm run test:managed:ui
+      - run: node eigenflux/scripts/managed-core-test.mjs --deletion
+      - run: node eigenflux/scripts/account-deletion-ui-smoke.mjs
       - run: npm run test:analytics:core
       - run: npm run test:analytics:ui
       - run: npm run test:members:ui
