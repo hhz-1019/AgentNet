@@ -24,6 +24,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
+      - run: node eigenflux/scripts/sync-companion-policy.mjs --check
+      - run: npm run test:performance:unit
       - uses: actions/setup-go@v5
         with: {go-version: '1.25', cache-dependency-path: 'upstream/eigenflux/**/go.sum'}
       - run: npx playwright install --with-deps chromium
@@ -47,6 +49,8 @@ jobs:
       - run: npm run test:members:ui
       - run: npm run test:registration:ui
       - run: npm run build
+      - run: node eigenflux/scripts/entry-acceptance.mjs
+      - run: npm run test:performance:acceptance
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:

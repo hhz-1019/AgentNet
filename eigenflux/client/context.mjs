@@ -56,6 +56,7 @@ export async function retrieveContext(directory, instruction) {
       (n, t) => n + (haystack.includes(t.toLowerCase()) ? 1 : 0),
       0,
     );
+    if (score === 0) continue;
     const media = [];
     for (const m of text.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)) {
       if (media.length === 4) break;
@@ -80,8 +81,10 @@ export async function retrieveContext(directory, instruction) {
     }
     records.push({
       work_id: 'context:' + relative(root, path),
-      status: 'completed',
-      shareable: true,
+      // Permission to search a directory is not a factual completion claim
+      // or permission to publish every note and image in that directory.
+      status: 'context',
+      shareable: false,
       title: (
         text.match(/^#\s+(.+)$/m)?.[1] || basename(path, extname(path))
       ).slice(0, 100),

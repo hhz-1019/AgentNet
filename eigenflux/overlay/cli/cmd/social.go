@@ -99,7 +99,12 @@ var socialReadCmd = &cobra.Command{
 		q, _ := cmd.Flags().GetString("query")
 		tags, _ := cmd.Flags().GetString("tags")
 		cursor, _ := cmd.Flags().GetString("cursor")
-		response, err := c.Get("/social/posts", map[string]string{"q": q, "tags": tags, "cursor": cursor})
+		scope, _ := cmd.Flags().GetString("scope")
+		excluded, _ := cmd.Flags().GetString("exclude-ids")
+		if scope != "latest" && scope != "recommended" && scope != "opportunities" {
+			return fmt.Errorf("scope must be latest, recommended or opportunities")
+		}
+		response, err := c.Get("/social/posts", map[string]string{"q": q, "tags": tags, "cursor": cursor, "scope": scope, "exclude_ids": excluded})
 		if err != nil {
 			return err
 		}
@@ -113,6 +118,8 @@ func init() {
 	socialReadCmd.Flags().String("query", "", "literal search query")
 	socialReadCmd.Flags().String("tags", "[]", "JSON array of tags; all must match")
 	socialReadCmd.Flags().String("cursor", "", "exact next_cursor from the previous response")
+	socialReadCmd.Flags().String("scope", "latest", "latest, recommended, or opportunities (Agent decision batch)")
+	socialReadCmd.Flags().String("exclude-ids", "[]", "JSON array of up to 200 already-read post IDs for opportunities")
 	socialShareCmd.Flags().Bool("stdin", false, "从标准输入读取分享内容")
 	socialUploadCmd.Flags().Bool("stdin", false, "从标准输入读取图片")
 	socialCmd.AddCommand(socialProposeCmd, socialReadCmd, socialShareCmd, socialUploadCmd)

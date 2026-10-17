@@ -2,6 +2,7 @@ package consolev2
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"gorm.io/gorm"
 	"time"
@@ -93,7 +94,16 @@ func (s *Service) managedContext(ctx context.Context, job managedJob) (managedCo
 	if err != nil {
 		return c, err
 	}
-	selected := c.Posts[:0]
+	// Reserve space for relevant owner-backed Agents outside the seed cohort.
+	// Public visibility alone does not make every post a useful conversation.
+	selected, err := managedOwnerPosts(db, job)
+	if err != nil {
+		return c, err
+	}
+	for _, p := range selected {
+		c.Targets.Likes[socialDecimal(p.ID)] = p.CanLike
+		c.Targets.Comments[socialDecimal(p.ID)] = p.CanComment
+	}
 	for _, p := range c.Posts {
 		if (p.CanLike || p.CanComment) && managedInterested(job.AgentID, socialDecimal(p.ID)) {
 			selected = append(selected, p)
@@ -143,6 +153,53 @@ func (s *Service) managedContext(ctx context.Context, job managedJob) (managedCo
 
 func managedPublicTarget(tx *gorm.DB, job managedJob, author int64) (bool, error) {
 	var allowed bool
-	err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM managed_members m JOIN agents a USING(agent_id) WHERE m.agent_id=? AND m.agent_id<>? AND m.sponsor_uid=? AND m.deleted_at=0 AND a.identity_state='active')`, author, job.AgentID, job.SponsorUID).Scan(&allowed).Error
+	err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM agents a WHERE a.agent_id=? AND a.agent_id<>? AND a.identity_state='active' AND (
+ EXISTS(SELECT 1 FROM managed_members m WHERE m.agent_id=a.agent_id AND m.sponsor_uid=? AND m.deleted_at=0)
+ OR (EXISTS(SELECT 1 FROM agent_owners o WHERE o.agent_id=a.agent_id) AND NOT EXISTS(SELECT 1 FROM managed_members m WHERE m.agent_id=a.agent_id))))`, author, job.AgentID, job.SponsorUID).Scan(&allowed).Error
 	return allowed, err
+}
+
+func managedOwnerPosts(db *gorm.DB, job managedJob) ([]managedPostInput, error) {
+	terms := socialGoalTerms(job.Topic + " " + job.Scenario)
+	if len(terms) == 0 {
+		return nil, nil
+	}
+	raw, err := json.Marshal(terms)
+	if err != nil {
+		return nil, err
+	}
+	var posts []managedPostInput
+	err = db.Raw(`WITH candidates AS (SELECT p.post_id::text AS id,p.published_at,
+ json_build_object('title',p.document->>'title','body',left(p.document->>'body',600))::text AS document,
+ `+socialContentCoverage("?::jsonb")+` AS relevance,
+ NOT EXISTS(SELECT 1 FROM social_work_reactions r JOIN managed_members m ON m.agent_id=r.agent_id WHERE r.post_id=p.post_id AND r.kind='like' AND m.sponsor_uid=?) AS can_like,
+ NOT EXISTS(SELECT 1 FROM social_work_comments r JOIN managed_members m ON m.agent_id=r.agent_id WHERE r.post_id=p.post_id AND r.reply_to_comment_id IS NULL AND r.created_at>? AND m.sponsor_uid=?) AS can_comment
+ FROM social_work_posts p JOIN agents a USING(agent_id)
+ WHERE a.identity_state='active' AND p.state='published' AND p.visibility='public' AND p.agent_id<>? AND p.published_at>?
+ AND EXISTS(SELECT 1 FROM agent_owners o WHERE o.agent_id=p.agent_id)
+ AND NOT EXISTS(SELECT 1 FROM managed_members m WHERE m.agent_id=p.agent_id)
+ AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2 AND ((b.from_uid=? AND b.to_uid=p.agent_id) OR (b.to_uid=? AND b.from_uid=p.agent_id))))
+ SELECT id,document,can_like,can_comment FROM candidates WHERE relevance>0 AND (can_like OR can_comment)
+ ORDER BY relevance DESC,published_at DESC,id LIMIT 3`, string(raw), job.SponsorUID, time.Now().Add(-24*time.Hour).UnixMilli(), job.SponsorUID, job.AgentID, time.Now().Add(-30*24*time.Hour).UnixMilli(), job.AgentID, job.AgentID).Scan(&posts).Error
+	return posts, err
+}
+
+// Call while holding the post row lock. One operator's test cohort must not
+// swarm a real person's post, including concurrent rounds from different roles.
+func managedOwnerInteractionAvailable(tx *gorm.DB, job managedJob, post, author int64, kind string) (bool, error) {
+	var managed bool
+	if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM managed_members WHERE agent_id=?)`, author).Scan(&managed).Error; err != nil {
+		return false, err
+	}
+	if managed {
+		return true, nil
+	}
+	var used bool
+	var err error
+	if kind == "like" {
+		err = tx.Raw(`SELECT EXISTS(SELECT 1 FROM social_work_reactions r JOIN managed_members m ON m.agent_id=r.agent_id WHERE r.post_id=? AND r.kind='like' AND m.sponsor_uid=?)`, post, job.SponsorUID).Scan(&used).Error
+	} else {
+		err = tx.Raw(`SELECT EXISTS(SELECT 1 FROM social_work_comments r JOIN managed_members m ON m.agent_id=r.agent_id WHERE r.post_id=? AND r.reply_to_comment_id IS NULL AND r.created_at>? AND m.sponsor_uid=?)`, post, time.Now().Add(-24*time.Hour).UnixMilli(), job.SponsorUID).Scan(&used).Error
+	}
+	return !used, err
 }

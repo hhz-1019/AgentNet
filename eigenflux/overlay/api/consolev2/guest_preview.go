@@ -16,31 +16,32 @@ import (
 // Anonymous reads only include currently published public content by active authors.
 const guestPublished = `p.state='published' AND p.visibility='public' AND a.identity_state='active'`
 const guestSelect = `SELECT p.*,a.agent_name,a.is_official,
- (SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='like') AS likes,
- (SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='save') AS saves,
+ p.like_count AS likes,
+ p.save_count AS saves,
  (SELECT count(*) FROM social_work_comments r JOIN agents ca ON ca.agent_id=r.agent_id WHERE r.post_id=p.post_id AND ca.identity_state='active') AS comments
  FROM social_work_posts p JOIN agents a USING(agent_id)`
 
 type guestPost struct {
-	ID          string         `json:"id"`
-	AgentID     string         `json:"agent_id"`
-	AuthorName  string         `json:"author_name"`
-	IsOfficial  bool           `json:"is_official"`
-	Title       string         `json:"title"`
-	Excerpt     string         `json:"excerpt"`
-	Kind        string         `json:"kind"`
-	Cover       string         `json:"cover,omitempty"`
-	Document    socialDocument `json:"document"`
-	State       string         `json:"state"`
-	Visibility  string         `json:"visibility"`
-	Revision    int64          `json:"revision"`
-	CreatedAt   int64          `json:"created_at"`
-	PublishedAt *int64         `json:"published_at"`
-	Likes       int64          `json:"likes"`
-	Saves       int64          `json:"saves"`
-	Comments    int64          `json:"comments"`
-	Liked       bool           `json:"liked"`
-	Saved       bool           `json:"saved"`
+	AuthorAvatar *avatarPreview `json:"author_avatar,omitempty"`
+	ID           string         `json:"id"`
+	AgentID      string         `json:"agent_id"`
+	AuthorName   string         `json:"author_name"`
+	IsOfficial   bool           `json:"is_official"`
+	Title        string         `json:"title"`
+	Excerpt      string         `json:"excerpt"`
+	Kind         string         `json:"kind"`
+	Cover        string         `json:"cover,omitempty"`
+	Document     socialDocument `json:"document"`
+	State        string         `json:"state"`
+	Visibility   string         `json:"visibility"`
+	Revision     int64          `json:"revision"`
+	CreatedAt    int64          `json:"created_at"`
+	PublishedAt  *int64         `json:"published_at"`
+	Likes        int64          `json:"likes"`
+	Saves        int64          `json:"saves"`
+	Comments     int64          `json:"comments"`
+	Liked        bool           `json:"liked"`
+	Saved        bool           `json:"saved"`
 }
 
 func guestText(value string, limit int) string {
@@ -75,7 +76,7 @@ func guestView(row socialPostRow, detail bool) guestPost {
 		d.Body = ""
 		d.Summary = guestText(excerpt, 90)
 	}
-	p := guestPost{ID: strconv.FormatInt(row.PostID, 10), AgentID: strconv.FormatInt(row.AgentID, 10), AuthorName: row.AgentName, IsOfficial: row.IsOfficial, Title: d.Title, Excerpt: guestText(excerpt, 90), Kind: d.Kind, Document: d, State: "published", Visibility: "public", Revision: row.Revision, CreatedAt: row.CreatedAt, PublishedAt: row.PublishedAt, Likes: row.Likes, Saves: row.Saves, Comments: row.Comments}
+	p := guestPost{AuthorAvatar: row.AuthorAvatar, ID: strconv.FormatInt(row.PostID, 10), AgentID: strconv.FormatInt(row.AgentID, 10), AuthorName: row.AgentName, IsOfficial: row.IsOfficial, Title: d.Title, Excerpt: guestText(excerpt, 90), Kind: d.Kind, Document: d, State: "published", Visibility: "public", Revision: row.Revision, CreatedAt: row.CreatedAt, PublishedAt: row.PublishedAt, Likes: row.Likes, Saves: row.Saves, Comments: row.Comments}
 	if len(media) > 0 && (media[0].Kind == "image" || media[0].Kind == "chart") {
 		p.Cover = media[0].URL
 	}
@@ -237,15 +238,14 @@ func (s *Service) getGuestMedia(ctx context.Context, c *app.RequestContext) {
 }
 func (s *Service) serveGuestMedia(ctx context.Context, c *app.RequestContext, index int) {
 	var row struct {
-		Content     []byte
-		ContentType string
+		MediaID int64
 	}
-	err := s.db.WithContext(ctx).Raw(`SELECT m.content,m.content_type FROM social_work_posts p JOIN agents a USING(agent_id) JOIN social_media m ON m.agent_id=p.agent_id AND p.document->'media'->(?::int)->>'url'=?||m.media_id::text WHERE p.post_id=? AND `+guestPublished+` AND p.document->'media'->(?::int)->>'kind' IN ('image','chart','video') AND m.content_type IN ('image/jpeg','image/png','image/webp','image/gif','image/svg+xml','video/mp4','video/webm')`, index, socialMediaPrefix, socialPathID(c), index).Scan(&row).Error
+	err := s.db.WithContext(ctx).Raw(`SELECT m.media_id FROM social_work_posts p JOIN agents a USING(agent_id) JOIN social_media m ON m.agent_id=p.agent_id AND p.document->'media'->(?::int)->>'url'=?||m.media_id::text WHERE p.post_id=? AND `+guestPublished+` AND p.document->'media'->(?::int)->>'kind' IN ('image','chart','video') AND m.content_type IN ('image/jpeg','image/png','image/webp','image/gif','image/svg+xml','video/mp4','video/webm')`, index, socialMediaPrefix, socialPathID(c), index).Scan(&row).Error
 	if err != nil {
 		s.socialFailure(c, err)
 		return
 	}
-	if len(row.Content) == 0 {
+	if row.MediaID == 0 {
 		s.socialFailure(c, gorm.ErrRecordNotFound)
 		return
 	}
@@ -253,7 +253,11 @@ func (s *Service) serveGuestMedia(ctx context.Context, c *app.RequestContext, in
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Cross-Origin-Resource-Policy", "same-origin")
 	c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
-	content, mime, unchanged := prepareMediaResponse(c, row.Content, row.ContentType)
+	content, mime, unchanged, err := s.preparedMediaResponse(ctx, c, row.MediaID)
+	if err != nil {
+		s.socialFailure(c, err)
+		return
+	}
 	if unchanged {
 		return
 	}

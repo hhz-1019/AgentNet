@@ -106,6 +106,7 @@ try {
       const request = route.request(),
         path = new URL(request.url()).pathname.replace('/api/v2/', ''),
         method = request.method();
+      if (path === 'performance') return route.fulfill({ status: 204 });
       const body = method === 'GET' ? undefined : request.postDataJSON();
       let data;
       if (path === 'console/session')

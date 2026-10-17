@@ -96,11 +96,20 @@ export function entryGeometry(width: number) {
 }
 
 export type EntryGeometry = ReturnType<typeof entryGeometry>;
-export function entryMorph(geometry: EntryGeometry, progress: number) {
+export function entryMorph(
+  geometry: EntryGeometry,
+  progress: number,
+  initialFill = 1,
+) {
+  if (progress >= 1) return geometry.target;
   return geometry.source.map((points, part) =>
     points.map(
       ([x, y], i): EntryPoint => [
-        mix(x, geometry.target[part][i][0], progress),
+        mix(
+          -geometry.barWidth / 2 + (x + geometry.barWidth / 2) * initialFill,
+          geometry.target[part][i][0],
+          progress,
+        ),
         mix(y, geometry.target[part][i][1], progress),
       ],
     ),
@@ -150,6 +159,16 @@ function closedPath(points: EntryPoint[]) {
   return path;
 }
 
+const revealPaths = new WeakMap<EntryGeometry, Path2D[]>();
+function fixedRevealPaths(geometry: EntryGeometry) {
+  let paths = revealPaths.get(geometry);
+  if (!paths) {
+    paths = geometry.target.map(closedPath);
+    revealPaths.set(geometry, paths);
+  }
+  return paths;
+}
+
 function digits(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -190,6 +209,7 @@ export function paintEntry(
   phase: EntryPhase,
   progress: number,
   elapsed: number,
+  initialFill = 1,
 ) {
   progress = clampEntry(progress);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -214,13 +234,22 @@ export function paintEntry(
       geometry.barHeight,
     );
   } else if (phase === 'morph') {
+    const morph = entryEase(elapsed / entryTiming.morph);
+    // Continue from the actual filled bar, not a sudden full-width rectangle.
+    ctx.save();
+    ctx.globalAlpha = 1 - morph;
+    ctx.fillStyle = '#665e52';
+    ctx.fillRect(
+      width / 2 - geometry.barWidth / 2,
+      height * 0.455 - geometry.barHeight / 2,
+      geometry.barWidth,
+      geometry.barHeight,
+    );
+    ctx.restore();
     ctx.save();
     ctx.translate(width / 2, height * 0.455);
     ctx.fillStyle = paper;
-    for (const points of entryMorph(
-      geometry,
-      entryEase(elapsed / entryTiming.morph),
-    ))
+    for (const points of entryMorph(geometry, morph, initialFill))
       ctx.fill(closedPath(points));
     ctx.restore();
   } else {
@@ -234,7 +263,7 @@ export function paintEntry(
       -geometry.pivot[0] * camera.camera,
       -geometry.pivot[1] * camera.camera,
     );
-    const paths = geometry.target.map(closedPath);
+    const paths = fixedRevealPaths(geometry);
     ctx.fillStyle = paper;
     for (const path of paths) ctx.fill(path);
     // Preserve the last morph frame before gradually revealing the page inside it.

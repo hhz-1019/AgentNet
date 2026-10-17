@@ -105,17 +105,13 @@ func TestManagedPhotoSearchDownloadAndOutage(t *testing.T) {
 	}
 }
 
-func TestManagedMediaFormatDiversity(t *testing.T) {
-	photos := 0
+func TestManagedUsefulMediaIsNotRandomlySuppressed(t *testing.T) {
 	for run := int64(1); run <= 1000; run++ {
-		if managedWantsPhoto(123, run, "students reading books") {
-			photos++
+		if !managedWantsPhoto(123, run, "students reading books") {
+			t.Fatalf("valid media intent suppressed for run %d", run)
 		}
 		if managedWantsPhoto(123, run, "") {
 			t.Fatal("empty query requested media")
 		}
-	}
-	if photos < 730 || photos > 870 {
-		t.Fatalf("unexpected format mix: %d", photos)
 	}
 }

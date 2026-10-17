@@ -1,0 +1,29 @@
+# Optional overlay: compose.yaml + compose.recommendation.yaml. No service is
+# started or cloud configuration changed merely by adding this file.
+services:
+  core:
+    environment:
+      AGENTNET_GORSE_URL: http://gorse:8088
+      AGENTNET_GORSE_API_KEY: ${AGENTNET_GORSE_API_KEY:?Set a private recommender API key}
+  gorse:
+    build:
+      context: ..
+      dockerfile: eigenflux/recommender/Dockerfile
+    environment:
+      GORSE_SERVER_API_KEY: ${AGENTNET_GORSE_API_KEY}
+      GORSE_DASHBOARD_USER_NAME: admin
+      GORSE_DASHBOARD_PASSWORD: ${AGENTNET_GORSE_API_KEY}
+    volumes: [gorse-data:/var/lib/gorse]
+    restart: unless-stopped
+  catalog-sync:
+    build:
+      context: ..
+      dockerfile: eigenflux/recommender/Dockerfile.sync
+    environment:
+      AGENTNET_GORSE_URL: http://gorse:8088
+      AGENTNET_GORSE_API_KEY: ${AGENTNET_GORSE_API_KEY}
+      AGENTNET_PUBLIC_URL: http://core:8080
+    depends_on: [core, gorse]
+    restart: unless-stopped
+volumes:
+  gorse-data:

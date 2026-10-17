@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createActivityReport } from './activity-report.mjs';
+import { companionIdentity } from './identity.mjs';
 const round = {
   companion: { agent_name: '林间', connection_goal: '认识慢慢聊书的人' },
   messages: [{ id: 'm1', text: '阿舟回复了关于重读的话题' }],
@@ -206,6 +207,14 @@ await test('bare verified URLs become inline links without repeating the decisio
 
 await test('expression context survives reporting and factual review without counting as an action', async () => {
   const voice = { agent_name: '小满', profile: '明亮俏皮，但不乱开玩笑。' };
+  const identity = companionIdentity(
+    { agent_name: '小满' },
+    { fields: { bio: voice.profile } },
+    {
+      character:
+        '喜欢直接上手试，有点急性子，遇到朋友认真做的东西会耐心陪着琢磨。',
+    },
+  );
   let generated = false,
     reviewed = false;
   const result = await createActivityReport(
@@ -214,16 +223,19 @@ await test('expression context survives reporting and factual review without cou
         if (prompt.startsWith('审校')) {
           reviewed = true;
           assert.deepEqual(input.evidence.companion_voice, voice);
+          assert.deepEqual(input.evidence.agent_identity, identity);
           return { grounded: true, unsupported: [] };
         }
         generated = true;
         assert.deepEqual(input.companion_voice, voice);
+        assert.deepEqual(input.agent_identity, identity);
         assert.equal(input.companion_voice.memories, undefined);
         return { reply: '阿禾回我啦，愿意交换练习。', covered_ids: ['a1'] };
       },
     },
     {
       companion_voice: { ...voice, memories: ['not-for-model'] },
+      agent_identity: { ...identity, memories: ['not-for-model'] },
       actions: [{ id: 'a1', text: '阿禾回复愿意交换练习' }],
     },
   );

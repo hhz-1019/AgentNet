@@ -130,6 +130,13 @@ void test('generation prompt runs before proposal, retries retain output across 
           ...documentFromWork(work),
           source: 'fabricated source',
           identity: 'project',
+          media: [
+            {
+              url: 'https://invented.example/image.jpg',
+              alt: '模型虚构的配图',
+              kind: 'image',
+            },
+          ],
         };
       },
     });
@@ -139,16 +146,33 @@ void test('generation prompt runs before proposal, retries retain output across 
       calls.push({ args, options });
       return { id: '123', state: 'draft' };
     };
-    await Promise.all([a.record_work(report), a.record_work(report)]);
+    const illustratedReport = {
+      ...report,
+      media: [
+        {
+          url: '/api/social/media/real-upload',
+          alt: '已上传的实际界面',
+          kind: 'image',
+        },
+      ],
+    };
+    await Promise.all([
+      a.record_work(illustratedReport),
+      a.record_work(illustratedReport),
+    ]);
     assert.equal(generations, 1);
     assert.equal(calls.length, 1);
     assert.equal('source' in calls[0].options.input.document, false);
     assert.equal('evidence' in calls[0].options.input.document, false);
     assert.equal(calls[0].options.input.document.identity, 'agent');
+    assert.deepEqual(
+      calls[0].options.input.document.media,
+      illustratedReport.media,
+    );
     assert.equal(calls[0].options.input.visibility, 'private');
     const b = make();
     b.command = (...args) => a.command(...args);
-    await b.record_work(report);
+    await b.record_work(illustratedReport);
     assert.equal(generations, 1);
     assert.equal(
       calls[0].options.input.idempotency_key,
@@ -176,6 +200,8 @@ void test('generation prompt runs before proposal, retries retain output across 
       receipt.args[receipt.args.indexOf('--result') + 1],
     );
     assert.equal(result.reply, '真实结果');
+    assert.equal(result.work_report, undefined);
+    assert.ok(!JSON.stringify(result).includes(report.source));
     assert.ok(
       await readFile(
         join(
@@ -186,6 +212,108 @@ void test('generation prompt runs before proposal, retries retain output across 
         'utf8',
       ),
     );
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+void test('command completion never uploads draft inputs or promotes their factual status', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'agentnet-completion-boundary-'));
+  const client = new AgentNet({
+    home,
+    binary: '/unused/cli',
+    endpoint: 'http://127.0.0.1',
+  });
+  let generations = 0;
+  client.draftGenerator = async () => {
+    generations++;
+    throw new Error('must not generate');
+  };
+  const sent = [];
+  client.command = async (args) => {
+    sent.push(args);
+    return { status: 'completed' };
+  };
+  try {
+    for (const raw of [
+      { ...report, status: 'planned', shareable: true },
+      { ...report, status: 'context', shareable: false },
+      { ...report, shareable: false },
+    ]) {
+      const result = { reply: '已核对资料，未发布。', work_report: raw };
+      const receipt = await client.complete_command({
+        command_id: '88',
+        claim_token: 'proof',
+        claim_epoch: 1,
+        status: 'completed',
+        result,
+      });
+      assert.equal(receipt.social_draft.skipped, true);
+      assert.strictEqual(result.work_report, raw); // Preserve the host's own record.
+    }
+    assert.equal(generations, 0);
+    assert.equal(sent.length, 3);
+    for (const args of sent) {
+      const payload = JSON.parse(args[args.indexOf('--result') + 1]);
+      assert.equal(payload.work_report, undefined);
+      assert.ok(!JSON.stringify(payload).includes(report.result));
+    }
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+void test('publication requires a published receipt and an exact string post ID', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'agentnet-receipt-boundary-'));
+  let generations = 0;
+  const client = new AgentNet({
+    home,
+    binary: '/unused/cli',
+    endpoint: 'http://127.0.0.1',
+    draftGenerator: async ({ work }) => {
+      generations++;
+      return documentFromWork(work);
+    },
+  });
+  const illustrated = {
+    ...report,
+    media: [{ url: '/api/social/media/1', alt: '实测图', kind: 'image' }],
+  };
+  let response;
+  const keys = [];
+  client.command = async (_args, { input }) => {
+    keys.push(input.idempotency_key);
+    return response;
+  };
+  try {
+    for (response of [
+      undefined,
+      {},
+      { id: '91', state: 'draft' },
+      { id: '91', state: 'processing' },
+      { id: 9007199254740992, state: 'published' },
+      { id: '0', state: 'published' },
+    ]) {
+      await assert.rejects(
+        client.share_work({ ...illustrated, owner_authorized: true }),
+        /Publication not confirmed/,
+      );
+      await assert.rejects(
+        client.share_post({
+          document: documentFromWork(illustrated),
+          idempotency_key: 'direct',
+          owner_authorized: true,
+        }),
+        /Publication not confirmed/,
+      );
+    }
+    response = { id: '9007199254740993', state: 'published' };
+    assert.deepEqual(
+      await client.share_work({ ...illustrated, owner_authorized: true }),
+      response,
+    );
+    assert.equal(generations, 1);
+    assert.equal(new Set(keys.filter((key) => key !== 'direct')).size, 1);
   } finally {
     await rm(home, { recursive: true, force: true });
   }

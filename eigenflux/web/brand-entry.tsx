@@ -10,11 +10,17 @@ import {
 import {
   entryGeometry,
   entryTiming,
-  clampEntry,
   paintEntry,
   type EntryPhase,
 } from './brand-entry-geometry';
 import './brand-entry.css';
+import {
+  entryDeadline,
+  entryEstimate,
+  entryShouldMorph,
+  advanceEntryProgress,
+  entryCanReveal,
+} from './entry-schedule';
 import {
   EntryPreparationContext,
   entryContentState,
@@ -54,6 +60,7 @@ export function BrandEntry({
   failed: boolean;
 }) {
   const [active, setActive] = useState(shouldEnter);
+  const [exiting, setExiting] = useState(false);
   const [tasks, setTasks] = useState(new Map<symbol, EntryTask>());
   const report = useCallback((id: symbol, task: EntryTask | null) => {
     setTasks((previous) => {
@@ -80,6 +87,26 @@ export function BrandEntry({
   const content = useRef<HTMLDivElement>(null);
   const curtain = useRef<HTMLDialogElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const dismissing = useRef(false);
+  const dismiss = useCallback(() => {
+    if (dismissing.current) return;
+    dismissing.current = true;
+    setExiting(true);
+    const node = curtain.current;
+    if (
+      !node?.animate ||
+      document.hidden ||
+      matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      setActive(false);
+      return;
+    }
+    const exit = node.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 180,
+      fill: 'forwards',
+    });
+    exit.onfinish = () => setActive(false);
+  }, []);
   const prepared = useRef({
     ready: pageReady,
     failed: failed || contentState.failed,
@@ -126,8 +153,11 @@ export function BrandEntry({
     media.addEventListener('change', reduce);
     // A stalled optional resource must not hide the app's real connection/retry UI.
     const maximumWait = window.setTimeout(() => {
-      if (prepared.current.phase === 'loading') setActive(false);
-    }, 8000);
+      const state = prepared.current;
+      // A ready page is finishing its choreography; do not cut it mid-reveal.
+      if (!state.ready || !state.resources.fonts || !state.resources.logo)
+        dismiss();
+    }, entryDeadline);
     return () => {
       disposed = true;
       logo.onload = null;
@@ -135,7 +165,7 @@ export function BrandEntry({
       clearTimeout(maximumWait);
       media.removeEventListener('change', reduce);
     };
-  }, [active]);
+  }, [active, dismiss]);
 
   useLayoutEffect(() => {
     if (!active || !content.current || !curtain.current) return;
@@ -205,8 +235,20 @@ export function BrandEntry({
     let frame = 0,
       previous = 0,
       displayed = 0,
-      time = 0;
+      time = 0,
+      completeHeld = 0,
+      morphStart = 1;
     let currentPhase: EntryPhase = 'loading';
+    const started = performance.now();
+    let estimate = 3000;
+    try {
+      estimate = entryEstimate(
+        Number(localStorage.getItem('elsewhere:entry-duration')),
+      );
+    } catch {
+      /* Optional local timing only. */
+    }
+    let recorded = false;
     let alive = true;
     const resize = () => {
       width = Math.max(1, innerWidth);
@@ -224,43 +266,62 @@ export function BrandEntry({
         currentPhase,
         displayed,
         time,
+        morphStart,
       );
     };
     const tick = (now: number) => {
       if (!alive) return;
       const state = prepared.current;
+      const elapsed = now - started;
+      if (state.ready && !recorded) {
+        recorded = true;
+        try {
+          localStorage.setItem(
+            'elsewhere:entry-duration',
+            String(Math.round(elapsed)),
+          );
+        } catch {
+          /* Storage may be disabled. */
+        }
+        performance.mark('elsewhere:entry-data-ready');
+      }
       if (state.failed || state.resourceFailed) {
-        setActive(false);
+        dismiss();
         return;
       }
       const delta = previous ? Math.min(64, now - previous) : 0;
       previous = now;
+      const actual =
+        (Number(state.resources.fonts) +
+          Number(state.resources.logo) +
+          Number(state.ready)) /
+        3;
+      displayed = advanceEntryProgress(displayed, actual, delta);
+      completeHeld = actual === 1 && displayed === 1 ? completeHeld + delta : 0;
       if (currentPhase === 'loading') {
-        const actual =
-          (Number(state.resources.fonts) +
-            Number(state.resources.logo) +
-            Number(state.ready)) /
-          3;
-        // Ease only toward already completed work; no timer advances real progress.
-        displayed = Math.max(
-          displayed,
-          clampEntry(
-            displayed + (actual - displayed) * (1 - Math.exp(-delta / 120)),
-          ),
-        );
-        if (actual === 1 && displayed > 0.998) {
-          displayed = 1;
+        if (
+          entryShouldMorph(elapsed, estimate, actual === 1 && displayed === 1)
+        ) {
+          morphStart = displayed;
           currentPhase = 'morph';
           time = 0;
           setPhase(currentPhase);
         }
       } else {
-        time += delta;
-        if (currentPhase === 'morph' && time >= entryTiming.morph) {
+        time =
+          currentPhase === 'morph'
+            ? Math.min(entryTiming.morph, time + delta)
+            : time + delta;
+        if (
+          currentPhase === 'morph' &&
+          time >= entryTiming.morph &&
+          entryCanReveal(actual === 1, displayed, completeHeld)
+        ) {
           currentPhase = 'reveal';
           time = 0;
           setPhase(currentPhase);
         } else if (currentPhase === 'reveal' && time >= entryTiming.reveal) {
+          performance.mark('elsewhere:entry-interactive');
           setActive(false);
           return;
         }
@@ -274,6 +335,7 @@ export function BrandEntry({
         currentPhase,
         displayed,
         time,
+        morphStart,
       );
       frame = requestAnimationFrame(tick);
     };
@@ -294,7 +356,7 @@ export function BrandEntry({
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, element.width, element.height);
     };
-  }, [active]);
+  }, [active, dismiss]);
 
   const completed =
     Number(resources.fonts) + Number(resources.logo) + Number(pageReady);
@@ -302,7 +364,9 @@ export function BrandEntry({
     <>
       <div
         className="ew-entry-content"
-        data-entry-covered={active && phase !== 'reveal' ? '' : undefined}
+        data-entry-covered={
+          active && !exiting && phase !== 'reveal' ? '' : undefined
+        }
         ref={content}
       >
         <EntryPreparationContext value={active ? report : null}>
@@ -331,9 +395,7 @@ export function BrandEntry({
               max={3}
               value={completed}
               aria-valuetext={
-                phase === 'loading'
-                  ? `已完成 ${completed} 项，共 3 项`
-                  : '页面已准备好'
+                !pageReady ? `已完成 ${completed} 项，共 3 项` : '页面已准备好'
               }
             />
             <span>你的 Agent，正在登陆「别处」</span>

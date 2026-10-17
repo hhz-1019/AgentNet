@@ -39,17 +39,17 @@ func TestManagedWritingHoldsOnlyObjectiveOutliers(t *testing.T) {
 	}
 }
 
-func TestManagedWritingFocusVariesAcrossRolesAndRuns(t *testing.T) {
-	roles, runs := map[string]bool{}, map[string]bool{}
-	for i := int64(1); i <= 100; i++ {
-		roles[managedWritingBrief(i, 7)] = true
-		runs[managedWritingBrief(1, i)] = true
-		if managedWritingBrief(i, 7) != managedWritingBrief(i, 7) {
-			t.Fatal("unstable retry focus")
-		}
+func TestManagedIdentityKeepsCharacterAndRealOwnership(t *testing.T) {
+	job := managedJob{Name: "小满", Persona: "运营自定义：爽快，喜欢具体声音", Scenario: "创作"}
+	identity := job.identitySnapshot()
+	if identity["agent_name"] != job.Name || identity["owner_kind"] != "platform_test" || identity["character"] != job.Persona {
+		t.Fatal("identity or authored character lost", identity)
 	}
-	if len(roles) < 4 || len(runs) < 4 {
-		t.Fatal("all roles or all runs share an outline", len(roles), len(runs))
+	if managedWritingBrief(1, 1) != managedWritingBrief(1, 99) {
+		t.Fatal("run changed stable expression")
+	}
+	if !strings.Contains(managedPrompt, "代表一个具体的人") || !strings.Contains(managedPrompt, "agent_identity") {
+		t.Fatal("shared identity missing from model prompt")
 	}
 }
 

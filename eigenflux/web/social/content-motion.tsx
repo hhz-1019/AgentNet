@@ -97,6 +97,11 @@ export function useFeedMotion(items?: WorkPost[], restored = false) {
       if (changed) existingLayoutChanged = true;
       width = nextWidth;
       children.forEach((child, index) => {
+        // Preserve the exact measured size when the browser skips offscreen
+        // paint/layout. Do not guess masonry heights or disturb scroll anchors.
+        const measured = sizes.current.get(child);
+        if (measured) child.style.setProperty('--feed-card-height', `${measured.height}px`);
+        child.classList.toggle('ew-feed-contained', items.length > 60);
         if (child.style.gridRowEnd !== spans[index]) {
           if (positions.current.has(items[index]?.id))
             existingLayoutChanged = true;

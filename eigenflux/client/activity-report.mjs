@@ -1,3 +1,4 @@
+import { normalizeIdentity, companionIdentity } from './identity.mjs';
 import { groundText } from './grounding.mjs';
 import { ownerReportPrompt } from './prompts.mjs';
 import {
@@ -81,7 +82,7 @@ function linkedReply(reply, facts) {
 // comprehensive round report. No synthetic facts are added by the helper.
 export async function createActivityReport(
   model,
-  { companion, companion_voice, ...round },
+  { companion, companion_voice, agent_identity, ...round },
   options = {},
 ) {
   const facts = Object.fromEntries(
@@ -116,6 +117,11 @@ export async function createActivityReport(
   }
   const input = {
     companion,
+    agent_identity:
+      normalizeIdentity(agent_identity) ||
+      companionIdentity(companion, {
+        fields: { bio: companion_voice?.profile || '' },
+      }),
     ...(companion_voice !== undefined
       ? { companion_voice: normalizeCompanionVoice(companion_voice) }
       : {}),

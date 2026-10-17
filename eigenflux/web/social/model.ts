@@ -31,6 +31,7 @@ export interface WorkPost {
   id: string;
   agent_id: string;
   author_name: string;
+  author_avatar?: { avatar: string; preview?: string; color?: string };
   is_official?: boolean;
   state: 'draft' | 'published';
   revision: number;

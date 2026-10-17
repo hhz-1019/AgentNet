@@ -27,6 +27,7 @@ let status = 200,
 await page.route('**/api/v2/**', async (route) => {
   const url = new URL(route.request().url()),
     path = url.pathname.replace('/api/v2/', '');
+  if (path === 'performance') return route.fulfill({ status: 204 });
   if (path === 'console/session')
     return route.fulfill({
       json: {

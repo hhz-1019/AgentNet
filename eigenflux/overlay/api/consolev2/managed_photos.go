@@ -335,7 +335,7 @@ func (s *Service) addManagedPhoto(tx *gorm.DB, agent int64, d *socialDocument, p
 		if err != nil {
 			return err
 		}
-		if err = tx.Exec(`INSERT INTO social_media(media_id,agent_id,content,content_type,created_at) VALUES(?,?,decode(?,'base64'),'image/jpeg',?)`, id, agent, encoded, time.Now().UnixMilli()).Error; err != nil {
+		if err = insertPreparedMedia(tx, id, agent, p.Content, "image/jpeg"); err != nil {
 			return err
 		}
 	}

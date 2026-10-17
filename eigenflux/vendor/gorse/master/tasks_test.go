@@ -1,0 +1,722 @@
+// Copyright 2020 gorse Project Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package master
+
+import (
+	"fmt"
+	"runtime"
+	"strconv"
+	"time"
+
+	"github.com/gorse-io/gorse/common/expression"
+	"github.com/gorse-io/gorse/config"
+	"github.com/gorse-io/gorse/logics"
+	"github.com/gorse-io/gorse/storage/cache"
+	"github.com/gorse-io/gorse/storage/data"
+	"github.com/samber/lo"
+)
+
+func (s *MasterTestSuite) TestFindItemToItem() {
+	ctx := s.T().Context()
+	// create config
+	s.Config = &config.Config{}
+	s.Config.Recommend.CacheSize = 3
+	s.Config.Master.NumJobs = 4
+	// collect similar
+	items := []data.Item{
+		{ItemId: "0", IsHidden: false, Categories: []string{"*"}, Timestamp: time.Now(), Labels: []string{"a", "b", "c", "d"}, Comment: ""},
+		{ItemId: "1", IsHidden: false, Categories: []string{"*"}, Timestamp: time.Now(), Labels: []string{}, Comment: ""},
+		{ItemId: "2", IsHidden: false, Categories: []string{"*"}, Timestamp: time.Now(), Labels: []string{"b", "c", "d"}, Comment: ""},
+		{ItemId: "3", IsHidden: false, Categories: nil, Timestamp: time.Now(), Labels: []string{}, Comment: ""},
+		{ItemId: "4", IsHidden: false, Categories: nil, Timestamp: time.Now(), Labels: []string{"b", "c"}, Comment: ""},
+		{ItemId: "5", IsHidden: false, Categories: []string{"*"}, Timestamp: time.Now(), Labels: []string{}, Comment: ""},
+		{ItemId: "6", IsHidden: false, Categories: []string{"*"}, Timestamp: time.Now(), Labels: []string{"c"}, Comment: ""},
+		{ItemId: "7", IsHidden: false, Categories: []string{"*"}, Timestamp: time.Now(), Labels: []string{}, Comment: ""},
+		{ItemId: "8", IsHidden: false, Categories: []string{"*"}, Timestamp: time.Now(), Labels: []string{"a", "b", "c", "d", "e"}, Comment: ""},
+		{ItemId: "9", IsHidden: false, Categories: nil, Timestamp: time.Now(), Labels: []string{}, Comment: ""},
+	}
+	feedbacks := make([]data.Feedback, 0)
+	for i := range 10 {
+		for j := 0; j <= i; j++ {
+			if i%2 == 1 {
+				feedbacks = append(feedbacks, data.Feedback{
+					FeedbackKey: data.FeedbackKey{
+						ItemId:       strconv.Itoa(i),
+						UserId:       strconv.Itoa(j),
+						FeedbackType: "FeedbackType",
+					},
+					Timestamp: time.Now(),
+				})
+			}
+		}
+	}
+	var err error
+	err = s.DataClient.BatchInsertItems(ctx, items)
+	s.NoError(err)
+	err = s.DataClient.BatchInsertFeedback(ctx, feedbacks, true, true, true)
+	s.NoError(err)
+
+	// insert hidden item
+	err = s.DataClient.BatchInsertItems(ctx, []data.Item{{
+		ItemId:   "10",
+		Labels:   []string{"a", "b", "c", "d", "e"},
+		IsHidden: true,
+	}})
+	s.NoError(err)
+	for i := 0; i <= 10; i++ {
+		err = s.DataClient.BatchInsertFeedback(ctx, []data.Feedback{{
+			FeedbackKey: data.FeedbackKey{UserId: strconv.Itoa(i), ItemId: "10", FeedbackType: "FeedbackType"},
+		}}, true, true, true)
+		s.NoError(err)
+	}
+
+	// load mock dataset
+	_, dataSet, err := s.LoadDataFromDatabase(s.T().Context(), s.DataClient,
+		[]expression.FeedbackTypeExpression{expression.MustParseFeedbackTypeExpression("FeedbackType")},
+		nil, nil, 0, 0, NewOnlineEvaluator(nil, nil), nil)
+	s.NoError(err)
+
+	// similar items (common users)
+	s.Config.Recommend.ItemToItem = []config.ItemToItemConfig{{Name: "default", Type: "users"}}
+	s.NoError(s.updateItemToItem(s.T().Context(), dataSet))
+	similar, err := s.CacheClient.SearchScores(ctx, cache.ItemToItem, cache.Key("default", "9"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"7", "5", "3"}, cache.ConvertDocumentsToValues(similar))
+	// similar items in category (common users)
+	similar, err = s.CacheClient.SearchScores(ctx, cache.ItemToItem, cache.Key("default", "9"), []string{"*"}, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"7", "5"}, cache.ConvertDocumentsToValues(similar))
+	// digest
+	digest, err := s.CacheClient.Get(ctx, cache.Key(cache.ItemToItemDigest, "default", "9")).String()
+	s.NoError(err)
+	s.Equal(s.Config.Recommend.ItemToItem[0].Hash(&s.Config.Recommend), digest)
+
+	// similar items (common labels)
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
+	s.NoError(err)
+	s.Config.Recommend.ItemToItem = []config.ItemToItemConfig{{Name: "default", Type: "tags", Column: "item.Labels"}}
+	s.NoError(s.updateItemToItem(s.T().Context(), dataSet))
+	similar, err = s.CacheClient.SearchScores(ctx, cache.ItemToItem, cache.Key("default", "8"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"0", "2", "4"}, cache.ConvertDocumentsToValues(similar))
+	// similar items in category (common labels)
+	similar, err = s.CacheClient.SearchScores(ctx, cache.ItemToItem, cache.Key("default", "8"), []string{"*"}, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"0", "2"}, cache.ConvertDocumentsToValues(similar))
+
+	// similar items (auto)
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "8"), time.Now()))
+	s.NoError(err)
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyItemTime, "9"), time.Now()))
+	s.NoError(err)
+	s.Config.Recommend.ItemToItem = []config.ItemToItemConfig{{Name: "default", Type: "auto"}}
+	s.NoError(s.updateItemToItem(s.T().Context(), dataSet))
+	similar, err = s.CacheClient.SearchScores(ctx, cache.ItemToItem, cache.Key("default", "8"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"0", "2", "4"}, cache.ConvertDocumentsToValues(similar))
+	similar, err = s.CacheClient.SearchScores(ctx, cache.ItemToItem, cache.Key("default", "9"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"7", "5", "3"}, cache.ConvertDocumentsToValues(similar))
+}
+
+func (s *MasterTestSuite) TestUserToUser() {
+	ctx := s.T().Context()
+	// create config
+	s.Config = &config.Config{}
+	s.Config.Recommend.CacheSize = 3
+	s.Config.Master.NumJobs = 4
+	// collect similar
+	users := []data.User{
+		{UserId: "0", Labels: []string{"a", "b", "c", "d"}, Comment: ""},
+		{UserId: "1", Labels: []string{}, Comment: ""},
+		{UserId: "2", Labels: []string{"b", "c", "d"}, Comment: ""},
+		{UserId: "3", Labels: []string{}, Comment: ""},
+		{UserId: "4", Labels: []string{"b", "c"}, Comment: ""},
+		{UserId: "5", Labels: []string{}, Comment: ""},
+		{UserId: "6", Labels: []string{"c"}, Comment: ""},
+		{UserId: "7", Labels: []string{}, Comment: ""},
+		{UserId: "8", Labels: []string{"a", "b", "c", "d", "e"}, Comment: ""},
+		{UserId: "9", Labels: []string{}, Comment: ""},
+	}
+	feedbacks := make([]data.Feedback, 0)
+	for i := range 10 {
+		for j := 0; j <= i; j++ {
+			if i%2 == 1 {
+				feedbacks = append(feedbacks, data.Feedback{
+					FeedbackKey: data.FeedbackKey{
+						ItemId:       strconv.Itoa(j),
+						UserId:       strconv.Itoa(i),
+						FeedbackType: "FeedbackType",
+					},
+					Timestamp: time.Now(),
+				})
+			}
+		}
+	}
+	var err error
+	err = s.DataClient.BatchInsertUsers(ctx, users)
+	s.NoError(err)
+	err = s.DataClient.BatchInsertFeedback(ctx, feedbacks, true, true, true)
+	s.NoError(err)
+	_, dataSet, err := s.LoadDataFromDatabase(s.T().Context(), s.DataClient,
+		[]expression.FeedbackTypeExpression{expression.MustParseFeedbackTypeExpression("FeedbackType")},
+		nil, nil, 0, 0, NewOnlineEvaluator(nil, nil), nil)
+	s.NoError(err)
+
+	// similar items (common users)
+	s.Config.Recommend.UserToUser = []config.UserToUserConfig{{Name: "default", Type: "items"}}
+	s.NoError(s.updateUserToUser(s.T().Context(), dataSet))
+	similar, err := s.CacheClient.SearchScores(ctx, cache.UserToUser, cache.Key("default", "9"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"7", "5", "3"}, cache.ConvertDocumentsToValues(similar))
+	digest, err := s.CacheClient.Get(ctx, cache.Key(cache.UserToUserDigest, "default", "9")).String()
+	s.NoError(err)
+	s.Equal(s.Config.Recommend.UserToUser[0].Hash(&s.Config.Recommend), digest)
+
+	// similar items (common labels)
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
+	s.NoError(err)
+	s.Config.Recommend.UserToUser = []config.UserToUserConfig{{Name: "default", Type: "tags", Column: "user.Labels"}}
+	s.NoError(s.updateUserToUser(s.T().Context(), dataSet))
+	similar, err = s.CacheClient.SearchScores(ctx, cache.UserToUser, cache.Key("default", "8"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"0", "2", "4"}, cache.ConvertDocumentsToValues(similar))
+
+	// similar items (auto)
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "8"), time.Now()))
+	s.NoError(err)
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.LastModifyUserTime, "9"), time.Now()))
+	s.NoError(err)
+	s.Config.Recommend.UserToUser = []config.UserToUserConfig{{Name: "default", Type: "auto"}}
+	s.NoError(s.updateUserToUser(s.T().Context(), dataSet))
+	similar, err = s.CacheClient.SearchScores(ctx, cache.UserToUser, cache.Key("default", "8"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"0", "2", "4"}, cache.ConvertDocumentsToValues(similar))
+	similar, err = s.CacheClient.SearchScores(ctx, cache.UserToUser, cache.Key("default", "9"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"7", "5", "3"}, cache.ConvertDocumentsToValues(similar))
+}
+
+func (s *MasterTestSuite) TestLoadDataFromDatabase() {
+	ctx := s.T().Context()
+	// create config
+	s.Config = &config.Config{}
+	s.Config.Recommend.CacheSize = 3
+	s.Config.Recommend.DataSource.PositiveFeedbackTypes = []expression.FeedbackTypeExpression{
+		expression.MustParseFeedbackTypeExpression("positive")}
+	s.Config.Recommend.DataSource.ReadFeedbackTypes = []expression.FeedbackTypeExpression{
+		expression.MustParseFeedbackTypeExpression("negative")}
+	s.Config.Master.NumJobs = runtime.NumCPU()
+
+	// insert items
+	var items []data.Item
+	for i := range 9 {
+		items = append(items, data.Item{
+			ItemId:     strconv.Itoa(i),
+			Timestamp:  time.Date(2000+i, 1, 1, 1, 1, 0, 0, time.UTC),
+			Labels:     []any{strconv.Itoa(i % 3), strconv.Itoa(i*10 + 10)},
+			Categories: []string{strconv.Itoa(i % 3)},
+		})
+	}
+	err := s.DataClient.BatchInsertItems(ctx, items)
+	s.NoError(err)
+	err = s.DataClient.BatchInsertItems(ctx, []data.Item{{
+		ItemId:    "9",
+		Timestamp: time.Date(2020, 1, 1, 1, 1, 0, 0, time.UTC),
+		IsHidden:  true,
+	}})
+	s.NoError(err)
+
+	// insert users
+	var users []data.User
+	for i := 0; i <= 10; i++ {
+		users = append(users, data.User{
+			UserId: strconv.Itoa(i),
+			Labels: []string{strconv.Itoa(i % 5), strconv.Itoa(i*10 + 10)},
+		})
+	}
+	err = s.DataClient.BatchInsertUsers(ctx, users)
+	s.NoError(err)
+
+	// insert feedback
+	feedbacks := make([]data.Feedback, 0)
+	for i := range 10 {
+		// positive feedback
+		// item 0: user 0
+		// ...
+		// item 9: user 0 ... user 9
+		for j := 0; j <= i; j++ {
+			feedbacks = append(feedbacks, data.Feedback{
+				FeedbackKey: data.FeedbackKey{
+					ItemId:       strconv.Itoa(i),
+					UserId:       strconv.Itoa(j),
+					FeedbackType: "positive",
+				},
+				Timestamp: time.Now(),
+			})
+		}
+		// negative feedback
+		// item 0: user 1 .. user 10
+		// ...
+		// item 9: user 10
+		for j := i + 1; j < 11; j++ {
+			feedbacks = append(feedbacks, data.Feedback{
+				FeedbackKey: data.FeedbackKey{
+					ItemId:       strconv.Itoa(i),
+					UserId:       strconv.Itoa(j),
+					FeedbackType: "negative",
+				},
+				Timestamp: time.Now(),
+			})
+		}
+	}
+	err = s.DataClient.BatchInsertFeedback(ctx, feedbacks, false, false, true)
+	s.NoError(err)
+
+	// load dataset
+	datasets, err := s.loadDataset(ctx)
+	s.NoError(err)
+	s.Equal(11, datasets.rankingTrainSet.CountUsers())
+	s.Equal(10, datasets.rankingTrainSet.CountItems())
+	s.Equal(11, datasets.rankingTestSet.CountUsers())
+	s.Equal(10, datasets.rankingTestSet.CountItems())
+	s.Equal(55, datasets.rankingTrainSet.CountFeedback()+datasets.rankingTestSet.CountFeedback())
+	s.Equal(11, datasets.clickTrainSet.CountUsers())
+	s.Equal(10, datasets.clickTrainSet.CountItems())
+	s.Equal(11, datasets.clickTestSet.CountUsers())
+	s.Equal(10, datasets.clickTestSet.CountItems())
+	s.Equal(int32(3), datasets.clickTrainSet.Index.CountItemLabels())
+	s.Equal(int32(5), datasets.clickTrainSet.Index.CountUserLabels())
+	s.Equal(int32(3), datasets.clickTestSet.Index.CountItemLabels())
+	s.Equal(int32(5), datasets.clickTestSet.Index.CountUserLabels())
+	s.Equal(110, datasets.clickTrainSet.Count()+datasets.clickTestSet.Count())
+	s.Equal(55, datasets.clickTrainSet.PositiveCount+datasets.clickTestSet.PositiveCount)
+	s.Equal(55, datasets.clickTrainSet.NegativeCount+datasets.clickTestSet.NegativeCount)
+
+	// check latest items
+	latest, err := s.DataClient.GetLatestItems(ctx, 3, nil, nil)
+	s.NoError(err)
+	s.Equal([]data.Item{
+		items[8],
+		items[7],
+		items[6],
+	}, latest)
+	latest, err = s.DataClient.GetLatestItems(ctx, 3, []string{"2"}, nil)
+	s.NoError(err)
+	s.Equal([]data.Item{
+		items[8],
+		items[5],
+		items[2],
+	}, latest)
+
+	// check categories
+	categoryScores, err := s.CacheClient.SearchScores(ctx, cache.ItemCategories, "", nil, 0, -1)
+	s.NoError(err)
+	categories := make([]string, len(categoryScores))
+	for i, score := range categoryScores {
+		categories[i] = score.Id
+	}
+	s.Equal([]string{"0", "1", "2"}, categories)
+}
+
+func (s *MasterTestSuite) TestNegativeFeedbackPriority() {
+	ctx := s.T().Context()
+	// create config
+	s.Config = &config.Config{}
+	s.Config.Recommend.CacheSize = 3
+	s.Config.Recommend.DataSource.PositiveFeedbackTypes = []expression.FeedbackTypeExpression{
+		expression.MustParseFeedbackTypeExpression("positive")}
+	s.Config.Recommend.DataSource.NegativeFeedbackTypes = []expression.FeedbackTypeExpression{
+		expression.MustParseFeedbackTypeExpression("dislike")}
+	s.Config.Recommend.DataSource.ReadFeedbackTypes = []expression.FeedbackTypeExpression{
+		expression.MustParseFeedbackTypeExpression("read")}
+	s.Config.Master.NumJobs = runtime.NumCPU()
+
+	// insert items
+	var items []data.Item
+	for i := range 5 {
+		items = append(items, data.Item{
+			ItemId:    strconv.Itoa(i),
+			Timestamp: time.Date(2000+i, 1, 1, 1, 1, 0, 0, time.UTC),
+		})
+	}
+	err := s.DataClient.BatchInsertItems(ctx, items)
+	s.NoError(err)
+
+	// insert users
+	var users []data.User
+	for i := 0; i < 3; i++ {
+		users = append(users, data.User{
+			UserId: strconv.Itoa(i),
+		})
+	}
+	err = s.DataClient.BatchInsertUsers(ctx, users)
+	s.NoError(err)
+
+	// insert feedback
+	feedbacks := []data.Feedback{
+		// User 0: positive on item 0, 1; negative on item 2; read on item 3, 4
+		{FeedbackKey: data.FeedbackKey{UserId: "0", ItemId: "0", FeedbackType: "positive"}, Timestamp: time.Now()},
+		{FeedbackKey: data.FeedbackKey{UserId: "0", ItemId: "1", FeedbackType: "positive"}, Timestamp: time.Now()},
+		{FeedbackKey: data.FeedbackKey{UserId: "0", ItemId: "2", FeedbackType: "dislike"}, Timestamp: time.Now()},
+		{FeedbackKey: data.FeedbackKey{UserId: "0", ItemId: "3", FeedbackType: "read"}, Timestamp: time.Now()},
+		{FeedbackKey: data.FeedbackKey{UserId: "0", ItemId: "4", FeedbackType: "read"}, Timestamp: time.Now()},
+		// User 1: positive AND negative on item 0 (should be negative due to priority)
+		{FeedbackKey: data.FeedbackKey{UserId: "1", ItemId: "0", FeedbackType: "positive"}, Timestamp: time.Now()},
+		{FeedbackKey: data.FeedbackKey{UserId: "1", ItemId: "0", FeedbackType: "dislike"}, Timestamp: time.Now()},
+		{FeedbackKey: data.FeedbackKey{UserId: "1", ItemId: "1", FeedbackType: "positive"}, Timestamp: time.Now()},
+		// User 2: positive, then negative on item 2 (should be negative due to priority)
+		{FeedbackKey: data.FeedbackKey{UserId: "2", ItemId: "2", FeedbackType: "positive"}, Timestamp: time.Now().Add(-time.Hour)},
+		{FeedbackKey: data.FeedbackKey{UserId: "2", ItemId: "2", FeedbackType: "dislike"}, Timestamp: time.Now()},
+		{FeedbackKey: data.FeedbackKey{UserId: "2", ItemId: "3", FeedbackType: "positive"}, Timestamp: time.Now()},
+	}
+	err = s.DataClient.BatchInsertFeedback(ctx, feedbacks, false, false, true)
+	s.NoError(err)
+
+	// load dataset
+	datasets, err := s.loadDataset(ctx)
+	s.NoError(err)
+
+	// Verify the dataset
+	// User 0: 2 positive (0,1), 1 negative feedback (2), 2 read (3,4) = 2 pos + 3 neg = 5 samples
+	// User 1: item 0 is negative (due to dislike priority), item 1 is positive = 1 pos + 1 neg = 2 samples
+	// User 2: item 2 is negative (due to dislike priority), item 3 is positive = 1 pos + 1 neg = 2 samples
+	s.Equal(9, datasets.clickTrainSet.Count()+datasets.clickTestSet.Count())
+	s.Equal(4, datasets.clickTrainSet.PositiveCount+datasets.clickTestSet.PositiveCount)
+	s.Equal(5, datasets.clickTrainSet.NegativeCount+datasets.clickTestSet.NegativeCount)
+
+	// Verify negative feedback items are excluded from recommendations
+	recommender, err := logics.NewRecommender(s.Config.Recommend, s.CacheClient, s.DataClient, true, "1", nil)
+	s.NoError(err)
+	excludeSet := recommender.ExcludeSet()
+	// User 1 should have item 0 in exclude set (due to dislike)
+	s.True(excludeSet.Contains("0"), "item 0 should be excluded due to dislike feedback")
+}
+
+func (s *MasterTestSuite) TestNonPersonalizedRecommend() {
+	ctx := s.T().Context()
+	// create config
+	s.Config = &config.Config{}
+	s.Config.Recommend.CacheSize = 3
+	s.Config.Recommend.DataSource.PositiveFeedbackTypes = []expression.FeedbackTypeExpression{
+		expression.MustParseFeedbackTypeExpression("positive")}
+	s.Config.Recommend.DataSource.ReadFeedbackTypes = []expression.FeedbackTypeExpression{
+		expression.MustParseFeedbackTypeExpression("negative")}
+	s.Config.Recommend.NonPersonalized = []config.NonPersonalizedConfig{{Name: "latest", Score: "item.Timestamp.Unix()"}}
+	s.Config.Master.NumJobs = runtime.NumCPU()
+
+	// insert items
+	var items []data.Item
+	for i := range 10 {
+		items = append(items, data.Item{
+			ItemId:    strconv.Itoa(i),
+			Timestamp: time.Date(2000+i%2, 1, 1, i, 1, 0, 0, time.UTC),
+		})
+	}
+	err := s.DataClient.BatchInsertItems(ctx, items)
+	s.NoError(err)
+
+	// insert users
+	var users []data.User
+	for i := range 10 {
+		users = append(users, data.User{
+			UserId: strconv.Itoa(i),
+		})
+	}
+	err = s.DataClient.BatchInsertUsers(ctx, users)
+	s.NoError(err)
+
+	// insert feedback
+	feedbacks := make([]data.Feedback, 0)
+	for i := range 10 {
+		// positive feedback
+		// item 0: user 0
+		// ...
+		// item 8: user 0 ... user 8
+		if i%2 == 0 {
+			for j := 0; j <= i; j++ {
+				feedbacks = append(feedbacks, data.Feedback{
+					FeedbackKey: data.FeedbackKey{
+						ItemId:       strconv.Itoa(i),
+						UserId:       strconv.Itoa(j),
+						FeedbackType: "positive",
+					},
+					Timestamp: time.Now(),
+				})
+			}
+		}
+	}
+	err = s.DataClient.BatchInsertFeedback(ctx, feedbacks, false, false, true)
+	s.NoError(err)
+
+	// load dataset
+	_, err = s.loadDataset(ctx)
+	s.NoError(err)
+
+	// check latest items
+	latest, err := s.CacheClient.SearchScores(ctx, cache.NonPersonalized, "latest", []string{""}, 0, 3)
+	s.NoError(err)
+	s.Equal([]cache.Score{
+		{Id: items[9].ItemId, Score: float64(items[9].Timestamp.Unix())},
+		{Id: items[7].ItemId, Score: float64(items[7].Timestamp.Unix())},
+		{Id: items[5].ItemId, Score: float64(items[5].Timestamp.Unix())},
+	}, lo.Map(latest, func(document cache.Score, _ int) cache.Score {
+		return cache.Score{Id: document.Id, Score: document.Score}
+	}))
+
+	// check digest
+	digest, err := s.CacheClient.Get(ctx, cache.Key(cache.NonPersonalizedDigest, "latest")).String()
+	s.NoError(err)
+	s.Equal(s.Config.Recommend.NonPersonalized[0].Hash(), digest)
+}
+
+func (s *MasterTestSuite) TestNeedUpdateItemToItem() {
+	s.Config = config.GetDefaultConfig()
+	recommendConfig := config.ItemToItemConfig{Name: "default"}
+	ctx := s.T().Context()
+
+	// empty cache
+	s.True(s.needUpdateItemToItem(ctx, "1", recommendConfig))
+	err := s.CacheClient.AddScores(ctx, cache.ItemToItem, cache.Key("default", "1"), []cache.Score{
+		{Id: "2", Score: 1, Categories: []string{""}},
+		{Id: "3", Score: 2, Categories: []string{""}},
+		{Id: "4", Score: 3, Categories: []string{""}},
+	})
+	s.NoError(err)
+
+	// digest mismatch
+	err = s.CacheClient.Set(ctx, cache.String(cache.Key(cache.ItemToItemDigest, "default", "1"), "digest"))
+	s.NoError(err)
+	s.True(s.needUpdateItemToItem(ctx, "1", recommendConfig))
+
+	// staled cache
+	err = s.CacheClient.Set(ctx, cache.String(cache.Key(cache.ItemToItemDigest, "default", "1"), recommendConfig.Hash(&s.Config.Recommend)))
+	s.NoError(err)
+	s.True(s.needUpdateItemToItem(ctx, "1", recommendConfig))
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.ItemToItemUpdateTime, "default", "1"), time.Now().Add(-s.Config.Recommend.CacheExpire)))
+	s.NoError(err)
+	s.True(s.needUpdateItemToItem(ctx, "1", recommendConfig))
+
+	// not staled cache
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.ItemToItemUpdateTime, "default", "1"), time.Now()))
+	s.NoError(err)
+	s.False(s.needUpdateItemToItem(ctx, "1", recommendConfig))
+}
+
+func (s *MasterTestSuite) TestNeedUpdateUserToUser() {
+	ctx := s.T().Context()
+	s.Config = config.GetDefaultConfig()
+	recommendConfig := config.UserToUserConfig{Name: "default"}
+
+	// empty cache
+	s.True(s.needUpdateUserToUser(ctx, "1", recommendConfig))
+	err := s.CacheClient.AddScores(ctx, cache.UserToUser, cache.Key("default", "1"), []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}},
+		{Id: "2", Score: 2, Categories: []string{""}},
+		{Id: "3", Score: 3, Categories: []string{""}},
+	})
+	s.NoError(err)
+
+	// digest mismatch
+	err = s.CacheClient.Set(ctx, cache.String(cache.Key(cache.UserToUserDigest, "default", "1"), "digest"))
+	s.NoError(err)
+	s.True(s.needUpdateUserToUser(ctx, "1", recommendConfig))
+
+	// staled cache
+	err = s.CacheClient.Set(ctx, cache.String(cache.Key(cache.UserToUserDigest, "default", "1"), recommendConfig.Hash(&s.Config.Recommend)))
+	s.NoError(err)
+	s.True(s.needUpdateUserToUser(ctx, "1", recommendConfig))
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.UserToUserUpdateTime, "default", "1"), time.Now().Add(-s.Config.Recommend.CacheExpire)))
+	s.NoError(err)
+	s.True(s.needUpdateUserToUser(ctx, "1", recommendConfig))
+
+	// not staled cache
+	err = s.CacheClient.Set(ctx, cache.Time(cache.Key(cache.UserToUserUpdateTime, "default", "1"), time.Now()))
+	s.NoError(err)
+	s.False(s.needUpdateUserToUser(ctx, "1", recommendConfig))
+}
+
+func (s *MasterTestSuite) TestGarbageCollection() {
+	// create config
+	s.Config = &config.Config{}
+	s.Config.Master.NumJobs = 1
+	s.Config.Recommend.NonPersonalized = []config.NonPersonalizedConfig{{Name: "custom", Score: "1"}}
+	s.Config.Recommend.ItemToItem = []config.ItemToItemConfig{{Name: "default", Type: "users"}}
+	s.Config.Recommend.UserToUser = []config.UserToUserConfig{{Name: "default", Type: "items"}}
+
+	// insert items
+	ctx := s.T().Context()
+	err := s.DataClient.BatchInsertItems(ctx, []data.Item{
+		{ItemId: "1", Timestamp: time.Now(), Categories: []string{"*"}, Labels: []string{"a", "b", "c", "d"}, Comment: ""},
+		{ItemId: "2", Timestamp: time.Now(), Categories: []string{"*"}, Labels: []string{}, Comment: ""},
+	})
+	s.NoError(err)
+
+	// insert users
+	err = s.DataClient.BatchInsertUsers(ctx, []data.User{
+		{UserId: "1", Labels: []string{"a", "b", "c", "d"}, Comment: ""},
+		{UserId: "2", Labels: []string{}, Comment: ""},
+	})
+	s.NoError(err)
+
+	// insert non-personalized cache
+	timestamp := time.Now().Add(time.Hour)
+	err = s.CacheClient.AddScores(ctx, cache.NonPersonalized, "custom", []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}, Timestamp: timestamp},
+		{Id: "2", Score: 2, Categories: []string{""}, Timestamp: timestamp},
+	})
+	s.NoError(err)
+	err = s.CacheClient.AddScores(ctx, cache.NonPersonalized, "unknown", []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}, Timestamp: timestamp},
+		{Id: "2", Score: 2, Categories: []string{""}, Timestamp: timestamp},
+	})
+	s.NoError(err)
+
+	// insert item-to-item cache
+	err = s.CacheClient.AddScores(ctx, cache.ItemToItem, cache.Key("default", "1"), []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}},
+		{Id: "2", Score: 2, Categories: []string{""}},
+	})
+	s.NoError(err)
+	err = s.CacheClient.AddScores(ctx, cache.ItemToItem, cache.Key("default", "3"), []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}},
+		{Id: "2", Score: 2, Categories: []string{""}},
+	})
+	s.NoError(err)
+	err = s.CacheClient.AddScores(ctx, cache.ItemToItem, cache.Key("unknown", "1"), []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}},
+		{Id: "2", Score: 2, Categories: []string{""}},
+	})
+	s.NoError(err)
+
+	// insert user-to-user cache
+	err = s.CacheClient.AddScores(ctx, cache.UserToUser, cache.Key("default", "1"), []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}},
+		{Id: "2", Score: 2, Categories: []string{""}},
+	})
+	s.NoError(err)
+	err = s.CacheClient.AddScores(ctx, cache.UserToUser, cache.Key("default", "3"), []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}},
+		{Id: "2", Score: 2, Categories: []string{""}},
+	})
+	s.NoError(err)
+	err = s.CacheClient.AddScores(ctx, cache.UserToUser, cache.Key("unknown", "1"), []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}},
+		{Id: "2", Score: 2, Categories: []string{""}},
+	})
+	s.NoError(err)
+
+	// insert collaborative filtering cache
+	err = s.CacheClient.AddScores(ctx, cache.CollaborativeFiltering, "1", []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}},
+		{Id: "2", Score: 2, Categories: []string{""}},
+	})
+	s.NoError(err)
+	err = s.CacheClient.AddScores(ctx, cache.CollaborativeFiltering, "3", []cache.Score{
+		{Id: "1", Score: 1, Categories: []string{""}},
+		{Id: "2", Score: 2, Categories: []string{""}},
+	})
+	s.NoError(err)
+
+	// load dataset and run garbage collection
+	datasets, err := s.loadDataset(ctx)
+	s.NoError(err)
+	err = s.collectGarbage(ctx, datasets.rankingDataset)
+	s.NoError(err)
+
+	// check non-personalized cache
+	np, err := s.CacheClient.SearchScores(ctx, cache.NonPersonalized, "custom", nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"2", "1"}, cache.ConvertDocumentsToValues(np))
+	np, err = s.CacheClient.SearchScores(ctx, cache.NonPersonalized, "unknown", nil, 0, 100)
+	s.NoError(err)
+	s.Empty(np)
+
+	// check item-to-item cache
+	similar, err := s.CacheClient.SearchScores(ctx, cache.ItemToItem, cache.Key("default", "1"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"2", "1"}, cache.ConvertDocumentsToValues(similar))
+	similar, err = s.CacheClient.SearchScores(ctx, cache.ItemToItem, cache.Key("default", "3"), nil, 0, 100)
+	s.NoError(err)
+	s.Empty(similar)
+	similar, err = s.CacheClient.SearchScores(ctx, cache.ItemToItem, cache.Key("unknown", "1"), nil, 0, 100)
+	s.NoError(err)
+	s.Empty(similar)
+
+	// check user-to-user cache
+	similar, err = s.CacheClient.SearchScores(ctx, cache.UserToUser, cache.Key("default", "1"), nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"2", "1"}, cache.ConvertDocumentsToValues(similar))
+	similar, err = s.CacheClient.SearchScores(ctx, cache.UserToUser, cache.Key("default", "3"), nil, 0, 100)
+	s.NoError(err)
+	s.Empty(similar)
+	similar, err = s.CacheClient.SearchScores(ctx, cache.UserToUser, cache.Key("unknown", "1"), nil, 0, 100)
+	s.NoError(err)
+	s.Empty(similar)
+
+	// check collaborative filtering cache
+	cf, err := s.CacheClient.SearchScores(ctx, cache.CollaborativeFiltering, "1", nil, 0, 100)
+	s.NoError(err)
+	s.Equal([]string{"2", "1"}, cache.ConvertDocumentsToValues(cf))
+	cf, err = s.CacheClient.SearchScores(ctx, cache.CollaborativeFiltering, "3", nil, 0, 100)
+	s.NoError(err)
+	s.Empty(cf)
+}
+
+func (s *MasterTestSuite) TestLoadDataFromDatabaseInParallel() {
+	ctx := s.T().Context()
+	s.Config = config.GetDefaultConfig()
+	s.Config.Master.NumJobs = 16
+	s.Config.Recommend.DataSource.PositiveFeedbackTypes = []expression.FeedbackTypeExpression{
+		expression.MustParseFeedbackTypeExpression("positive"),
+	}
+	s.Config.Recommend.DataSource.NegativeFeedbackTypes = nil
+	s.Config.Recommend.DataSource.ReadFeedbackTypes = nil
+
+	const numItems = 12000
+	items := make([]data.Item, 0, numItems)
+	feedbacks := make([]data.Feedback, 0, numItems)
+	for i := range numItems {
+		itemID := fmt.Sprintf("item-%05d", i)
+		items = append(items, data.Item{
+			ItemId:    itemID,
+			Timestamp: time.Unix(int64(i), 0),
+		})
+		feedbacks = append(feedbacks, data.Feedback{
+			FeedbackKey: data.FeedbackKey{
+				FeedbackType: "positive",
+				UserId:       "hot-user",
+				ItemId:       itemID,
+			},
+			Timestamp: time.Unix(int64(i), 0),
+		})
+	}
+
+	err := s.DataClient.BatchInsertUsers(ctx, []data.User{{UserId: "hot-user"}})
+	s.NoError(err)
+	err = s.DataClient.BatchInsertItems(ctx, items)
+	s.NoError(err)
+	err = s.DataClient.BatchInsertFeedback(ctx, feedbacks, false, false, true)
+	s.NoError(err)
+
+	datasets, err := s.loadDataset(ctx)
+	s.NoError(err)
+	s.Equal(1, datasets.rankingTrainSet.CountUsers())
+	s.Equal(1, datasets.rankingTestSet.CountUsers())
+	s.Equal(numItems, datasets.rankingTrainSet.CountFeedback()+datasets.rankingTestSet.CountFeedback())
+	s.Equal(numItems, datasets.clickTrainSet.Count()+datasets.clickTestSet.Count())
+	s.Equal(numItems, datasets.clickTrainSet.PositiveCount+datasets.clickTestSet.PositiveCount)
+	s.Equal(0, datasets.clickTrainSet.NegativeCount+datasets.clickTestSet.NegativeCount)
+}

@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/gorse-io/gorse",
+  "release": "v0.5.11",
+  "commit": "de9141d5d87236289d8d7f102bb9588234ff63cf",
+  "license": "Apache-2.0",
+  "source": "../vendor/gorse",
+  "modifications": [],
+  "runtime": "zhenghaoz/gorse-in-one:0.5.11",
+  "image_digest": "sha256:b249a44b6affabde48a88c0438ebfd810edbb91f872f8dc080286f460a4f0ee7"
+}

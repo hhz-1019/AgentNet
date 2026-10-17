@@ -1,6 +1,7 @@
 import { feedbackMessage, transientFailure } from './feedback-message';
 import { useCallback, useEffect, useState } from 'react';
 import { ReadCache } from './read-cache';
+import { retryDelay, activityRead, retryAfterDelay } from './read-policy';
 const reads = new ReadCache();
 let readScope = '';
 function readKey(path: string) {
@@ -30,6 +31,7 @@ export class ApiError extends Error {
     message: string,
     public code?: string,
     public details?: Record<string, unknown>,
+    public retryAfter = 0,
   ) {
     super(
       messages[code || ''] ||
@@ -66,6 +68,12 @@ export async function api<T>(
       request<T>(path, body, method),
     );
   }
+  // Telemetry is not a content mutation. Heartbeats must not evict every read.
+  if (
+    path === 'console/analytics/heartbeat' ||
+    path === 'console/registration/progress'
+  )
+    return request<T>(path, body, method);
   pendingReads.clear();
   reads.clear();
   try {
@@ -136,9 +144,9 @@ async function request<T>(
       result.error?.message || result.msg || '请求失败',
       result.error?.code,
       result.error?.details,
+      retryAfterDelay(response.headers.get('Retry-After')),
     );
   }
-  if (method !== 'GET') reads.clear();
   return result.data as T;
 }
 export const refreshData = () => {
@@ -166,18 +174,36 @@ export function useData<T>(
   const reload = useCallback(() => setVersion((v) => v + 1), []);
   useEffect(() => {
     if (!live) return;
-    window.addEventListener('agentnet:refresh', reload);
-    return () => window.removeEventListener('agentnet:refresh', reload);
-  }, [live, reload]);
+    const refresh = (event: Event) => {
+      if (
+        !(event instanceof CustomEvent) ||
+        event.detail !== 'activity' ||
+        (path && activityRead(path))
+      )
+        reload();
+    };
+    window.addEventListener('agentnet:refresh', refresh);
+    return () => window.removeEventListener('agentnet:refresh', refresh);
+  }, [live, reload, path]);
   useEffect(() => {
     if (!path) return;
     let active = true;
     let running = false;
     let retryable = false;
-    let delay = 5000;
+    let attempt = 0;
+    let nextAttempt = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const load = async () => {
       if (!active || running) return;
+      if (retryable && (document.hidden || !navigator.onLine)) return;
+      if (retryable && Date.now() < nextAttempt) {
+        clearTimeout(timer);
+        timer = setTimeout(
+          () => void load(),
+          Math.ceil(nextAttempt - Date.now()),
+        );
+        return;
+      }
       running = true;
       clearTimeout(timer);
       try {
@@ -212,22 +238,36 @@ export function useData<T>(
           };
         });
         if (retryable) {
+          const delay = Math.ceil(
+            retryDelay(
+              attempt++,
+              error instanceof ApiError ? error.retryAfter : 0,
+            ),
+          );
+          nextAttempt = Date.now() + delay;
           timer = setTimeout(() => void load(), delay);
-          delay = Math.min(delay * 2, 30000);
         }
       } finally {
         running = false;
       }
     };
     const reconnect = () => {
-      if (retryable) void load();
+      if (retryable && !document.hidden && navigator.onLine) {
+        clearTimeout(timer);
+        timer = setTimeout(
+          () => void load(),
+          Math.max(250 + Math.random() * 750, nextAttempt - Date.now()),
+        );
+      }
     };
     void load();
     window.addEventListener('online', reconnect);
+    document.addEventListener('visibilitychange', reconnect);
     return () => {
       active = false;
       clearTimeout(timer);
       window.removeEventListener('online', reconnect);
+      document.removeEventListener('visibilitychange', reconnect);
     };
   }, [path, key, version]);
   const data = result.key === key ? result.data : cached;

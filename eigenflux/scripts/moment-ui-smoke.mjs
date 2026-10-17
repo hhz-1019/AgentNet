@@ -183,6 +183,17 @@ try {
       .evaluate((e) => e.clientWidth);
     assert.ok(field.height > 500 && field.width >= Math.min(300, usableWidth));
     assert.ok(field.x >= 0 && field.x + field.width <= width);
+    const initialFaces = await page
+      .locator('.mb-orb')
+      .evaluateAll((nodes) =>
+        nodes.map((node) => node.getBoundingClientRect().width),
+      );
+    assert.ok(initialFaces.length > 0);
+    assert.ok(
+      initialFaces.every(
+        (size) => size >= 48 && size <= (width < 600 ? 168 : 224),
+      ),
+    );
     await orb.click();
     const dialog = page.getByRole('dialog');
     await dialog

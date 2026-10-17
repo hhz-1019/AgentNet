@@ -130,14 +130,18 @@ try {
         assert.equal(req.headers.authorization, 'Bearer local-model-fixture');
         models++;
         const input = JSON.parse(body.messages[1].content);
-        if (input.instruction)
+        if (input.instruction) {
           assert.equal(input.owner_goal, '认识愿意慢慢聊书的人');
-        const content = input.instruction
-          ? {
-              reply: '根据提供的真实工作记录提出私有草稿，等待主人确认。',
-              work_id: record.work_id,
-            }
-          : documentFromWork(input);
+          assert.equal(input.records[0].source, record.source);
+        }
+        const content = body.messages[0].content.includes('首次建立性格')
+          ? { character: '安静细腻，喜欢从书里的小事接话；自然光配图。' }
+          : input.instruction
+            ? {
+                reply: '根据提供的真实工作记录提出私有草稿，等待主人确认。',
+                work_id: record.work_id,
+              }
+            : documentFromWork(input);
         res.end(
           JSON.stringify({
             choices: [
@@ -259,7 +263,7 @@ try {
           data = { claim_until: Date.now() + 120000 };
           break;
         case '/api/v2/social/posts':
-          data = { items: [], next_cursor: '' };
+          data = { items: [], next_cursor: '', ranking_version: 'gorse-0.5.11' };
           break;
         case '/api/v2/agent-commands/' + command.command_id + '/complete':
           assert.equal(body.claim_token, proof);
@@ -274,7 +278,10 @@ try {
           } else if (command.payload.publish) {
             assert.equal(body.result.execution, 'shared');
             assert.equal(body.result.post_id, '9007199254740995');
-          } else assert.equal(body.result.work_report.source, record.source);
+          } else {
+            assert.equal(body.result.work_report, undefined);
+            assert.ok(!JSON.stringify(body.result).includes(record.source));
+          }
           completed = true;
           data = { status: 'completed', command_id: command.command_id };
           break;
@@ -344,10 +351,15 @@ try {
   await worker.run({ once: true });
   await worker.run({ once: true });
   assert.ok(completed && proposal);
-  assert.equal(models, 2);
+  assert.equal(models, 3);
   assert.ok(proposal.idempotency_key.startsWith('work:'));
   const journal = JSON.parse(
     await readFile(join(home, 'agentnet-runtime', 'journal.json'), 'utf8'),
+  );
+  assert.equal(journal.identity.owner_name, '读书的人');
+  assert.equal(
+    journal.identity.character,
+    '安静细腻，喜欢从书里的小事接话；自然光配图。',
   );
   assert.equal(
     journal.jobs[command.command_id].receipt.social_draft.state,
@@ -367,7 +379,7 @@ try {
   await worker.run({ once: true });
   await worker.run({ once: true });
   assert.ok(completed && shared);
-  assert.equal(models, 4);
+  assert.equal(models, 5);
   assert.equal(shared.idempotency_key, 'share-command:' + command.command_id);
   assert.ok(paths.includes('/api/v2/social/share'));
   await client.request_decision({
@@ -504,7 +516,7 @@ try {
     owner_acknowledged: true,
   });
   assert.equal((await notify('after-ack')).message, '');
-  assert.equal(models, 4);
+  assert.equal(models, 5);
   assert.ok(
     paths.slice(priorPaths).every((p) => p.startsWith('/api/v2/handoffs')),
   );

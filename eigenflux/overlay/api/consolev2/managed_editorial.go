@@ -54,7 +54,7 @@ func managedEditorialPlan(tx *gorm.DB, job managedJob, now time.Time) (string, t
 	}
 	topic := job.Scenario
 	if !job.PersonaEdited && job.SeedIndex != nil && *job.SeedIndex >= 0 && *job.SeedIndex < len(managedRoleSeeds) {
-		topic = managedRoleSeeds[*job.SeedIndex] + "；" + managedCaseHooks[*job.SeedIndex]
+		topic = managedRoleSeeds[*job.SeedIndex]
 	}
-	return fmt.Sprintf("本轮兴趣范围：%s。这只是选题范围，不是标题，也不要求总结道理。优先从公开上下文找到一个能说清的具体对象，按 writing_brief 分享喜欢、好奇或尚未想通的一小点。没有对象或只剩重复观点就 skip。不要复用 context.recent_scene_posts 的句式，不强制图文。", topic), time.Time{}, nil
+	return fmt.Sprintf("本轮关注范围：%s。围绕输入中真实的人、材料或交流形成具体动机，再决定行动；范围本身不是发帖理由。", topic), time.Time{}, nil
 }

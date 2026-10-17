@@ -30,6 +30,21 @@ func TestElsewhereImagePreviewOwnership(t *testing.T) {
 	b, _ := json.Marshal(d)
 	rows := []socialPostRow{{AgentID: 88401, Document: string(b)}, {AgentID: 88402, Document: string(b)}}
 	s := &Service{db: db}
+	// A cold list may omit previews until the background job finishes, but it
+	// must never decode originals as a side effect of reading the list.
+	s.addSocialImagePreviews(context.Background(), rows)
+	var untouched bool
+	check(db.Raw(`SELECT preview IS NULL FROM social_media WHERE media_id=88403`).Scan(&untouched).Error)
+	if !untouched {
+		t.Fatal("feed read processed an original")
+	}
+	for {
+		worked, err := s.prepareNextMedia(context.Background())
+		check(err)
+		if !worked {
+			break
+		}
+	}
 	for run := 0; run < 2; run++ { // Includes the cached path, with owner check intact.
 		s.addSocialImagePreviews(context.Background(), rows)
 		for i, row := range rows {

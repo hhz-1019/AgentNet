@@ -12,7 +12,6 @@ import (
 	"image/png"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -145,8 +144,9 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 			fail(c, 400, "INVALID_QUERY", "搜索内容过长", nil)
 			return
 		}
-		where += ` AND strpos(lower(p.document::text),lower(?))>0`
-		args = append(args, q)
+		where += ` AND (p.document->>'title' ILIKE ? OR p.document->>'summary' ILIKE ? OR p.document->>'body' ILIKE ?)`
+		pattern := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(q) + "%"
+		args = append(args, pattern, pattern, pattern)
 	}
 	if kind := c.Query("kind"); kind != "" && kind != "all" {
 		where += ` AND p.document->>'kind'=?`
@@ -185,7 +185,7 @@ func (s *Service) getSocialRecommendations(ctx context.Context, c *app.RequestCo
 		args = append(args, values[0], values[1], values[2])
 	}
 	query := `WITH intent AS (SELECT ?::jsonb AS interests, ?::jsonb AS goal),
-		ranked AS (SELECT p.post_id,` + score + ` AS match_score FROM social_work_posts p CROSS JOIN intent) ` +
+		ranked AS (SELECT p.post_id,` + score + ` AS match_score FROM social_work_posts p CROSS JOIN intent WHERE p.state='published') ` +
 		strings.Replace(socialSelect, "SELECT p.*", "SELECT p.*, ranked.match_score AS recommend_score", 1) +
 		` JOIN ranked ON ranked.post_id=p.post_id ` + where + ` ORDER BY ranked.match_score DESC,p.published_at DESC,p.post_id DESC LIMIT 21`
 	if err = s.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
@@ -302,7 +302,7 @@ func (s *Service) uploadSocialMedia(ctx context.Context, c *app.RequestContext) 
 		if used+int64(clean.Len()) > 32<<20 {
 			return errors.New("MEDIA_QUOTA")
 		}
-		return tx.Exec(`INSERT INTO social_media(media_id,agent_id,content,content_type,created_at) VALUES (?,?,decode(?,'base64'),?,?)`, id, viewer, base64.StdEncoding.EncodeToString(clean.Bytes()), mime, time.Now().UnixMilli()).Error
+		return insertPreparedMedia(tx, id, viewer, clean.Bytes(), mime)
 	})
 	if err != nil {
 		if err.Error() == "MEDIA_QUOTA" {
@@ -373,20 +373,24 @@ func (s *Service) getSocialMedia(ctx context.Context, c *app.RequestContext) {
 	url := socialMediaPrefix + strconv.FormatInt(id, 10)
 	needle, _ := json.Marshal([]map[string]string{{"url": url}})
 	var row struct {
-		Content     []byte
+		MediaID     int64
 		ContentType string
 	}
-	query := `SELECT m.content,m.content_type FROM social_media m WHERE m.media_id=? AND (m.agent_id=? OR EXISTS(SELECT 1 FROM social_work_posts p WHERE p.agent_id=m.agent_id AND p.state='published' AND p.document->'media' @> ?::jsonb AND ` + socialAccess + `))`
+	query := `SELECT m.media_id,m.content_type FROM social_media m WHERE m.media_id=? AND (m.agent_id=? OR EXISTS(SELECT 1 FROM social_work_posts p WHERE p.agent_id=m.agent_id AND p.state='published' AND p.document->'media' @> ?::jsonb AND ` + socialAccess + `))`
 	err := s.db.WithContext(ctx).Raw(query, id, viewer, string(needle), viewer, viewer, viewer, viewer).Scan(&row).Error
 	if err != nil {
 		s.socialFailure(c, err)
 		return
 	}
-	if len(row.Content) == 0 {
+	if row.MediaID == 0 {
 		s.socialFailure(c, gorm.ErrRecordNotFound)
 		return
 	}
-	content, mime, unchanged := prepareMediaResponse(c, row.Content, row.ContentType)
+	content, mime, unchanged, err := s.preparedMediaResponse(ctx, c, row.MediaID)
+	if err != nil {
+		s.socialFailure(c, err)
+		return
+	}
 	row.ContentType = mime
 	if unchanged {
 		return

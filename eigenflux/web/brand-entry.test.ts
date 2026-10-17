@@ -8,6 +8,59 @@ import {
 } from './brand-entry-geometry.ts';
 import { entryOutline, type EntryPoint } from './brand-entry-outline.ts';
 import { entryContentState } from './entry-preparation.ts';
+import {
+  entryEstimate,
+  entryShouldMorph,
+  entryCanReveal,
+  advanceEntryProgress,
+  entryCompleteHold,
+} from './entry-schedule.ts';
+
+await test('forecast may overlap morph, but cannot bypass complete progress before reveal', () => {
+  assert.equal(entryShouldMorph(899, 3000, false), false);
+  assert.equal(entryShouldMorph(900, 3000, false), true);
+  assert.equal(900 + 2100, 3000);
+  assert.equal(entryShouldMorph(100, 3000, true), true);
+  assert.equal(entryCanReveal(false, 2 / 3, 8000), false);
+  assert.equal(entryCanReveal(true, 0.99, 8000), false);
+  assert.equal(entryCanReveal(true, 1, 0), false);
+  assert.equal(entryCanReveal(true, 1, entryCompleteHold), true);
+  assert.equal(entryEstimate(Number.NaN), 3000);
+});
+
+await test('visible progress continues in every phase, reaches exact 100 and never counts unfinished work', () => {
+  let displayed = 0;
+  for (let i = 0; i < 400; i++)
+    displayed = advanceEntryProgress(displayed, 2 / 3, 16);
+  assert.equal(displayed, 2 / 3);
+  let previous = displayed;
+  for (let i = 0; i < 40; i++) {
+    displayed = advanceEntryProgress(displayed, 1, 16);
+    assert.ok(displayed >= previous && displayed - previous < 0.03);
+    previous = displayed;
+  }
+  assert.equal(displayed, 1);
+});
+
+await test('early morph starts at the actual bar width and converges to the unchanged logo', () => {
+  const g = entryGeometry(1280);
+  for (const fill of [0, 1 / 3, 2 / 3, 1]) {
+    const start = entryMorph(g, 0, fill).flat();
+    assert.equal(
+      Math.max(...start.map((p) => p[0])) - Math.min(...start.map((p) => p[0])),
+      g.barWidth * fill,
+    );
+    assert.deepEqual(entryMorph(g, 1, fill), entryMorph(g, 1));
+    for (let frame = 1; frame <= 40; frame++)
+      for (const polygon of entryMorph(g, frame / 40, fill)) {
+        assert.equal(
+          intersects(polygon),
+          false,
+          `crossed at fill ${fill}, frame ${frame}`,
+        );
+      }
+  }
+});
 
 await test('entry readiness includes first-page data and visible images, and surfaces failure', () => {
   assert.deepEqual(entryContentState(false, []), {

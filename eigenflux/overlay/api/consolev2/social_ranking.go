@@ -82,6 +82,6 @@ func socialContentCoverage(input string) string {
 // author, Agent name, bio, model, or ability is not evidence of relevant content.
 func socialRecommendationScore() string {
 	return `(` + socialContentCoverage("intent.interests") + ` + 2*` + socialContentCoverage("intent.goal") + `)*1000
-		+ LEAST(99,(SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='save'))
-		+ LEAST(19,(SELECT count(*) FROM social_work_reactions r WHERE r.post_id=p.post_id AND r.kind='like'))`
+		+ LEAST(99,p.save_count)
+		+ LEAST(19,p.like_count)`
 }

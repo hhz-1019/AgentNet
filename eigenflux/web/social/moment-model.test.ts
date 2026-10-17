@@ -240,8 +240,8 @@ void test('avatar cluster keeps priority central, touch targets usable and every
     });
   }
 });
-void test('initial framing extends the cluster beyond all viewport edges and corners', () => {
-  for (const count of [5, 26, 100]) {
+void test('initial framing bounds avatar size even with sparse peers or a very wide viewport', () => {
+  for (const count of [0, 1, 4, 5, 6, 26, 100]) {
     const circles = packMoments(
       Array.from({ length: count }, (_, i) => ({
         id: String(i),
@@ -249,35 +249,29 @@ void test('initial framing extends the cluster beyond all viewport edges and cor
       })),
     );
     for (const [width, height] of [
-      [360, 740],
+      [320, 740],
       [700, 900],
       [1440, 800],
       [2200, 1000],
+      [3440, 600],
     ]) {
       const scale = momentViewportScale(circles, width, height);
-      // Check directions independently of the fitting samples, including the
-      // corner silhouette that an axis-aligned bounding-box fit misses.
-      for (let degree = 0; degree < 360; degree++) {
-        const angle = (degree * Math.PI) / 180;
-        const dx = Math.cos(angle),
-          dy = Math.sin(angle);
-        const clusterEdge = Math.max(
-          ...circles.map((c) => (c.x * dx + c.y * dy + c.radius) * scale),
-        );
-        const viewportEdge =
-          (width / 2) * Math.abs(dx) + (height / 2) * Math.abs(dy);
+      for (const circle of circles) {
+        const diameter = circle.radius * 2 * scale;
         assert(
-          clusterEdge >= viewportEdge + 24,
-          `unfilled edge: ${count} avatars, ${width}x${height}, ${degree}deg`,
+          diameter >= 48 && diameter <= 224,
+          'avatar must stay readable without dominating the viewport',
         );
+        if (width <= 390) assert(diameter <= 168);
       }
+      assert.equal(
+        scale,
+        momentViewportScale([], width, height),
+        'new peers must not suddenly change everyone’s size',
+      );
     }
   }
-  assert.equal(momentViewportScale([], 1440, 800), 1.35);
-  assert.equal(
-    momentViewportScale(packMoments([{ id: 'one', priority: 130 }]), 1440, 800),
-    1.35,
-  );
+  assert(Number.isFinite(momentViewportScale([], 0, 0)));
 });
 void test('groups by real agent and preserves large decimal IDs', () => {
   const groups = groupMoments(

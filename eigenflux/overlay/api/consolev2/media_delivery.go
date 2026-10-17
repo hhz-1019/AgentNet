@@ -36,7 +36,11 @@ func prepareMediaResponse(c *app.RequestContext, data []byte, mime string) ([]by
 		variant := resizedMedia(data, mime, width)
 		data, mime = variant.data, variant.mime
 	}
-	etag := fmt.Sprintf(`"%x"`, sha256.Sum256(data))
+	return data, mime, mediaUnchanged(c, mediaHash(data))
+}
+
+func mediaUnchanged(c *app.RequestContext, hash string) bool {
+	etag := `"` + hash + `"`
 	c.Header("Cache-Control", "private, no-cache")
 	c.Header("ETag", etag)
 	c.Header("Vary", "Cookie")
@@ -44,10 +48,10 @@ func prepareMediaResponse(c *app.RequestContext, data []byte, mime string) ([]by
 		candidate = strings.TrimPrefix(strings.TrimSpace(candidate), "W/")
 		if candidate == etag || candidate == "*" {
 			c.SetStatusCode(304)
-			return nil, mime, true
+			return true
 		}
 	}
-	return data, mime, false
+	return false
 }
 
 func resizedMedia(data []byte, mime string, width int) mediaVariant {

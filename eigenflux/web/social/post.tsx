@@ -45,7 +45,7 @@ function PostAuthor({
         aria-label={`查看${post.author_name}的主页`}
         onClick={onAuthor}
       >
-        <AgentAvatar agentId={post.agent_id} name={post.author_name} />
+        <AgentAvatar agentId={post.agent_id} name={post.author_name} portrait={post.author_avatar} />
       </button>
       <div>
         {onAuthor ? (

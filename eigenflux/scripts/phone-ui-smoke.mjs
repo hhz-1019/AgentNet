@@ -48,6 +48,7 @@ const fulfill = (route, data) =>
   });
 await page.route('**/api/v2/**', async (route) => {
   const path = new URL(route.request().url()).pathname.replace('/api/v2/', '');
+  if (path === 'performance') return route.fulfill({ status: 204 });
   const body = route.request().postDataJSON();
   if (path === 'console/session') return fulfill(route, session);
   if (path === 'console/registration/progress') {

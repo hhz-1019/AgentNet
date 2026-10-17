@@ -13,7 +13,7 @@ let generation = 0;
 const listeners = new Set<() => void>();
 const lookups = new Set<() => void>();
 let refreshTimer: number | undefined;
-const refreshLookups = () => lookups.forEach((lookup) => lookup());
+const refreshLookups = () => { if (!document.hidden) lookups.forEach((lookup) => lookup()); };
 function watchLookup(lookup: () => void) {
   lookups.add(lookup);
   if (refreshTimer === undefined) {
@@ -99,10 +99,12 @@ export function clearAvatarCache() {
 export function AgentAvatar({
   agentId = '',
   avatar,
+  portrait,
   className = '',
 }: {
   agentId?: string;
   avatar?: string;
+  portrait?: AvatarPreview;
   name?: string;
   className?: string;
 }) {
@@ -110,7 +112,7 @@ export function AgentAvatar({
   const allowLookup = useContext(AvatarLookupContext);
   const key = `${allowLookup === 'guest' ? 'guest' : 'console'}:${agentId}`;
   const known = cache.get(key);
-  const canLookup = Boolean(allowLookup && /^\d+$/.test(agentId));
+  const canLookup = Boolean(!portrait && allowLookup && /^\d+$/.test(agentId));
   useEffect(() => {
     if (!canLookup) return;
     const notify = () => update((n) => n + 1);
@@ -128,8 +130,8 @@ export function AgentAvatar({
       unwatch();
     };
   }, [agentId, canLookup, key]);
-  const value = avatar || known;
-  const metadata = cache.image(key);
+  const value = portrait?.avatar ?? avatar ?? known;
+  const metadata = portrait ?? cache.image(key);
   const image = metadata?.avatar === value ? metadata : undefined;
   const color =
     image?.color || defaultAvatars.find((item) => item.id === value)?.colors[0];

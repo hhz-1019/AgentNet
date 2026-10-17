@@ -56,6 +56,7 @@ func TestTwinOwnerIsolationAndQuotas(t *testing.T) {
 	h.GET("/twin", auth, s.getTwin)
 	h.PUT("/twin", auth, s.putTwin)
 	h.PUT("/policy", auth, s.putTwinPolicy)
+	h.GET("/policy", auth, s.getTwinPolicy)
 	h.POST("/act", auth, s.twinQuota("posts"), func(_ context.Context, c *app.RequestContext) { reply(c, 200, map[string]any{"ok": true}) })
 	request := func(method, path string, body any) (int, map[string]any) {
 		text, _ := json.Marshal(body)
@@ -80,6 +81,10 @@ func TestTwinOwnerIsolationAndQuotas(t *testing.T) {
 	status, _ = request("GET", "/twin?handoff=1", nil)
 	if status != 403 {
 		t.Fatal("unverified owner read", status)
+	}
+	status, out = request("GET", "/policy", nil)
+	if status != 200 || out["data"].(map[string]any)["daily_feedback"] != float64(40) {
+		t.Fatal("new companion default must allow active exchanges", status, out)
 	}
 	status, _ = request("PUT", "/policy", twinPolicy{DailyPosts: 3, DailySearches: 4, DailyFeedback: 2})
 	if status != 200 {
@@ -113,9 +118,26 @@ func TestTwinOwnerIsolationAndQuotas(t *testing.T) {
 	if accepted != 3 || limited != 9 {
 		t.Fatalf("atomic quota: accepted %d limited %d", accepted, limited)
 	}
-	status, _ = request("PUT", "/policy", twinPolicy{DailyPosts: 0, Revision: 1})
+	status, out = request("GET", "/policy", nil)
+	if status != 200 {
+		t.Fatal("policy progress read failed", status, out)
+	}
+	policy := out["data"].(map[string]any)
+	progress := policy["publishing_progress"].(map[string]any)
+	if progress["minimum"] != float64(5) || progress["quota_used"] != float64(3) || progress["limit_below_minimum"] != true {
+		t.Fatal("missing authoritative progress", progress)
+	}
+	// Existing clients send their whole GET response back on save. Derived
+	// counts are accepted for compatibility but cannot be set by that request.
+	policy["daily_posts"] = 0
+	progress["published"] = 999
+	status, _ = request("PUT", "/policy", policy)
 	if status != 200 {
 		t.Fatal("policy update failed", status)
+	}
+	status, out = request("GET", "/policy", nil)
+	if status != 200 || out["data"].(map[string]any)["publishing_progress"].(map[string]any)["published"] == float64(999) {
+		t.Fatal("client forged publication progress", status, out)
 	}
 	status, _ = request("POST", "/act", map[string]any{})
 	if status != 429 {

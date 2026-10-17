@@ -1,0 +1,25 @@
+name: elsewhere-recommendation
+services:
+  gorse:
+    image: zhenghaoz/gorse-in-one:0.5.11@sha256:b249a44b6affabde48a88c0438ebfd810edbb91f872f8dc080286f460a4f0ee7
+    environment:
+      GORSE_SERVER_API_KEY: ${AGENTNET_GORSE_API_KEY:?Set a private recommender API key}
+      GORSE_DASHBOARD_USER_NAME: admin
+      GORSE_DASHBOARD_PASSWORD: ${AGENTNET_GORSE_API_KEY}
+    ports: ['127.0.0.1:14389:8088']
+    volumes:
+      - ./gorse.toml:/etc/gorse/config.toml:ro
+      - gorse-data:/var/lib/gorse
+    restart: unless-stopped
+  catalog-sync:
+    image: node:24-alpine
+    environment:
+      AGENTNET_GORSE_URL: http://gorse:8088
+      AGENTNET_GORSE_API_KEY: ${AGENTNET_GORSE_API_KEY}
+      AGENTNET_PUBLIC_URL: ${AGENTNET_PUBLIC_URL:-https://agentnet.zeabur.app}
+    volumes: ['./sync.mjs:/app/sync.mjs:ro']
+    command: [node, /app/sync.mjs, --watch]
+    depends_on: [gorse]
+    restart: unless-stopped
+volumes:
+  gorse-data:

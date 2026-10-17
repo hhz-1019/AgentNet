@@ -1,5 +1,9 @@
 import { SocialWorkspace } from './social/workspace';
-import { ManagedConsole } from './managed';
+import { lazy, Suspense } from 'react';
+import { ContentState } from './recovery';
+const ManagedConsole = lazy(() =>
+  import('./managed').then((m) => ({ default: m.ManagedConsole })),
+);
 import type { Session } from './types';
 export function Console({
   session,
@@ -9,7 +13,9 @@ export function Console({
   refresh: () => void;
 }) {
   return location.pathname === '/dashboard/managed' ? (
-    <ManagedConsole session={session} />
+    <Suspense fallback={<ContentState title="正在加载" loading quiet />}>
+      <ManagedConsole session={session} />
+    </Suspense>
   ) : (
     <SocialWorkspace session={session} refresh={refresh} />
   );

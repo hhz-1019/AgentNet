@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { isAbsolute, resolve } from 'node:path';
+import { publishedReceipt } from './receipts.mjs';
 import {
   workDraftPrompt,
   workRecord,
@@ -148,16 +149,23 @@ export class AgentNet {
       { input: draft },
     );
   }
-  share_post({
+  async share_post({
     document,
     idempotency_key,
     visibility = 'public',
     owner_authorized,
   }) {
     if (owner_authorized !== true) throw new Error('需要已获主人的交流授权');
-    return this.command(['social', 'share', '--stdin'], {
-      input: { document, idempotency_key, visibility, owner_authorized: true },
-    });
+    return publishedReceipt(
+      await this.command(['social', 'share', '--stdin'], {
+        input: {
+          document,
+          idempotency_key,
+          visibility,
+          owner_authorized: true,
+        },
+      }),
+    );
   }
   propose_post({ document, idempotency_key }) {
     return this.command(['social', 'propose', '--stdin'], {
@@ -266,9 +274,11 @@ export class AgentNet {
       });
     }
     if (sharing)
-      return this.command(['social', 'share', '--stdin'], {
-        input: { document, idempotency_key: key, ...sharing },
-      });
+      return publishedReceipt(
+        await this.command(['social', 'share', '--stdin'], {
+          input: { document, idempotency_key: key, ...sharing },
+        }),
+      );
     return this.propose_post({ document, idempotency_key: key });
   }
   async share_work({
@@ -320,14 +330,21 @@ export class AgentNet {
       input: { data: content.toString('base64'), alt, kind },
     });
   }
-  get_work_posts({ query = '', tags = [], cursor = '' } = {}) {
+  async get_work_posts({ query = '', tags = [], cursor = '', scope = 'opportunities', exclude_ids = [] } = {}) {
     if (
       !Array.isArray(tags) ||
       tags.length > 8 ||
       !tags.every((t) => typeof t === 'string')
     )
       throw new Error('tags must be an array of up to 8 strings');
-    return this.command([
+    if (!['latest', 'recommended', 'opportunities'].includes(scope))
+      throw new Error('invalid recommendation scope');
+    if (!Array.isArray(exclude_ids) || exclude_ids.length > 200 ||
+        !exclude_ids.every((id) => typeof id === 'string' && /^[1-9][0-9]*$/.test(id)))
+      throw new Error('provide up to 200 string post IDs');
+    if (scope === 'opportunities' && cursor)
+      throw new Error('opportunities use exclude_ids, not a feed cursor');
+    const result = await this.command([
       'social',
       'posts',
       '--query',
@@ -336,7 +353,12 @@ export class AgentNet {
       JSON.stringify(tags),
       '--cursor',
       cursor,
+      '--scope', scope,
+      '--exclude-ids', JSON.stringify(exclude_ids),
     ]);
+    if (scope === 'opportunities' && result.ranking_version !== 'gorse-0.5.11')
+      throw new Error('Agent recommendations are unavailable on this server; use scope latest explicitly for chronological browsing');
+    return result;
   }
   get_profile() {
     return this.command(['profile', 'card', 'show']);
@@ -731,6 +753,12 @@ export class AgentNet {
     result,
     command_type,
   }) {
+    // Draft inputs stay in the host. Command receipts carry only the outcome;
+    // full source notes and the companion identity are not server-side logs.
+    const report = result?.work_report;
+    const wireResult =
+      result && typeof result === 'object' ? { ...result } : result;
+    if (wireResult) delete wireResult.work_report;
     const completion = await this.command([
       'runtime',
       'command',
@@ -744,15 +772,14 @@ export class AgentNet {
       '--status',
       status,
       '--result',
-      JSON.stringify(result),
+      JSON.stringify(wireResult),
       ...(command_type ? ['--command-type', command_type] : []),
     ]);
-    if (status === 'completed' && result?.work_report) {
+    if (status === 'completed' && report) {
       try {
         const draft = await this.record_work({
-          ...result.work_report,
+          ...report,
           work_id: `command:${command_id}`,
-          status: 'completed',
         });
         return { ...completion, social_draft: draft };
       } catch (error) {

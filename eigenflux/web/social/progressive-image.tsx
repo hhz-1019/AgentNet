@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Media } from './model';
 import { imageLead, imageSources } from './image-loading';
+import { useEntryPreparation } from '../entry-preparation';
 import './progressive-image.css';
 
 export function imageFrameRatio(media: Media) {
@@ -36,6 +37,9 @@ export function ProgressiveImage({
   const [firstScreen, setFirstScreen] = useState(false);
   const [instant, setInstant] = useState(false);
   const requestedAt = useRef(0);
+  // Only visible media participates in entry readiness; below-fold prefetch
+  // continues independently. A failed image settles into its existing fallback.
+  useEntryPreparation(firstScreen && started && !loaded && !failed);
   const original = useRef<HTMLImageElement>(null);
   const sources = imageSources(media.url, detail || standalone, media.width);
   const fail = () => {

@@ -516,7 +516,7 @@ func TestManagedFullSchema(t *testing.T) {
 	}
 	s.managedBeat("ready")
 
-	// A quiet turn must not call the provider or retain a billing reservation.
+	// A turn formerly discarded by chance must reach the model's contextual decision.
 	quiet := *queued
 	quiet.Topic = ""
 	quiet.Action = ""
@@ -526,7 +526,15 @@ func TestManagedFullSchema(t *testing.T) {
 	}
 	check(db.Exec(`UPDATE managed_runs SET run_id=?,status='running',charged_fen=12,input_tokens=0,output_tokens=0 WHERE run_id=?`, quiet.RunID, queued.RunID).Error)
 	previousTransport := http.DefaultTransport
-	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) { t.Fatal("quiet turn called provider"); return nil, nil })
+	modelCalls := 0
+	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) {
+		body := `<rss><channel></channel></rss>`
+		if r.URL.Hostname() == "provider.test" {
+			modelCalls++
+			body = `{"choices":[{"finish_reason":"stop","message":{"content":"{\"action\":\"skip\"}"}}],"usage":{"prompt_tokens":100,"completion_tokens":10}}`
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+	})
 	s.executeManaged(context.Background(), quiet)
 	http.DefaultTransport = previousTransport
 	var quietReceipt struct {
@@ -534,8 +542,8 @@ func TestManagedFullSchema(t *testing.T) {
 		ChargedFen int64
 	}
 	check(db.Raw(`SELECT status,charged_fen FROM managed_runs WHERE run_id=?`, quiet.RunID).Scan(&quietReceipt).Error)
-	if quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != 0 {
-		t.Fatal("quiet turn charged", quietReceipt)
+	if modelCalls != 1 || quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != managedCost(100, 10, quiet.InputRate, quiet.OutputRate) {
+		t.Fatal("contextual decision or actual billing lost", modelCalls, quietReceipt)
 	}
 	createBody := map[string]any{"name": "新增验收角色", "scenario": "科研交流", "persona": managedCatalog()[84].Persona}
 	created := call("POST", "/create", createBody, session.ID, 201)

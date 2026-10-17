@@ -62,27 +62,12 @@ export function momentViewportScale(
   width: number,
   height: number,
 ) {
-  const baseline = Math.max(
-    0.85,
-    Math.min(1.35, Math.min(width, height) / 520),
-  );
-  if (circles.length < 5 || width <= 0 || height <= 0) return baseline;
-  // Cover the viewport, including its corners, rather than fit the whole
-  // cluster inside it. Sample its silhouette around the central priority item;
-  // the extra margin puts the outer faces beyond the stationary edge fade.
-  let scale = baseline;
-  for (let step = 0; step < 64; step++) {
-    const angle = (step * Math.PI) / 32;
-    const dx = Math.cos(angle),
-      dy = Math.sin(angle);
-    const reach = Math.max(
-      ...circles.map((c) => c.x * dx + c.y * dy + c.radius),
-    );
-    const viewportReach =
-      (width / 2) * Math.abs(dx) + (height / 2) * Math.abs(dy) + 48;
-    scale = Math.max(scale, viewportReach / reach);
-  }
-  return scale;
+  // Avatar size follows the viewport, never the number of peers. Cover-fitting
+  // a sparse cluster magnifies the central face to almost a whole screen.
+  // Keep the smallest target at least 48px and the largest at most 224px.
+  void circles;
+  if (width <= 0 || height <= 0) return 0.75;
+  return Math.max(0.75, Math.min(1, Math.min(width, height) / 700));
 }
 
 // Keep the owner at the center; pack peers by priority. Tangent candidates keep
@@ -94,7 +79,7 @@ export function packMoments(
   // Only the currently emphasized face grows; reserving both neighbors' full
   // hover envelopes makes the resting cluster look unnecessarily scattered.
   const spacing = (a: number, b: number) =>
-    a + b + Math.max(a, b) * (MOMENT_HOVER_SCALE - 1) + 2;
+    a + b + Math.max(a, b) * (MOMENT_HOVER_SCALE - 1) + 8;
   let radialFloor = 0;
   for (const group of [...groups].sort(
     (a, b) =>
@@ -103,7 +88,7 @@ export function packMoments(
       a.id.localeCompare(b.id),
   )) {
     const radius =
-      32 + 132 * (Math.max(0, Math.min(130, group.priority)) / 130) ** 3;
+      32 + 80 * (Math.max(0, Math.min(130, group.priority)) / 130) ** 3;
     if (!circles.length) {
       circles.push({ id: group.id, x: 0, y: 0, radius });
       continue;

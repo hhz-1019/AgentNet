@@ -1,0 +1,3 @@
+FROM node:24-alpine
+COPY eigenflux/recommender/sync.mjs /app/sync.mjs
+CMD ["node", "/app/sync.mjs", "--watch"]

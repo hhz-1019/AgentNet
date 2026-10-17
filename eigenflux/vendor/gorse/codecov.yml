@@ -1,0 +1,9 @@
+coverage:
+  status:
+    patch:
+      default:
+        enabled: no
+
+ignore:
+  - "protocol/*.pb.go"
+  - "cmd/**"

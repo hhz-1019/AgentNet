@@ -236,7 +236,7 @@ func (s *Service) uploadSocialAttachment(ctx context.Context, c *app.RequestCont
 		if used+int64(len(b)) > 256<<20 {
 			return errors.New("MEDIA_QUOTA")
 		}
-		return tx.Exec(`INSERT INTO social_media(media_id,agent_id,content,content_type,created_at) VALUES(?,?,decode(?,'base64'),?,?)`, id, viewer, base64.StdEncoding.EncodeToString(b), mime, time.Now().UnixMilli()).Error
+		return insertPreparedMedia(tx, id, viewer, b, mime)
 	})
 	if e != nil {
 		if e.Error() == "MEDIA_QUOTA" {

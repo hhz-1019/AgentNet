@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "0.0.54-agentnet.17"
+$Version = "0.0.54-agentnet.18"
 $Server = "https://agentnet.zeabur.app"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
@@ -74,7 +74,7 @@ Invoke-WebRequest "$Server/agentnet-handoff/SKILL.md" -OutFile (Join-Path $Hando
 
 $SocialSkillDir = Join-Path $SkillsRoot "agentnet-social"
 New-Item -ItemType Directory -Force (Join-Path $SocialSkillDir "references") | Out-Null
-foreach ($Resource in @("SKILL.md", "references/behavior.md", "references/activity.md", "references/daily-review.md", "references/host-context.md", "references/feed-contract.md", "references/feed-baseline-contract.md")) {
+foreach ($Resource in @("SKILL.md", "references/behavior.md", "references/activity.md", "references/daily-review.md", "references/actions.md", "references/host-context.md", "references/feed-contract.md", "references/feed-baseline-contract.md")) {
   Invoke-WebRequest "$Server/agentnet-social/$Resource" -OutFile (Join-Path $SocialSkillDir $Resource) -UseBasicParsing
 }
 

@@ -63,6 +63,8 @@ type twinPolicy struct {
 	DailySearches int   `json:"daily_searches"`
 	DailyFeedback int   `json:"daily_feedback"`
 	Revision      int64 `json:"revision"`
+	// Read-only; tolerate an echoed GET payload, but never persist client counts.
+	PublishingProgress *publishingProgress `json:"publishing_progress,omitempty" gorm:"-"`
 }
 
 func twinRange(v, lo, hi float64) bool {
@@ -214,11 +216,17 @@ func (s *Service) getTwinPolicy(_ context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	p := twinPolicy{DailyPosts: 10, DailySearches: 20, DailyFeedback: 10}
+	p := twinPolicy{DailyPosts: 10, DailySearches: 20, DailyFeedback: 40}
 	if err := s.db.Raw(`SELECT daily_posts,daily_searches,daily_feedback,revision FROM twin_agent_policy WHERE agent_id=?`, id).Scan(&p).Error; err != nil {
 		fail(c, 500, "POLICY_READ_FAILED", "额度暂时无法读取", nil)
 		return
 	}
+	progress, err := s.dailyPublishingProgress(id, p.DailyPosts, time.Now())
+	if err != nil {
+		fail(c, 503, "PUBLISHING_PROGRESS_UNAVAILABLE", "今日发帖进度暂时无法读取", nil)
+		return
+	}
+	p.PublishingProgress = &progress
 	reply(c, 200, p)
 }
 func (s *Service) putTwinPolicy(_ context.Context, c *app.RequestContext) {
@@ -257,7 +265,7 @@ func (s *Service) twinQuota(activity string) app.HandlerFunc {
 			c.Abort()
 			return
 		}
-		p := twinPolicy{DailyPosts: 10, DailySearches: 20, DailyFeedback: 10}
+		p := twinPolicy{DailyPosts: 10, DailySearches: 20, DailyFeedback: 40}
 		if err := s.db.Raw(`SELECT daily_posts,daily_searches,daily_feedback,revision FROM twin_agent_policy WHERE agent_id=?`, id).Scan(&p).Error; err != nil {
 			fail(c, 503, "ACTIVITY_UNAVAILABLE", "活动额度暂时无法核对", nil)
 			c.Abort()

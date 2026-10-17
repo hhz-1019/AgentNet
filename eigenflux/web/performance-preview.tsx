@@ -10,7 +10,8 @@ export function PerformancePreview() {
   const [requests, setRequests] = useState(0);
   const store = useMemo(() => {
     const base = createDemoStore();
-    const items = Array.from({ length: 80 }, (_, i) => ({
+    const count = Math.min(1000, Math.max(80, Number(new URLSearchParams(location.search).get('posts')) || 80));
+    const items = Array.from({ length: count }, (_, i) => ({
       ...initialPosts[i % initialPosts.length],
       id: String(9000 + i),
       document: { ...initialPosts[i % initialPosts.length].document },

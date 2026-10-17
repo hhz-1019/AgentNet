@@ -80,6 +80,7 @@ try {
           GOMAXPROCS: '2',
           GOFLAGS: '-p=2',
           AGENTNET_MANAGED_WORKER: 'false',
+          AGENTNET_MEDIA_PREPARATION: 'false',
           AGENTNET_MANAGED_PRESENCE_ACCEPTANCE: process.argv.includes(
             '--presence-provider',
           )

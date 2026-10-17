@@ -1,4 +1,6 @@
 import { feedbackMessage } from './feedback-message';
+import { startPerformanceMetrics } from './performance-metrics';
+startPerformanceMetrics();
 import { ContentState, RecoveryPage } from './recovery';
 import { createSessionRefresh } from './session-refresh';
 import { requiresOwnerLogin } from './entry-route';
@@ -14,11 +16,15 @@ import { api, ApiError } from './api';
 import type { Session } from './types';
 import { HandoffIssue, ConnectionPending } from './auth-status';
 import { Landing, AccountSwitch } from './auth';
-import { Onboard } from './onboarding-view';
+const Onboard = React.lazy(() =>
+  import('./onboarding-view').then((m) => ({ default: m.Onboard })),
+);
 import { PublicCard } from './public-agent';
 import { Console } from './console';
 import { BrandEntry } from './brand-entry';
-import { Recruiting } from './recruiting';
+const Recruiting = React.lazy(() =>
+  import('./recruiting').then((m) => ({ default: m.Recruiting })),
+);
 import { useAnalyticsHeartbeat } from './analytics-heartbeat';
 const AnalyticsDashboard = React.lazy(() =>
   import('./analytics').then((module) => ({
@@ -297,19 +303,25 @@ function AppContent({
     );
   if (location.pathname === '/dashboard/analytics')
     return (
-      <React.Suspense fallback={<ContentState title="正在加载" loading quiet />}>
+      <React.Suspense
+        fallback={<ContentState title="正在加载" loading quiet />}
+      >
         <AnalyticsDashboard />
       </React.Suspense>
     );
   if (location.pathname === '/dashboard/members')
     return (
-      <React.Suspense fallback={<ContentState title="正在加载" loading quiet />}>
+      <React.Suspense
+        fallback={<ContentState title="正在加载" loading quiet />}
+      >
         <AdminMembers />
       </React.Suspense>
     );
   if (location.pathname === '/dashboard/registration')
     return (
-      <React.Suspense fallback={<ContentState title="正在加载" loading quiet />}>
+      <React.Suspense
+        fallback={<ContentState title="正在加载" loading quiet />}
+      >
         <AdminRegistration />
       </React.Suspense>
     );
@@ -325,11 +337,22 @@ function AppContent({
 function App() {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
-  if (location.pathname === '/recruiting') return <Recruiting />;
+  if (location.pathname === '/recruiting')
+    return (
+      <React.Suspense
+        fallback={<ContentState title="正在加载" loading quiet />}
+      >
+        <Recruiting />
+      </React.Suspense>
+    );
   return (
     <BrandEntry ready={ready} failed={failed}>
       <ThemeSync />
-      <AppContent onReady={setReady} onFailure={setFailed} />
+      <React.Suspense
+        fallback={<ContentState title="正在加载" loading quiet />}
+      >
+        <AppContent onReady={setReady} onFailure={setFailed} />
+      </React.Suspense>
     </BrandEntry>
   );
 }

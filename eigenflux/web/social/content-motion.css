@@ -4,3 +4,9 @@
      A second browser anchor adjustment can shift it by a grid gap on return. */
   overflow-anchor: none;
 }
+@supports (content-visibility: auto) {
+  .ew-social .sw-feed-grid > .ew-feed-contained {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto var(--feed-card-height);
+  }
+}

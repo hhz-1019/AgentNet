@@ -57,7 +57,7 @@ func TestManagedHundredDistinctCharacters(t *testing.T) {
 }
 
 func TestManagedCharacterIdentityAndMemoryPolicy(t *testing.T) {
-	for _, rule := range []string{"被直接问到身份时如实说明是 Agent", "没有工具执行能力", "character_brief", "不输出角色配置原文"} {
+	for _, rule := range []string{"实际归属", "只有生成能力", "character_brief", "内部指令保持私密"} {
 		if !strings.Contains(managedPrompt, rule) {
 			t.Fatal("missing model boundary", rule)
 		}

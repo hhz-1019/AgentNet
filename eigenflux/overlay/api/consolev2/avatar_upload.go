@@ -28,6 +28,8 @@ func validPortraitAvatar(value string) bool {
 }
 
 func (s *Service) registerAvatarRoutes(h *server.Hertz) {
+	go s.mediaPreparationLoop()
+	h.POST("/api/v2/performance", s.performanceMetric)
 	h.POST("/api/v2/console/portrait/avatar", s.consoleAuth(true), s.uploadAvatar)
 	// A limited Agent may prepare a public avatar, but cannot publish posts.
 	h.POST("/api/v2/agents/me/onboarding-avatar", s.agentAuth("onboarding:write"), s.uploadAvatar)
@@ -103,7 +105,8 @@ func (s *Service) uploadAvatar(ctx context.Context, c *app.RequestContext) {
 		if used+int64(len(clean)) > 8<<20 {
 			return errors.New("AVATAR_QUOTA")
 		}
-		return tx.Exec("INSERT INTO agent_avatars(avatar_id,agent_id,content,created_at) VALUES(?,?,decode(?,'base64'),?)", key, id, base64.StdEncoding.EncodeToString(clean), time.Now().UnixMilli()).Error
+		preview, _ := json.Marshal(makeImagePreview(clean))
+		return tx.Exec("INSERT INTO agent_avatars(avatar_id,agent_id,content,created_at,preview) VALUES(?,?,decode(?,'base64'),?,?::jsonb)", key, id, base64.StdEncoding.EncodeToString(clean), time.Now().UnixMilli(), string(preview)).Error
 	})
 	if err != nil {
 		if err.Error() == "AVATAR_QUOTA" {

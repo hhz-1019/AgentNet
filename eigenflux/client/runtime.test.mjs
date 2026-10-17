@@ -25,6 +25,76 @@ const record = {
   limitations: '未运行公网服务。',
   tags: ['Agent 工程'],
 };
+
+void test('invalid publication receipts do not become success and retry without rerunning the model', async () =>
+  fixture(async (home) => {
+    const f = adapter();
+    f.client.claim_command = async () => ({
+      command_id: '9007199254740993',
+      claim_token: 'proof',
+      claim_epoch: 1,
+      claim_until: Date.now() + 120000,
+      payload: { publish: true, visibility: 'public' },
+    });
+    await mkdir(join(home, 'records'));
+    await writeFile(join(home, 'records', 'task.json'), JSON.stringify(record));
+    let requests = 0;
+    f.client.share_work = async () =>
+      ++requests === 1
+        ? { id: '42', state: 'draft' }
+        : { id: '42', state: 'published' };
+    const worker = new AgentNetRuntime({
+      ...f,
+      home,
+      endpoint: 'https://example.com',
+      workDirectory: join(home, 'records'),
+    });
+    await worker.open();
+    try {
+      await assert.rejects(worker.tick(), /Publication not confirmed/);
+      assert.equal(f.state.completions.length, 0);
+      assert.equal(worker.journal.jobs['9007199254740993'].shared, undefined);
+      await worker.tick();
+      assert.equal(requests, 2);
+      assert.equal(f.state.generations, 1);
+      assert.equal(f.state.completions[0].result.execution, 'shared');
+      assert.equal(f.state.completions[0].result.post_id, '42');
+    } finally {
+      await worker.close();
+    }
+  }));
+
+void test('draft retries preserve original evidence status', async () =>
+  fixture(async (home) => {
+    const f = adapter();
+    let seen;
+    f.client.record_work = async (input) => {
+      seen = input;
+      return { skipped: true };
+    };
+    const worker = new AgentNetRuntime({
+      ...f,
+      home,
+      endpoint: 'https://example.com',
+    });
+    await worker.open();
+    try {
+      const job = {
+        phase: 'draft_pending',
+        completion: {
+          command_id: '14',
+          result: { work_report: { ...record, status: 'planned' } },
+        },
+        receipt: { social_draft_error: 'earlier failure' },
+      };
+      await worker.retryDraft(job);
+      assert.equal(seen.status, 'planned');
+      assert.equal(job.receipt.social_draft.skipped, true);
+      assert.equal(job.phase, 'done');
+    } finally {
+      await worker.close();
+    }
+  }));
 async function fixture(fn) {
   const home = await mkdtemp(join(tmpdir(), 'agentnet-runtime-'));
   try {
@@ -393,7 +463,7 @@ void test('unsupported commands are not claimed, aborted runtime makes no new cl
     await worker.close();
     assert.equal(f.state.claims, 0);
   }));
-void test('console sharing retrieves project context and images, then retries a lost share receipt without running the model again', async () =>
+void test('console sharing publishes an approved record with media, then retries a lost receipt without running the model again', async () =>
   fixture(async (home) => {
     const directory = join(home, 'context');
     await mkdir(directory);
@@ -402,6 +472,22 @@ void test('console sharing retrieves project context and images, then retries a 
       '# 社会模拟验证\n已完成两个孤独感干预方案的对照，尚未验证长期效果。\n![干预比较](chart.png)',
     );
     await writeFile(join(directory, 'chart.png'), Buffer.from('fixture-image'));
+    const workDirectory = join(home, 'approved');
+    await mkdir(workDirectory);
+    await writeFile(
+      join(workDirectory, 'report.json'),
+      JSON.stringify({
+        ...record,
+        result: '已完成两个孤独感干预方案的对照，尚未验证长期效果。',
+        media: [
+          {
+            url: '/api/v2/console/social/media/71',
+            alt: '干预比较',
+            kind: 'image',
+          },
+        ],
+      }),
+    );
     let shares = 0,
       uploads = 0;
     const { client, model, state } = adapter({
@@ -458,6 +544,7 @@ void test('console sharing retrieves project context and images, then retries a 
       home,
       endpoint: 'local',
       contextDirectory: directory,
+      workDirectory,
     });
     await worker.open();
     await assert.rejects(worker.tick(), /lost share response/);
@@ -468,12 +555,13 @@ void test('console sharing retrieves project context and images, then retries a 
       home,
       endpoint: 'local',
       contextDirectory: directory,
+      workDirectory,
     });
     await worker.open();
     try {
       await worker.tick();
       assert.equal(shares, 2);
-      assert.equal(uploads, 1);
+      assert.equal(uploads, 0); // The private context image was not selected or uploaded.
       assert.equal(state.generations, 1);
       assert.equal(state.completions[0].result.post_id, '72');
       assert.equal(state.completions[0].result.execution, 'shared');
@@ -558,7 +646,7 @@ void test('companion rename recovers a lost receipt and never overwrites a later
     }
   }));
 
-void test('runtime carries the same existing companion voice to owner replies and draft handoff', async () =>
+void test('runtime carries its established character and separate introduction to replies and draft handoff', async () =>
   fixture(async (home) => {
     const voice = {
       agent_name: '苔苔',
@@ -573,8 +661,18 @@ void test('runtime carries the same existing companion voice to owner replies an
         memories: [{ content: 'private-memory' }],
       }),
     });
+    const character =
+      '遇到喜欢的东西会停下来细看，话不多，但愿意把朋友的事追到底。';
+    let characterCalls = 0;
     f.model.json = async (_prompt, input) => {
+      if (!input.agent_identity.character) {
+        characterCalls++;
+        assert.equal(input.agent_identity.introduction, voice.profile);
+        return { character };
+      }
       assert.deepEqual(input.companion_voice, voice);
+      assert.equal(input.agent_identity.character, character);
+      assert.equal(input.agent_identity.introduction, voice.profile);
       return { reply: '我把这次改动整理好了。', work_ids: [record.work_id] };
     };
     await mkdir(join(home, 'records'));
@@ -591,6 +689,11 @@ void test('runtime carries the same existing companion voice to owner replies an
     });
     await worker.run({ once: true });
     assert.equal(f.state.completions[0].status, 'completed');
+    assert.equal(characterCalls, 1);
+    assert.equal(
+      f.state.completions[0].result.work_report.agent_identity.character,
+      character,
+    );
     assert.deepEqual(
       f.state.completions[0].result.work_report.companion_voice,
       voice,
@@ -600,4 +703,58 @@ void test('runtime carries the same existing companion voice to owner replies an
         'private-memory',
       ),
     );
+  }));
+
+void test('a public introduction does not suppress character creation or overwrite it after restart', async () =>
+  fixture(async (home) => {
+    let generations = 0;
+    const model = {
+      json: async (_prompt, input) => {
+        generations++;
+        assert.equal(input.agent_identity.agent_name, '小满');
+        assert.equal(input.agent_identity.owner_name, '小林');
+        assert.equal(
+          input.agent_identity.introduction,
+          '我是小林的 Agent，帮他交流剪辑。',
+        );
+        assert.equal(input.agent_identity.character, undefined);
+        return { character: '爽快、细腻地留意声音，短句；自然光配图。' };
+      },
+    };
+    const options = { client: {}, model, home, endpoint: 'local' };
+    let runtime = new AgentNetRuntime(options);
+    await runtime.open();
+    const first = await runtime.restoreIdentity(
+      { agent_name: '小满', connection_goal: '剪辑交流' },
+      { fields: { name: '小林', bio: '我是小林的 Agent，帮他交流剪辑。' } },
+    );
+    await runtime.close();
+    runtime = new AgentNetRuntime(options);
+    await runtime.open();
+    try {
+      const resumed = await runtime.restoreIdentity(
+        { agent_name: '小满', connection_goal: '寻找互评伙伴' },
+        { fields: { name: '小林' } },
+      );
+      assert.equal(resumed.character, first.character);
+      assert.equal(resumed.intent, '寻找互评伙伴');
+      assert.equal(generations, 1);
+      const edited = await runtime.restoreIdentity(
+        { agent_name: '阿满', connection_goal: '' },
+        { fields: { name: '小林', bio: '我最近也在帮小林找互评伙伴。' } },
+      );
+      assert.equal(edited.character, first.character);
+      assert.equal(edited.introduction, '我最近也在帮小林找互评伙伴。');
+      assert.equal(edited.agent_name, '阿满');
+      assert.equal(edited.intent, undefined);
+      runtime.journal.identity.character = '用户选定的新性格';
+      const updated = await runtime.restoreIdentity(
+        { agent_name: '阿满' },
+        { fields: { name: '小林', bio: '仍是原来的公开介绍' } },
+      );
+      assert.equal(updated.character, '用户选定的新性格');
+      assert.equal(generations, 1);
+    } finally {
+      await runtime.close();
+    }
   }));

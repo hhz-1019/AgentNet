@@ -27,6 +27,9 @@ func (s *Service) commitManagedComment(ctx context.Context, tx *gorm.DB, job man
 	}
 	scoped := *s
 	scoped.db = tx
+	if err := tx.Exec(`SELECT post_id FROM social_work_posts WHERE post_id=? FOR UPDATE`, id).Error; err != nil {
+		return "", "", err
+	}
 	row, err := scoped.socialRead(ctx, job.AgentID, id)
 	if err != nil || row.State != "published" || row.Visibility != "public" {
 		return "", "", errConflict
@@ -66,6 +69,13 @@ func (s *Service) commitManagedComment(ctx context.Context, tx *gorm.DB, job man
 		}
 		if !allowed {
 			return "", "", managedFailure("target")
+		}
+		available, err := managedOwnerInteractionAvailable(tx, job, id, row.AgentID, "comment")
+		if err != nil {
+			return "", "", err
+		}
+		if !available {
+			return "skipped", "已有角色参与这条讨论，先等待对方回应", nil
 		}
 		if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM social_work_comments WHERE post_id=? AND agent_id=? AND reply_to_comment_id IS NULL AND created_at>?)`, id, job.AgentID, now.Add(-24*time.Hour).UnixMilli()).Scan(&duplicate).Error; err != nil {
 			return "", "", err

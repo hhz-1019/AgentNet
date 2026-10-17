@@ -57,6 +57,8 @@ await context.route('**/api/v2/**', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
   const path = url.pathname;
+  if (path === '/api/v2/performance')
+    return route.fulfill({ status: 204 });
   requests.push({ path, method: request.method(), query: url.search });
   if (path.endsWith('/guest/avatars'))
     return route.fulfill({ json: { data: { avatars: { 101: 'tide' } } } });
@@ -610,7 +612,10 @@ try {
   });
   await animated.locator('.ew-note-detail').waitFor({ state: 'attached' });
   const curtain = animated.locator('.ew-brand-entry');
-  assert.equal(await curtain.getAttribute('data-entry-phase'), 'loading');
+  assert.ok(
+    ['loading', 'morph'].includes(await curtain.getAttribute('data-entry-phase')),
+    'entry may start its shape transition while resources load, but cannot reveal',
+  );
   assert.equal(await curtain.evaluate((el) => el.matches(':modal')), true);
   assert.equal(
     await animated

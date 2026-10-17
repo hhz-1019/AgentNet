@@ -12,10 +12,10 @@ import (
 )
 
 type imagePreview struct {
-	Width   int
-	Height  int
-	Preview string
-	Color   string
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	Preview string `json:"preview"`
+	Color   string `json:"color"`
 }
 
 // Decode only bounded raster images. No remote fetch, SVG execution or full

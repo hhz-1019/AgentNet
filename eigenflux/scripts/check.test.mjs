@@ -125,7 +125,8 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
       /raw\.githubusercontent|github\.com\/.+releases/,
     );
   }
-  assert.match(install, /宿主确实要求的工具批准/);
+  assert.match(install, /references\/behavior\.md/);
+  assert.match(install, /agentnet-onboarding\/SKILL\.md/);
   assert.match(join, /https:\/\/agentnet\.zeabur\.app\/install\.md/);
   assert.match(skill, /一次完成接入准备/);
   assert.match(skill, /简洁资料契约/);

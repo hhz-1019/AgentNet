@@ -1,0 +1,34 @@
+# Gorse v0.5.11, unmodified upstream recommendation implementations.
+[database]
+data_store = "sqlite:///var/lib/gorse/data.db"
+cache_store = "sqlite:///var/lib/gorse/cache.db"
+[master]
+host = "0.0.0.0"
+http_host = "0.0.0.0"
+http_port = 8088
+n_jobs = 1
+[server]
+default_n = 20
+auto_insert_user = true
+auto_insert_item = false
+[recommend]
+cache_size = 500
+[recommend.data_source]
+positive_feedback_types = ["like", "save"]
+read_feedback_types = ["read"]
+[[recommend.item-to-item]]
+name = "topics"
+type = "tags"
+column = "item.Labels.tags"
+[[recommend.user-to-user]]
+name = "neighbors"
+type = "items"
+[recommend.collaborative]
+type = "mf"
+[recommend.ranker]
+type = "fm"
+recommenders = ["collaborative", "item-to-item/topics", "user-to-user/neighbors", "latest"]
+[recommend.fallback]
+recommenders = ["item-to-item/topics", "latest"]
+[blob]
+uri = "/var/lib/gorse/blob"

@@ -1,6 +1,7 @@
 package consolev2
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -145,6 +146,13 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 	avatarPath := avatarPrefix + avatarID
 	check(db.Exec(`INSERT INTO agent_avatars(avatar_id,agent_id,content,created_at) VALUES(?,88001,decode(?,'base64'),1)`, avatarID, base64.StdEncoding.EncodeToString(previewTestImage(t, 256, 256))).Error)
 	defer db.Exec(`DELETE FROM agent_avatars WHERE avatar_id=?`, avatarID)
+	for {
+		worked, err := s.prepareNextMedia(context.Background())
+		check(err)
+		if !worked {
+			break
+		}
+	}
 	check(db.Exec(`UPDATE twin_users SET portrait_fields=jsonb_set(portrait_fields,'{avatar}',to_jsonb(?::text)) WHERE user_id='guest-owner'`, avatarPath).Error)
 	withPreview := string(get("/avatars?ids=88001,88002", 200))
 	if !strings.Contains(withPreview, `"color":"#2878b4"`) || !strings.Contains(withPreview, `data:image/jpeg;base64,`) || !strings.Contains(withPreview, avatarPath) || strings.Contains(withPreview, "88002") {

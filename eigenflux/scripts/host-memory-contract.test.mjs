@@ -22,6 +22,7 @@ void test('join, both installers and generated patrol ship the same host-memory 
       'activity.md',
       'daily-review.md',
       'host-context.md',
+      'actions.md',
     ]) {
       assert(
         text.includes('references/' + resource),
@@ -38,7 +39,6 @@ void test('join, both installers and generated patrol ship the same host-memory 
     }
   }
   for (const source of [
-    'web/public/install.md',
     'skills/agentnet-onboarding/SKILL.md',
     'skills/agentnet-social/references/behavior.md',
     'skills/agentnet-social/references/daily-review.md',
@@ -81,27 +81,55 @@ void test('registration has no event editor; archives have an owner-only export 
 void test('release, consent and host packaging advertise the current contract', () => {
   const release = JSON.parse(read('web/public/release.json'));
   assert.equal(release.portrait_prefill_version, 'host-context-2026-10-16');
-  assert.equal(release.behavior_version, release.portrait_prefill_version);
+  assert.equal(release.behavior_version, 'identity-core-2026-10-16');
+  assert.equal(release.activity_version, 'daily-five-2026-10-17');
+  for (const source of [
+    'skills/agentnet-social/SKILL.md',
+    'skills/agentnet-social/references/activity.md',
+    'overlay/cli/cmd/companion_plan.go',
+  ])
+    assert(read(source).includes(release.activity_version), source);
+  for (const source of [
+    'web/public/install.md',
+    'skills/agentnet-social/references/activity.md',
+    'skills/agentnet-social/references/feed-contract.md',
+    'overlay/static/templates/prompts/official.tmpl',
+  ]) {
+    assert(read(source).includes('每天至少 5 条'), source);
+    assert(!read(source).includes('每天至少 3 条'), source);
+  }
   assert(read('web/twin.ts').includes("AGREEMENT_VERSION = '2026-10-16'"));
   assert(read('overlay/api/consolev2/twin_handlers.go').includes('2026-10-16'));
   assert(read('Dockerfile.host').includes('COPY eigenflux/skills/ ./skills/'));
 });
 
 void test('live Feed rules are identical across API, CLI and installed references', () => {
- for (const [name, api, cli] of [
-  ['feed-contract.md','elsewhere.md','elsewhere_feed.md'],
-  ['feed-baseline-contract.md','elsewhere_baseline.md','elsewhere_feed_baseline.md'],
- ]) {
-  const source=read('skills/agentnet-social/references/'+name);
-  assert.equal(read('overlay/pkg/feedcontract/'+api),source);
-  assert.equal(read('overlay/cli/cmd/'+cli),source);
-  for (const installer of ['web/public/install.sh','web/public/install.ps1']) assert(read(installer).includes('references/'+name));
- }
- const patches=read('patches/account-connection.patch');
- assert(patches.includes('feedcontract.ElsewhereForMode(mode)'));
- assert(patches.includes('feedcontract.ElsewhereForMode("intent_aligned")'));
- assert(patches.includes('normalizeElsewhereFeed(serverName, resp.Data)'));
- assert(patches.includes('normalizeElsewhereFeed(serverName, payload)'));
- assert.equal((patches.match(/return elsewhereHostReview\(cmd\)/g)||[]).length,1);
- assert(read("overlay/cli/cmd/profile_refresh_task.go").includes("return elsewhereHostReview(cmd)"));
+  for (const [name, api, cli] of [
+    ['feed-contract.md', 'elsewhere.md', 'elsewhere_feed.md'],
+    [
+      'feed-baseline-contract.md',
+      'elsewhere_baseline.md',
+      'elsewhere_feed_baseline.md',
+    ],
+  ]) {
+    const source = read('skills/agentnet-social/references/' + name);
+    assert.equal(read('overlay/pkg/feedcontract/' + api), source);
+    assert.equal(read('overlay/cli/cmd/' + cli), source);
+    for (const installer of ['web/public/install.sh', 'web/public/install.ps1'])
+      assert(read(installer).includes('references/' + name));
+  }
+  const patches = read('patches/account-connection.patch');
+  assert(patches.includes('feedcontract.ElsewhereForMode(mode)'));
+  assert(patches.includes('feedcontract.ElsewhereForMode("intent_aligned")'));
+  assert(patches.includes('normalizeElsewhereFeed(serverName, resp.Data)'));
+  assert(patches.includes('normalizeElsewhereFeed(serverName, payload)'));
+  assert.equal(
+    (patches.match(/return elsewhereHostReview\(cmd\)/g) || []).length,
+    1,
+  );
+  assert(
+    read('overlay/cli/cmd/profile_refresh_task.go').includes(
+      'return elsewhereHostReview(cmd)',
+    ),
+  );
 });

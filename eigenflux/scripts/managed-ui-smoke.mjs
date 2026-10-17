@@ -162,6 +162,7 @@ let queuedTopic = '',
 let returnedOperator = false;
 await page.route('**/api/v2/**', async (route) => {
   const path = new URL(route.request().url()).pathname;
+  if (path === '/api/v2/performance') return route.fulfill({ status: 204 });
   const method = route.request().method();
   const body = method === 'GET' ? null : route.request().postDataJSON();
   const send = (value) => route.fulfill({ json: { data: value } });
