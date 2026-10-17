@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"cli.eigenflux.ai/internal/auth"
+	"context"
 	"encoding/json"
+	"errors"
 	"github.com/spf13/cobra"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +14,61 @@ import (
 	"testing"
 	"time"
 )
+
+func TestElsewhereRegistrationWait(t *testing.T) {
+	t.Run("completion resumes without waiting for cadence", func(t *testing.T) {
+		reads := 0
+		got, err := waitElsewhereRegistration(context.Background(), time.Second, time.Millisecond, func() (runtimeAccess, error) {
+			reads++
+			state := "in_progress"
+			if reads == 3 {
+				state = "completed"
+			}
+			return runtimeAccess{OnboardingState: state}, nil
+		})
+		if err != nil || got.OnboardingState != "completed" || reads != 3 {
+			t.Fatalf("%+v %v reads=%d", got, err, reads)
+		}
+	})
+	t.Run("ordinary plan remains a single read", func(t *testing.T) {
+		reads := 0
+		got, err := waitElsewhereRegistration(context.Background(), 0, time.Second, func() (runtimeAccess, error) {
+			reads++
+			return runtimeAccess{OnboardingState: "in_progress"}, nil
+		})
+		if err != nil || got.OnboardingState != "in_progress" || reads != 1 {
+			t.Fatalf("%+v %v reads=%d", got, err, reads)
+		}
+	})
+	t.Run("timeout is pending not completion", func(t *testing.T) {
+		got, err := waitElsewhereRegistration(context.Background(), 3*time.Millisecond, time.Millisecond, func() (runtimeAccess, error) {
+			return runtimeAccess{OnboardingState: "in_progress"}, nil
+		})
+		if err != nil || got.OnboardingState != "in_progress" {
+			t.Fatalf("%+v %v", got, err)
+		}
+	})
+	t.Run("offline is not ready", func(t *testing.T) {
+		failure := errors.New("offline")
+		got, err := waitElsewhereRegistration(context.Background(), time.Second, time.Millisecond, func() (runtimeAccess, error) {
+			return runtimeAccess{}, failure
+		})
+		if !errors.Is(err, failure) || got.OnboardingState == "completed" {
+			t.Fatalf("%+v %v", got, err)
+		}
+	})
+	t.Run("host can stop waiting", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		_, err := waitElsewhereRegistration(ctx, time.Second, time.Second, func() (runtimeAccess, error) {
+			cancel()
+			return runtimeAccess{OnboardingState: "in_progress"}, nil
+		})
+		if !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
+	})
+}
 
 func TestElsewhereCompanionPlan(t *testing.T) {
 	prompt := elsewhereCyclePrompt("agentnet --homedir '/stable home' --server agentnet", []string{"agentnet-social/SKILL.md", "behavior.md", "activity.md", "daily-review.md"}, "completed")
@@ -29,6 +86,7 @@ func TestElsewhereCompanionPlan(t *testing.T) {
 
 func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 	completed, reads := false, 0
+	completeAt := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" || r.URL.Path != "/api/v2/agent-context" {
 			t.Errorf("unexpected business request: %s %s", r.Method, r.URL.Path)
@@ -36,6 +94,9 @@ func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 			return
 		}
 		reads++
+		if completeAt > 0 && reads >= completeAt {
+			completed = true
+		}
 		if !completed {
 			w.WriteHeader(409)
 			_, _ = w.Write([]byte(`{"error":{"code":"ONBOARDING_REQUIRED","details":{"onboarding_state":"in_progress"}}}`))
@@ -95,5 +156,28 @@ func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 	}
 	if reads != 2 {
 		t.Fatalf("expected two fresh reads, got %d", reads)
+	}
+	// Real plan command waits on the authenticated readiness endpoint, then
+	// returns the same identity's activity instructions without business writes.
+	completed, completeAt = false, 4
+	cmd := &cobra.Command{}
+	cmd.Flags().Int("wait-seconds", 1, "")
+	text, err := captureHeartbeatStdout(t, func() error { return elsewhereHeartbeatPlan(cmd) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan heartbeatPlan
+	if err := json.Unmarshal([]byte(text), &plan); err != nil {
+		t.Fatal(err)
+	}
+	if reads != 4 || plan.Access.OnboardingState != "completed" || plan.CLIPrefix != prefix || !strings.Contains(plan.AgentPrompt, "不等待两小时定时器") {
+		t.Fatalf("first-round handoff failed: reads=%d plan=%+v", reads, plan)
+	}
+	for _, invalid := range []int{-1, 46} {
+		cmd := &cobra.Command{}
+		cmd.Flags().Int("wait-seconds", invalid, "")
+		if err := elsewhereHeartbeatPlan(cmd); err == nil {
+			t.Fatal("invalid observation duration accepted")
+		}
 	}
 }

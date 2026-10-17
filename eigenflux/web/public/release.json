@@ -1,6 +1,6 @@
 {
-  "release": "elsewhere-unified-media-20261017-r1",
-  "cli_version": "0.0.54-agentnet.19",
+  "release": "elsewhere-parallel-entry-20261018-r1",
+  "cli_version": "0.0.54-agentnet.20",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
   "human_auth": "uid",
@@ -18,5 +18,6 @@
   "public_agents": "unified-public-sources-20261017",
   "activity_protocol": "activity-v1-images",
   "account_deletion": "erasure-v1",
-  "migration": 150
+  "migration": 150,
+  "onboarding_version": "parallel-entry-2026-10-18"
 }
