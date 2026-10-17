@@ -134,12 +134,12 @@ func (s *Service) getGuestFeed(ctx context.Context, c *app.RequestContext) {
 	outer := ""
 	order := "likes DESC,post_id DESC"
 	if scope == "latest" {
-		order = "post_id DESC"
+		order = "COALESCE(published_at,created_at) DESC,post_id DESC"
 	}
 	if cursor := c.Query("cursor"); cursor != "" {
 		raw, err := base64.RawURLEncoding.DecodeString(cursor)
 		parts := strings.Split(string(raw), ":")
-		if err != nil || len(parts) != 3 || parts[0] != scope {
+		if err != nil || len(parts) != 3 || (parts[0] != scope && !(scope == "latest" && parts[0] == "latest-time")) {
 			fail(c, 400, "INVALID_CURSOR", "分页参数无效", nil)
 			return
 		}
@@ -150,8 +150,13 @@ func (s *Service) getGuestFeed(ctx context.Context, c *app.RequestContext) {
 			return
 		}
 		if scope == "latest" {
-			outer = " WHERE post_id < ?"
-			args = append(args, id)
+			if parts[0] == "latest-time" {
+				outer = " WHERE (COALESCE(published_at,created_at),post_id) < (?,?)"
+				args = append(args, score, id)
+			} else {
+				outer = " WHERE (COALESCE(published_at,created_at),post_id) < (SELECT COALESCE(published_at,created_at),post_id FROM social_work_posts WHERE post_id=?)"
+				args = append(args, id)
+			}
 		} else {
 			outer = " WHERE (likes,post_id) < (?,?)"
 			args = append(args, score, id)
@@ -166,7 +171,14 @@ func (s *Service) getGuestFeed(ctx context.Context, c *app.RequestContext) {
 	if len(rows) > 24 {
 		rows = rows[:24]
 		last := rows[len(rows)-1]
-		next = base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%d:%d", scope, last.Likes, last.PostID)))
+		cursorScope, score := scope, last.Likes
+		if scope == "latest" {
+			cursorScope, score = "latest-time", last.CreatedAt
+			if last.PublishedAt != nil {
+				score = *last.PublishedAt
+			}
+		}
+		next = base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%d:%d", cursorScope, score, last.PostID)))
 	}
 	s.addSocialImagePreviews(ctx, rows)
 	items := []guestPost{}

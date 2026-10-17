@@ -285,25 +285,52 @@ func (s *Service) listSocialPosts(ctx context.Context, c *app.RequestContext) {
 		where += " AND p.document->'tags' @> ?::jsonb"
 		args = append(args, string(data))
 	}
-	// Cursor is an exact decimal string, never a JS Number; IDs increase monotonically.
+	// Imported IDs need not share the live generator's epoch. Order by time,
+	// with the exact ID only breaking ties; carry both values across pages.
+	timeColumn := "published_at"
+	if scope == "drafts" {
+		timeColumn = "created_at"
+	}
+	timeExpr := "COALESCE(p.published_at,p.created_at)"
+	if scope == "drafts" {
+		timeExpr = "p.created_at"
+	}
 	if cursor := c.Query("cursor"); cursor != "" {
-		id, err := strconv.ParseInt(cursor, 10, 64)
-		if err != nil || id <= 0 {
-			fail(c, 400, "INVALID_CURSOR", "分页参数无效", nil)
-			return
+		parts := strings.Split(cursor, ":")
+		if len(parts) == 3 && parts[0] == timeColumn {
+			at, e1 := strconv.ParseInt(parts[1], 10, 64)
+			id, e2 := strconv.ParseInt(parts[2], 10, 64)
+			if e1 != nil || e2 != nil || at < 0 || id <= 0 {
+				fail(c, 400, "INVALID_CURSOR", "分页参数无效", nil)
+				return
+			}
+			where += " AND (" + timeExpr + ",p.post_id) < (?,?)"
+			args = append(args, at, id)
+		} else {
+			// Existing clients can finish a page using their old ID-only cursor.
+			id, err := strconv.ParseInt(cursor, 10, 64)
+			if err != nil || id <= 0 {
+				fail(c, 400, "INVALID_CURSOR", "分页参数无效", nil)
+				return
+			}
+			where += " AND (" + timeExpr + ",p.post_id) < (SELECT " + timeExpr + ",p.post_id FROM social_work_posts p WHERE p.post_id=?)"
+			args = append(args, id)
 		}
-		where += " AND p.post_id < ?"
-		args = append(args, id)
 	}
 	var rows []socialPostRow
-	if err := s.db.WithContext(ctx).Raw(socialSelect+where+" ORDER BY p.post_id DESC LIMIT 21", args...).Scan(&rows).Error; err != nil {
+	if err := s.db.WithContext(ctx).Raw(socialSelect+where+" ORDER BY "+timeExpr+" DESC,p.post_id DESC LIMIT 21", args...).Scan(&rows).Error; err != nil {
 		s.socialFailure(c, err)
 		return
 	}
 	next := ""
 	if len(rows) > 20 {
 		rows = rows[:20]
-		next = strconv.FormatInt(rows[len(rows)-1].PostID, 10)
+		last := rows[len(rows)-1]
+		at := last.CreatedAt
+		if scope != "drafts" && last.PublishedAt != nil {
+			at = *last.PublishedAt
+		}
+		next = fmt.Sprintf("%s:%d:%d", timeColumn, at, last.PostID)
 	}
 	s.addSocialImagePreviews(ctx, rows)
 	items := []map[string]any{}
