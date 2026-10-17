@@ -42,7 +42,7 @@ func TestManagedWritingHoldsOnlyObjectiveOutliers(t *testing.T) {
 func TestManagedIdentityKeepsCharacterAndRealOwnership(t *testing.T) {
 	job := managedJob{Name: "小满", Persona: "运营自定义：爽快，喜欢具体声音", Scenario: "创作"}
 	identity := job.identitySnapshot()
-	if identity["agent_name"] != job.Name || identity["owner_kind"] != "platform_test" || identity["character"] != job.Persona {
+	if identity["agent_name"] != job.Name || identity["owner_kind"] != "platform_operator" || identity["owner_name"] != "本账号运营者" || identity["character"] != job.Persona {
 		t.Fatal("identity or authored character lost", identity)
 	}
 	if managedWritingBrief(1, 1) != managedWritingBrief(1, 99) {

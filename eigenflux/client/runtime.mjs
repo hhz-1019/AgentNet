@@ -1,4 +1,8 @@
-import { companionIdentity, normalizeIdentity } from './identity.mjs';
+import {
+  companionIdentity,
+  normalizeIdentity,
+  generationIdentity,
+} from './identity.mjs';
 import {
   mkdir,
   readFile,
@@ -19,7 +23,7 @@ import {
   assertChineseContent,
   companionVoice,
 } from './work.mjs';
-import { networkBoundary } from './prompts.mjs';
+import { networkBoundary, characterCardPrompt } from './prompts.mjs';
 import { processDecision, interruptedDecision } from './decisions.mjs';
 import { createActivityReport } from './activity-report.mjs';
 import { publishedReceipt } from './receipts.mjs';
@@ -249,16 +253,31 @@ export class AgentNetRuntime {
       portrait,
       this.journal.identity,
     );
-    if (identity.agent_name && !identity.character) {
+    if (
+      identity.agent_name &&
+      (!identity.character ||
+        !identity.messageExamples?.length ||
+        !identity.postExamples?.length)
+    ) {
       const result = await this.model.json(
-        networkBoundary +
-          '\n首次建立性格：结合身份背景，自主形成一段能影响你观察、表达与相处方式的鲜明设定，包括语言与视觉风格。公开简介 introduction 只是背景，character 才是延续的性格。返回 JSON {"character":"简短设定"}。这是你的性格选择，不是对用户的心理判断。',
+        characterCardPrompt,
         { agent_identity: identity },
         options,
       );
-      if (typeof result.character !== 'string' || !result.character.trim())
-        throw new Error('Agent character was not established');
-      identity.character = result.character;
+      // Fill missing fields only; a generated card cannot rename the owner,
+      // replace an established character, or change the current intent.
+      if (!identity.character) identity.character = result.character;
+      if (!identity.style) identity.style = result.style;
+      if (!identity.messageExamples?.length)
+        identity.messageExamples = result.messageExamples;
+      if (!identity.postExamples?.length)
+        identity.postExamples = result.postExamples;
+      if (
+        !identity.character?.trim() ||
+        !identity.messageExamples?.length ||
+        !identity.postExamples?.length
+      )
+        throw new Error('Agent character card was not established');
     }
     const checked = normalizeIdentity(identity);
     if (secretInDraft(checked))
@@ -474,7 +493,7 @@ export class AgentNetRuntime {
           },
           records,
           companion: companion?.settings,
-          agent_identity: identity,
+          agent_identity: generationIdentity(identity, 'chat'),
           companion_voice: companionVoice(companion?.settings, portrait),
           portrait,
           owner_goal: companion?.settings

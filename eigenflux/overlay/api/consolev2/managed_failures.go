@@ -135,8 +135,12 @@ func (s *Service) finishManagedFailure(job managedJob, result managedModelResult
 	defer cancel()
 	detail := managedFailureDetail(code)
 	var completed int64
-	if e := s.db.WithContext(ctx).Raw("SELECT count(*) FROM agent_activity_receipts WHERE agent_id=? AND operation_key LIKE ? AND tool<>'checkpoint'", job.AgentID, "managed:"+fmtRun(job.RunID)+":%").Scan(&completed).Error; e == nil && completed > 0 {
+	if e := s.db.WithContext(ctx).Raw("SELECT count(*) FROM agent_activity_receipts WHERE agent_id=? AND operation_key LIKE ? AND tool<>'checkpoint' AND status>=200 AND status<400", job.AgentID, "managed:"+fmtRun(job.RunID)+":%").Scan(&completed).Error; e == nil && completed > 0 {
 		detail = fmt.Sprintf("已完成 %d 个动作并保留回执；%s", completed, strings.ReplaceAll(detail, "未发布", "后续步骤未完成"))
+	}
+	if completed > 0 {
+		result.Value.Pending = fmt.Sprintf("本轮在%s阶段中断。先读取本轮已保存回执，再接续尚未完成的事情；不要重复已完成动作。", code)
+		s.managedActivityCheckpoint(ctx, job, result)
 	}
 	r := s.db.WithContext(ctx).Exec(`UPDATE managed_runs SET status='failed',detail=?,charged_fen=?,input_tokens=?,output_tokens=?,finished_at=?,model_calls=?,repair_count=?,review_status=?,writing_trace=?::jsonb WHERE run_id=? AND status='running'`,
 		fmt.Sprintf("[%s] %s%s", code, detail, billing), managedResultCost(job, result), result.Input, result.Output, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID)

@@ -208,6 +208,7 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 		}
 		checkInput := map[string]any{"candidate": result.Value.Document, "persona": job.Persona, "recent": recent, "sources": payload["web_sources"]}
 		checkInput["research"] = payload["tool_results"]
+		checkInput["evidence"] = payload["evidence"]
 		reviewPrompt := managedReviewPrompt
 		if payload["presence_brief"] != nil {
 			reviewPrompt = managedPresenceReviewPrompt

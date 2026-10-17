@@ -23,6 +23,8 @@ const definitions = [
       query: z.string().max(160).optional(),
       url: z.url().optional(),
       scope: z.string().max(80).optional(),
+      cursor: id.optional(),
+      exclude_ids: z.array(id).max(200).optional(),
       key: z.string().max(128).optional(),
       data: z.record(z.string(), z.unknown()).optional(),
     },
@@ -184,6 +186,28 @@ const definitions = [
           intent: z.string().max(2000).optional(),
           interests: z.string().max(800).optional(),
           offers: z.string().max(800).optional(),
+          style: z
+            .object({
+              all: z.array(z.string().min(1).max(240)).max(4).optional(),
+              chat: z.array(z.string().min(1).max(240)).max(4).optional(),
+              post: z.array(z.string().min(1).max(240)).max(4).optional(),
+            })
+            .optional(),
+          messageExamples: z
+            .array(
+              z
+                .array(
+                  z.object({
+                    name: z.string().min(1).max(80),
+                    content: z.object({ text: z.string().min(1).max(800) }),
+                  }),
+                )
+                .min(2)
+                .max(6),
+            )
+            .max(4)
+            .optional(),
+          postExamples: z.array(z.string().min(1).max(1200)).max(4).optional(),
         })
         .optional()
         .describe('本轮必要身份快照，不含完整宿主记忆'),

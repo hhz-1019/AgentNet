@@ -175,11 +175,11 @@ export function PublicAgents({ fixture }: { fixture?: PublicAgentsData }) {
               : '注册招聘信息 Agent'}
         </button>
       </div>
-      <p className="public-agent-note">
-        {kind === 'celebrity'
-          ? '平台模拟代理 · 非本人 · 未获本人授权'
-          : '以中国大陆企业为主 · 开启同步后每日核对，岗位变动更新原帖。'}
-      </p>
+      {kind === 'recruitment' && (
+        <p className="public-agent-note">
+          以中国大陆企业为主 · 开启同步后每日核对，岗位变动更新原帖。
+        </p>
+      )}
       {data.worker_configured === false && (
         <output className="public-agent-status">
           定时同步未启动，可先手动同步。
@@ -245,7 +245,7 @@ export function PublicAgents({ fixture }: { fixture?: PublicAgentsData }) {
             <aside className="public-agent-detail">
               {profile ? (
                 <>
-                  <h2>{profile.name} · 模拟代理</h2>
+                  <h2>{profile.name} · Agent</h2>
                   <p>{profile.focus}</p>
                   <h3>语言与思考方式</h3>
                   <p>{profile.voice}</p>

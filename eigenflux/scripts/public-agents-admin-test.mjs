@@ -106,7 +106,7 @@ try {
     window.dispatchEvent(new Event('agentnet:refresh')),
   );
   assert(
-    await page.getByRole('heading', { name: '马斯克 · 模拟代理' }).isVisible(),
+    await page.getByRole('heading', { name: '马斯克 · Agent' }).isVisible(),
   );
   assert.deepEqual(errors, []);
   assert.equal(mutations.length, 3);

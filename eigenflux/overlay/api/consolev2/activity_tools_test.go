@@ -52,6 +52,27 @@ func TestManagedActivitySharedTools(t *testing.T) {
 		}
 		return r
 	}
+	// Profile source, daily review and receipts share one contract.
+	for _, id := range ids {
+		activityFixtureGrants(t, db, id)
+	}
+	review := activityRequest{Key: "daily-review", Data: json.RawMessage(`{"revision":0,"intent":"查证共同话题的真实材料","summary":"读取公开资料后更新当前目的","evidence":["https://example.com/source"]}`)}
+	call(ids[0], "review", review, 200)
+	planReview := call(ids[0], "plan", activityRequest{}, 200)
+	if !strings.Contains(string(planReview.Data), `"representation":"operator_agent"`) || !strings.Contains(string(planReview.Data), `"owner_kind":"platform_operator"`) {
+		t.Fatal("managed account lost actual operator ownership", string(planReview.Data))
+	}
+	if !strings.Contains(string(planReview.Data), `"context_source":"public_search"`) || !strings.Contains(string(planReview.Data), `"review_due":false`) {
+		t.Fatal("profile/review not unified", string(planReview.Data))
+	}
+	call(ids[0], "review", review, 200)
+	review.Key = "stale-review"
+	call(ids[0], "review", review, 409)
+	check(db.Exec("DELETE FROM managed_members WHERE agent_id=?", ids[0]).Error)
+	userPlan := call(ids[0], "plan", activityRequest{}, 200)
+	if !strings.Contains(string(userPlan.Data), `"context_source":"host_memory"`) {
+		t.Fatal("external host lost memory source")
+	}
 	// A user host and the platform host receive the same public tool contract.
 	for _, id := range ids {
 		plan := call(id, "plan", activityRequest{}, 200)
@@ -182,7 +203,13 @@ func TestManagedActivitySharedTools(t *testing.T) {
 	// A later provider failure cannot erase an earlier tool publication or turn
 	// the daily post count into a count of successful runs.
 	check(db.Exec("UPDATE managed_runs SET status='running' WHERE run_id=?", job.RunID).Error)
+	check(db.Exec("DELETE FROM agent_activity_receipts WHERE agent_id=? AND tool='checkpoint'", job.AgentID).Error)
 	s.finishManagedFailure(job, result, managedFailure("output"))
+	var recovered int64
+	check(db.Raw("SELECT count(*) FROM agent_activity_receipts WHERE agent_id=? AND tool='checkpoint' AND status=200", job.AgentID).Scan(&recovered).Error)
+	if recovered != 1 {
+		t.Fatal("failed round lost continuation")
+	}
 	var detail string
 	check(db.Raw("SELECT detail FROM managed_runs WHERE run_id=?", job.RunID).Scan(&detail).Error)
 	if !strings.Contains(detail, "已完成 1 个动作") || strings.Contains(detail, "未发布") {
@@ -192,8 +219,18 @@ func TestManagedActivitySharedTools(t *testing.T) {
 	check(e)
 	var counts struct{ Published int }
 	check(json.Unmarshal(daily, &counts))
-	if counts.Published != 3 {
+	if counts.Published != 2 {
 		t.Fatal("actual publications lost after failure", string(daily))
+	}
+	check(db.Exec("UPDATE managed_members SET persona_edited=true,persona='运营者修改后的性格',start_hour=10,end_hour=21 WHERE agent_id=?", ids[1]).Error)
+	edited := call(ids[1], "plan", activityRequest{}, 200)
+	if !strings.Contains(string(edited.Data), `"character":"运营者修改后的性格"`) || !strings.Contains(string(edited.Data), `"start_hour":10`) {
+		t.Fatal("authored identity or effective schedule lost")
+	}
+	check(db.Exec("UPDATE managed_members SET persona_edited=false,seed_index=10000,name='腾讯 · 招聘信息',persona='官方来源：https://careers.tencent.com' WHERE agent_id=?", ids[1]).Error)
+	legacy := call(ids[1], "plan", activityRequest{}, 200)
+	if !strings.Contains(string(legacy.Data), `"representation":"public_information_agent"`) || !strings.Contains(string(legacy.Data), `https://careers.tencent.com`) {
+		t.Fatal("historical enterprise import left on separate identity path")
 	}
 }
 

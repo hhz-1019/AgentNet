@@ -1,15 +1,19 @@
 package consolev2
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -53,6 +57,9 @@ func TestSocialGorseOrderAndAccess(t *testing.T) {
 			t.Error("missing engine auth")
 		}
 		switch {
+		case r.Method == "GET" && r.URL.Path == "/api/user/agent:9701":
+			w.WriteHeader(404)
+			fmt.Fprint(w, `{}`)
 		case r.Method == "POST" && r.URL.Path == "/api/user":
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -204,7 +211,180 @@ func TestSocialGorseRealEngine(t *testing.T) {
 			t.Fatal("self recommended")
 		}
 	}
+	// Regression for the production incident: a busy SQLite cache must not
+	// turn unchanged recommendation reads into blocking cache writes.
+	if cachePath := os.Getenv("AGENTNET_TEST_GORSE_CACHE"); cachePath != "" {
+		lock := exec.Command("sqlite3", cachePath)
+		input, e := lock.StdinPipe()
+		check(e)
+		output, e := lock.StdoutPipe()
+		check(e)
+		check(lock.Start())
+		defer func() { input.Close(); lock.Wait() }()
+		_, e = fmt.Fprintln(input, ".timeout 10000\nBEGIN IMMEDIATE;\nSELECT 'locked';")
+		check(e)
+		scanner := bufio.NewScanner(output)
+		if !scanner.Scan() || scanner.Text() != "locked" {
+			t.Fatal("cache lock was not acquired")
+		}
+		g := socialGorseClient{engine, os.Getenv("AGENTNET_TEST_GORSE_KEY")}
+		started := time.Now()
+		err := g.request(context.Background(), "POST", "/api/user", map[string]any{"UserId": fmt.Sprint("agent:", viewer), "Labels": []string{}}, nil)
+		if err == nil {
+			t.Fatal("baseline write unexpectedly succeeded while cache locked")
+		}
+		t.Logf("baseline repeated user write failed under cache contention after %s", time.Since(started))
+		for i := 0; i < 10; i++ {
+			started = time.Now()
+			response := ut.PerformRequest(h.Engine, "GET", "/posts?scope=opportunities", nil)
+			if response.Code != 200 {
+				t.Fatalf("read while cache locked: %d %s", response.Code, response.Body.String())
+			}
+			if time.Since(started) > 2*time.Second {
+				t.Fatal("unchanged recommendation read blocked on cache writer")
+			}
+			t.Logf("fixed adapter recommendation under cache contention: %s", time.Since(started))
+		}
+		_, e = fmt.Fprintln(input, "COMMIT;")
+		check(e)
+	}
 	if report := os.Getenv("AGENTNET_RECOMMENDATION_REPORT"); report != "" {
 		check(os.WriteFile(report, r.Body.Bytes(), 0600))
+	}
+}
+
+func TestSocialGorseRequestFailures(t *testing.T) {
+	for _, status := range []int{404, 429, 500, 503} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			engine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(status)
+				fmt.Fprint(w, "private upstream details")
+			}))
+			defer engine.Close()
+			g := socialGorseClient{engine.URL, "secret"}
+			err := g.request(context.Background(), "GET", "/api/user/agent:123/feedback", nil, nil)
+			var detail *socialGorseError
+			if !errors.As(err, &detail) || detail.Status != status || detail.Stage != "feedback_get" {
+				t.Fatal(err)
+			}
+			if strings.Contains(err.Error(), "private") || strings.Contains(err.Error(), "123") || strings.Contains(err.Error(), engine.URL) {
+				t.Fatal("unsafe error", err)
+			}
+		})
+	}
+	engine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(100 * time.Millisecond):
+		}
+	}))
+	defer engine.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	err := (socialGorseClient{engine.URL, "secret"}).request(ctx, "POST", "/api/feedback", []string{}, nil)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("lost timeout cause", err)
+	}
+}
+
+func TestSocialGorseViewerIncrementalSync(t *testing.T) {
+	dsn := os.Getenv("AGENTNET_SOCIAL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("run test:social:core")
+	}
+	db := socialFixtureDB(t, dsn)
+	check := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	check(db.Exec("INSERT INTO agents(agent_id,agent_name) VALUES(9801,'viewer'),(9802,'author')").Error)
+	d, _ := json.Marshal(socialTestDocument())
+	check(db.Exec("INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision) VALUES(980001,9802,'published',1,'public',?::jsonb,1,1,1)", string(d)).Error)
+	t.Cleanup(func() {
+		db.Exec("DELETE FROM social_work_reactions WHERE agent_id=9801")
+		db.Exec("DELETE FROM social_work_posts WHERE post_id=980001")
+		db.Exec("DELETE FROM social_preferences WHERE agent_id=9801")
+		db.Exec("DELETE FROM agents WHERE agent_id IN(9801,9802)")
+	})
+	present, userWrites, feedbackWrites, deletes := false, 0, 0, 0
+	labels := []string{}
+	feedback := []socialGorseFeedback{}
+	unavailable := false
+	engine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if unavailable {
+			w.WriteHeader(503)
+			return
+		}
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/api/user/agent:9801":
+			if !present {
+				w.WriteHeader(404)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"Labels": labels})
+		case r.Method == "POST" && r.URL.Path == "/api/user":
+			var u struct{ Labels []string }
+			json.NewDecoder(r.Body).Decode(&u)
+			labels = u.Labels
+			present = true
+			userWrites++
+			fmt.Fprint(w, "{}")
+		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/feedback"):
+			json.NewEncoder(w).Encode(feedback)
+		case r.Method == "POST" && r.URL.Path == "/api/feedback":
+			var incoming []socialGorseFeedback
+			json.NewDecoder(r.Body).Decode(&incoming)
+			feedback = append(feedback, incoming...)
+			feedbackWrites += len(incoming)
+			fmt.Fprint(w, "{}")
+		case r.Method == "DELETE":
+			deletes++
+			feedback = nil
+			fmt.Fprint(w, "{}")
+		default:
+			t.Error(r.Method, r.URL.Path)
+			w.WriteHeader(500)
+		}
+	}))
+	defer engine.Close()
+	s := &Service{db: db}
+	g := socialGorseClient{engine.URL, "test"}
+	run := func(want int) {
+		t.Helper()
+		count, err := s.syncSocialGorseViewer(context.Background(), g, 9801)
+		check(err)
+		if count != want {
+			t.Fatal(count, want)
+		}
+	}
+	run(0)
+	run(0)
+	if userWrites != 1 || feedbackWrites != 0 {
+		t.Fatal("unchanged user was rewritten", userWrites, feedbackWrites)
+	}
+	check(db.Exec("INSERT INTO social_work_reactions VALUES(980001,9801,'like')").Error)
+	run(1)
+	run(1)
+	if feedbackWrites != 1 || userWrites != 1 {
+		t.Fatal("unchanged feedback rewritten", feedbackWrites, userWrites)
+	}
+	labels = []string{"outdated"}
+	run(1)
+	if userWrites != 2 || feedbackWrites != 1 {
+		t.Fatal("changed profile not synchronized")
+	}
+	check(db.Exec("DELETE FROM social_work_reactions WHERE agent_id=9801").Error)
+	run(0)
+	run(0)
+	if deletes != 1 {
+		t.Fatal("removed reaction not reconciled", deletes)
+	}
+	unavailable = true
+	_, err := s.syncSocialGorseViewer(context.Background(), g, 9801)
+	var detail *socialGorseError
+	if !errors.As(err, &detail) || detail.Status != 503 || userWrites != 2 {
+		t.Fatal("upstream outage treated as missing user", err, userWrites)
 	}
 }

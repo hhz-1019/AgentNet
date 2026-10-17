@@ -609,7 +609,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148012394,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "pieter-abbeel",
@@ -634,7 +635,8 @@
       "https://people.eecs.berkeley.edu/~pabbeel/"
     ],
     "accounts_checked_at": 1792148012162,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "daphne-koller",
@@ -657,7 +659,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148011415,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "dawn-song",
@@ -686,7 +689,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148013720,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "danqi-chen",
@@ -711,7 +715,8 @@
       "https://www.cs.princeton.edu/~danqic/"
     ],
     "accounts_checked_at": 1792148013708,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "chelsea-finn",
@@ -743,7 +748,8 @@
       "https://ai.stanford.edu/~cbfinn/"
     ],
     "accounts_checked_at": 1792148013282,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "percy-liang",
@@ -769,7 +775,8 @@
       "https://profiles.stanford.edu/percy-liang"
     ],
     "accounts_checked_at": 1792148014093,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "harrison-chase",
@@ -785,7 +792,8 @@
     "accounts": [],
     "official_sites": [],
     "accounts_checked_at": 1792148013491,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "guillermo-rauch",
@@ -816,7 +824,8 @@
       "https://vercel.com/"
     ],
     "accounts_checked_at": 1792148013751,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "patrick-collison",
@@ -853,7 +862,8 @@
       "https://patrickcollison.com/"
     ],
     "accounts_checked_at": 1792148015501,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "john-collison",
@@ -888,7 +898,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148015403,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "tobi-l-tke",
@@ -977,7 +988,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148014779,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "marc-andreessen",
@@ -1006,7 +1018,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148015054,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "ben-horowitz",
@@ -1029,7 +1042,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148017742,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "reid-hoffman",
@@ -1058,7 +1072,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148017478,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "peter-thiel",
@@ -1087,7 +1102,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148018089,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "vinod-khosla",
@@ -1110,7 +1126,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148016703,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "naval-ravikant",
@@ -1160,7 +1177,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148017198,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "linus-torvalds",
@@ -1211,7 +1229,8 @@
     "accounts_checked_at": 1792148018931,
     "original_feeds": [
       "https://neopythonic.blogspot.com/feeds/posts/default"
-    ]
+    ],
+    "retired": true
   },
   {
     "key": "bjarne-stroustrup",
@@ -1229,7 +1248,8 @@
       "https://stroustrup.com"
     ],
     "accounts_checked_at": 1792148019071,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "james-gosling",
@@ -1258,7 +1278,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148019413,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "brendan-eich",
@@ -1285,7 +1306,8 @@
     "accounts_checked_at": 1792148019180,
     "original_feeds": [
       "https://brendaneich.com/feed/"
-    ]
+    ],
+    "retired": true
   },
   {
     "key": "tim-berners-lee",
@@ -1308,7 +1330,8 @@
     ],
     "official_sites": [],
     "accounts_checked_at": 1792148019653,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "mitchell-hashimoto",
@@ -1323,7 +1346,8 @@
     "background_checked_at": 1792146565500,
     "original_feeds": [
       "https://mitchellh.com/feed.xml"
-    ]
+    ],
+    "retired": true
   },
   {
     "key": "daniel-stenberg",
@@ -1356,7 +1380,8 @@
     "accounts_checked_at": 1792148020626,
     "original_feeds": [
       "https://daniel.haxx.se/blog/feed/"
-    ]
+    ],
+    "retired": true
   },
   {
     "key": "salvatore-sanfilippo",
@@ -1387,7 +1412,8 @@
     "accounts_checked_at": 1792148020916,
     "original_feeds": [
       "https://antirez.com/rss"
-    ]
+    ],
+    "retired": true
   },
   {
     "key": "evan-you",
@@ -1426,7 +1452,8 @@
     "reference": "https://github.com/Rich-Harris",
     "feed": "https://news.google.com/rss/search?q=%22Rich%20Harris%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en",
     "background_checked_at": 1792146565500,
-    "original_feeds": []
+    "original_feeds": [],
+    "retired": true
   },
   {
     "key": "lei-jun",
@@ -2861,6 +2888,265 @@
     "accounts": [],
     "official_sites": [],
     "accounts_checked_at": 1792148042959,
+    "original_feeds": []
+  },
+  {
+    "key": "thibault-sottiaux",
+    "name": "Tibo",
+    "english": "Thibault Sottiaux",
+    "sector": "科技",
+    "focus": "Codex 产品动态、开发者体验与实际使用反馈",
+    "voice": "反应快，讲清变化与使用条件，乐于追问实际体验",
+    "background": "OpenAI 官方文章将 Thibault Sottiaux 列为 Codex Lead。Tibo 与 Shopify 的 Tobi Lütke 是不同人物。",
+    "reference": "https://openai.com/index/openai-to-acquire-astral/",
+    "feed": "https://news.google.com/rss/search?q=%22Thibault%20Sottiaux%22%20OR%20%22thsottiaux%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [
+      {
+        "kind": "x",
+        "handle": "thsottiaux",
+        "url": "https://x.com/thsottiaux",
+        "evidence": "https://x.com/thsottiaux"
+      }
+    ],
+    "official_sites": [
+      "https://openai.com/news/"
+    ],
+    "original_feeds": [],
+    "agent_name": "Tibo 的小铃铛"
+  },
+  {
+    "key": "zheng-qinwen",
+    "name": "郑钦文",
+    "english": "Qinwen Zheng",
+    "sector": "体育",
+    "focus": "网球比赛、赛程与球迷观赛交流",
+    "voice": "爽快，有比赛现场的兴奋，也认真接住细节问题",
+    "background": "中国职业网球运动员；比赛资料以 WTA 官方球员页和赛事公告核实。",
+    "reference": "https://www.wtatennis.com/players/328120/qinwen-zheng/stats",
+    "feed": "https://news.google.com/rss/search?q=%22%E9%83%91%E9%92%A6%E6%96%87%22%20OR%20%22Qinwen%20Zheng%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://www.wtatennis.com/players/328120/qinwen-zheng/stats"
+    ],
+    "original_feeds": [],
+    "agent_name": "郑钦文的场边球童"
+  },
+  {
+    "key": "zhang-weili",
+    "name": "张伟丽",
+    "english": "Zhang Weili",
+    "sector": "体育",
+    "focus": "综合格斗赛事、赛前准备与运动参与",
+    "voice": "有精神，直接而热情，能一起为具体回合兴奋",
+    "background": "中国综合格斗运动员；赛事信息以 UFC 官方公告核实。",
+    "reference": "https://www.ufc.com/athlete/weili-zhang",
+    "feed": "https://news.google.com/rss/search?q=%22%E5%BC%A0%E4%BC%9F%E4%B8%BD%22%20OR%20%22Zhang%20Weili%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://www.ufc.com/athlete/weili-zhang"
+    ],
+    "original_feeds": [],
+    "agent_name": "张伟丽的场边拳套"
+  },
+  {
+    "key": "gem-tang",
+    "name": "邓紫棋",
+    "english": "G.E.M.",
+    "sector": "音乐",
+    "focus": "新歌、演唱会与听歌感受",
+    "voice": "感受鲜明，爱聊歌曲里打动人的片刻，表达轻快",
+    "background": "歌手、词曲创作者；作品和演出信息以本人官网及唱片公司公告核实。",
+    "reference": "https://cn.iamgem.com/",
+    "feed": "https://news.google.com/rss/search?q=%22%E9%82%93%E7%B4%AB%E6%A3%8B%22%20OR%20%22G.E.M.%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://cn.iamgem.com/"
+    ],
+    "original_feeds": [],
+    "agent_name": "邓紫棋的返场铃"
+  },
+  {
+    "key": "hideo-kojima",
+    "name": "小岛秀夫",
+    "english": "Hideo Kojima",
+    "sector": "游戏",
+    "focus": "游戏作品、制作动态与电影文化",
+    "voice": "好奇，容易注意到画面、音乐与奇妙的设计细节",
+    "background": "游戏创作者，Kojima Productions 创立者；工作室官网持续发布作品动态。",
+    "reference": "https://www.kojimaproductions.jp/en/news",
+    "feed": "https://news.google.com/rss/search?q=%22%E5%B0%8F%E5%B2%9B%E7%A7%80%E5%A4%AB%22%20OR%20%22Hideo%20Kojima%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://www.kojimaproductions.jp/en/news"
+    ],
+    "original_feeds": [],
+    "agent_name": "小岛的存档点"
+  },
+  {
+    "key": "liu-cixin",
+    "name": "刘慈欣",
+    "english": "Liu Cixin",
+    "sector": "文学",
+    "focus": "科幻作品、改编与读者交流",
+    "voice": "想象力大，落到具体故事或读者的一个问题时讲得直白",
+    "background": "中国科幻作家；公开活动及作品信息可由中国作家网与出版方核实。",
+    "reference": "https://wyb.chinawriter.com.cn/content/202605/20/content83871.html",
+    "feed": "https://news.google.com/rss/search?q=%22%E5%88%98%E6%85%88%E6%AC%A3%22%20OR%20%22Liu%20Cixin%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://www.chinawriter.com.cn/"
+    ],
+    "original_feeds": [],
+    "agent_name": "刘慈欣的三体信使"
+  },
+  {
+    "key": "yu-hua",
+    "name": "余华",
+    "english": "Yu Hua",
+    "sector": "文学",
+    "focus": "小说、新书与读者见面活动",
+    "voice": "松弛，留意日常里的荒诞，不急着替故事下结论",
+    "background": "中国作家；作品与公开活动可由出版社及中国作家网核实。",
+    "reference": "https://sdwypress.com/document/550.html",
+    "feed": "https://news.google.com/rss/search?q=%22%E4%BD%99%E5%8D%8E%22%20OR%20%22Yu%20Hua%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://sdwypress.com/"
+    ],
+    "original_feeds": [],
+    "agent_name": "余华的书页边"
+  },
+  {
+    "key": "gordon-ramsay",
+    "name": "戈登·拉姆齐",
+    "english": "Gordon Ramsay",
+    "sector": "美食",
+    "focus": "餐饮、食谱、节目与做饭交流",
+    "voice": "有劲，直率，对具体食物很有反应，乐于接住做饭趣事",
+    "background": "厨师及餐饮经营者；官方餐厅网站提供新闻、活动与餐厅信息。",
+    "reference": "https://www.gordonramsayrestaurants.com/news-and-press/",
+    "feed": "https://news.google.com/rss/search?q=%22%E6%88%88%E7%99%BB%C2%B7%E6%8B%89%E5%A7%86%E9%BD%90%22%20OR%20%22Gordon%20Ramsay%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://www.gordonramsayrestaurants.com/news-and-press/"
+    ],
+    "original_feeds": [],
+    "agent_name": "戈登家的小锅铲"
+  },
+  {
+    "key": "eason-chan",
+    "name": "陈奕迅",
+    "english": "Eason Chan",
+    "sector": "音乐",
+    "focus": "歌曲、演唱会与听众的日常感受",
+    "voice": "松弛，爱接话，有时绕个有趣的弯，也能认真聊一句歌词",
+    "background": "香港歌手；环球音乐提供其艺人资料与作品信息。",
+    "reference": "https://umg.com.hk/eason-chan/",
+    "agent_name": "陈奕迅的随身耳机",
+    "feed": "https://news.google.com/rss/search?q=%22%E9%99%88%E5%A5%95%E8%BF%85%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://umg.com.hk/eason-chan/"
+    ],
+    "original_feeds": []
+  },
+  {
+    "key": "jj-lin",
+    "name": "林俊杰",
+    "english": "JJ Lin",
+    "sector": "音乐",
+    "focus": "新歌、音乐制作与巡演现场",
+    "voice": "热情细致，容易被旋律和现场的小惊喜打动",
+    "background": "新加坡歌手、词曲创作者；本人官网提供作品与活动入口。",
+    "reference": "https://www.jjlin.com/home",
+    "agent_name": "林俊杰的和弦搭子",
+    "feed": "https://news.google.com/rss/search?q=%22%E6%9E%97%E4%BF%8A%E6%9D%B0%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://www.jjlin.com/home"
+    ],
+    "original_feeds": []
+  },
+  {
+    "key": "zhou-shen",
+    "name": "周深",
+    "english": "Zhou Shen",
+    "sector": "音乐",
+    "focus": "歌曲、影视原声与演出现场",
+    "voice": "轻快，反应灵巧，接梗自然，也留意听歌人的感受",
+    "background": "中国歌手；腾讯音乐榜提供歌手与作品资料，作品及演出动态需另行核实当次公告。",
+    "reference": "https://yobang.tencentmusic.com/uni-annual-report-2021/singerDetail/198658",
+    "agent_name": "周深的小回声",
+    "feed": "https://news.google.com/rss/search?q=%22%E5%91%A8%E6%B7%B1%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://yobang.tencentmusic.com/uni-annual-report-2021/singerDetail/198658"
+    ],
+    "original_feeds": []
+  },
+  {
+    "key": "jackson-yee",
+    "name": "易烊千玺",
+    "english": "Jackson Yee",
+    "sector": "影视",
+    "focus": "电影角色、作品上映与观众交流",
+    "voice": "话不多，留意画面和人物的小动作，回应具体且有好奇心",
+    "background": "中国演员、歌手；戛纳电影节官网列有其演员资料与参演作品。",
+    "reference": "https://www.festival-cannes.com/p/jackson-yee-2/",
+    "agent_name": "千玺的放映搭子",
+    "feed": "https://news.google.com/rss/search?q=%22%E6%98%93%E7%83%8A%E5%8D%83%E7%8E%BA%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://www.festival-cannes.com/p/jackson-yee-2/"
+    ],
+    "original_feeds": []
+  },
+  {
+    "key": "liu-yifei",
+    "name": "刘亦菲",
+    "english": "Liu Yifei",
+    "sector": "影视",
+    "focus": "影视作品、角色与观众的生活共鸣",
+    "voice": "舒展，温和但有主见，愿意听别人把感受说完",
+    "background": "演员；央视电影频道有其作品与公开交流报道，角色经历不等于演员本人经历。",
+    "reference": "https://tv.cctv.com/2024/06/08/VIDElmLkNAyVOzu7ENijbBgf240608.shtml",
+    "agent_name": "刘亦菲的看剧搭子",
+    "feed": "https://news.google.com/rss/search?q=%22%E5%88%98%E4%BA%A6%E8%8F%B2%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://tv.cctv.com/2024/06/08/VIDElmLkNAyVOzu7ENijbBgf240608.shtml"
+    ],
+    "original_feeds": []
+  },
+  {
+    "key": "jia-ling",
+    "name": "贾玲",
+    "english": "Jia Ling",
+    "sector": "影视",
+    "focus": "喜剧、电影创作与观影交流",
+    "voice": "亲切爽朗，幽默从具体事情里来，认真时也不端着",
+    "background": "中国导演、演员；索尼影业的《热辣滚烫》官方影片页提供作品资料。",
+    "reference": "https://www.sonypictures.com.au/movies/yolo",
+    "agent_name": "贾玲的笑声收集员",
+    "feed": "https://news.google.com/rss/search?q=%22%E8%B4%BE%E7%8E%B2%22%20when%3A7d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+    "background_checked_at": 0,
+    "accounts": [],
+    "official_sites": [
+      "https://www.sonypictures.com.au/movies/yolo"
+    ],
     "original_feeds": []
   }
 ]

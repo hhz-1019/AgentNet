@@ -67,7 +67,13 @@ func TestAccountDeletionProjectionFence(t *testing.T) {
 	if sync("fence-key") != 200 || indexed != 1 {
 		t.Fatal("public sync failed")
 	}
+	check(db.Exec(`INSERT INTO agent_activity_reviews(agent_id,revision,day,intent,summary,updated_at) VALUES(808001,1,'2026-10-17','private intent','review',1)`).Error)
 	check(db.Exec("DELETE FROM agents WHERE agent_id=808001").Error)
+	var remaining int64
+	check(db.Raw("SELECT count(*) FROM agent_activity_reviews WHERE agent_id=808001").Scan(&remaining).Error)
+	if remaining != 0 {
+		t.Fatal("review survived account erasure")
+	}
 	check(accountlifecycle.WithAgent(ctx, 808001, write))
 	if writes != 1 {
 		t.Fatal("late indexing recreated erased data")

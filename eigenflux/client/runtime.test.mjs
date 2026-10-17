@@ -25,6 +25,105 @@ const record = {
   limitations: '未运行公网服务。',
   tags: ['Agent 工程'],
 };
+const voiceSamples = {
+  style: {
+    all: ['短句，留意眼前的细节'],
+    chat: ['接上对方的话'],
+    post: ['让图片带出对象'],
+  },
+  messageExamples: [
+    [
+      { name: '{{user}}', content: { text: '这个颜色是不是太淡了？' } },
+      {
+        name: '{{agent}}',
+        content: { text: '我倒挺喜欢。旁边那片深绿一衬，它刚好亮起来。' },
+      },
+    ],
+  ],
+  postExamples: ['画了半张叶子。最喜欢的还是右边那块没涂满的地方。'],
+};
+
+void test('existing identities acquire missing voice samples once without changing their owner, character or intent', async () =>
+  fixture(async (home) => {
+    let calls = 0;
+    const model = {
+      json: async (_prompt, input) => {
+        calls++;
+        assert.equal(input.agent_identity.character, '主人认可的原性格');
+        return {
+          ...voiceSamples,
+          character: '不应覆盖',
+          owner_name: '虚构主人',
+          intent: '错误目标',
+        };
+      },
+    };
+    let runtime = new AgentNetRuntime({
+      client: {},
+      model,
+      home,
+      endpoint: 'local',
+    });
+    await runtime.open();
+    runtime.journal.identity = {
+      agent_name: '知遥',
+      character: '主人认可的原性格',
+    };
+    const settings = {
+      agent_name: '知遥',
+      owner_name: '小林',
+      connection_goal: '当前目标',
+    };
+    try {
+      const card = await runtime.restoreIdentity(settings, {});
+      assert.equal(card.character, '主人认可的原性格');
+      assert.equal(card.owner_name, '小林');
+      assert.equal(card.intent, '当前目标');
+      assert.deepEqual(card.messageExamples, voiceSamples.messageExamples);
+    } finally {
+      await runtime.close();
+    }
+    runtime = new AgentNetRuntime({
+      client: {},
+      model,
+      home,
+      endpoint: 'local',
+    });
+    await runtime.open();
+    try {
+      await runtime.restoreIdentity(settings, {});
+      assert.equal(calls, 1);
+    } finally {
+      await runtime.close();
+    }
+  }));
+
+void test('invalid voice samples do not replace the last saved identity', async () =>
+  fixture(async (home) => {
+    const runtime = new AgentNetRuntime({
+      client: {},
+      model: {
+        json: async () => ({
+          ...voiceSamples,
+          postExamples: ['password=private-key-example'],
+        }),
+      },
+      home,
+      endpoint: 'local',
+    });
+    await runtime.open();
+    runtime.journal.identity = { agent_name: '知遥', character: '原性格' };
+    const before = structuredClone(runtime.journal.identity);
+    try {
+      await assert.rejects(
+        runtime.restoreIdentity({ agent_name: '知遥' }, {}),
+        /credentials/,
+      );
+      assert.deepEqual(runtime.journal.identity, before);
+    } finally {
+      await runtime.close();
+    }
+  }));
 
 void test('invalid publication receipts do not become success and retry without rerunning the model', async () =>
   fixture(async (home) => {
@@ -668,7 +767,7 @@ void test('runtime carries its established character and separate introduction t
       if (!input.agent_identity.character) {
         characterCalls++;
         assert.equal(input.agent_identity.introduction, voice.profile);
-        return { character };
+        return { character, ...voiceSamples };
       }
       assert.deepEqual(input.companion_voice, voice);
       assert.equal(input.agent_identity.character, character);
@@ -718,7 +817,10 @@ void test('a public introduction does not suppress character creation or overwri
           '我是小林的 Agent，帮他交流剪辑。',
         );
         assert.equal(input.agent_identity.character, undefined);
-        return { character: '爽快、细腻地留意声音，短句；自然光配图。' };
+        return {
+          character: '爽快、细腻地留意声音，短句；自然光配图。',
+          ...voiceSamples,
+        };
       },
     };
     const options = { client: {}, model, home, endpoint: 'local' };

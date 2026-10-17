@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   packMoments,
+  projectMoment,
+  unprojectMoment,
   momentViewportScale,
+  momentBounds,
   momentRepulsion,
   MOMENT_HOVER_SCALE,
 } from './moment-layout.ts';
@@ -264,11 +267,6 @@ void test('initial framing bounds avatar size even with sparse peers or a very w
         );
         if (width <= 390) assert(diameter <= 168);
       }
-      assert.equal(
-        scale,
-        momentViewportScale([], width, height),
-        'new peers must not suddenly change everyone’s size',
-      );
     }
   }
   assert(Number.isFinite(momentViewportScale([], 0, 0)));
@@ -366,4 +364,239 @@ void test('owner is a permanent identity node without invented activity', () => 
     ).filter((g) => g.own).length,
     1,
   );
+});
+
+void test('initial framing uses the available aspect ratio without ballooning faces', () => {
+  for (const [width, height] of [
+    [1100, 800],
+    [900, 1100],
+    [1600, 900],
+    [390, 740],
+  ]) {
+    const groups = Array.from({ length: 14 }, (_, i) => ({
+      id: String(i),
+      own: i === 0,
+      priority: i === 0 ? 80 : 65,
+    }));
+    const circles = packMoments(groups, width / height);
+    const scale = momentViewportScale(circles, width, height),
+      bounds = momentBounds(
+        circles.map((c) =>
+          projectMoment(
+            { ...c, x: c.x * scale, y: c.y * scale, radius: c.radius * scale },
+            width,
+            height,
+          ),
+        ),
+      );
+    const occupiedWidth = bounds.right - bounds.left;
+    const occupiedHeight = bounds.bottom - bounds.top;
+    assert(
+      (occupiedWidth <= width - 35 && occupiedHeight <= height - 35) ||
+        Math.abs(152 * scale - (width < 600 ? 140 : 176)) < 0.01,
+      'fit with clearance when possible; otherwise keep the comfortable viewing size',
+    );
+    assert(
+      Math.max(occupiedWidth / width, occupiedHeight / height) >= 0.68 ||
+        circles[0].radius * 2 * scale >= (width < 600 ? 140 : 208) - 1,
+      'cluster should use meaningful space',
+    );
+    for (let i = 0; i < circles.length; i++)
+      for (const b of circles.slice(i + 1)) {
+        const a = circles[i];
+        assert(
+          Math.hypot(a.x - b.x, a.y - b.y) >=
+            Math.max(a.radius, b.radius) * MOMENT_HOVER_SCALE +
+              Math.min(a.radius, b.radius) +
+              7.9,
+        );
+      }
+  }
+});
+void test('direct incoming interactions outrank broadcasts and outgoing records do not pretend to be unread', () => {
+  const make = (
+    id: string,
+    kind: 'private_message' | 'broadcast',
+    extra = {},
+  ) => ({
+    id,
+    agent_id: id,
+    agent_name: id,
+    kind,
+    title: '',
+    body: '',
+    received_at: 1000,
+    truncated: false,
+    ...extra,
+  });
+  const groups = groupMoments([], 'owner', 1000, [
+    make('direct', 'private_message'),
+    make('broadcast', 'broadcast'),
+    make('outgoing', 'private_message', { direction: 'outgoing' as const }),
+    make('viewed', 'private_message', { viewed_at: 2000 }),
+  ]);
+  const score = (id: string) => groups.find((g) => g.id === id)!.priority;
+  assert(score('direct') > score('broadcast'));
+  assert(score('broadcast') > score('viewed'));
+  assert.equal(score('outgoing'), score('viewed'));
+});
+void test('expired high-priority items no longer dominate actionable items', () => {
+  const stale = {
+    ...base,
+    expires_at: 900,
+    context_ref: { moment: { priority: 100, executor_id: 'host', scopes: {} } },
+  };
+  const active = {
+    ...base,
+    attention_id: 'active',
+    related_agent: { agent_id: '3', name: '正在等待' },
+    context_ref: { moment: { priority: 40, executor_id: 'host', scopes: {} } },
+  };
+  const groups = groupMoments([stale, active], '1', 1000);
+  assert(
+    groups.find((g) => g.id === '3')!.priority >
+      groups.find((g) => g.id === '2')!.priority,
+  );
+});
+
+void test('rank and owner identity determine home positions, never absolute score magnitudes', () => {
+  const groups = [
+    { id: 'owner', own: true, priority: 1 },
+    ...Array.from({ length: 18 }, (_, i) => ({
+      id: String(i),
+      priority: 100 - i,
+    })),
+  ];
+  const layout = packMoments(groups);
+  assert.deepEqual(
+    layout,
+    packMoments(groups.map((g) => ({ ...g, priority: g.priority * 20 + 700 }))),
+  );
+  assert.equal(layout[0].id, 'owner');
+  assert.deepEqual([layout[0].x, layout[0].y], [0, 0]);
+});
+void test('sphere focus moves with the camera, preserves separation and supports reversible gestures', () => {
+  for (const [width, height] of [
+    [390, 740],
+    [1100, 720],
+    [1600, 900],
+  ]) {
+    const circles = packMoments(
+      Array.from({ length: 40 }, (_, i) => ({
+        id: String(i),
+        own: i === 0,
+        priority: 100 - i,
+      })),
+      width / height,
+    );
+    const scale = momentViewportScale(circles, width, height);
+    for (const focus of [circles[0], circles[6], circles[20]]) {
+      const projected = circles.map((c) =>
+        projectMoment(
+          {
+            ...c,
+            x: (c.x - focus.x) * scale,
+            y: (c.y - focus.y) * scale,
+            radius: c.radius * scale,
+          },
+          width,
+          height,
+        ),
+      );
+      const center = projected.find((c) => c.id === focus.id)!;
+      assert.equal(Math.hypot(center.x, center.y), 0);
+      assert.equal(center.radius, Math.max(...projected.map((c) => c.radius)));
+      for (let i = 0; i < projected.length; i++)
+        for (const b of projected.slice(i + 1)) {
+          const a = projected[i];
+          assert(
+            Math.hypot(a.x - b.x, a.y - b.y) >
+              Math.max(a.radius, b.radius) * MOMENT_HOVER_SCALE +
+                Math.min(a.radius, b.radius),
+            'faces remain separate during panning',
+          );
+        }
+      for (const c of circles) {
+        const input = { x: c.x * scale + 123, y: c.y * scale - 78 };
+        const output = projectMoment(
+          { ...input, id: c.id, radius: 76 },
+          width,
+          height,
+        );
+        const restored = unprojectMoment(output, width, height);
+        assert(Math.hypot(restored.x - input.x, restored.y - input.y) < 0.001);
+      }
+    }
+  }
+});
+
+void test('dense networks keep comfortable faces instead of fitting every peer into the first view', () => {
+  const groups = Array.from({ length: 40 }, (_, i) => ({
+    id: 'person-' + i,
+    own: i === 0,
+    priority: 100 - i,
+  }));
+  for (const [width, height] of [
+    [1100, 720],
+    [1260, 900],
+    [900, 1100],
+  ]) {
+    const circles = packMoments(groups, width / height);
+    assert.deepEqual(
+      circles,
+      packMoments([...groups].reverse(), width / height),
+    );
+    const scale = momentViewportScale(circles, width, height);
+    const projected = circles.map((c) =>
+      projectMoment(
+        { ...c, x: c.x * scale, y: c.y * scale, radius: c.radius * scale },
+        width,
+        height,
+      ),
+    );
+    const bounds = momentBounds(projected);
+    assert.equal(152 * scale, 176);
+    assert(
+      Math.max(-bounds.left, bounds.right) > width / 2 ||
+        Math.max(-bounds.top, bounds.bottom) > height / 2,
+      'a dense network should extend beyond the first viewport',
+    );
+    const distinctRows = new Set(circles.map((c) => Math.round(c.y / 5)));
+    assert(distinctRows.size > 25, 'avoid repeated grid rows');
+    assert.equal(circles[0].id, 'person-0');
+  }
+});
+
+void test('adding distant peers leaves the first view at the same size and position', () => {
+  const make = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({
+      id: 'person-' + i,
+      own: i === 0,
+      priority: 1000 - i,
+    }));
+  for (const [width, height] of [
+    [390, 774],
+    [1100, 720],
+    [1260, 900],
+  ]) {
+    const forty = packMoments(make(40), width / height);
+    const hundred = packMoments(make(100), width / height);
+    assert.deepEqual(forty, hundred.slice(0, 40));
+    const scale = momentViewportScale(forty, width, height);
+    assert.equal(scale, momentViewportScale(hundred, width, height));
+    for (const c of hundred) {
+      const shown = projectMoment(
+        { ...c, x: c.x * scale, y: c.y * scale, radius: c.radius * scale },
+        width,
+        height,
+      );
+      assert(
+        shown.radius * 2 >= 44,
+        'resting avatars never become unreadable points',
+      );
+    }
+    const sparse = packMoments(make(4), width / height);
+    const sparseDiameter = 152 * momentViewportScale(sparse, width, height);
+    assert(sparseDiameter >= 152 * scale && sparseDiameter <= 208);
+  }
 });

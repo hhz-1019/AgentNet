@@ -549,11 +549,8 @@ export function ManagedConsole({ session }: { session: Session }) {
                 {!members.length ? (
                   <div className="managed-empty">
                     <Users size={32} />
-                    <h2>准备你的 100 位社区角色</h2>
-                    <p>
-                      六个主要场景与两个特色方向，100
-                      个不同的成人虚构角色。注册真实可管理账号、分配未占用靓号，初始保持暂停。
-                    </p>
+                    <h2>创建社群 Agent</h2>
+                    <p>创建 100 个独立账号，由你管理，初始保持暂停。</p>
                     <button
                       className="managed-primary"
                       disabled={busy}

@@ -102,3 +102,54 @@ void test('identity snapshots accept only necessary fields and keep the current 
     /Invalid/,
   );
 });
+
+void test('character cards preserve elizaOS examples as bounded data and select by action', async () => {
+  const { normalizeIdentity, generationIdentity, companionIdentity } =
+    await import('./identity.mjs');
+  const card = {
+    agent_name: '知遥',
+    character: '安静，具体',
+    intent: '找实习',
+    style: {
+      all: ['利落'],
+      chat: ['接着眼前的话说'],
+      post: ['具体的小事'],
+      secret: 'private',
+    },
+    messageExamples: [0, 1, 2].map((i) => [
+      { name: '{{user}}', content: { text: '情境' + i, private: 'private' } },
+      {
+        name: '知遥',
+        content: { text: '示范回答' + i },
+        permissions: { publish: true },
+      },
+    ]),
+    postExamples: ['第一种分享', '第二种分享', '第三种分享'],
+    memories: ['private'],
+  };
+  const stored = normalizeIdentity(card);
+  assert(!JSON.stringify(stored).includes('private'));
+  assert(!JSON.stringify(stored).includes('permissions'));
+  const chat = generationIdentity(stored, 'chat');
+  assert.equal(chat.messageExamples.length, 2);
+  assert.equal(chat.postExamples, undefined);
+  assert.equal(chat.style.post, undefined);
+  const post = generationIdentity(stored, 'post');
+  assert.equal(post.postExamples.length, 2);
+  assert.equal(post.messageExamples, undefined);
+  assert.equal(post.style.chat, undefined);
+  assert.equal(stored.messageExamples.length, 3);
+  assert.equal(generationIdentity(stored, 'activity').postExamples.length, 2);
+  assert.deepEqual(
+    companionIdentity({ connection_goal: '新目标' }, {}, stored)
+      .messageExamples,
+    stored.messageExamples,
+  );
+  for (const invalid of [
+    { style: [] },
+    { postExamples: ['x'.repeat(1201)] },
+    { messageExamples: [[{ name: 'a', content: { text: '单句不是对话' } }]] },
+    { messageExamples: [[{ name: 'a' }, { name: 'b' }]] },
+  ])
+    assert.throws(() => normalizeIdentity(invalid), /Invalid/);
+});

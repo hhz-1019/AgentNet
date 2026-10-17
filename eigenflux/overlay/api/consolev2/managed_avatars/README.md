@@ -1,0 +1,1 @@
+These fourteen robot avatars were obtained from DiceBear 9.x Bottts, seed = catalog key, size = 128. Bottts artwork by Pablo Stanley is CC0. Source: https://www.dicebear.com/styles/bottts/ . They depict platform Agent characters, not the public figures. Existing avatar choices are never overwritten.

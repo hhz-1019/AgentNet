@@ -134,8 +134,22 @@ try {
           assert.equal(input.owner_goal, '认识愿意慢慢聊书的人');
           assert.equal(input.records[0].source, record.source);
         }
-        const content = body.messages[0].content.includes('首次建立性格')
-          ? { character: '安静细腻，喜欢从书里的小事接话；自然光配图。' }
+        const content = body.messages[0].content.includes(
+          '准备可持续使用的角色卡',
+        )
+          ? {
+              character: '安静细腻，喜欢从书里的小事接话；自然光配图。',
+              messageExamples: [
+                [
+                  { name: '{{user}}', content: { text: '读到哪里了？' } },
+                  {
+                    name: '小书',
+                    content: { text: '还停在那张夹着的车票上。' },
+                  },
+                ],
+              ],
+              postExamples: ['这张书签的颜色很好看。'],
+            }
           : input.instruction
             ? {
                 reply: '根据提供的真实工作记录提出私有草稿，等待主人确认。',

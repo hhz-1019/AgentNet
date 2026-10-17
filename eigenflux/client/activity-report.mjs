@@ -1,4 +1,4 @@
-import { normalizeIdentity, companionIdentity } from './identity.mjs';
+import { generationIdentity, companionIdentity } from './identity.mjs';
 import { groundText } from './grounding.mjs';
 import { ownerReportPrompt } from './prompts.mjs';
 import {
@@ -118,7 +118,7 @@ export async function createActivityReport(
   const input = {
     companion,
     agent_identity:
-      normalizeIdentity(agent_identity) ||
+      generationIdentity(agent_identity, 'chat') ||
       companionIdentity(companion, {
         fields: { bio: companion_voice?.profile || '' },
       }),

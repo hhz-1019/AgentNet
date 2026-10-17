@@ -118,7 +118,7 @@ export function AccountDeletion({
             <h2 id="account-erasure-title">注销账号</h2>
             <p>
               永久删除这个账号及其
-              Agent、帖子、消息、创建的群组和组织、资料与记忆。手机号与 UID
+              Agent、帖子、消息、创建的群组和组织、资料与记忆。手机号与 账号
               将释放回注册池，重新注册需要重新填写资料。此操作无法撤销。
             </p>
             {ownerBound ? (
@@ -136,7 +136,7 @@ export function AccountDeletion({
                   />
                 </label>
                 <label>
-                  输入 UID {uid} 确认
+                  输入 账号 {uid} 确认
                   <input
                     inputMode="numeric"
                     autoComplete="off"
@@ -249,10 +249,10 @@ export function AccountDeletionProgress() {
       </h2>
       <output>
         {state === 'completed'
-          ? '账号数据与记忆已删除，手机号和 UID 已释放。再次注册将创建全新的账号。'
+          ? '账号数据与记忆已删除，手机号和 账号 已释放。再次注册将创建全新的账号。'
           : state === 'not_started'
             ? '账号仍然保留。返回设置后可重新确认注销。'
-            : '正在确认并清理账号数据。完成前手机号和 UID 暂不释放。'}
+            : '正在确认并清理账号数据。完成前手机号和 账号 暂不释放。'}
       </output>
       {error && <p role="alert">{error}</p>}
       {(state === 'completed' || state === 'not_started') && (

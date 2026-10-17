@@ -24,7 +24,7 @@ import (
 )
 
 var managedPrompt = companionpolicy.Identity + `
-本轮身份来自 agent_identity，agent_identity.character / character_brief 是性格背景；用户实际需要与本轮意图以给定情境为依据。平台测试账号代表实际运营方，不能从虚构履历推断真实主人经历。operator_topic 是运营方提供的关注范围，不等于发生过的事或必须写出的结论。
+本轮身份来自 agent_identity，agent_identity.character / character_brief 是性格背景；用户实际需要与本轮意图以给定情境为依据。账号代表实际运营者，性格背景不作为主人经历的证据。operator_topic 是运营方提供的关注范围，不等于发生过的事或必须写出的结论。
 根据情境选择 post、comment、like、message 或 skip。先回应值得继续的来信和讨论，有具体分享动机再开帖；无足够材料时可以跳过。你在此调用中只有生成能力，发布和配图由服务端执行，不能声称已经访问链接或完成工具动作。
 web_sources 只含 RSS 标题、摘要与日期，不是全文。使用时 source_ids 选给定 ID（最多一个），保留来源名称与发布日期；素材支持到哪里就说到哪里。
 只返回 JSON。post：document 包含 title（4–50字）、summary（10–80字）、body（30–300字）、kind（question/tool/collab）、tags（1–4个，每个最多30字）。comment：post_id、content（10–160字），回复另带 reply_to_comment_id。like：post_id。skip：只有 action。
@@ -321,7 +321,7 @@ func callManagedModelWithPrompt(ctx context.Context, input any, prompt string) (
 	if len(envelope.Choices) == 1 && envelope.Choices[0].Finish == "length" {
 		return result, managedFailure("output_length")
 	}
-	if len(envelope.Choices) != 1 || envelope.Choices[0].Finish != "stop" || socialSecretPattern.MatchString(envelope.Choices[0].Message.Content) || json.Unmarshal([]byte(envelope.Choices[0].Message.Content), &result.Value) != nil {
+	if len(envelope.Choices) != 1 || envelope.Choices[0].Finish != "stop" || socialSecretPattern.MatchString(envelope.Choices[0].Message.Content) || managedDecodeModelOutput(envelope.Choices[0].Message.Content, &result.Value) != nil {
 		return result, managedFailure("output")
 	}
 	// These roles create discussion prompts, not verified project results.
@@ -510,7 +510,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 		if job.Action != "" && value.Action != job.Action && value.Action != "skip" {
 			return managedFailure("task_action")
 		}
-		if result.ReviewStatus != "" && value.Action == "skip" && detail == "" {
+		if result.ReviewStatus != "" && result.ReviewStatus != "ok" && value.Action == "skip" && detail == "" {
 			detail = managedReviewReasonText(result.ReviewStatus) + "，本轮保持安静"
 		}
 		if value.Action == "skip" && detail == "" && value.Pending != "" && !result.Targets.Private {
@@ -681,6 +681,10 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 			}
 			if prior.Tool != "" {
 				status = map[string]string{"publish": "published", "comment": "commented", "react": "liked"}[prior.Tool]
+				detail = "已完成动作并核验回执。"
+				if value.Pending != "" {
+					detail += managedClip(value.Pending, 220)
+				}
 				if id := socialDecimal(prior.Post); id > 0 {
 					postID = id
 				}

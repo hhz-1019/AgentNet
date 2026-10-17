@@ -139,16 +139,19 @@ export function groupMoments(
       own = id === ownID;
     const stage = momentStage(item, now);
     const bonus =
-      stage === 'open'
+      stage === 'open' || stage === 'failed'
         ? 30
         : stage === 'completed'
           ? 15
           : stage === 'pending' || stage === 'executing'
             ? 10
             : 0;
-    const priority =
-      Math.max(0, Math.min(100, item.context_ref?.moment?.priority ?? 40)) +
-      bonus;
+    const importance = Math.max(
+      0,
+      Math.min(100, item.context_ref?.moment?.priority ?? 40),
+    );
+    const inactive = ['expired', 'deferred', 'revoked'].includes(stage);
+    const priority = inactive ? Math.min(25, importance) : importance + bonus;
     const group = groups.get(id) || {
       id,
       name: own ? '你的 Agent' : item.related_agent.name || '关联 Agent',
@@ -163,7 +166,16 @@ export function groupMoments(
   }
   for (const message of messages) {
     const id = message.agent_id;
-    const priority = message.viewed_at ? 25 : 65;
+    // Attention follows what has arrived for you, not how many messages a peer
+    // produces. Sending a message yourself does not create an unread priority.
+    const priority =
+      message.viewed_at || message.direction === 'outgoing'
+        ? 25
+        : message.kind === 'broadcast'
+          ? 40
+          : message.kind === 'group_message'
+            ? 50
+            : 65;
     const group = groups.get(id) || {
       id,
       name: message.agent_name || '网络信息',

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { isAbsolute, resolve } from 'node:path';
 import { publishedReceipt } from './receipts.mjs';
+import { generationIdentity } from './identity.mjs';
 import {
   workDraftPrompt,
   workRecord,
@@ -225,7 +226,17 @@ export class AgentNet {
       const generated = this.draftGenerator
         ? await this.draftGenerator({
             prompt: workDraftPrompt,
-            work: structuredClone(work),
+            work: {
+              ...structuredClone(work),
+              ...(work.agent_identity
+                ? {
+                    agent_identity: generationIdentity(
+                      work.agent_identity,
+                      'post',
+                    ),
+                  }
+                : {}),
+            },
           })
         : base;
       if (

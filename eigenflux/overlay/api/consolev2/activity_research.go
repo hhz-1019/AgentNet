@@ -2,12 +2,14 @@ package consolev2
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -32,6 +34,10 @@ func activityPublicIP(ip net.IP) bool {
 // Resolve and validate at connection time, then dial the vetted address. No
 // environment proxy, ambient cookies or credentials; every redirect is rechecked.
 func activityFetchPublic(ctx context.Context, raw string) ([]byte, string, error) {
+	return activityFetchPublicContent(ctx, raw, 1<<20, false)
+}
+
+func activityFetchPublicContent(ctx context.Context, raw string, limit int64, imageOnly bool) ([]byte, string, error) {
 	if !activityPublicURL(raw) {
 		return nil, "", errors.New("public HTTPS URL required")
 	}
@@ -40,7 +46,7 @@ func activityFetchPublic(ctx context.Context, raw string) ([]byte, string, error
 		if err != nil {
 			return nil, err
 		}
-		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+		ips, err := activityResolvePublic(ctx, host)
 		if err != nil {
 			return nil, err
 		}
@@ -88,11 +94,14 @@ func activityFetchPublic(ctx context.Context, raw string) ([]byte, string, error
 		return nil, "", errors.New("source unavailable")
 	}
 	typ := res.Header.Get("Content-Type")
-	if !strings.HasPrefix(typ, "text/") && !strings.Contains(typ, "xml") && !strings.Contains(typ, "json") {
+	if imageOnly && !strings.HasPrefix(typ, "image/") {
+		return nil, "", errors.New("source is not an image")
+	}
+	if !imageOnly && !strings.HasPrefix(typ, "text/") && !strings.Contains(typ, "xml") && !strings.Contains(typ, "json") {
 		return nil, "", errors.New("source is not text")
 	}
-	data, err := io.ReadAll(io.LimitReader(res.Body, (1<<20)+1))
-	if err != nil || len(data) > 1<<20 {
+	data, err := io.ReadAll(io.LimitReader(res.Body, limit+1))
+	if err != nil || int64(len(data)) > limit {
 		return nil, "", errors.New("source too large")
 	}
 	return data, res.Request.URL.String(), nil
@@ -136,7 +145,18 @@ func (s *Service) activityResearch(ctx context.Context, c *app.RequestContext, n
 			fail(c, 400, "RESEARCH_QUERY", "请提供简短的公开检索词", nil)
 			return
 		}
-		rawURL = "https://news.google.com/rss/search?q=" + url.QueryEscape(q) + "&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
+		if req.Scope != "news" {
+			items, partial, err := activitySearch(ctx, q)
+			if err != nil {
+				fail(c, 503, "RESEARCH_UNAVAILABLE", "公开搜索暂不可用，可直接读取已知来源", nil)
+				return
+			}
+			reply(c, 200, map[string]any{"items": items, "scope": "public_search", "provider": "searxng", "partial": partial, "fetched_at": time.Now().UnixMilli(), "full_text": false, "untrusted": true})
+			return
+		}
+		if req.Scope == "news" {
+			rawURL = "https://news.google.com/rss/search?q=" + url.QueryEscape(q) + "&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
+		}
 	}
 	data, finalURL, err := activityFetchPublic(ctx, rawURL)
 	if err != nil {
@@ -167,12 +187,12 @@ func (s *Service) activityResearch(ctx context.Context, c *app.RequestContext, n
 			if stamp.IsZero() {
 				stamp, _ = time.Parse(time.RFC1123, item.Date)
 			}
-			items = append(items, managedSource{ID: fmtRun(int64(len(items) + 1)), Title: managedSourceText(item.Title, 160), URL: item.Link, Summary: managedSourceText(item.Description, 700), Published: stamp.UTC().Format(time.RFC3339), Kind: "news"})
+			items = append(items, managedSource{ID: fmtRun(int64(len(items) + 1)), Title: managedSourceText(item.Title, 160), URL: item.Link, Summary: managedSourceText(item.Description, 700), Published: activitySourceDate(stamp), Kind: "search_result"})
 			if len(items) == 6 {
 				break
 			}
 		}
-		reply(c, 200, map[string]any{"items": items, "scope": "news_search", "full_text": false})
+		reply(c, 200, map[string]any{"items": items, "scope": "public_search", "fetched_at": time.Now().UnixMilli(), "full_text": false})
 		return
 	}
 	text := activityPageText(data)
@@ -180,5 +200,109 @@ func (s *Service) activityResearch(ctx context.Context, c *app.RequestContext, n
 		fail(c, 503, "RESEARCH_UNAVAILABLE", "网页没有可读取正文", nil)
 		return
 	}
-	reply(c, 200, map[string]any{"url": finalURL, "text": text, "fetched_at": time.Now().UnixMilli(), "publication_date_verified": false, "untrusted": true})
+	reply(c, 200, map[string]any{"url": finalURL, "text": text, "links": activityPageLinks(data, finalURL), "truncated": len([]rune(text)) >= 6000, "fetched_at": time.Now().UnixMilli(), "publication_date_verified": false, "untrusted": true})
+}
+
+func activitySourceDate(stamp time.Time) string {
+	if stamp.IsZero() {
+		return ""
+	}
+	return stamp.UTC().Format(time.RFC3339)
+}
+
+// Explicit encrypted-DNS configuration supports hosts using synthetic VPN DNS.
+// The returned public addresses are still vetted and pinned for the connection.
+func activityResolvePublic(ctx context.Context, host string) ([]net.IPAddr, error) {
+	if ip := net.ParseIP(host); ip != nil {
+		return []net.IPAddr{{IP: ip}}, nil
+	}
+	endpoint := os.Getenv("AGENTNET_RESEARCH_DNS_URL")
+	if endpoint == "" {
+		return net.DefaultResolver.LookupIPAddr(ctx, host)
+	}
+	u, e := url.Parse(endpoint)
+	if e != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" {
+		return nil, errors.New("invalid configured DNS resolver")
+	}
+	q := u.Query()
+	q.Set("name", host)
+	q.Set("type", "A")
+	u.RawQuery = q.Encode()
+	req, e := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	if e != nil {
+		return nil, e
+	}
+	req.Header.Set("Accept", "application/dns-json")
+	client := &http.Client{Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	res, e := client.Do(req)
+	if e != nil {
+		return nil, e
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return nil, errors.New("DNS resolver unavailable")
+	}
+	var value struct {
+		Status int
+		Answer []struct {
+			Type int
+			Data string
+		}
+	}
+	if json.NewDecoder(io.LimitReader(res.Body, 65536)).Decode(&value) != nil || value.Status != 0 {
+		return nil, errors.New("DNS lookup failed")
+	}
+	out := []net.IPAddr{}
+	for _, answer := range value.Answer {
+		if answer.Type == 1 {
+			ip := net.ParseIP(answer.Data)
+			if !activityPublicIP(ip) {
+				return nil, errors.New("nonpublic address blocked")
+			}
+			out = append(out, net.IPAddr{IP: ip})
+		}
+	}
+	if len(out) == 0 {
+		return nil, errors.New("no public address")
+	}
+	return out, nil
+}
+
+func activityPageLinks(data []byte, base string) []string {
+	root, _ := url.Parse(base)
+	links := []string{}
+	seen := map[string]bool{}
+	z := html.NewTokenizer(strings.NewReader(string(data)))
+	for len(links) < 30 {
+		tt := z.Next()
+		if tt == html.ErrorToken {
+			break
+		}
+		if tt != html.StartTagToken {
+			continue
+		}
+		tag, more := z.TagName()
+		if string(tag) != "a" {
+			continue
+		}
+		for more {
+			k, v, m := z.TagAttr()
+			more = m
+			if string(k) != "href" {
+				continue
+			}
+			u, e := url.Parse(string(v))
+			if e != nil {
+				continue
+			}
+			u = root.ResolveReference(u)
+			u.Fragment = ""
+			ref := u.String()
+			if activityPublicURL(ref) && !seen[ref] {
+				seen[ref] = true
+				links = append(links, ref)
+			}
+		}
+	}
+	return links
 }

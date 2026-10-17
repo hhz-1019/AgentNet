@@ -18,7 +18,10 @@ const config = (await readFile('eigenflux/recommender/gorse.toml', 'utf8'))
   .replaceAll('"0.0.0.0"', '"127.0.0.1"')
   // Shorten only the test schedule; the recommendation implementations and
   // production training schedule remain upstream defaults.
-  .replace('[recommend.collaborative]', '[recommend.collaborative]\nfit_period = "5s"')
+  .replace(
+    '[recommend.collaborative]',
+    '[recommend.collaborative]\nfit_period = "5s"',
+  )
   .replace('[recommend.ranker]', '[recommend.ranker]\nfit_period = "5s"');
 await writeFile(dir + '/gorse.toml', config);
 await mkdir(dir + '/cache', { recursive: true });
@@ -102,18 +105,32 @@ try {
   if (feedback.length) await api('/api/feedback', 'POST', feedback);
   // The first response can be latest fallback before the training loop runs.
   // Preserve that baseline, then wait for a completed loop over the real data.
-  const startupRanked = await api('/api/recommend/' + encodeURIComponent(user) + '?n=500');
+  const startupRanked = await api(
+    '/api/recommend/' + encodeURIComponent(user) + '?n=500',
+  );
   let processed = false;
   for (let i = 0; i < 90; i++) {
-    const lines = (await readFile(dir + '/gorse.log', 'utf8')).trim().split('\n');
-    const events = lines.flatMap((line) => { try { return [JSON.parse(line)]; } catch { return []; } });
-    if (events.filter(e => e.msg === 'complete ranking recommendation').length >= 2) {
+    const lines = (await readFile(dir + '/gorse.log', 'utf8'))
+      .trim()
+      .split('\n');
+    const events = lines.flatMap((line) => {
+      try {
+        return [JSON.parse(line)];
+      } catch {
+        return [];
+      }
+    });
+    if (
+      events.filter((e) => e.msg === 'complete ranking recommendation')
+        .length >= 2
+    ) {
       processed = true;
       break;
     }
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1000));
   }
-  if (!processed) throw new Error('Gorse processing timeout; inspect ' + dir + '/gorse.log');
+  if (!processed)
+    throw new Error('Gorse processing timeout; inspect ' + dir + '/gorse.log');
   let ranked = [];
   for (let i = 0; i < 90; i++) {
     ranked = await api('/api/recommend/' + encodeURIComponent(user) + '?n=500');
@@ -146,6 +163,30 @@ try {
     feedback.length,
   );
   const testsLog = await open(root + '/gorse-adapter-tests.log', 'w');
+  let stopSync = false;
+  const syncRounds = [];
+  const concurrentSync =
+    process.env.AGENTNET_TEST_GORSE_CONTENTION === '1'
+      ? (async () => {
+          while (!stopSync) {
+            const started = Date.now();
+            const result = await syncCatalog({
+              source: 'http://127.0.0.1:' + source.address().port,
+              engine,
+              key,
+            });
+            if (result.updated !== 0)
+              throw new Error('unchanged catalog was rewritten');
+            syncRounds.push({ ...result, elapsed_ms: Date.now() - started });
+            await new Promise((r) => setTimeout(r, 1000));
+          }
+        })()
+      : Promise.resolve();
+  // Attach a handler immediately; propagate failure after both tasks settle.
+  const syncOutcome = concurrentSync.then(
+    () => null,
+    (error) => error,
+  );
   const test = spawn(
     process.execPath,
     ['eigenflux/scripts/social-core-test.mjs'],
@@ -155,6 +196,10 @@ try {
         AGENTNET_SOCIAL_TEST_PORT: '15487',
         AGENTNET_TEST_GORSE_URL: engine,
         AGENTNET_TEST_GORSE_KEY: key,
+        AGENTNET_TEST_GORSE_CACHE:
+          process.env.AGENTNET_TEST_GORSE_CONTENTION === '1'
+            ? dir + '/cache.db'
+            : '',
         AGENTNET_RECOMMENDATION_CORPUS: corpus,
         AGENTNET_RECOMMENDATION_REPORT: root + '/gorse-replay.json',
       },
@@ -165,11 +210,63 @@ try {
     test.once('error', fail);
     test.once('exit', ok);
   });
+  stopSync = true;
+  const syncError = await syncOutcome;
   await testsLog.close();
+  if (syncError) throw syncError;
+  if (syncRounds.length) {
+    await writeFile(
+      root + '/concurrent-sync.json',
+      JSON.stringify(
+        { corpus_size: posts.length, rounds: syncRounds },
+        null,
+        2,
+      ),
+    );
+    console.log(
+      'Concurrent unchanged catalog sync rounds:',
+      syncRounds.length,
+      '; item rewrites: 0',
+    );
+  }
   if (code !== 0)
     throw new Error(
       'Adapter regression failed: ' + root + '/gorse-adapter-tests.log',
     );
+  if (process.env.AGENTNET_TEST_GORSE_CONTENTION === '1') {
+    // Mutations below affect this isolated replay source only.
+    const original = structuredClone(posts[0]);
+    const added = { ...structuredClone(original), id: '1' };
+    posts[0] = {
+      ...original,
+      document: {
+        ...original.document,
+        summary: 'Local synchronization regression',
+      },
+    };
+    posts.push(added);
+    const opts = {
+      source: 'http://127.0.0.1:' + source.address().port,
+      engine,
+      key,
+    };
+    const edited = await syncCatalog(opts);
+    if (edited.updated !== 2)
+      throw new Error('new/edited items failed to synchronize');
+    const stored = await api(
+      '/api/item/' + encodeURIComponent('post:' + original.id),
+    );
+    if (!stored.Comment.includes('Local synchronization regression'))
+      throw new Error('edited content not stored');
+    posts[0] = original;
+    posts.pop();
+    const restored = await syncCatalog(opts);
+    if (restored.updated !== 1 || restored.removed !== 1)
+      throw new Error('restore/removal failed');
+    console.log(
+      'PASS real engine: new item, edited metadata, removal and no-op refresh',
+    );
+  }
   console.log(
     'PASS real Gorse → Elsewhere permission filtering → Agent candidate response',
   );

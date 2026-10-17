@@ -51,7 +51,7 @@ for (const name of names) {
     throw new Error(`Migration ${name}: ${error.message}`);
   }
 }
-const port = 15443,
+const port = Number(process.env.AGENTNET_MANAGED_TEST_PORT || 15443),
   socket = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
 await socket.start();
 try {
@@ -64,6 +64,8 @@ try {
         '-run',
         process.argv.includes('--deletion')
           ? '^TestAccountDeletion'
+          :         process.argv.includes('--unified-provider')
+          ? '^TestManagedUnifiedHostsLive$'
           : process.argv.includes('--activity-provider')
             ? '^TestManagedActivityRealProvider$'
             : process.argv.includes('--presence-provider')
@@ -73,7 +75,10 @@ try {
                 : 'TestManaged|TestAccountConnection',
         '-count=1',
         '-timeout',
-        process.argv.includes('--presence-provider') ? '50m' : '10m',
+        process.argv.includes('--presence-provider') ||
+        process.argv.includes('--unified-provider')
+          ? '50m'
+          : '10m',
         '-v',
       ],
       {
@@ -143,7 +148,8 @@ try {
     process.exitCode === 0 &&
     !process.argv.includes('--deletion') &&
     !process.argv.includes('--analytics') &&
-    !process.argv.includes('--activity-provider')
+    !process.argv.includes('--activity-provider') &&
+    !process.argv.includes('--unified-provider')
   ) {
     const traceMigration = await readFile(
       `${dir}/migrations/000141_managed_writing_trace.sql`,

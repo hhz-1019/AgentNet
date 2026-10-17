@@ -542,7 +542,7 @@ func TestManagedFullSchema(t *testing.T) {
 		ChargedFen int64
 	}
 	check(db.Raw(`SELECT status,charged_fen FROM managed_runs WHERE run_id=?`, quiet.RunID).Scan(&quietReceipt).Error)
-	if modelCalls != 1 || quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != managedCost(100, 10, quiet.InputRate, quiet.OutputRate) {
+	if modelCalls != 2 || quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != managedCost(200, 20, quiet.InputRate, quiet.OutputRate) {
 		t.Fatal("contextual decision or actual billing lost", modelCalls, quietReceipt)
 	}
 	createBody := map[string]any{"name": "新增验收角色", "scenario": "科研交流", "persona": managedCatalog()[84].Persona}
@@ -643,11 +643,11 @@ func TestManagedFullSchema(t *testing.T) {
 			t.Fatal("recruiter identity changed on retry")
 		}
 	}
-	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agents a USING(agent_id) JOIN agent_owners o USING(agent_id) JOIN agent_onboarding_v2 b USING(agent_id) WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND NOT m.enabled AND NOT a.is_official AND o.owner_uid=m.owner_uid AND b.state='completed' AND a.bio LIKE '%公开招聘信息画像%'`).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agents a USING(agent_id) JOIN agent_owners o USING(agent_id) JOIN agent_onboarding_v2 b USING(agent_id) WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND NOT m.enabled AND NOT a.is_official AND o.owner_uid=m.owner_uid AND b.state='completed' AND a.bio LIKE '%公开招聘信息 Agent，由账号运营者管理。%'`).Scan(&count).Error)
 	if count != 5 {
 		t.Fatal("recruitment identity disclosure or pause boundary missing", count)
 	}
-	check(db.Raw(`SELECT count(*) FROM twin_users t JOIN managed_members m ON t.user_id=m.owner_uid WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND t.portrait_fields->>'bio' LIKE '%公开招聘信息画像%' AND t.portrait_revision=1`).Scan(&count).Error)
+	check(db.Raw(`SELECT count(*) FROM twin_users t JOIN managed_members m ON t.user_id=m.owner_uid WHERE m.sponsor_uid='operator' AND m.seed_index BETWEEN 10000 AND 10004 AND t.portrait_fields->>'bio' LIKE '%公开招聘信息 Agent，由账号运营者管理。%' AND t.portrait_revision=1`).Scan(&count).Error)
 	if count != 5 {
 		t.Fatal("recruitment portraits missing", count)
 	}

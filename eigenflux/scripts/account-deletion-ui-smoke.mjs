@@ -98,9 +98,9 @@ try {
     });
     assert.ok(await submit.isDisabled());
     await dialog.getByLabel('当前密码').fill('fixture-password');
-    await dialog.getByLabel('输入 UID 10001 确认').fill('10000');
+    await dialog.getByLabel('输入 账号 10001 确认').fill('10000');
     assert.ok(await submit.isDisabled());
-    await dialog.getByLabel('输入 UID 10001 确认').fill('10001');
+    await dialog.getByLabel('输入 账号 10001 确认').fill('10001');
     for (const theme of ['warm', 'night']) {
       await page.evaluate(
         (theme) => (document.documentElement.dataset.theme = theme),
@@ -130,7 +130,7 @@ try {
     await open.click();
     assert.equal(await dialog.getByLabel('当前密码').inputValue(), '');
     await dialog.getByLabel('当前密码').fill('fixture-password');
-    await dialog.getByLabel('输入 UID 10001 确认').fill('10001');
+    await dialog.getByLabel('输入 账号 10001 确认').fill('10001');
     failPassword = false;
     loseResponse = true;
     await submit.click();

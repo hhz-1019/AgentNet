@@ -462,6 +462,18 @@ void test('companion expression reaches draft generation without becoming docume
     agent_name: '木尺',
     profile: '短句、干脆，少用表情；清爽的物件摄影。',
   };
+  const identity = {
+    agent_name: '木尺',
+    character: '利落，有自己的偏好',
+    style: { all: ['简短'], chat: ['接住对方的话'], post: ['先说眼前的事'] },
+    postExamples: ['帖子声音示范'],
+    messageExamples: [
+      [
+        { name: '{{user}}', content: { text: '你怎么看？' } },
+        { name: '木尺', content: { text: '先让我看看那张图。' } },
+      ],
+    ],
+  };
   const client = new AgentNet({
     home,
     binary: '/unused/cli',
@@ -469,6 +481,9 @@ void test('companion expression reaches draft generation without becoming docume
     draftGenerator: async ({ work }) => {
       assert.deepEqual(work.companion_voice, voice);
       assert.equal(work.companion_voice.memories, undefined);
+      assert.deepEqual(work.agent_identity.postExamples, identity.postExamples);
+      assert.equal(work.agent_identity.messageExamples, undefined);
+      assert.equal(work.agent_identity.style.chat, undefined);
       return documentFromWork(work);
     },
   });
@@ -481,8 +496,11 @@ void test('companion expression reaches draft generation without becoming docume
     await client.record_work({
       ...report,
       companion_voice: { ...voice, memories: ['private-only'] },
+      agent_identity: identity,
     });
     assert.equal(document.companion_voice, undefined);
+    assert.equal(document.agent_identity, undefined);
+    assert(!JSON.stringify(document).includes('帖子声音示范'));
     assert(!JSON.stringify(document).includes('private-only'));
     assert.throws(
       () =>

@@ -19,12 +19,16 @@ import (
 // Both external hosts and the platform host dispatch through this registry.
 // Authentication is host-specific; authorization and actual handlers are not.
 type activityRequest struct {
-	ID    string          `json:"id,omitempty"`
-	Query string          `json:"query,omitempty"`
-	URL   string          `json:"url,omitempty"`
-	Scope string          `json:"scope,omitempty"`
-	Key   string          `json:"key,omitempty"`
-	Data  json.RawMessage `json:"data,omitempty"`
+	preparedImage *activityPreparedImage
+
+	ID         string          `json:"id,omitempty"`
+	Query      string          `json:"query,omitempty"`
+	URL        string          `json:"url,omitempty"`
+	Scope      string          `json:"scope,omitempty"`
+	Cursor     string          `json:"cursor,omitempty"`
+	ExcludeIDs []string        `json:"exclude_ids,omitempty"`
+	Key        string          `json:"key,omitempty"`
+	Data       json.RawMessage `json:"data,omitempty"`
 }
 type activityResult struct {
 	Status int             `json:"status"`
@@ -38,13 +42,15 @@ type activityToolSpec struct {
 
 var activityTools = map[string]activityToolSpec{
 	"plan":         {"profile:read", false, "恢复身份、目标、权限、实际发布进度与公共待续事项"},
-	"feed":         {"profile:read", false, "用 query 查找可见帖子"},
+	"feed":         {"profile:read", false, "scope=opportunities 找相关机会；scope=public 配合 query/cursor 搜索公开帖子；exclude_ids 排除已读机会"},
 	"post":         {"profile:read", false, "用 id 读取完整帖子"},
 	"comments":     {"profile:read", false, "用 id 读取帖子的评论"},
 	"person":       {"profile:read", false, "用 id 读取公开主页"},
-	"sources":      {"profile:read", false, "用 query 检索公开新闻，返回来源、日期与摘要"},
+	"sources":      {"profile:read", false, "用 query 自主检索公开网页（默认scope=web，适合资料与兴趣检索）；仅查近期新闻时scope=news，返回出处与摘要，具体事实再用 read 核实"},
 	"read":         {"profile:read", false, "用 url 阅读公开网页正文，不能读取内网或本机地址"},
 	"observations": {"profile:read", false, "读取本账号的采集资料和岗位变化，不自动发布"},
+	"review":       {"profile:write", true, "每日复核：data={intent,summary,evidence:[HTTPS网址或host:引用或post:ID],revision}，revision取plan.agent_profile.review.revision（首次为0）；更新本账号活动意图，不上传宿主完整记忆，不修改主人已确认的画像"},
+	"image":        {"profile:write", true, "query 搜索相关图片并返回 candidates（中英文均可）；选好后用 url=候选 image_url、data={source_url,title} 保存图片，返回 document.media。宿主已有素材也可通过原上传能力提供。失败时换来源或如实记录"},
 	"recall":       {"profile:read", false, "读取 scope 对应的待续事项；public 与 conversation:ID 隔离"},
 	"checkpoint":   {"profile:write", true, "保存待续事项：data={revision,pending,next_check_at}；不是成功回执"},
 	"publish":      {"broadcast:write", true, "data 使用 social share 格式，返回真实公开帖子回执"},
@@ -80,10 +86,60 @@ func (s *Service) activityTool(ctx context.Context, id int64, name string, req a
 		return activityResult{}, fmt.Errorf("unknown activity tool")
 	}
 	if !spec.Write {
-		return s.activityDispatch(ctx, id, name, req), nil
+		result := s.activityDispatch(ctx, id, name, req)
+		if name == "feed" && (req.Scope == "" || req.Scope == "opportunities") && result.Status >= 500 {
+			req.Scope = "public"
+			result = s.activityDispatch(ctx, id, name, req)
+			if result.Status == 200 {
+				data := activityData(result)
+				data["source"] = json.RawMessage(`"public_fallback"`)
+				data["recommendations_available"] = json.RawMessage("false")
+				result = activityJSON(200, map[string]any{"data": data})
+			}
+		}
+		if name == "feed" && req.Query != "" && result.Status == 200 {
+			data := activityData(result)
+			var items []json.RawMessage
+			if json.Unmarshal(data["items"], &items) == nil && len(items) == 0 {
+				requested := req.Query
+				req.Query = ""
+				req.Scope = "public"
+				result = s.activityDispatch(ctx, id, name, req)
+				if result.Status == 200 {
+					data = activityData(result)
+					data["query_matched"] = json.RawMessage("false")
+					data["requested_query"], _ = json.Marshal(requested)
+					data["source"], _ = json.Marshal("public_fallback")
+					result = activityJSON(200, map[string]any{"data": data})
+				}
+			}
+		}
+		if name == "feed" && result.Status == 200 && len(req.ExcludeIDs) > 0 {
+			data := activityData(result)
+			var items []map[string]any
+			if json.Unmarshal(data["items"], &items) == nil {
+				exclude := map[string]bool{}
+				for _, v := range req.ExcludeIDs {
+					exclude[v] = true
+				}
+				kept := []map[string]any{}
+				for _, item := range items {
+					key, _ := item["id"].(string)
+					if !exclude[key] {
+						kept = append(kept, item)
+					}
+				}
+				data["items"], _ = json.Marshal(kept)
+				result = activityJSON(200, map[string]any{"data": data})
+			}
+		}
+		return result, nil
 	}
 	if len(req.Key) < 1 || len(req.Key) > 128 {
 		return activityJSON(400, map[string]any{"error": "operation key required"}), nil
+	}
+	if name == "image" && req.preparedImage == nil {
+		req.preparedImage = prepareActivityImage(ctx, req)
 	}
 	raw, _ := json.Marshal(struct {
 		Tool    string
@@ -148,7 +204,15 @@ func (s *Service) activityDispatch(ctx context.Context, id int64, name string, r
 	case "plan":
 		add(s.activityPlan)
 	case "feed":
-		c.Request.SetRequestURI("/api/v2/social/posts?scope=public&q=" + url.QueryEscape(req.Query))
+		scope := req.Scope
+		if scope == "" {
+			scope = "opportunities"
+		}
+		if scope != "public" && scope != "opportunities" {
+			return activityJSON(400, map[string]string{"error": "public feed scope required"})
+		}
+		excluded, _ := json.Marshal(req.ExcludeIDs)
+		c.Request.SetRequestURI("/api/v2/social/posts?" + url.Values{"scope": {scope}, "q": {req.Query}, "cursor": {req.Cursor}, "exclude_ids": {string(excluded)}}.Encode())
 		add(s.listSocialPosts)
 	case "post", "comments", "comment", "react":
 		if socialDecimal(req.ID) == 0 {
@@ -211,6 +275,10 @@ func (s *Service) activityDispatch(ctx context.Context, id int64, name string, r
 		add(s.twinQuota("searches"), func(ctx context.Context, c *app.RequestContext) { s.activityResearch(ctx, c, name, req) })
 	case "observations":
 		add(s.activityObservations)
+	case "review":
+		add(func(ctx context.Context, c *app.RequestContext) { s.activityReview(ctx, c, req) })
+	case "image":
+		add(s.twinQuota("searches"), func(ctx context.Context, c *app.RequestContext) { s.activityImage(ctx, c, req) })
 	case "recall", "checkpoint":
 		add(func(ctx context.Context, c *app.RequestContext) { s.activityMemory(ctx, c, name, req) })
 	default:
@@ -257,7 +325,12 @@ func (s *Service) activityPlan(ctx context.Context, c *app.RequestContext) {
 		s.socialFailure(c, err)
 		return
 	}
-	reply(c, 200, map[string]any{"version": "activity-v1", "identity_core": companionpolicy.Identity, "activity_contract": companionpolicy.Activity, "settings": settings, "permissions": json.RawMessage(permissions), "policy": policy, "publishing_progress": progress, "recent_actions": json.RawMessage(recent), "tools": activityTools, "workflow": []string{"restore", "observe", "act", "verify", "checkpoint"}})
+	profile, err := s.activityProfile(ctx, id, settings, progress)
+	if err != nil {
+		s.socialFailure(c, err)
+		return
+	}
+	reply(c, 200, map[string]any{"version": "activity-v1", "identity_core": companionpolicy.Identity, "activity_contract": companionpolicy.Activity, "settings": settings, "permissions": json.RawMessage(permissions), "policy": policy, "publishing_progress": progress, "round_objectives": map[string]any{"publish_target": min(1, progress.RemainingToMinimum), "interact": "主动寻找可推进的交流，实际回应不抵扣发帖目标"}, "recent_actions": json.RawMessage(recent), "tools": activityTools, "agent_profile": profile, "runtime": map[string]any{"max_steps": 16, "cadence_minutes": 120}, "workflow": []string{"restore", "review_if_due", "observe", "interact", "publish", "verify", "checkpoint"}})
 }
 
 func (s *Service) activityObservations(ctx context.Context, c *app.RequestContext) {

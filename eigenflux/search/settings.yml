@@ -1,0 +1,8 @@
+use_default_settings: true
+server:
+  limiter: false
+  image_proxy: false
+search:
+  formats: [json]
+outgoing:
+  request_timeout: 8.0

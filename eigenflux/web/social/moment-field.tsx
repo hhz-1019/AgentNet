@@ -9,6 +9,8 @@ import { AgentAvatar } from '../avatar';
 import { zoomMoment } from './moment-zoom';
 import {
   packMoments,
+  projectMoment,
+  unprojectMoment,
   momentViewportScale,
   momentRepulsion,
   MOMENT_HOVER_SCALE,
@@ -41,11 +43,13 @@ export function MomentField({
   onReachEdge: () => void;
 }) {
   const viewport = useRef<HTMLElement>(null);
-  const world = useRef<HTMLDivElement>(null);
+  const orbs = useRef(new Map<string, HTMLButtonElement>());
   const faces = useRef(new Map<string, HTMLSpanElement>());
   const pointer = useRef<Point | null>(null);
   const [size, setSize] = useState({ width: 800, height: 700 });
-  const [circles, setCircles] = useState(() => packMoments(groups));
+  const [packed, setCircles] = useState(() => packMoments(groups));
+  const aspect = Math.round((size.width / Math.max(1, size.height)) * 10) / 10;
+  const circles = packed;
   const signature = JSON.stringify(
     groups.map((g) => [g.id, g.priority, g.own]),
   );
@@ -60,9 +64,10 @@ export function MomentField({
               own,
             }),
           ),
+          aspect,
         ),
       );
-  }, [signature, frozen]);
+  }, [signature, frozen, aspect]);
   useLayoutEffect(() => {
     const el = viewport.current;
     if (!el) return;
@@ -109,54 +114,60 @@ export function MomentField({
       g = geometry.current;
     const screenScale = g.scale * c.zoom;
     const offsets = momentRepulsion(
-      g.circles.map((circle) => ({
-        id: circle.id,
-        x: circle.x * screenScale + c.x,
-        y: circle.y * screenScale + c.y,
-        radius: circle.radius * screenScale,
-      })),
+      g.circles.map((circle) =>
+        projectMoment(
+          {
+            id: circle.id,
+            x: circle.x * screenScale + c.x,
+            y: circle.y * screenScale + c.y,
+            radius: circle.radius * screenScale,
+          },
+          g.size.width,
+          g.size.height,
+        ),
+      ),
       reduced.current || drag.current || g.frozen ? null : pointer.current,
     );
     for (const offset of offsets) {
       const face = faces.current.get(offset.id);
       if (!face) continue;
-      face.style.setProperty('--mb-drift-x', `${offset.x / c.zoom}px`);
-      face.style.setProperty('--mb-drift-y', `${offset.y / c.zoom}px`);
+      face.style.setProperty('--mb-drift-x', `${offset.x}px`);
+      face.style.setProperty('--mb-drift-y', `${offset.y}px`);
     }
   }
   function updateBounds() {
     const { size, circles, scale: baseScale } = geometry.current;
     const scale = baseScale * camera.current.targetZoom;
     bounds.current = {
-      left: Math.min(
-        -size.width * 0.22,
-        size.width / 2 -
-          Math.max(...circles.map((c) => (c.x + c.radius) * scale)) -
-          64,
-      ),
-      right: Math.max(
-        size.width * 0.22,
-        -size.width / 2 -
-          Math.min(...circles.map((c) => (c.x - c.radius) * scale)) +
-          64,
-      ),
-      top: Math.min(
-        -size.height * 0.22,
-        size.height / 2 -
-          Math.max(...circles.map((c) => (c.y + c.radius) * scale)) -
-          64,
-      ),
-      bottom: Math.max(
-        size.height * 0.22,
-        -size.height / 2 -
-          Math.min(...circles.map((c) => (c.y - c.radius) * scale)) +
-          64,
-      ),
+      left:
+        -Math.max(0, ...circles.map((c) => c.x * scale)) - size.width * 0.12,
+      right:
+        -Math.min(0, ...circles.map((c) => c.x * scale)) + size.width * 0.12,
+      top:
+        -Math.max(0, ...circles.map((c) => c.y * scale)) - size.height * 0.12,
+      bottom:
+        -Math.min(0, ...circles.map((c) => c.y * scale)) + size.height * 0.12,
     };
   }
   function paint() {
-    if (world.current)
-      world.current.style.transform = `translate3d(${camera.current.x}px, ${camera.current.y}px, 0) scale(${camera.current.zoom})`;
+    const c = camera.current,
+      g = geometry.current;
+    for (const circle of g.circles) {
+      const orb = orbs.current.get(circle.id);
+      if (!orb) continue;
+      const projected = projectMoment(
+        {
+          ...circle,
+          x: circle.x * g.scale * c.zoom + c.x,
+          y: circle.y * g.scale * c.zoom + c.y,
+          radius: circle.radius * g.scale * c.zoom,
+        },
+        g.size.width,
+        g.size.height,
+      );
+      orb.style.width = orb.style.height = projected.radius * 2 + 'px';
+      orb.style.transform = `translate3d(${projected.x - projected.radius}px, ${projected.y - projected.radius}px, 0)`;
+    }
   }
   function limit() {
     updateBounds();
@@ -221,8 +232,8 @@ export function MomentField({
     const next = zoomMoment(
       { x: c.tx, y: c.ty, zoom: c.targetZoom },
       value,
-      anchor,
-      destination,
+      unprojectMoment(anchor, size.width, size.height),
+      unprojectMoment(destination, size.width, size.height),
     );
     c.tx = next.x;
     c.ty = next.y;
@@ -247,23 +258,37 @@ export function MomentField({
   }
   // Chromium trackpads deliver pinch as Ctrl+wheel. A native non-passive
   // listener keeps this gesture inside the canvas, not the entire browser UI.
+  const wheelHandler = useRef<(event: WheelEvent) => void>(() => {});
+  wheelHandler.current = (event: WheelEvent) => {
+    if (frozen) return;
+    event.preventDefault();
+    const delta =
+      event.deltaY *
+      (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? size.height : 1);
+    if (!event.ctrlKey) {
+      const unit =
+        event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? size.height : 1;
+      camera.current.tx -= event.deltaX * unit;
+      camera.current.ty -= event.deltaY * unit;
+      camera.current.vx = camera.current.vy = 0;
+      pointer.current = null;
+      limit();
+      move();
+      checkEdge();
+      return;
+    }
+    zoomAt(
+      camera.current.targetZoom * Math.exp(-clamp(delta, -200, 200) * 0.008),
+      localPoint({ x: event.clientX, y: event.clientY }),
+    );
+  };
   useEffect(() => {
     const el = viewport.current;
     if (!el) return;
-    const wheel = (event: WheelEvent) => {
-      if (frozen || !event.ctrlKey) return;
-      event.preventDefault();
-      const delta =
-        event.deltaY *
-        (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? size.height : 1);
-      zoomAt(
-        camera.current.targetZoom * Math.exp(-clamp(delta, -200, 200) * 0.008),
-        localPoint({ x: event.clientX, y: event.clientY }),
-      );
-    };
+    const wheel = (event: WheelEvent) => wheelHandler.current(event);
     el.addEventListener('wheel', wheel, { passive: false });
     return () => el.removeEventListener('wheel', wheel);
-  }, [frozen, size]);
+  }, []);
   function checkEdge() {
     const c = camera.current,
       b = bounds.current;
@@ -305,8 +330,9 @@ export function MomentField({
       paintRepulsion();
     }
   }, [frozen]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     limit();
+    paint();
     move();
   }, [size, circles]);
   function reveal(circle: MomentCircle) {
@@ -321,12 +347,12 @@ export function MomentField({
     if (Math.abs(y) + radius > size.height / 2) c.ty = -circle.y * scale;
     move();
   }
-  function finish(cancelled = false) {
+  function finish() {
     const gesture = drag.current;
     if (!gesture) return;
     suppressClick.current = gesture.moved;
-    if (cancelled || performance.now() - gesture.time > 90 || reduced.current)
-      camera.current.vx = camera.current.vy = 0;
+    // Release where the user placed the surface; do not coast past their focus.
+    camera.current.vx = camera.current.vy = 0;
     drag.current = null;
     viewport.current?.removeAttribute('data-dragging');
     if (viewport.current?.hasPointerCapture(gesture.id))
@@ -336,7 +362,7 @@ export function MomentField({
       move();
     }
   }
-  function endPointer(id: number, cancelled = false) {
+  function endPointer(id: number) {
     if (!touches.current.has(id) && drag.current?.id !== id) return;
     touches.current.delete(id);
     if (pinch.current) {
@@ -357,7 +383,7 @@ export function MomentField({
         viewport.current.releasePointerCapture(id);
       return;
     }
-    if (drag.current?.id === id) finish(cancelled);
+    if (drag.current?.id === id) finish();
   }
   return (
     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- This focusable spatial viewport supports pointer panning and arrow/Home navigation; its items remain native buttons.
@@ -434,8 +460,18 @@ export function MomentField({
         }
         const time = performance.now(),
           dt = Math.max(8, time - gesture.time);
-        const dx = e.clientX - gesture.last.x,
-          dy = e.clientY - gesture.last.y;
+        const before = unprojectMoment(
+          localPoint(gesture.last),
+          size.width,
+          size.height,
+        );
+        const after = unprojectMoment(
+          localPoint({ x: e.clientX, y: e.clientY }),
+          size.width,
+          size.height,
+        );
+        const dx = after.x - before.x,
+          dy = after.y - before.y;
         const c = camera.current;
         c.tx += dx;
         c.ty += dy;
@@ -451,7 +487,7 @@ export function MomentField({
         pointer.current = null;
         move();
       }}
-      onPointerCancel={(e) => endPointer(e.pointerId, true)}
+      onPointerCancel={(e) => endPointer(e.pointerId)}
       onLostPointerCapture={(e) => {
         // Ignore bubbling capture transfers from the touched avatar to the
         // canvas; those are part of starting a drag or pinch, not cancellation.
@@ -459,7 +495,7 @@ export function MomentField({
           e.target === e.currentTarget &&
           !e.currentTarget.hasPointerCapture(e.pointerId)
         )
-          endPointer(e.pointerId, true);
+          endPointer(e.pointerId);
       }}
       onClickCapture={(e) => {
         if (suppressClick.current && e.detail !== 0) {
@@ -509,7 +545,7 @@ export function MomentField({
       }}
     >
       <div className="mb-field-clip">
-        <div ref={world} className="mb-world">
+        <div className="mb-world">
           {circles.map((circle) => {
             const group = groups.find((g) => g.id === circle.id);
             if (!group) return null;
@@ -517,6 +553,10 @@ export function MomentField({
             return (
               <button
                 key={circle.id}
+                ref={(node) => {
+                  if (node) orbs.current.set(circle.id, node);
+                  else orbs.current.delete(circle.id);
+                }}
                 className="mb-orb"
                 type="button"
                 style={{

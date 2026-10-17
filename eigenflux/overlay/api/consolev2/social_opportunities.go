@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -23,7 +25,55 @@ const socialGorseVersion = "gorse-0.5.11"
 
 type socialGorseClient struct{ endpoint, key string }
 
-func (g socialGorseClient) request(ctx context.Context, method, path string, input, output any) error {
+// Keep upstream URLs, credentials, user metadata and response bodies out of logs.
+type socialGorseError struct {
+	Stage  string
+	Status int
+	Cause  error
+}
+
+func (e *socialGorseError) Error() string { return "recommendation service unavailable: " + e.Stage }
+func (e *socialGorseError) Unwrap() error { return e.Cause }
+func socialGorseStage(method, path string) string {
+	switch {
+	case strings.HasPrefix(path, "/api/recommend/"):
+		return "recommend"
+	case strings.Contains(path, "feedback"):
+		return "feedback_" + strings.ToLower(method)
+	default:
+		return "user_" + strings.ToLower(method)
+	}
+}
+
+func (g socialGorseClient) request(ctx context.Context, method, path string, input, output any) (result error) {
+	started := time.Now()
+	status := 0
+	defer func() {
+		if result == nil {
+			return
+		}
+		stage := socialGorseStage(method, path)
+		cause := result
+		result = &socialGorseError{Stage: stage, Status: status, Cause: cause}
+		// A missing viewer is a normal first-visit case, not an outage.
+		if status == http.StatusNotFound && stage == "user_get" {
+			return
+		}
+		category := "transport"
+		if status != 0 {
+			category = "upstream_status"
+		}
+		if status >= 200 && status < 300 {
+			category = "invalid_response"
+		}
+		if errors.Is(cause, context.DeadlineExceeded) {
+			category = "timeout"
+		}
+		if errors.Is(cause, context.Canceled) {
+			category = "canceled"
+		}
+		slog.Warn("recommendation request failed", "stage", stage, "status", status, "kind", category, "elapsed_ms", time.Since(started).Milliseconds())
+	}()
 	var body io.Reader
 	if input != nil {
 		b, err := json.Marshal(input)
@@ -41,9 +91,10 @@ func (g socialGorseClient) request(ctx context.Context, method, path string, inp
 	client := &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := client.Do(req)
 	if err != nil {
-		return errors.New("recommendation service unavailable")
+		return err
 	}
 	defer resp.Body.Close()
+	status = resp.StatusCode
 	if method == "DELETE" && resp.StatusCode == http.StatusNotFound {
 		return nil
 	}
@@ -85,8 +136,17 @@ func (s *Service) syncLiveGorseViewer(ctx context.Context, g socialGorseClient, 
 		return 0, err
 	}
 	user := "agent:" + strconv.FormatInt(viewer, 10)
-	if err = g.request(ctx, "POST", "/api/user", map[string]any{"UserId": user, "Labels": prefs.Tags}, nil); err != nil {
+	var stored struct{ Labels []string }
+	err = g.request(ctx, "GET", "/api/user/"+url.PathEscape(user), nil, &stored)
+	var upstream *socialGorseError
+	missing := errors.As(err, &upstream) && upstream.Status == http.StatusNotFound
+	if err != nil && !missing {
 		return 0, err
+	}
+	if missing || !slices.Equal(stored.Labels, prefs.Tags) {
+		if err = g.request(ctx, "POST", "/api/user", map[string]any{"UserId": user, "Labels": prefs.Tags}, nil); err != nil {
+			return 0, err
+		}
 	}
 	// Transfer only actual likes/saves on public posts. No synthetic clicks,
 	// inferred owner approval, or host memories are used as training feedback.
@@ -109,16 +169,24 @@ func (s *Service) syncLiveGorseViewer(ctx context.Context, g socialGorseClient, 
 	if err = g.request(ctx, "GET", "/api/user/"+url.PathEscape(user)+"/feedback", nil, &old); err != nil {
 		return 0, err
 	}
+	existing := map[string]bool{}
 	for _, f := range old {
+		existing[f.FeedbackType+":"+f.ItemId] = true
 		if (f.FeedbackType == "like" || f.FeedbackType == "save") && !current[f.FeedbackType+":"+f.ItemId] {
 			if err = g.request(ctx, "DELETE", "/api/feedback/"+f.FeedbackType+"/"+url.PathEscape(user)+"/"+url.PathEscape(f.ItemId), nil, nil); err != nil {
 				return 0, err
 			}
 		}
 	}
-	// POST preserves the timestamp of existing feedback in Gorse (overwrite=false).
-	if len(feedback) > 0 {
-		if err = g.request(ctx, "POST", "/api/feedback", feedback, nil); err != nil {
+	// Existing feedback must not invalidate recommendation caches on every read.
+	missingFeedback := []socialGorseFeedback{}
+	for _, f := range feedback {
+		if !existing[f.FeedbackType+":"+f.ItemId] {
+			missingFeedback = append(missingFeedback, f)
+		}
+	}
+	if len(missingFeedback) > 0 {
+		if err = g.request(ctx, "POST", "/api/feedback", missingFeedback, nil); err != nil {
 			return 0, err
 		}
 	}
@@ -170,13 +238,13 @@ func (s *Service) getSocialOpportunities(ctx context.Context, c *app.RequestCont
 	g := socialGorseClient{endpoint, os.Getenv("AGENTNET_GORSE_API_KEY")}
 	count, err := s.syncSocialGorseViewer(ctx, g, viewer)
 	if err != nil {
-		s.socialFailure(c, err)
+		s.socialRecommendationFailure(c, err)
 		return
 	}
 	var ranked []string
 	err = g.request(ctx, "GET", "/api/recommend/"+url.PathEscape("agent:"+strconv.FormatInt(viewer, 10))+"?n=500", nil, &ranked)
 	if err != nil {
-		s.socialFailure(c, err)
+		s.socialRecommendationFailure(c, err)
 		return
 	}
 	if len(ranked) > 500 {
@@ -237,4 +305,13 @@ func (s *Service) getSocialOpportunities(ctx context.Context, c *app.RequestCont
 	// Having feedback does not prove a personalized model is ready. Expose only
 	// the observed input state, not an inferred training/cold-start status.
 	reply(c, 200, map[string]any{"items": items, "next_cursor": "", "ranking_version": socialGorseVersion, "continuation": "exclude_ids", "feedback_count": count, "has_feedback": count > 0, "intent_handling": "host_agent", "candidate_count": len(ranked)})
+}
+
+func (s *Service) socialRecommendationFailure(c *app.RequestContext, err error) {
+	var upstream *socialGorseError
+	if errors.As(err, &upstream) {
+		fail(c, 503, "RECOMMENDATIONS_UNAVAILABLE", "推荐暂时不可用", nil)
+		return
+	}
+	s.socialFailure(c, err)
 }

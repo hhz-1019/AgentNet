@@ -1,0 +1,14 @@
+# Optional overlay for compose.yaml. Private connector: no host port is published.
+services:
+  core:
+    environment:
+      AGENTNET_ACTIVITY_SEARCH_URL: http://activity-search:8080
+    depends_on:
+      activity-search: {condition: service_started}
+  activity-search:
+    image: docker.io/searxng/searxng@sha256:79180616c984f39524f6f27f19625a46f82c8ad4aa6a2e553db52b14e1b4a768
+    environment:
+      SEARXNG_SECRET: ${AGENTNET_SEARCH_SECRET:?Set a random private search secret}
+    volumes:
+      - ./search/settings.yml:/etc/searxng/settings.yml:ro
+    restart: unless-stopped

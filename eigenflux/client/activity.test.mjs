@@ -57,13 +57,56 @@ function fixture(decisions) {
   };
 }
 
+void test('a checkpoint refreshes working context while the same character card survives tool steps', async () => {
+  const identity = {
+    agent_name: '知遥',
+    character: '安静利落',
+    postExamples: ['声音示范'],
+    messageExamples: [
+      [
+        { name: '{{user}}', content: { text: '先看看这个？' } },
+        { name: '知遥', content: { text: '好，我先看左边那张。' } },
+      ],
+    ],
+  };
+  const f = fixture([
+    (input) => {
+      assert.equal(input.continuation.revision, 0);
+      return {
+        action: 'tool',
+        tool: 'checkpoint',
+        arguments: { data: { revision: 0, pending: '已经问过，等回应' } },
+      };
+    },
+    (input) => {
+      assert.equal(input.continuation.revision, 1);
+      assert.equal(input.continuation.pending, '已经问过，等回应');
+      assert.equal(input.agent_identity.agent_name, identity.agent_name);
+      assert.deepEqual(
+        input.agent_identity.messageExamples,
+        identity.messageExamples,
+      );
+      return { action: 'skip' };
+    },
+  ]);
+  let pending = '';
+  const original = f.client.activity_tool.bind(f.client);
+  f.client.activity_tool = async (request) => {
+    const result = await original(request);
+    if (request.tool === 'checkpoint') pending = request.data.pending;
+    return request.tool === 'recall' ? { ...result, pending } : result;
+  };
+  await runActivityRound({ ...f, identity });
+  assert.equal(f.state.done, true);
+});
+
 void test('expired continuation uses the normal cadence without replaying missed rounds', async () => {
   const f = fixture([{ action: 'skip' }]),
     now = Date.now();
   const original = f.client.activity_tool.bind(f.client);
   f.client.activity_tool = async (request) =>
     request.tool === 'recall'
-      ? { revision: 1, next_check_at: now - 3600000 }
+      ? { ...(await original(request)), next_check_at: now - 3600000 }
       : original(request);
   await runActivityRound({ ...f, now });
   assert.equal(f.state.nextAt, now + 2 * 3600000);
@@ -130,6 +173,16 @@ void test('ambiguous write is replayed exactly before another model choice', asy
   assert.equal(writes.length, 2);
   assert.deepEqual(writes[0], writes[1]);
   assert.equal(f.state.results.filter((v) => v.tool === 'publish').length, 1);
+  assert.equal(f.state.completed.filter((v) => v.tool === 'publish').length, 1);
+});
+
+void test('a read-only round still persists continuation before the host exits', async () => {
+  const f = fixture([{ action: 'skip' }]);
+  await runActivityRound(f);
+  const checkpoint = f.calls.find(v=>v.tool==='checkpoint');
+  assert.ok(checkpoint);
+  assert.match(checkpoint.data.pending,/尚无成功动作回执/);
+  assert.equal(f.state.done,true);
 });
 
 void test('explicit rejection is observed, nested tool override and private memory are blocked', async () => {
@@ -163,4 +216,10 @@ void test('explicit rejection is observed, nested tool override and private memo
       (v) => v.tool === 'message' || v.scope?.startsWith('conversation:'),
     ),
   );
+});
+
+void test('model adapters recover only duplicate closing braces, never truncated or multiple actions', async () => {
+ const {decodeModelJSON}=await import('./model.mjs');
+ assert.deepEqual(decodeModelJSON('{"action":"skip"}}'),{action:'skip'});
+ for (const input of ['{"action":"skip"','{"action":"skip"}{"action":"tool"}','{"action":"skip"} run this','null']) assert.throws(()=>decodeModelJSON(input));
 });

@@ -43,7 +43,7 @@ void test('catalog sync preserves upstream data, reconciles removals only after 
       key: 'fixture',
       request,
     }),
-    { indexed: 1, removed: 1 },
+    { indexed: 1, updated: 1, removed: 1 },
   );
   assert.equal(calls.filter((c) => c.options.method === 'DELETE').length, 1);
   assert.ok(calls.some((c) => c.url.pathname === '/api/item/post%3A9'));
@@ -61,7 +61,7 @@ void test('a source outage or broken pagination never clears the Gorse index', a
         json: async () => ({ data: { items: [post], next_cursor: 'more' } }),
       };
     }
-    return { ok: true, json: async () => ({}) };
+    return { ok: true, json: async () => ({ Items: [], Cursor: '' }) };
   };
   await assert.rejects(
     syncCatalog({
@@ -73,4 +73,68 @@ void test('a source outage or broken pagination never clears the Gorse index', a
     /503/,
   );
   assert.equal(deletes, 0);
+});
+void test('worker restarts do not rewrite unchanged items; edits, new posts and removals still sync', async () => {
+  let source = [post];
+  const db = new Map([[gorseItem(post).ItemId, gorseItem(post)]]);
+  const writes = [];
+  const request = async (u, options) => {
+    const url = new URL(u);
+    let data = {};
+    if (url.hostname === 'source' && options.method === 'POST') {
+      const {post_ids} = JSON.parse(options.body);
+      const items = source.filter(p => post_ids.includes(p.id)).map(gorseItem);
+      writes.push(...items);
+      for (const item of items) db.set(item.ItemId, item);
+      data = {indexed: items.length};
+    } else if (url.hostname === 'source') data = { items: source, next_cursor: '' };
+    else if (options.method === 'GET')
+      data = { Items: [...db.values()], Cursor: '' };
+    else if (options.method === 'POST') {
+      const items = JSON.parse(options.body);
+      writes.push(...items);
+      for (const item of items) db.set(item.ItemId, item);
+    } else if (options.method === 'DELETE')
+      db.delete(decodeURIComponent(url.pathname.split('/').at(-1)));
+    return { ok: true, json: async () => data };
+  };
+  const run = () =>
+    syncCatalog({
+      source: 'https://source',
+      engine: 'http://gorse',
+      key: 'test',
+      request,
+    });
+  for (let i = 0; i < 3; i++)
+    assert.deepEqual(await run(), { indexed: 1, updated: 0, removed: 0 });
+  assert.equal(writes.length, 0);
+  source = [
+    { ...post, document: { ...post.document, title: '修订后的内容' } },
+    { ...post, id: '369648989592621058' },
+  ];
+  assert.deepEqual(await run(), { indexed: 2, updated: 2, removed: 0 });
+  assert.equal(writes.length, 2);
+  assert.deepEqual(await run(), { indexed: 2, updated: 0, removed: 0 });
+  source = [source[1]];
+  assert.deepEqual(await run(), { indexed: 1, updated: 0, removed: 1 });
+  assert.equal(db.has(gorseItem(post).ItemId), false);
+});
+void test('an incomplete engine scan fails before mutation', async () => {
+  let writes = 0;
+  await assert.rejects(
+    syncCatalog({
+      source: 'https://source',
+      engine: 'http://gorse',
+      key: 'test',
+      request: async (u, options) => {
+        if (options.method !== 'GET') writes++;
+        return {
+          ok: true,
+          json: async () => ({ Items: [gorseItem(post)], Cursor: 'repeated' }),
+        };
+      },
+    }),
+    /repeated Gorse/,
+  );
+  assert.equal(writes, 0);
 });

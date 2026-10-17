@@ -30,8 +30,8 @@ func TestManagedPublicCatalog(t *testing.T) {
 			tech++
 		}
 		entry := celebrityPersona(p)
-		if !strings.Contains(entry.recruitmentDraft.IdentityCard.AgentDescription, "非本人") {
-			t.Fatal("missing disclosure")
+		if !strings.Contains(entry.recruitmentDraft.IdentityCard.AgentDescription, "账号运营者管理") || !strings.Contains(entry.recruitmentDraft.IdentityCard.AgentDescription, "公开动态") || *entry.recruitmentDraft.IdentityCard.HumanDescription != "本账号运营者" {
+			t.Fatal("missing actual ownership and information scope")
 		}
 		for _, step := range []int16{2, 3, 5} {
 			if e := validateDraftStep(*entry.recruitmentDraft, step); e != nil {
@@ -166,7 +166,7 @@ func TestManagedPublicSnapshot(t *testing.T) {
 		}
 		ids, e := s.provisionManagedEntries(context.Background(), "public-source-test", entries)
 		check(e)
-		if len(ids) != 105 {
+		if len(ids) != len(celebrityCatalog()) {
 			t.Fatal(len(ids))
 		}
 		again, e := s.provisionManagedEntries(context.Background(), "public-source-test", entries)
