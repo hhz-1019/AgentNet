@@ -40,7 +40,8 @@ let sends = 0,
   registrations = 0,
   claims = 0,
   registered = false,
-  failSend = true;
+  failSend = true,
+  failRegister = true;
 const fulfill = (route, data) =>
   route.fulfill({
     contentType: 'application/json',
@@ -156,7 +157,17 @@ await page.route('**/api/v2/**', async (route) => {
     assert.equal(body.phone, '13800138000');
     assert.equal(body.code, '123456');
     assert.equal(body.challenge_id, 'ph_fixture');
-    assert.equal(body.password, 'test-password-123');
+    assert.equal(body.password, '12345678');
+    if (failRegister)
+      return route.fulfill({
+        status: 400,
+        json: {
+          error: {
+            code: 'PHONE_CODE_INVALID',
+            message: '验证码无效，请重新输入',
+          },
+        },
+      });
     registered = true;
     session.owner_bound = true;
     session.owner_uid = '10000';
@@ -219,7 +230,7 @@ try {
     true,
   );
   await page.getByLabel('短信验证码', { exact: true }).fill('123456');
-  await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
+  await page.getByLabel('账号密码', { exact: true }).fill('12345678');
   const confirmation = page.getByLabel('确认密码', { exact: true });
   assert.equal(await submit.isDisabled(), true);
   await confirmation.fill('different-password-123');
@@ -229,13 +240,13 @@ try {
     .waitFor();
   assert.equal(await submit.isDisabled(), true);
   assert.equal(registrations, 0);
-  await confirmation.fill('test-password-123');
+  await confirmation.fill('12345678');
   assert.equal(await submit.isDisabled(), false);
   await page
     .getByLabel('账号密码', { exact: true })
     .fill('changed-password-123');
   assert.equal(await submit.isDisabled(), true);
-  await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
+  await page.getByLabel('账号密码', { exact: true }).fill('12345678');
   assert.equal(
     await page.getByText('两次输入的密码不一致，请重新确认。').count(),
     0,
@@ -255,8 +266,8 @@ try {
   await page.getByRole('button', { name: '获取验证码', exact: true }).click();
   await page.getByText('验证码已发送，5 分钟内有效', { exact: true }).waitFor();
   await page.getByLabel('短信验证码', { exact: true }).fill('123456');
-  await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
-  await page.getByLabel('确认密码', { exact: true }).fill('test-password-123');
+  await page.getByLabel('账号密码', { exact: true }).fill('12345678');
+  await page.getByLabel('确认密码', { exact: true }).fill('12345678');
   for (const width of [360, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     assert.equal(
@@ -271,7 +282,31 @@ try {
   await page.screenshot({
     path: '.agentnet-audit/phone-registration-mobile.png',
   });
+  await submit.click();
+  assert.equal(registrations, 0, 'agreement is required');
   await page.getByRole('checkbox').check();
+  await page.getByLabel('账号密码', { exact: true }).fill('1234567');
+  await page.getByLabel('确认密码', { exact: true }).fill('1234567');
+  await submit.click();
+  assert.equal(registrations, 0, 'seven characters must be rejected');
+  await page.getByLabel('账号密码', { exact: true }).fill('12345678');
+  await page.getByLabel('确认密码', { exact: true }).fill('12345678');
+  await submit.click();
+  await page.getByText('验证码无效，请重新输入', { exact: true }).waitFor();
+  assert.equal(
+    await page.getByLabel('账号密码', { exact: true }).inputValue(),
+    '12345678',
+  );
+  assert.equal(
+    await page.getByLabel('短信验证码', { exact: true }).inputValue(),
+    '123456',
+  );
+  assert.equal(
+    registrations,
+    1,
+    'failed registration must not automatically retry',
+  );
+  failRegister = false;
   await submit.click();
   await page.getByRole('heading', { name: '确认资料', exact: true }).waitFor();
   assert.equal(await page.getByText('账号：10000', { exact: true }).count(), 0);
@@ -285,7 +320,7 @@ try {
     null,
   );
   assert.equal(registered, true);
-  assert.equal(registrations, 1);
+  assert.equal(registrations, 2);
   assert.equal(sends, 3);
   // Existing UID/password login remains reachable without key-based recovery.
   session.owner_bound = false;
@@ -295,7 +330,7 @@ try {
   assert.equal(await page.getByLabel('确认密码', { exact: true }).count(), 0);
   assert.equal(await page.getByText(/恢复密钥/).count(), 0);
   await page.getByLabel('账号', { exact: true }).fill('10000');
-  await page.getByLabel('账号密码', { exact: true }).fill('test-password-123');
+  await page.getByLabel('账号密码', { exact: true }).fill('12345678');
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await page.getByRole('heading', { name: '确认资料', exact: true }).waitFor();
   assert.equal(claims, 1, 'login must reconnect the existing identity');

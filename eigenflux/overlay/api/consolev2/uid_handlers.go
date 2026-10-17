@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"eigenflux_server/pkg/owneruid"
 
@@ -44,7 +45,7 @@ var errOwnerHasAgent = errors.New("owner already has an agent")
 
 // UID is an identifier, never proof of ownership. Browser sessions and runtime
 // signing keys remain separate. New phone credentials can bind to this same UID.
-func validOwnerPassword(value string) bool { return len(value) >= 12 && len(value) <= 72 }
+func validOwnerPassword(value string) bool { return utf8.RuneCountInString(value) >= 8 && len(value) <= 72 }
 
 func (s *Service) uidRate(ctx context.Context, c *app.RequestContext, uid string) bool {
 	if uid == "" {
@@ -274,7 +275,7 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if !validOwnerPassword(req.Password) {
-		fail(c, 400, "PASSWORD_INVALID", "密码需要 12–72 字节，建议使用至少 12 位英文、数字或符号", nil)
+		fail(c, 400, "PASSWORD_INVALID", "密码至少需要 8 个字符，最长 72 字节", nil)
 		return
 	}
 	phone, valid := normalizePhone(req.Phone)
@@ -516,7 +517,7 @@ func (s *Service) resetUIDPassword(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if !validOwnerPassword(req.Password) {
-		fail(c, 400, "PASSWORD_INVALID", "新密码需要 12–72 字节", nil)
+		fail(c, 400, "PASSWORD_INVALID", "新密码至少需要 8 个字符，最长 72 字节", nil)
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)

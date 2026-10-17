@@ -153,6 +153,10 @@ export function Login({
         e.preventDefault();
         void action.run(async () => {
           if (mode === 'register') {
+            if (Array.from(password).length < 8)
+              throw new Error('密码至少需要 8 个字符。');
+            if (new TextEncoder().encode(password).length > 72)
+              throw new Error('密码过长，请缩短后重试。');
             if (!confirmPassword || confirmPassword !== password)
               throw new Error('两次输入的密码不一致，请重新确认。');
             if (!agreed) throw new Error('请先阅读并同意用户协议。');
@@ -259,17 +263,13 @@ export function Login({
         data-registration-field="password"
         type="password"
         required
-        minLength={mode === 'login' ? undefined : 12}
+        minLength={mode === 'login' ? undefined : 8}
         maxLength={72}
         autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
-      {mode !== 'login' && (
-        <p className="hint">
-          建议至少 12 位英文、数字或符号。密码只在此页面输入。
-        </p>
-      )}
+      {mode !== 'login' && <p className="hint">密码至少 8 位。</p>}
       {mode === 'register' && (
         <>
           <Field
@@ -277,7 +277,7 @@ export function Login({
             data-registration-field="confirm_password"
             type="password"
             required
-            minLength={12}
+            minLength={8}
             maxLength={72}
             autoComplete="new-password"
             placeholder="请再次输入账号密码"
