@@ -429,7 +429,7 @@ func (s *Service) publicSourceLoop() {
 			continue
 		}
 		for _, row := range due {
-			if !managedAdminNumber(row.Number) {
+			if !managedAdminOwner(s.db, row.SponsorUID, row.Number) {
 				continue
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)

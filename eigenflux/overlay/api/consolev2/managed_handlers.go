@@ -18,6 +18,8 @@ import (
 )
 
 func (s *Service) registerManagedRoutes(h *server.Hertz) {
+	s.registerAccountDeletion(h)
+	h.POST("/api/v2/internal/recommendation/catalog", s.syncRecommendationCatalog)
 	h.GET("/api/v2/recruitment/jobs", s.publicRecruitmentJobs)
 	h.GET("/api/v2/console/managed/public-agents", s.consoleAuth(false), s.getPublicAgents)
 	h.POST("/api/v2/console/managed/public-agents/seed", s.consoleAuth(true), s.seedPublicAgents)
@@ -73,7 +75,15 @@ func (s *Service) managedSponsor(c *app.RequestContext) (string, bool) {
  JOIN human_accounts a ON a.uid=COALESCE(d.sponsor_uid,cs.owner_uid)
  WHERE cs.session_id=? AND cs.status='active' AND cs.auth_method='uid_password'
  AND cs.idle_expires_at>? AND cs.absolute_expires_at>?`, session, time.Now().UnixMilli(), time.Now().UnixMilli()).Scan(&row).Error
-	return row.UID, err == nil && managedAdminNumber(row.Number)
+	return row.UID, err == nil && managedAdminOwner(s.db, row.UID, row.Number)
+}
+func managedAdminOwner(db *gorm.DB, owner, number string) bool {
+	if !managedAdminNumber(number) || owner == "" || bindManagedAdminNumbers(db) != nil {
+		return false
+	}
+	var bound bool
+	err := db.Raw(`SELECT EXISTS(SELECT 1 FROM managed_admin_bindings WHERE number=? AND owner_uid=?)`, lookupOwnerNumber(number), owner).Scan(&bound).Error
+	return err == nil && bound
 }
 func (s *Service) requireManaged(c *app.RequestContext) (string, bool) {
 	owner, ok := s.managedSponsor(c)

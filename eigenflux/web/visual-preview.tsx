@@ -307,6 +307,13 @@ export default function VisualPreview() {
       return <AdminRegistration preview />;
     case 'members':
       return <AdminMembers preview />;
+    case 'settings':
+      return (
+        <SocialWorkspace
+          session={{ ...session, owner_uid: '10001' }}
+          refresh={() => {}}
+        />
+      );
     case 'public-agents':
       return <PublicAgentsPreview />;
     case 'managed':

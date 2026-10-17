@@ -286,7 +286,12 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 		phoneFailure(c, err)
 		return
 	}
-	uid := ""
+	uid, err := randomToken("owner_", 18)
+	if err != nil {
+		uidFailure(c, err)
+		return
+	}
+	var publicNumber int64
 	recovery, err := randomToken("rk_", 32)
 	if err != nil {
 		uidFailure(c, err)
@@ -304,11 +309,11 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 		if err := s.consumePhoneCode(tx, c, phone, "register", req.ChallengeID, req.Code, now); err != nil {
 			return err
 		}
-		number, err := owneruid.Allocate(tx, id, now)
+		number, err := owneruid.AllocateForOwner(tx, id, uid, now)
 		if err != nil {
 			return err
 		}
-		uid = strconv.FormatInt(number, 10)
+		publicNumber = number
 		if err := tx.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,phone_hash,phone_last4,phone_verified_at,created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, uid, number, string(hash), keyedHash(s.otpPepper, recovery), s.phoneHash(phone), phone[len(phone)-4:], now, now).Error; err != nil {
 			return err
 		}
@@ -333,7 +338,7 @@ func (s *Service) registerUID(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	s.issueUIDSession(c, session)
-	reply(c, http.StatusCreated, map[string]interface{}{"uid": uid, "recovery_key": recovery, "agent_id": fmt.Sprint(id)})
+	reply(c, http.StatusCreated, map[string]interface{}{"uid": fmt.Sprint(publicNumber), "recovery_key": recovery, "agent_id": fmt.Sprint(id)})
 }
 
 // Credential validation and Agent selection are separate: only a verified owner

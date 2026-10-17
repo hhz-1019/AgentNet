@@ -34,6 +34,11 @@ func lock(tx *gorm.DB) error {
 // Allocate is called inside the same transaction as phone proof consumption,
 // account creation and Agent ownership. A failed registration consumes nothing.
 func Allocate(tx *gorm.DB, agentID, now int64) (int64, error) {
+	return AllocateForOwner(tx, agentID, "", now)
+}
+
+// The public number may be reused; the internal owner key never is.
+func AllocateForOwner(tx *gorm.DB, agentID int64, owner string, now int64) (int64, error) {
 	if err := lock(tx); err != nil {
 		return 0, err
 	}
@@ -42,7 +47,10 @@ func Allocate(tx *gorm.DB, agentID, now int64) (int64, error) {
 		return 0, err
 	}
 	if number != 0 {
-		return number, tx.Exec(`UPDATE owner_uid_numbers SET owner_uid=? WHERE number=?`, strconv.FormatInt(number, 10), number).Error
+		if owner == "" {
+			owner = strconv.FormatInt(number, 10)
+		}
+		return number, tx.Exec(`UPDATE owner_uid_numbers SET owner_uid=? WHERE number=?`, owner, number).Error
 	}
 	var batch Batch
 	if err := tx.Raw(`SELECT * FROM owner_uid_batches WHERE active`).Scan(&batch).Error; err != nil {
@@ -78,8 +86,12 @@ func Allocate(tx *gorm.DB, agentID, now int64) (int64, error) {
 				return 0, ErrClosed
 			}
 		}
+		key := owner
+		if key == "" {
+			key = strconv.FormatInt(number, 10)
+		}
 		result := tx.Exec(`INSERT INTO owner_uid_numbers(number,source,batch_name,owner_uid,created_at)
-            VALUES(?,'public',?,?,?) ON CONFLICT(number) DO NOTHING`, number, batch.Name, strconv.FormatInt(number, 10), now)
+            VALUES(?,'public',?,?,?) ON CONFLICT(number) DO NOTHING`, number, batch.Name, key, now)
 		if result.Error != nil {
 			return 0, result.Error
 		}
@@ -88,6 +100,18 @@ func Allocate(tx *gorm.DB, agentID, now int64) (int64, error) {
 		}
 	}
 	return 0, ErrClosed
+}
+
+// Release must run only after complete erasure, in the finalization transaction.
+func Release(tx *gorm.DB, owner string) error {
+	if err := lock(tx); err != nil {
+		return err
+	}
+	if err := tx.Exec(`UPDATE owner_uid_batches b SET issued=GREATEST(0,b.issued-1)
+ WHERE b.name IN (SELECT batch_name FROM owner_uid_numbers WHERE owner_uid=? AND source='public')`, owner).Error; err != nil {
+		return err
+	}
+	return tx.Exec(`DELETE FROM owner_uid_numbers WHERE owner_uid=?`, owner).Error
 }
 
 // Admin commands are only exposed by a server-side binary with direct DB access.

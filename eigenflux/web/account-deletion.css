@@ -1,0 +1,85 @@
+.account-erasure {
+  --sw-paper: var(--ew-surface);
+  --sw-ink: var(--ew-ink);
+  --sw-line: var(--ew-line);
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid var(--sw-line, #c9bba4);
+  border-radius: 4px;
+  background: var(--sw-paper, #f4eddf);
+  color: var(--sw-ink, #302c26);
+  font: inherit;
+}
+.account-erasure::backdrop {
+  background: rgb(30 27 23 / 45%);
+}
+.account-erasure h2 {
+  margin: 0 0 20px;
+  font-size: 26px;
+}
+.account-erasure p,
+.account-erasure output {
+  display: block;
+  font-size: 18px;
+  line-height: 1.8;
+  margin: 0 0 24px;
+}
+.account-erasure label {
+  display: grid;
+  gap: 8px;
+  margin: 20px 0;
+  font-size: 18px;
+}
+.account-erasure input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid var(--sw-line, #c9bba4);
+  color: inherit;
+  font: inherit;
+}
+.account-erasure-actions,
+.account-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.account-erasure-actions {
+  margin-top: 28px;
+  justify-content: flex-end;
+}
+.account-erasure button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.account-erasure .account-erasure-submit {
+  background: var(--sw-ink, #302c26);
+  color: var(--sw-paper, #f4eddf);
+}
+.account-erasure button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.account-erasure :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+.account-erasure button:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+@media (max-width: 480px) {
+  .account-erasure {
+    padding: 20px;
+  }
+}

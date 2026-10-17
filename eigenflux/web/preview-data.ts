@@ -159,6 +159,8 @@ export async function previewRequest<T>(
     throw new Error('内容不存在或不在可见范围内');
   }
   const reads: Record<string, unknown> = {
+    'console/accounts': { accounts: [] },
+    'console/managed/access': { allowed: false },
     'console/account-switch': {
       status: page === '/preview/switch-complete' ? 'completed' : 'pending',
       source_agent_id: 'local-codex',

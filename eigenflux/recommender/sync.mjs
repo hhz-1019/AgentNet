@@ -47,7 +47,12 @@ export async function syncCatalog({ source, engine, key, request = fetch }) {
       throw new Error('invalid public catalog response');
     const items = page.items.map(gorseItem).filter(Boolean);
     for (const i of items) seen.add(i.ItemId);
-    if (items.length) await gorse('/api/items', 'POST', items);
+    if (items.length)
+      await read(new URL('/api/v2/internal/recommendation/catalog', source), {
+        method: 'POST',
+        headers: { 'X-API-Key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_ids: items.map((i) => i.ItemId.slice(5)) }),
+      });
     count += items.length;
     cursor = page.next_cursor;
     if (cursor && cursors.has(cursor))

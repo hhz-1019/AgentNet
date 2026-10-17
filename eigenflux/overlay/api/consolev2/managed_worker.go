@@ -103,7 +103,7 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 			if err := tx.Raw(`SELECT account_number::text FROM human_accounts WHERE uid=?`, candidate.SponsorUID).Scan(&number).Error; err != nil {
 				return err
 			}
-			if !managedAdminNumber(number) {
+			if !managedAdminOwner(tx, candidate.SponsorUID, number) {
 				continue
 			}
 			var campaign managedCampaign
@@ -491,7 +491,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 		status = "skipped"
 		var postID any
 		var messageID, conversationID any
-		if !current.Enabled || !campaign.Enabled || current.Revision != job.Revision || !managedAdminNumber(sponsorNumber) {
+		if !current.Enabled || !campaign.Enabled || current.Revision != job.Revision || !managedAdminOwner(tx, job.SponsorUID, sponsorNumber) {
 			value.Action = "skip"
 			detail = "角色已暂停或资料已更新，未发布"
 		}

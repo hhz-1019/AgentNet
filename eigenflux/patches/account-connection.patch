@@ -429,3 +429,45 @@
 +		}
  		memDirs, _ := cmd.Flags().GetStringArray("memory-dir")
  		sessionSnippets := filterNonEmpty(mustStringArray(cmd, "session-snippet"))
+--- a/rpc/sort/dal/es.go
++++ b/rpc/sort/dal/es.go
+@@ -3,6 +3,7 @@ package dal
+ import (
+ 	"bytes"
+ 	"context"
++	"eigenflux_server/pkg/accountlifecycle"
+ 	"eigenflux_server/pkg/json"
+ 	"fmt"
+ 	"io"
+@@ -41,6 +42,10 @@ type Item struct {
+ 
+ // IndexItem indexes an item document in Elasticsearch
+ func IndexItem(ctx context.Context, item *Item) error {
++	return accountlifecycle.WithAgent(ctx, item.AuthorAgentID, func() error { return indexLiveItem(ctx, item) })
++}
++
++func indexLiveItem(ctx context.Context, item *Item) error {
+ 	body, err := json.Marshal(item)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to marshal item: %w", err)
+--- a/pkg/commissionindex/es.go
++++ b/pkg/commissionindex/es.go
+@@ -3,6 +3,7 @@ package commissionindex
+ import (
+ 	"bytes"
+ 	"context"
++	"eigenflux_server/pkg/accountlifecycle"
+ 	"eigenflux_server/pkg/es"
+ 	"eigenflux_server/pkg/json"
+ 	"errors"
+@@ -252,6 +253,10 @@ func Mapping(dims int) map[string]any {
+ }
+ 
+ func (s ESStore) Upsert(ctx context.Context, doc Document) error {
++	return accountlifecycle.WithAgent(ctx, doc.SellerAgentID, func() error { return s.upsertLive(ctx, doc) })
++}
++
++func (s ESStore) upsertLive(ctx context.Context, doc Document) error {
+ 	body, err := json.Marshal(map[string]any{"scripted_upsert": true, "script": map[string]any{"lang": "painless", "source": "if (ctx.op == 'create') { ctx._source = params.doc; } else { if (params.doc.catalogue_version >= ctx._source.catalogue_version) { for (entry in params.doc.entrySet()) { if (entry.getKey() != 'statistics_version' && entry.getKey() != 'completed_count' && entry.getKey() != 'refunded_count' && entry.getKey() != 'completion_rate_bps' && entry.getKey() != 'average_rating_milli' && entry.getKey() != 'has_rating' && entry.getKey() != 'average_delivery_ms') { ctx._source[entry.getKey()] = entry.getValue(); } } } if (params.doc.statistics_version >= ctx._source.statistics_version) { ctx._source.statistics_version = params.doc.statistics_version; ctx._source.completed_count = params.doc.completed_count; ctx._source.refunded_count = params.doc.refunded_count; ctx._source.completion_rate_bps = params.doc.completion_rate_bps; ctx._source.average_rating_milli = params.doc.average_rating_milli; ctx._source.has_rating = params.doc.has_rating; ctx._source.average_delivery_ms = params.doc.average_delivery_ms; } }", "params": map[string]any{"doc": doc}}, "upsert": doc})
+ 	if err != nil {
+ 		return fmt.Errorf("marshal Commission update: %w", err)

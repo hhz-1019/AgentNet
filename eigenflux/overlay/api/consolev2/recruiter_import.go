@@ -106,7 +106,7 @@ func ProvisionRecruiters(ctx context.Context, db *gorm.DB, gen IDGenerator, spon
 		if err := tx.Raw("SELECT uid FROM human_accounts WHERE account_number=?", sponsor).Scan(&owner).Error; err != nil {
 			return err
 		}
-		if owner == "" {
+		if !managedAdminOwner(tx, owner, sponsor) {
 			return errUnauthorized
 		}
 		service := &Service{db: tx, idgen: gen}

@@ -1,4 +1,5 @@
 import { feedbackMessage } from '../feedback-message';
+import { AccountDeletion } from '../account-deletion';
 import { PeopleSearch } from './people-search';
 import { FeedPull, RefreshButton } from './feed-refresh';
 import { FeedViewCache } from './view-cache';
@@ -1601,19 +1602,25 @@ export function SocialWorkspace({
                   </button>
                 ) : (
                   !demo && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await api('console/session', undefined, 'DELETE');
-                          refresh();
-                        } catch (e) {
-                          setNotice(feedbackMessage(e, '退出失败'));
-                        }
-                      }}
-                    >
-                      <LogOut size={16} />
-                      退出登录
-                    </button>
+                    <div className="account-settings-actions">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await api('console/session', undefined, 'DELETE');
+                            refresh();
+                          } catch (e) {
+                            setNotice(feedbackMessage(e, '退出失败'));
+                          }
+                        }}
+                      >
+                        <LogOut size={16} />
+                        退出登录
+                      </button>
+                      <AccountDeletion
+                        uid={session.owner_uid}
+                        ownerBound={session.owner_bound}
+                      />
+                    </div>
                   )
                 )}
               </section>

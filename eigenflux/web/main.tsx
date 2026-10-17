@@ -1,4 +1,5 @@
 import { feedbackMessage } from './feedback-message';
+import { AccountDeletionProgress } from './account-deletion';
 import { startPerformanceMetrics } from './performance-metrics';
 startPerformanceMetrics();
 import { ContentState, RecoveryPage } from './recovery';
@@ -380,6 +381,7 @@ const root = createRoot(document.getElementById('root')!);
 root.render(
   <AppErrorBoundary>
     <App />
+    <AccountDeletionProgress />
   </AppErrorBoundary>,
 );
 

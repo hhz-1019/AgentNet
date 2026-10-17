@@ -62,13 +62,15 @@ try {
         'test',
         './api/consolev2',
         '-run',
-        process.argv.includes('--activity-provider')
-          ? '^TestManagedActivityRealProvider$'
-          : process.argv.includes('--presence-provider')
-            ? '^TestManagedPresenceRealProviderComparison$'
-            : process.argv.includes('--analytics')
-              ? '^TestAnalytics'
-              : 'TestManaged|TestAccountConnection',
+        process.argv.includes('--deletion')
+          ? '^TestAccountDeletion'
+          : process.argv.includes('--activity-provider')
+            ? '^TestManagedActivityRealProvider$'
+            : process.argv.includes('--presence-provider')
+              ? '^TestManagedPresenceRealProviderComparison$'
+              : process.argv.includes('--analytics')
+                ? '^TestAnalytics'
+                : 'TestManaged|TestAccountConnection',
         '-count=1',
         '-timeout',
         process.argv.includes('--presence-provider') ? '50m' : '10m',
@@ -82,6 +84,7 @@ try {
           GOMAXPROCS: '2',
           GOFLAGS: '-p=2',
           AGENTNET_MANAGED_WORKER: 'false',
+          AGENTNET_ACCOUNT_DELETION_WORKER: 'false',
           AGENTNET_MEDIA_PREPARATION: 'false',
           AGENTNET_ACTIVITY_LIVE: process.argv.includes('--activity-provider')
             ? 'true'
@@ -101,8 +104,44 @@ try {
     child.once('error', fail);
     child.once('exit', (code) => done(code ?? 1));
   });
+  if (process.exitCode === 0 && process.argv.includes('--deletion')) {
+    const migration = await readFile(
+      dir + '/migrations/000147_account_deletion.sql',
+      'utf8',
+    );
+    const [up, down] = migration.split('-- +goose Down');
+    await db.exec('BEGIN');
+    try {
+      await db.exec(
+        "INSERT INTO account_deletion_jobs(job_id,owner_uid,payload,created_at) VALUES('rollback-check','rollback-check','{}',1)",
+      );
+      await assert.rejects(db.exec(down), /Finish account deletion jobs/);
+    } finally {
+      await db.exec('ROLLBACK');
+    }
+    await db.exec('BEGIN');
+    try {
+      await assert.rejects(db.exec(down), /Revoked administrator bindings/);
+    } finally {
+      await db.exec('ROLLBACK');
+    }
+    await db.exec('BEGIN');
+    try {
+      await db.exec(
+        'DELETE FROM managed_admin_bindings WHERE owner_uid IS NULL',
+      );
+      await db.exec(down);
+      await db.exec(up);
+    } finally {
+      await db.exec('ROLLBACK');
+    }
+    console.log(
+      'Account deletion migration: pending jobs and revoked grants block unsafe rollback; clean down/up passed.',
+    );
+  }
   if (
     process.exitCode === 0 &&
+    !process.argv.includes('--deletion') &&
     !process.argv.includes('--analytics') &&
     !process.argv.includes('--activity-provider')
   ) {

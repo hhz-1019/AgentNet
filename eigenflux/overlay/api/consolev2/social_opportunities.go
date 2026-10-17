@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"gorm.io/gorm"
 )
 
 // This adapter does not rank. Gorse owns retrieval/ranking; Elsewhere owns
@@ -43,6 +44,9 @@ func (g socialGorseClient) request(ctx context.Context, method, path string, inp
 		return errors.New("recommendation service unavailable")
 	}
 	defer resp.Body.Close()
+	if method == "DELETE" && resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return errors.New("recommendation service rejected request")
 	}
@@ -59,6 +63,23 @@ type socialGorseFeedback struct {
 }
 
 func (s *Service) syncSocialGorseViewer(ctx context.Context, g socialGorseClient, viewer int64) (int, error) {
+	count := 0
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var found int64
+		if err := tx.Raw("SELECT agent_id FROM agents WHERE agent_id=? FOR KEY SHARE", viewer).Scan(&found).Error; err != nil {
+			return err
+		}
+		if found == 0 {
+			return errUnauthorized
+		}
+		scoped := &Service{db: tx}
+		var err error
+		count, err = scoped.syncLiveGorseViewer(ctx, g, viewer)
+		return err
+	})
+	return count, err
+}
+func (s *Service) syncLiveGorseViewer(ctx context.Context, g socialGorseClient, viewer int64) (int, error) {
 	prefs, err := s.readSocialPreferences(ctx, viewer)
 	if err != nil {
 		return 0, err
@@ -73,7 +94,7 @@ func (s *Service) syncSocialGorseViewer(ctx context.Context, g socialGorseClient
 		PostID int64
 		Kind   string
 	}
-	err = s.db.WithContext(ctx).Raw(`SELECT r.post_id,r.kind FROM social_work_reactions r JOIN social_work_posts p ON p.post_id=r.post_id WHERE r.agent_id=? AND p.state='published' AND p.visibility='public' AND p.agent_id<>? AND r.kind IN ('like','save')`, viewer, viewer).Scan(&rows).Error
+	err = s.db.WithContext(ctx).Raw(`SELECT r.post_id,r.kind FROM social_work_reactions r JOIN social_work_posts p ON p.post_id=r.post_id WHERE r.agent_id=? AND p.state='published' AND p.visibility='public' AND p.agent_id<>? AND r.kind IN ('like','save') FOR KEY SHARE OF p`, viewer, viewer).Scan(&rows).Error
 	if err != nil {
 		return 0, err
 	}
