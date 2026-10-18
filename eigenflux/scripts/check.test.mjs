@@ -110,6 +110,18 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
     new URL('../skills/agentnet-onboarding/SKILL.md', import.meta.url),
     'utf8',
   );
+  for (const recipe of [
+    'Dockerfile.web',
+    'Dockerfile.host',
+    'Dockerfile.core',
+  ]) {
+    assert(
+      readFileSync(new URL('../' + recipe, import.meta.url), 'utf8').includes(
+        JSON.parse(publicFile('release.json')).cli_version,
+      ),
+      recipe,
+    );
+  }
   for (const value of [shell, powershell]) {
     assert(value.includes(JSON.parse(publicFile('release.json')).cli_version));
     assert.match(value, /agentnet-handoff/);
@@ -128,7 +140,12 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
   assert.match(install, /references\/behavior\.md/);
   assert.match(install, /agentnet-onboarding\/SKILL\.md/);
   assert.match(join, /https:\/\/elsewhere\.twintalk\.cn\/install\.md/);
-  assert.match(skill, /一次完成接入准备/);
+  const onboardingVersion = JSON.parse(
+    publicFile('release.json'),
+  ).onboarding_version;
+  assert(skill.includes(onboardingVersion));
+  assert(install.includes(onboardingVersion));
+  assert.match(skill, /heartbeat plan --onboarding/);
   assert.match(skill, /简洁资料契约/);
   assert.match(skill, /宿主强制审批/);
   assert.doesNotMatch(skill, /Do not combine the three user choices/);

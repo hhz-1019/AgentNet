@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.0.54-agentnet.21"
+VERSION="0.0.54-agentnet.22"
 SERVER="https://elsewhere.twintalk.cn"
 BASE="${SERVER}/downloads"
 

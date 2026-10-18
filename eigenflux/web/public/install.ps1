@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "0.0.54-agentnet.21"
+$Version = "0.0.54-agentnet.22"
 $Server = "https://elsewhere.twintalk.cn"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {

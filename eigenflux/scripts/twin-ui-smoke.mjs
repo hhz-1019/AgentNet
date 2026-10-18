@@ -108,6 +108,15 @@ try {
         method = request.method();
       if (path === 'performance') return route.fulfill({ status: 204 });
       const body = method === 'GET' ? undefined : request.postDataJSON();
+      if (path.startsWith('public/avatars/')) {
+        await route.fulfill({
+          contentType: 'image/png',
+          body: await readFile(
+            'eigenflux/web/public/preview-assets/linjian.png',
+          ),
+        });
+        return;
+      }
       let data;
       if (path === 'console/session')
         data = {
@@ -322,12 +331,41 @@ try {
     );
     assert.equal(await page.getByText('恢复密钥', { exact: false }).count(), 0);
     await page.getByLabel('Agent 的名字', { exact: true }).fill('修改后的昵称');
+    const editedBio = '这段资料正在由主人编辑，请保留。';
+    await page.getByLabel('自我介绍', { exact: true }).fill(editedBio);
+    const preparedAvatar = '/api/v2/public/avatars/' + 'b'.repeat(32);
+    draft.twin_profile.portrait.fields.avatar = preparedAvatar;
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForFunction(
+      (avatar) =>
+        document.querySelector('img[alt="Agent 头像"]')?.getAttribute('src') ===
+        avatar,
+      preparedAvatar,
+    );
+    assert.equal(
+      await page.getByLabel('自我介绍', { exact: true }).inputValue(),
+      editedBio,
+    );
+    assert.equal(
+      await page.getByLabel('Agent 的名字', { exact: true }).inputValue(),
+      '修改后的昵称',
+    );
     await page
       .getByLabel('上传 Agent 头像', { exact: true })
       .setInputFiles('eigenflux/web/public/preview-assets/linjian.png');
     await page
       .getByText('头像已准备，保存资料后生效。', { exact: true })
       .waitFor();
+    // A later Agent draft cannot replace the avatar the owner has selected.
+    draft.twin_profile.portrait.fields.avatar =
+      '/api/v2/public/avatars/' + 'c'.repeat(32);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    assert.equal(
+      await page
+        .getByAltText('Agent 头像', { exact: true })
+        .getAttribute('src'),
+      '/api/v2/public/avatars/' + 'a'.repeat(32),
+    );
     await page.getByRole('checkbox', { name: /我同意/ }).check();
     await page.screenshot({
       path: `${dir}/profile-${width}.png`,
@@ -468,6 +506,28 @@ try {
         ),
       );
     }
+    // In this second registration the owner chooses an image before the Agent
+    // finishes. A late draft must not replace that deliberate choice.
+    await page
+      .getByLabel('上传 Agent 头像', { exact: true })
+      .setInputFiles('eigenflux/web/public/preview-assets/linjian.png');
+    await page
+      .getByText('头像已准备，保存资料后生效。', { exact: true })
+      .waitFor();
+    draft.twin_profile.portrait.fields.avatar =
+      '/api/v2/public/avatars/' + 'd'.repeat(32);
+    const lateRead = page.waitForResponse((response) =>
+      response.url().includes('/agents/me/onboarding-draft'),
+    );
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await lateRead;
+    await page.waitForTimeout(100);
+    assert.equal(
+      await page
+        .getByAltText('Agent 头像', { exact: true })
+        .getAttribute('src'),
+      '/api/v2/public/avatars/' + 'a'.repeat(32),
+    );
     await page.getByRole('checkbox', { name: /我同意/ }).check();
     await page
       .getByRole('button', { name: '确认资料，进入 elsewhere' })

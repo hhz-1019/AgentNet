@@ -43,6 +43,17 @@ export function PortraitEditor({
   }));
   const [avatarPreview, setAvatarPreview] = useState('');
   const uploadInput = useRef<HTMLInputElement>(null);
+  const avatarChosen = useRef(false);
+  useEffect(() => {
+    const preparedAvatar = profile.fields.avatar;
+    if (!avatarChosen.current && isPortraitAvatar(preparedAvatar)) {
+      setFields((current) =>
+        !isPortraitAvatar(current.avatar)
+          ? { ...current, avatar: preparedAvatar }
+          : current,
+      );
+    }
+  }, [profile.fields.avatar]);
   useEffect(
     () => () => {
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -138,6 +149,7 @@ export function PortraitEditor({
                       setError('头像需为不超过 8 MB 的 PNG/JPEG。');
                       return;
                     }
+                    avatarChosen.current = true;
                     setBusy(true);
                     setError('');
                     try {

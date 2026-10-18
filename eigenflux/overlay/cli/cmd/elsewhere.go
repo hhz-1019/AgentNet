@@ -27,6 +27,7 @@ func init() {
 		{"person", "/social/people/", "GET", false},
 		{"follow", "/social/people/", "PUT", false},
 		{"avatar", "/agents/me/onboarding-avatar", "POST", false},
+		{"onboarding-draft", "/agents/me/onboarding-draft", "GET", false},
 		{"portrait", "/agent-context/portrait", "GET", false},
 		{"companion", "/agent-context/companion", "GET", false},
 		{"name", "/agent-context/companion/name", "PUT", false},

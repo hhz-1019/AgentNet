@@ -3,7 +3,8 @@ import { ErrorBox } from './shared';
 import { ContentState } from './recovery';
 import { useEffect, useRef, useState } from 'react';
 import { BrandLogo } from './brand';
-import { api } from './api';
+import { api, ApiError } from './api';
+import { isPortraitAvatar } from './default-avatars';
 import { Login } from './auth';
 import { AuthScene } from './auth-scene';
 import {
@@ -101,6 +102,78 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
       active = false;
     };
   }, [attempt, session.agent_name]);
+  // An already-open registration form must see late Agent artwork without
+  // reloading the form or replacing the owner's text and preferences.
+  useEffect(() => {
+    if (!profile || profile.revision || isPortraitAvatar(profile.fields.avatar))
+      return;
+    let active = true;
+    let reading = false;
+    let stopped = false;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      timer = setTimeout(
+        () => void readAvatar(),
+        Math.min(30_000, 5_000 * 2 ** failures),
+      );
+    };
+    async function readAvatar() {
+      if (!active || stopped || reading) return;
+      if (document.visibilityState === 'hidden') {
+        schedule();
+        return;
+      }
+      reading = true;
+      try {
+        const response = await api<DraftResponse>('agents/me/onboarding-draft');
+        if (!active) return;
+        const avatar = prefillPortrait(
+          profile!,
+          response.draft.data,
+          session.agent_name,
+        ).fields.avatar;
+        failures = 0;
+        if (isPortraitAvatar(avatar)) {
+          setProfile((current) =>
+            current &&
+            !current.revision &&
+            !isPortraitAvatar(current.fields.avatar)
+              ? { ...current, fields: { ...current.fields, avatar } }
+              : current,
+          );
+          return;
+        }
+      } catch (error) {
+        // Keep inputs and the last image; authorization failures stop this read.
+        if (error instanceof ApiError && [401, 403].includes(error.status)) {
+          stopped = true;
+          return;
+        }
+        failures = Math.min(failures + 1, 3);
+      } finally {
+        reading = false;
+      }
+      if (active) schedule();
+    }
+    const resume = () => {
+      if (document.visibilityState !== 'hidden') {
+        clearTimeout(timer);
+        void readAvatar();
+      }
+    };
+    schedule();
+    window.addEventListener('focus', resume);
+    window.addEventListener('online', resume);
+    document.addEventListener('visibilitychange', resume);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('online', resume);
+      document.removeEventListener('visibilitychange', resume);
+    };
+  }, [profile, session.agent_name]);
   async function save(next: Portrait) {
     if (!base.current) throw new Error('资料尚未载入');
     if (!agreed) throw new Error('请先勾选用户协议和 Agent 活动授权。');
