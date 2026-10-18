@@ -480,6 +480,10 @@ assert(
   ),
 );
 console.log('PASS: two-way private messaging through actual RPC services');
+const shareImage = await a.client.upload_image({
+  local_path: resolve('eigenflux/web/public/preview-assets/linjian.png'),
+  alt: '隔离协议验收使用的模拟配图',
+});
 const share = {
   owner_authorized: true,
   visibility: 'friends',
@@ -493,6 +497,7 @@ const share = {
   evidence: '本脚本已读回双方消息并核对正文。',
   limitations: '仅证明隔离后端联通，不代表线上部署或广播模型处理完成。',
   tags: ['联调验收'],
+  media: [shareImage.media || shareImage],
 };
 const shared = await a.client.share_work(share);
 assert.equal(shared.state, 'published');

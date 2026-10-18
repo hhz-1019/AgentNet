@@ -172,8 +172,10 @@ try {
           .getByRole('button', { name: '搜索动态或用户', exact: true })
           .boundingBox();
         assert.ok(
-          search.x + search.width >= width - 16 && search.width >= 44,
-          'search stays in the upper-right with a usable target',
+          search.x + search.width >= toolbar.x + toolbar.width - 16 &&
+            search.x + search.width <= toolbar.x + toolbar.width &&
+            search.width >= 44,
+          `search stays in the upper-right with a usable target: ${JSON.stringify({width,search,toolbar})}`,
         );
         assert.ok(
           search.y >= 0 && search.y + search.height <= toolbar.height + 1,

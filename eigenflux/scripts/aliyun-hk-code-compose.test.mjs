@@ -12,7 +12,7 @@ const fixture = () => ({name:'elsewhere', networks:{backend:{internal:true},outb
   postgres:{image:'postgres',env_file:[previous+'/env/postgres.env'],volumes:[{source:previous+'/postgres',target:'/var/lib/postgresql/data'}]},
   redis:{image:'redis',volumes:[{source:previous+'/redis',target:'/data'}]},
 }});
-test('updates all four applications while retaining data and infrastructure',()=>{
+await test('updates all four applications while retaining data and infrastructure',()=>{
   const old=fixture(), backup=structuredClone(old),next=releaseCompose(old,{previous,root,images});
   assert.deepEqual(old,backup);
   for(const s of ['core','web','gorse','sync'])assert.equal(next.services[s].image,images[s]);
@@ -26,7 +26,7 @@ test('updates all four applications while retaining data and infrastructure',()=
   assert.equal(next.services.core.env_file[0].format,'raw');
   assert.equal(next.services.gorse.ports,undefined);
 });
-test('rejects unexpected mounts, missing services, or missing egress before activation',()=>{
+await test('rejects unexpected mounts, missing services, or missing egress before activation',()=>{
   let old=fixture();old.services.web.volumes[0].source='/unrelated';
   assert.throws(()=>releaseCompose(old,{previous,root,images}));
   old=fixture();delete old.services.sync;
@@ -34,12 +34,25 @@ test('rejects unexpected mounts, missing services, or missing egress before acti
   old=fixture();old.networks.outbound.internal=true;
   assert.throws(()=>releaseCompose(old,{previous,root,images}));
 });
-test('private environment parsing preserves equals signs and empty values',()=>{
+
+await test('handles a core/web-only release with recommendation services still on the cutover paths',()=>{
+  const old=fixture(), current='/srv/elsewhere/releases/hk-code-'+'b'.repeat(40);
+  for(const name of ['core','web']) old.services[name].env_file=[{path:current+`/env/${name}.env`,format:'raw'}];
+  old.services.web.volumes=[];
+  old.services.sync.volumes[0].source=previous+'/configs/sync.mjs';
+  const next=releaseCompose(old,{previous:current,root,images});
+  assert.equal(next.services.gorse.env_file[0].path,root+'/env/gorse.env');
+  assert.equal(next.services.sync.env_file[0],root+'/env/sync.env');
+  assert.deepEqual(next.services.gorse.volumes,[old.services.gorse.volumes[0]]);
+  assert.deepEqual(next.services.sync.volumes,[]);
+  assert.deepEqual(next.services.postgres,old.services.postgres);
+});
+await test('private environment parsing preserves equals signs and empty values',()=>{
   assert.deepEqual(readEnv('#comment\nKEY=has=equals\nEMPTY=\n'),{KEY:'has=equals',EMPTY:''});
   assert.throws(()=>readEnv('malformed'));
 });
 
-test('provider preflight accepts complete results and rejects outages or incomplete results without exposing response bodies',async()=>{
+await test('provider preflight accepts complete results and rejects outages or incomplete results without exposing response bodies',async()=>{
   const {createServer}=await import('node:http');
   const {spawn}=await import('node:child_process');
   let status=200,body={results:[{index:0,relevance_score:0.9},{index:1,relevance_score:0.1}]};
