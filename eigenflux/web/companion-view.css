@@ -1,0 +1,46 @@
+.companion-preferences > summary {
+  padding: 12px 0;
+  cursor: pointer;
+}
+.companion-preferences[open] > summary {
+  margin-bottom: 12px;
+}
+.companion-preferences > .twin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-bottom: 12px;
+}
+.companion-preferences > .companion-preference {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 0;
+  color: var(--ew-ink);
+  font-size: var(--ew-text-body, 1rem);
+  line-height: 1.65;
+  cursor: pointer;
+}
+.companion-preferences > .companion-preference > input[type='checkbox'] {
+  width: 18px;
+  min-width: 18px;
+  max-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0.2em 0 0;
+  padding: 0;
+  border-radius: 4px;
+  accent-color: var(--ew-action, #625b52);
+}
+.companion-preferences > .companion-preference > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .companion-preferences > .twin-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+}

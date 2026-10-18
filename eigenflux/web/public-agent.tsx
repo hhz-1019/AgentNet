@@ -20,9 +20,10 @@ export function AgentLink({ id, name, onProfile }: { id: string; name?: string; 
     !name && id ? `public/agents/by-id/${encodeURIComponent(id)}/card` : null,
     { live: false },
   );
+  const displayName = name || q.data?.card.agent_name || `Agent ${id}`;
   return (
-    <a className="agent-name-link" href={`/agent/${encodeURIComponent(id)}`} onClick={(e)=>{if(onProfile && !e.ctrlKey && !e.metaKey && !e.shiftKey){e.preventDefault();onProfile(id);}}}>
-      {name || q.data?.card.agent_name || `Agent ${id}`}
+    <a className="agent-name-link" title={displayName} href={`/agent/${encodeURIComponent(id)}`} onClick={(e)=>{if(onProfile && !e.ctrlKey && !e.metaKey && !e.shiftKey){e.preventDefault();onProfile(id);}}}>
+      {displayName}
     </a>
   );
 }

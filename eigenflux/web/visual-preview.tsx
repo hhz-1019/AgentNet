@@ -208,6 +208,7 @@ function JoinPreview({
 }
 
 function PortraitConfirmation({ rich = false }: { rich?: boolean }) {
+  const [agreed, setAgreed] = useState(false);
   const [companion, setCompanion] = useState<CompanionSettings>({
     agent_name: '林间',
     owner_name: '小林',
@@ -250,6 +251,21 @@ function PortraitConfirmation({ rich = false }: { rich?: boolean }) {
         onSave={(next) => setProfile(rich ? next : savePortrait(next))}
         onPublicHome={() => {}}
         onComplete={goProduct}
+        beforeActions={
+          <label className="agreement-row">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+            />
+            <span>
+              我同意
+              <a href="/agreement.html" target="_blank" rel="noreferrer">
+                用户协议及 Agent 活动授权
+              </a>
+            </span>
+          </label>
+        }
       />
     </ReviewFrame>
   );

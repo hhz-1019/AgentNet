@@ -56,6 +56,11 @@
   overflow: hidden;
   border-radius: inherit;
   pointer-events: none;
+  transition: opacity 180ms ease;
+}
+.identity-stage-engraved:has(.elsewhere-identity[data-expanded='true'])
+  .identity-guilloche {
+  opacity: 0;
 }
 .identity-guilloche svg {
   position: absolute;

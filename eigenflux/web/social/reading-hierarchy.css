@@ -341,3 +341,113 @@
   border-color: var(--ew-line);
   box-shadow: none;
 }
+
+/* Desktop reading scale is independent of the compact phone scale. */
+@media (pointer: fine), (pointer: none) {
+  :root[data-theme] {
+    font-size: 18px;
+    --ew-text-body: 18px;
+    --ew-text-control: 17px;
+    --ew-text-meta: 15px;
+    --ew-text-title: 22px;
+    --ew-text-heading: 32px;
+  }
+  html[data-theme] #root :is(.sw-workspace, .sw-dialog, .auth-scene) {
+    font-size: var(--ew-text-body);
+  }
+  html[data-theme] #root .sw-post .sw-post-title {
+    font-size: var(--ew-text-title);
+    line-height: 1.55;
+  }
+  html[data-theme] #root .sw-peer-card h3 :is(button, a) {
+    font-size: 20px;
+  }
+  html[data-theme]
+    #root
+    :is(
+      .sw-sidebar nav a,
+      .sw-message-sections a,
+      .sn-tabs a,
+      .sn-tabs button,
+      .sn-discover-heading .sn-tabs button,
+      .sw-search input,
+      .sn-message-search input
+    ) {
+    font-size: 18px;
+  }
+  html[data-theme]
+    #root
+    :is(
+      .sn-message p,
+      .ew-live-history .message p,
+      .sn-message-composer textarea,
+      .ew-live-composer textarea,
+      .sn-public-fields dd,
+      .sn-memory-content,
+      .sw-post-body,
+      .ew-reading-intro p
+    ) {
+    font-size: var(--ew-text-body);
+  }
+  html[data-theme]
+    #root
+    :is(
+      .sn-conversation strong,
+      .messages aside button strong,
+      .ew-friend-name,
+      .sn-person-name
+    ) {
+    font-size: 18px;
+  }
+  html[data-theme]
+    #root
+    :is(.sn-conversation small, .sn-conversation p, .messages aside button p) {
+    font-size: 16px;
+  }
+  html[data-theme]
+    #root
+    :is(
+      .sn-chat h2,
+      .sn-chat h2 .sw-name-link,
+      .ew-live-heading,
+      .ew-live-heading h2,
+      .ew-live-heading .agent-name-link
+    ) {
+    font-size: 22px;
+    line-height: 1.45;
+  }
+  html[data-theme]
+    #root
+    :is(
+      .sw-peer-bio,
+      .sn-section-intro p,
+      .sw-empty p,
+      .sn-page-heading p,
+      .sw-post-summary
+    ) {
+    font-size: var(--ew-text-body);
+  }
+  html[data-theme]
+    #root
+    :is(
+      .ew-card-meta .sw-post-author button,
+      .ew-card-meta .sw-post-author strong,
+      .ew-note-date,
+      .ew-comment-date,
+      .sn-memory-meta,
+      .sw-hint
+    ) {
+    font-size: var(--ew-text-meta);
+  }
+}
+@media (max-width: 760px) and (pointer: fine),
+  (max-width: 760px) and (pointer: none) {
+  :root[data-theme] {
+    font-size: 16px;
+    --ew-text-body: 17px;
+    --ew-text-control: 16px;
+    --ew-text-meta: 14px;
+    --ew-text-title: 20px;
+    --ew-text-heading: 28px;
+  }
+}

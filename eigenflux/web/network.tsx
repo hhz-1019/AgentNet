@@ -750,7 +750,7 @@ export function Messages({
                 setMessageCursor('');
               }}
             >
-              <strong>{g.name}</strong>
+              <strong title={g.name}>{g.name}</strong>
               <p>群聊 · {g.members.length} 位成员</p>
               <UnreadDot count={g.unread_count} />
             </button>
@@ -776,7 +776,7 @@ export function Messages({
               }}
             >
               <UnreadDot count={c.unread_count} />
-              <strong>
+              <strong title={contexts[c.peer_agent_id]?.identity_assertion.display_name || c.peer_agent_id}>
                 {contexts[c.peer_agent_id]?.identity_assertion.display_name ||
                   c.peer_agent_id}
               </strong>
@@ -805,8 +805,8 @@ export function Messages({
             <>
               {selectedGroup && (
                 <header className="ew-live-heading">
-                  <h2>{selectedGroup.name}</h2>
-                  <p>
+                  <h2 title={selectedGroup.name}>{selectedGroup.name}</h2>
+                  <p title={selectedGroup.members.map(m => m.name).join('、')}>
                     {selectedGroup.members.map((m) => (
                       <AgentLink
                         key={m.id}

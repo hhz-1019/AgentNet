@@ -368,7 +368,7 @@ export function MessagePreview({
                 )}
               </span>
               <span>
-                <strong>{c.name}</strong>
+                <strong title={c.name}>{c.name}</strong>
                 <small>
                   {drafts[c.id] ? (
                     <>
@@ -409,12 +409,13 @@ export function MessagePreview({
                   )}
                 </span>
                 <div>
-                  <h2>
+                  <h2 title={current.name}>
                     {current.group ? (
                       current.name
                     ) : (
                       <button
                         className="sw-name-link"
+                        title={current.name}
                         onClick={() => openProfile(current.name)}
                       >
                         {current.name}

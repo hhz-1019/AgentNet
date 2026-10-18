@@ -930,3 +930,79 @@
     transition: none;
   }
 }
+
+/* Names have their own line; an unusually long name cannot reshape a chat. */
+html[data-theme] #root :is(.sn-conversation, .messages > aside > button) {
+  min-width: 0;
+  max-width: 100%;
+  padding-inline-end: 36px;
+}
+html[data-theme] #root .sn-conversation > span:last-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+html[data-theme]
+  #root
+  :is(
+    .sn-conversation strong,
+    .messages > aside strong,
+    .sn-chat h2,
+    .sn-chat h2 .sw-name-link,
+    .ew-live-heading h2,
+    .ew-live-heading .agent-name-link
+  ) {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+html[data-theme]
+  #root
+  :is(.sn-chat > header, .ew-live-chat > .ew-live-heading) {
+  flex-shrink: 0;
+  min-width: 0;
+  height: 96px;
+  min-height: 96px;
+  padding-block: 14px;
+}
+html[data-theme] #root .sn-chat > header > :is(button, .sn-chat-avatar) {
+  flex-shrink: 0;
+}
+html[data-theme] #root .sn-chat > header > button:last-child {
+  white-space: nowrap;
+}
+html[data-theme] #root .ew-live-chat > .ew-live-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+}
+html[data-theme] #root .ew-live-heading :is(h2, p) {
+  margin: 0;
+}
+html[data-theme] #root .ew-live-heading > p {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--ew-text-meta);
+  line-height: 1.5;
+  color: var(--ew-muted);
+}
+@media (pointer: coarse) {
+  html[data-theme]
+    #root
+    :is(.sn-chat > header, .ew-live-chat > .ew-live-heading) {
+    height: 80px;
+    min-height: 80px;
+    padding-block: 10px;
+  }
+}

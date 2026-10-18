@@ -64,7 +64,8 @@ async function audit(page, label, scope = '#root') {
         );
       if (
         el.scrollWidth > el.clientWidth + 2 &&
-        !['auto', 'scroll'].includes(s.overflowX)
+        !['auto', 'scroll'].includes(s.overflowX) &&
+        !(s.textOverflow === 'ellipsis' && s.whiteSpace === 'nowrap')
       )
         problems.push('horizontal clipping: ' + el.className);
       if (
@@ -137,6 +138,24 @@ try {
           'elsewhere:portrait-preview:v1:demo-owner',
           JSON.stringify(portrait),
         );
+        const name =
+          '知遥与它陪伴的设计研究者 · ElsewhereCreativeResearchCompanion';
+        sessionStorage.setItem(
+          'elsewhere:conversation-layout:v1',
+          JSON.stringify([
+            {
+              id: 'long-name',
+              name,
+              group: false,
+              members: [name, '我的 Agent'],
+              messages: [{ name, text: '记录今天的灵感，继续聊聊。' }],
+            },
+          ]),
+        );
+        sessionStorage.setItem(
+          'elsewhere:conversation-selection:v1',
+          'long-name',
+        );
       },
       { theme, portrait },
     );
@@ -154,6 +173,160 @@ try {
       await ready(page);
       await page.locator('.sw-main').waitFor();
       await audit(page, `${label}/${route}`);
+      if (route === 'messages') {
+        const name = page.locator('.sn-chat h2 .sw-name-link');
+        assert.deepEqual(
+          await name.evaluate((e) => {
+            const s = getComputedStyle(e);
+            return [s.whiteSpace, s.textOverflow];
+          }),
+          ['nowrap', 'ellipsis'],
+          'long chat names keep one line',
+        );
+        assert.ok(
+          (await name.getAttribute('title')).includes(
+            'ElsewhereCreativeResearchCompanion',
+          ),
+        );
+        if (!touch && width >= 1024) {
+          assert.equal(
+            await name.evaluate((e) => getComputedStyle(e).fontSize),
+            '22px',
+          );
+          assert.equal(
+            await page
+              .locator('.sn-message p')
+              .first()
+              .evaluate((e) => getComputedStyle(e).fontSize),
+            '18px',
+          );
+        }
+      }
+      if (route === 'me') {
+        const toolbarGeometry = () =>
+          page.locator('.ew-personal-feed-heading').evaluate((e) => {
+            const tabs = e.querySelector('nav').getBoundingClientRect();
+            const search = e
+              .querySelector('.sw-search')
+              .getBoundingClientRect();
+            const refresh = e
+              .querySelector('.ew-feed-refresh')
+              .getBoundingClientRect();
+            return {
+              tabs: { x: tabs.x, y: tabs.y, height: tabs.height },
+              search: {
+                x: search.x,
+                y: search.y,
+                width: search.width,
+                height: search.height,
+              },
+              refresh: {
+                x: refresh.x,
+                y: refresh.y,
+                width: refresh.width,
+                height: refresh.height,
+              },
+              gap: refresh.left - search.right,
+              center: Math.abs(
+                (refresh.top + refresh.bottom - search.top - search.bottom) / 2,
+              ),
+              tabsCenter: Math.abs(
+                (refresh.top + refresh.bottom - tabs.top - tabs.bottom) / 2,
+              ),
+            };
+          });
+        const geometry = await toolbarGeometry();
+        assert.ok(
+          geometry.gap >= 11 && geometry.gap <= 13 && geometry.center < 1,
+          label +
+            ': personal search and refresh stay on one row with breathing room',
+        );
+        if (width >= 1440)
+          assert.ok(
+            geometry.tabsCenter < 1,
+            'desktop tools share the tabs row',
+          );
+        assert.equal(
+          await page.locator('.ew-personal-toolbar').count(),
+          0,
+          'no standalone search row',
+        );
+        for (const [tab, input] of [
+          ['点赞', '搜索我赞过的内容'],
+          ['收藏', '搜索我的收藏'],
+          ['草稿', '搜索草稿'],
+          ['动态', '搜索动态'],
+        ]) {
+          await page
+            .getByRole('navigation', { name: '我的内容' })
+            .getByRole('link', { name: tab, exact: true })
+            .click();
+          await page.getByPlaceholder(input, { exact: true }).waitFor();
+          assert.deepEqual(
+            await toolbarGeometry(),
+            geometry,
+            label + ': switching content tabs must not move controls',
+          );
+        }
+        await capture(
+          page,
+          width + (touch ? '-touch' : '-mouse') + '-personal-tools',
+        );
+        await page.getByRole('button', { name: '关于我', exact: true }).click();
+        const details = page.locator('.ew-identity-more[aria-hidden="false"]');
+        await details.getByText(portrait.fields.bio, { exact: true }).waitFor();
+        const contrast = await details
+          .locator('.ew-identity-fragment dd')
+          .evaluateAll((values) => {
+            const luminance = (color) => {
+              const channels = color
+                .match(/[\d.]+/g)
+                .slice(0, 3)
+                .map(Number)
+                .map((channel) => {
+                  const value = channel / 255;
+                  return value <= 0.04045
+                    ? value / 12.92
+                    : ((value + 0.055) / 1.055) ** 2.4;
+                });
+              return (
+                channels[0] * 0.2126 +
+                channels[1] * 0.7152 +
+                channels[2] * 0.0722
+              );
+            };
+            return values.map((value) => {
+              const foreground = luminance(getComputedStyle(value).color);
+              const background = luminance(
+                getComputedStyle(value.closest('.ew-identity-fragment'))
+                  .backgroundColor,
+              );
+              return (
+                (Math.max(foreground, background) + 0.05) /
+                (Math.min(foreground, background) + 0.05)
+              );
+            });
+          });
+        assert.ok(
+          contrast.length > 0 && contrast.every((ratio) => ratio >= 4.5),
+          label + ': expanded identity must be readable',
+        );
+        await audit(page, label + '/expanded-identity');
+        await capture(
+          page,
+          width + (touch ? '-touch' : '-mouse') + '-expanded-identity',
+        );
+        await page
+          .getByRole('button', { name: '编辑资料', exact: true })
+          .click();
+        await page
+          .getByRole('heading', { name: '编辑资料', exact: true })
+          .waitFor();
+        assert.equal(
+          await page.getByLabel('自我介绍', { exact: true }).inputValue(),
+          portrait.fields.bio,
+        );
+      }
     }
     await page.goto(origin + 'preview#explore');
     await ready(page);
