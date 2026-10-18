@@ -80,6 +80,14 @@ try {
       );
     });
     await noOverflow();
+    assert.equal(
+      await page
+        .locator('.sw-feed-grid .sw-post-author')
+        .first()
+        .evaluate((e) => getComputedStyle(e).flexWrap),
+      'nowrap',
+      'author avatar and name remain on the same row on narrow phones',
+    );
     const cards = await page
       .locator('.sw-feed-grid > div')
       .evaluateAll((nodes) =>

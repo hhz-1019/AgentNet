@@ -95,7 +95,7 @@ try {
           });
         const next = url.searchParams.get('cursor') === 'batch-2';
         data = {
-          items: Array.from({ length: 6 }, (_, i) =>
+          items: Array.from({ length: 20 }, (_, i) =>
             post((next ? 100 : 1) + i),
           ),
           next_cursor: next ? '' : 'batch-2',
@@ -259,10 +259,14 @@ try {
     } else
       await page.getByRole('button', { name: '刷新动态', exact: true }).click();
     await page
-      .getByRole('button', { name: '查看动态：推荐片段 100', exact: true })
+      .getByRole('button', { name: '查看动态：推荐片段 1', exact: true })
       .waitFor();
-    assert.equal(calls.at(-1), 'batch-2');
-    assert.equal(await page.locator('.sw-post[data-post-id="1"]').count(), 0);
+    assert.equal(
+      calls.at(-1),
+      '',
+      'refresh restarts recommendation ranking; scrolling consumes the next cursor',
+    );
+    assert.equal(await page.locator('.sw-post[data-post-id="100"]').count(), 0);
     assert.equal(await page.evaluate(() => window.scrollY), 0);
     assert.equal(
       await page.locator('.ew-feed-refresh').innerText(),
@@ -272,7 +276,7 @@ try {
     fail = true;
     await page.getByRole('button', { name: '刷新动态', exact: true }).click();
     await page.getByText('刷新未完成，请重试', { exact: true }).waitFor();
-    assert.equal(await page.locator('.sw-post[data-post-id="100"]').count(), 1);
+    assert.equal(await page.locator('.sw-post[data-post-id="1"]').count(), 1);
     fail = false;
     await page.getByRole('button', { name: '刷新动态', exact: true }).click();
     await page

@@ -9,15 +9,15 @@ const post = {
   document: {
     title: '具体内容',
     summary: '公开摘要',
-    body: '完整正文无需复制',
+    body: '正文包含具体限制和实际内容',
     tags: ['产品'],
   },
 };
 void test('catalog projection sends public metadata with exact IDs, not host memory or private posts', () => {
   const p = gorseItem(post);
   assert.equal(p.ItemId, 'post:369648989592621057');
-  assert.equal(p.Comment, '具体内容\n公开摘要');
-  assert.deepEqual(p.Labels, { tags: ['产品'] });
+  assert.equal(p.Comment, '具体内容\n公开摘要\n正文包含具体限制和实际内容');
+  assert.deepEqual(p.Labels, { tags: ['产品'], content_revision: 1 });
   assert.equal(gorseItem({ ...post, visibility: 'private' }), null);
   assert.equal(gorseItem({ ...post, state: 'draft' }), null);
 });
@@ -108,8 +108,13 @@ void test('worker restarts do not rewrite unchanged items; edits, new posts and 
   for (let i = 0; i < 3; i++)
     assert.deepEqual(await run(), { indexed: 1, updated: 0, removed: 0 });
   assert.equal(writes.length, 0);
+  // The public feed intentionally hides bodies. Comparing it with the full
+  // indexed text must not turn every read into an expensive rewrite.
+  source = [{ ...post, document: { ...post.document, body: '', summary: '短摘要' } }];
+  assert.deepEqual(await run(), { indexed: 1, updated: 0, removed: 0 });
+  assert.equal(writes.length, 0);
   source = [
-    { ...post, document: { ...post.document, title: '修订后的内容' } },
+    { ...post, revision: 2, document: { ...post.document, body: '正文条件改变，标题不变' } },
     { ...post, id: '369648989592621058' },
   ];
   assert.deepEqual(await run(), { indexed: 2, updated: 2, removed: 0 });

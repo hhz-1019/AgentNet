@@ -63,7 +63,7 @@ func TestSocialGorseOrderAndAccess(t *testing.T) {
 		case r.Method == "POST" && r.URL.Path == "/api/user":
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body["UserId"] != "agent:9701" || body["Comment"] != nil {
+			if body["UserId"] != "agent:9701" || body["Comment"] != "" {
 				t.Error("unexpected user metadata", body)
 			}
 			fmt.Fprint(w, `{}`)
@@ -101,7 +101,7 @@ func TestSocialGorseOrderAndAccess(t *testing.T) {
 	if len(items) != 2 || items[0].(map[string]any)["id"] != "970001" || items[1].(map[string]any)["id"] != "970000" {
 		t.Fatal("changed Gorse order or leaked access", data)
 	}
-	if !removed || data["ranking_version"] != socialGorseVersion || data["intent_handling"] != "host_agent" {
+	if !removed || data["ranking_version"] != socialGorseVersion || data["intent_handling"] != "network_profile_and_host" {
 		t.Fatal(data)
 	}
 	code, data = call("&exclude_ids=" + url.QueryEscape(`["970001"]`))
@@ -306,10 +306,12 @@ func TestSocialGorseViewerIncrementalSync(t *testing.T) {
 		db.Exec("DELETE FROM social_work_reactions WHERE agent_id=9801")
 		db.Exec("DELETE FROM social_work_posts WHERE post_id=980001")
 		db.Exec("DELETE FROM social_preferences WHERE agent_id=9801")
+		db.Exec("DELETE FROM agent_companions WHERE agent_id=9801")
 		db.Exec("DELETE FROM agents WHERE agent_id IN(9801,9802)")
 	})
 	present, userWrites, feedbackWrites, deletes := false, 0, 0, 0
 	labels := []string{}
+	comment := ""
 	feedback := []socialGorseFeedback{}
 	unavailable := false
 	engine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -323,11 +325,15 @@ func TestSocialGorseViewerIncrementalSync(t *testing.T) {
 				w.WriteHeader(404)
 				return
 			}
-			json.NewEncoder(w).Encode(map[string]any{"Labels": labels})
+			json.NewEncoder(w).Encode(map[string]any{"Labels": labels, "Comment": comment})
 		case r.Method == "POST" && r.URL.Path == "/api/user":
-			var u struct{ Labels []string }
+			var u struct {
+				Labels  []string
+				Comment string
+			}
 			json.NewDecoder(r.Body).Decode(&u)
 			labels = u.Labels
+			comment = u.Comment
 			present = true
 			userWrites++
 			fmt.Fprint(w, "{}")
@@ -381,10 +387,22 @@ func TestSocialGorseViewerIncrementalSync(t *testing.T) {
 	if deletes != 1 {
 		t.Fatal("removed reaction not reconciled", deletes)
 	}
+	check(db.Exec("INSERT INTO agent_companions(agent_id,connection_goal,updated_at) VALUES(9801,'英语口语伙伴',1)").Error)
+	run(0)
+	run(0)
+	if userWrites != 3 || !strings.Contains(comment, "英语口语伙伴") {
+		t.Fatal("full network card update did not sync once", userWrites, comment)
+	}
+	check(db.Exec("UPDATE agent_companions SET connection_goal='' WHERE agent_id=9801").Error)
+	run(0)
+	run(0)
+	if userWrites != 4 || comment != "" {
+		t.Fatal("cleared network card retained", userWrites, comment)
+	}
 	unavailable = true
 	_, err := s.syncSocialGorseViewer(context.Background(), g, 9801)
 	var detail *socialGorseError
-	if !errors.As(err, &detail) || detail.Status != 503 || userWrites != 2 {
+	if !errors.As(err, &detail) || detail.Status != 503 || userWrites != 4 {
 		t.Fatal("upstream outage treated as missing user", err, userWrites)
 	}
 }

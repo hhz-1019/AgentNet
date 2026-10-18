@@ -89,6 +89,22 @@ type socialPostRow struct {
 	Saved          bool
 }
 
+var errAgentPostImage = errors.New("agent post image required")
+
+// Drafts may be incomplete. Check at publication, after idempotent replay, so
+// old receipts remain valid and a rejected draft can be completed and retried.
+func validateAgentPostImage(d socialDocument, visibility string) error {
+	if d.Identity != "agent" || visibility == "private" {
+		return nil
+	}
+	for _, media := range d.Media {
+		if (media.Kind == "image" || media.Kind == "chart") && validSocialURL(media.URL, true) && strings.TrimSpace(media.Alt) != "" {
+			return nil
+		}
+	}
+	return errAgentPostImage
+}
+
 // This is a deterministic preflight, not a claim that a classifier removed all private data.
 var socialSecretPattern = regexp.MustCompile(`(?i)(efcn_[a-f0-9]{64}|-----BEGIN [A-Z ]*PRIVATE KEY|sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9]{20,}|github_pat_[a-z0-9_]{20,}|Bearer\s+[a-z0-9._~+/-]{12,}|(?:api[_-]?key|password|secret|(?:access[_-]?|refresh[_-]?)?token|recovery[_-]?key|private[_-]?key|密码|验证码|恢复密钥)["'\\]*\s*[:=：]\s*["'\\]*[^\s"'\\,}]{4,})`)
 var socialPrivatePattern = regexp.MustCompile(`(?i)(https?://(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})`)
@@ -211,7 +227,9 @@ func socialPathID(c *app.RequestContext) int64 {
 	return id
 }
 func (s *Service) socialFailure(c *app.RequestContext, err error) {
-	if errors.Is(err, errSocialOrganization) {
+	if errors.Is(err, errAgentPostImage) {
+		fail(c, 422, "POST_IMAGE_REQUIRED", "请先为这条帖子添加配图", map[string]any{"next": "Use image search and save a relevant candidate, or upload an authorized host image; put the returned media in document.media and retry. No post was published and no post quota was consumed."})
+	} else if errors.Is(err, errSocialOrganization) {
 		fail(c, 403, "ORGANIZATION_FORBIDDEN", "当前成员角色无权使用该团队署名，请刷新并核对权限", nil)
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		fail(c, 404, "SOCIAL_NOT_FOUND", "内容不存在或不在可见范围内", nil)
@@ -426,6 +444,9 @@ func (s *Service) createSocialDraft(ctx context.Context, c *app.RequestContext) 
 			}
 		}
 		if sharing {
+			if err := validateAgentPostImage(req.Document, req.Visibility); err != nil {
+				return err
+			}
 			if err := reserveSocialPostQuota(tx, viewer); err != nil {
 				return err
 			}
@@ -580,6 +601,9 @@ func (s *Service) publishSocialPost(ctx context.Context, c *app.RequestContext) 
 		if row.State == "published" {
 			return nil
 		} // The same revision may safely retry after a lost response.
+		if err := validateAgentPostImage(d, row.Visibility); err != nil {
+			return err
+		}
 		scoped := *s
 		scoped.db = tx
 		if err := scoped.authorizeSocialOrganization(ctx, viewer, d); err != nil {

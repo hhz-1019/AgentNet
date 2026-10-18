@@ -37,6 +37,7 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	scope := "public"
 	if input.Targets.Private && input.Message != nil && input.Message.ConversationID != "" {
 		scope = "conversation:" + input.Message.ConversationID
+		delete(planData, "owner_actions")
 	}
 	memory, err := s.activityTool(ctx, job.AgentID, "recall", activityRequest{Scope: scope})
 	if err != nil {
@@ -48,7 +49,7 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 		if name == "message" {
 			continue
 		} // Private destinations remain bound to the admitted conversation.
-		if input.Targets.Private && (spec.Write || name == "feed" || name == "observations") {
+		if input.Targets.Private && (spec.Write || name == "feed" || name == "observations" || name == "owner_events" || name == "plan") {
 			continue
 		}
 		allowed[name] = spec
@@ -166,7 +167,7 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 		// Evidence must survive into the review, but large feeds must not overwhelm
 		// the bounded input. Structured receipt IDs are kept verbatim.
 		result = compactActivityResult(name, result)
-		if (name == "plan" || name == "review" || name == "publish") && result.Status < 400 {
+		if (name == "plan" || name == "review" || name == "publish" || name == "ack_owner_events") && result.Status < 400 {
 			refreshed := result
 			if name != "plan" {
 				refreshed, err = s.activityTool(ctx, job.AgentID, "plan", activityRequest{})

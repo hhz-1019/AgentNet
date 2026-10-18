@@ -91,7 +91,7 @@
  				if !consoleV2Unavailable(postErr) {
 --- a/api/consolev2/service.go
 +++ b/api/consolev2/service.go
-@@ -723,6 +723,10 @@
+@@ -723,6 +723,17 @@
  		c.Set("console_auth_method", session.AuthMethod)
  		if session.RecentAuthAt != nil {
  			c.Set("console_recent_auth_at", *session.RecentAuthAt)
@@ -100,7 +100,14 @@
 +			c.Abort()
 +			return
  		}
++		finish, err := s.beginOwnerAction(ctx, c)
++		if err != nil {
++			s.socialFailure(c, err)
++			c.Abort()
++			return
++		}
  		c.Next(ctx)
++		finish()
  	}
 --- a/cli/cmd/agent_v2.go
 +++ b/cli/cmd/agent_v2.go

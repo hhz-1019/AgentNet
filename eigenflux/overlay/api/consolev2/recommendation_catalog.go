@@ -50,17 +50,17 @@ func (s *Service) syncRecommendationCatalog(ctx context.Context, c *app.RequestC
 	count := 0
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var rows []struct {
-			PostID, PublishedAt, CreatedAt int64
-			Document                       []byte
+			PostID, PublishedAt, CreatedAt, Revision int64
+			Document                                 []byte
 		}
-		if err := tx.Raw(`SELECT post_id,published_at,created_at,document FROM social_work_posts WHERE post_id IN ? AND state='published' AND visibility='public' ORDER BY post_id FOR KEY SHARE`, ids).Scan(&rows).Error; err != nil {
+		if err := tx.Raw(`SELECT post_id,published_at,created_at,revision,document FROM social_work_posts WHERE post_id IN ? AND state='published' AND visibility='public' ORDER BY post_id FOR KEY SHARE`, ids).Scan(&rows).Error; err != nil {
 			return err
 		}
 		items := []map[string]any{}
 		for _, r := range rows {
 			var d struct {
-				Title, Summary string
-				Tags           []string
+				Title, Summary, Body string
+				Tags                 []string
 			}
 			if err := json.Unmarshal(r.Document, &d); err != nil {
 				return err
@@ -69,7 +69,7 @@ func (s *Service) syncRecommendationCatalog(ctx context.Context, c *app.RequestC
 			if stamp == 0 {
 				stamp = r.CreatedAt
 			}
-			items = append(items, map[string]any{"ItemId": "post:" + strconv.FormatInt(r.PostID, 10), "IsHidden": false, "Categories": []string{}, "Timestamp": time.UnixMilli(stamp).UTC().Format(time.RFC3339Nano), "Labels": map[string]any{"tags": d.Tags}, "Comment": strings.Trim(strings.Join([]string{d.Title, d.Summary}, "\n"), "\n")})
+			items = append(items, map[string]any{"ItemId": "post:" + strconv.FormatInt(r.PostID, 10), "IsHidden": false, "Categories": []string{}, "Timestamp": time.UnixMilli(stamp).UTC().Format(time.RFC3339Nano), "Labels": map[string]any{"tags": d.Tags, "content_revision": r.Revision}, "Comment": strings.Trim(strings.Join([]string{d.Title, d.Summary, d.Body}, "\n"), "\n")})
 		}
 		count = len(items)
 		if count == 0 {

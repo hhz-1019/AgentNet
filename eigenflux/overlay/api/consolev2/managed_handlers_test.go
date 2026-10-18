@@ -287,7 +287,9 @@ func TestManagedFullSchema(t *testing.T) {
 	textValue.Photo = managedPhoto{}
 	textErr := textService.commitManaged(context.Background(), *job, textValue, nil)
 	textTx.Rollback()
-	check(textErr)
+	if textErr == nil {
+		t.Fatal("managed publication bypassed required image")
+	}
 	check(s.commitManaged(context.Background(), *job, value, nil))
 	if s.commitManaged(context.Background(), *job, value, nil) == nil {
 		t.Fatal("duplicate commit accepted")

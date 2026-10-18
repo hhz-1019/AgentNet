@@ -51,6 +51,7 @@ const migrations = await Promise.all(
     '000143_active_social_defaults.sql',
     '000144_media_preparation.sql',
     '000145_social_read_counters.sql',
+    '000152_owner_activity.sql',
   ].map((name) => readFile(`eigenflux/overlay/migrations/${name}`, 'utf8')),
 );
 await db.exec(

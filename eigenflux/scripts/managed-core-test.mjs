@@ -62,7 +62,9 @@ try {
         'test',
         './api/consolev2',
         '-run',
-        process.argv.includes('--deletion')
+        process.argv.includes('--owner-activity')
+          ? '^TestManagedOwner'
+          : process.argv.includes('--deletion')
           ? '^TestAccountDeletion'
           :         process.argv.includes('--unified-provider')
           ? '^TestManagedUnifiedHostsLive$'
@@ -147,6 +149,7 @@ try {
   if (
     process.exitCode === 0 &&
     !process.argv.includes('--deletion') &&
+    !process.argv.includes('--owner-activity') &&
     !process.argv.includes('--analytics') &&
     !process.argv.includes('--activity-provider') &&
     !process.argv.includes('--unified-provider')

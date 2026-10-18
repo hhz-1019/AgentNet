@@ -213,6 +213,7 @@
   html[data-theme] #root .sw-feed-grid .ew-card-meta .sw-post-author {
     gap: 4px;
     min-height: 32px;
+    flex-wrap: nowrap;
   }
   html[data-theme] #root .sw-feed-grid .ew-card-meta .sw-avatar {
     width: 20px;

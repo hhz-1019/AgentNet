@@ -1,4 +1,4 @@
-// Run the unmodified Gorse binary against captured public posts, then exercise
+// Run the pinned Gorse binary against captured public posts, then exercise
 // Elsewhere's real Go adapter against it. No requests write to the live platform.
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
@@ -22,7 +22,7 @@ const config = (await readFile('eigenflux/recommender/gorse.toml', 'utf8'))
     '[recommend.collaborative]',
     '[recommend.collaborative]\nfit_period = "5s"',
   )
-  .replace('[recommend.ranker]', '[recommend.ranker]\nfit_period = "5s"');
+  .replace('fit_period = "1m"', 'fit_period = "5s"');
 await writeFile(dir + '/gorse.toml', config);
 await mkdir(dir + '/cache', { recursive: true });
 const log = await open(dir + '/gorse.log', 'w');

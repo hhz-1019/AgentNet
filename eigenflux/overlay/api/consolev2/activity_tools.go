@@ -41,23 +41,25 @@ type activityToolSpec struct {
 }
 
 var activityTools = map[string]activityToolSpec{
-	"plan":         {"profile:read", false, "恢复身份、目标、权限、实际发布进度与公共待续事项"},
-	"feed":         {"profile:read", false, "scope=opportunities 找相关机会；scope=public 配合 query/cursor 搜索公开帖子；exclude_ids 排除已读机会"},
-	"post":         {"profile:read", false, "用 id 读取完整帖子"},
-	"comments":     {"profile:read", false, "用 id 读取帖子的评论"},
-	"person":       {"profile:read", false, "用 id 读取公开主页"},
-	"sources":      {"profile:read", false, "用 query 自主检索公开网页（默认scope=web，适合资料与兴趣检索）；仅查近期新闻时scope=news，返回出处与摘要，具体事实再用 read 核实"},
-	"read":         {"profile:read", false, "用 url 阅读公开网页正文，不能读取内网或本机地址"},
-	"observations": {"profile:read", false, "读取本账号的采集资料和岗位变化，不自动发布"},
-	"review":       {"profile:write", true, "每日复核：data={intent,summary,evidence:[HTTPS网址或host:引用或post:ID],revision}，revision取plan.agent_profile.review.revision（首次为0）；更新本账号活动意图，不上传宿主完整记忆，不修改主人已确认的画像"},
-	"image":        {"profile:write", true, "query 搜索相关图片并返回 candidates（中英文均可）；选好后用 url=候选 image_url、data={source_url,title} 保存图片，返回 document.media。宿主已有素材也可通过原上传能力提供。失败时换来源或如实记录"},
-	"recall":       {"profile:read", false, "读取 scope 对应的待续事项；public 与 conversation:ID 隔离"},
-	"checkpoint":   {"profile:write", true, "保存待续事项：data={revision,pending,next_check_at}；不是成功回执"},
-	"publish":      {"broadcast:write", true, "data 使用 social share 格式，返回真实公开帖子回执"},
-	"comment":      {"communication:write", true, "id 为帖子ID；data={content,idempotency_key,reply_to_comment_id?}"},
-	"react":        {"feed:feedback", true, "id 为帖子ID；data={kind:like或save,active:true或false}"},
-	"follow":       {"relations:write", true, "id 为人物ID；data={following:true或false}"},
-	"message":      {"communication:write", true, "data={conv_id或receiver_id,content}，回复实际会话或已授权联系人"},
+	"owner_events":     {"profile:read", false, "读取主人尚未接续的实际操作（最多10条）；不包含私信正文。has_more 时确认本批后继续读取"},
+	"ack_owner_events": {"profile:write", true, "已理解并调整后确认：data={ids:[事件ID],summary:简短接续决定}。仅确认已处理的记录；未解决的事写入待续事项；不等于业务执行成功"},
+	"plan":             {"profile:read", false, "恢复身份、目标、权限、实际发布进度与公共待续事项"},
+	"feed":             {"profile:read", false, "scope=opportunities 找相关机会；scope=public 配合 query/cursor 搜索公开帖子；exclude_ids 排除已读机会"},
+	"post":             {"profile:read", false, "用 id 读取完整帖子"},
+	"comments":         {"profile:read", false, "用 id 读取帖子的评论"},
+	"person":           {"profile:read", false, "用 id 读取公开主页"},
+	"sources":          {"profile:read", false, "用 query 自主检索公开网页（默认scope=web，适合资料与兴趣检索）；仅查近期新闻时scope=news，返回出处与摘要，具体事实再用 read 核实"},
+	"read":             {"profile:read", false, "用 url 阅读公开网页正文，不能读取内网或本机地址"},
+	"observations":     {"profile:read", false, "读取本账号的采集资料和岗位变化，不自动发布"},
+	"review":           {"profile:write", true, "每日复核：data={intent,summary,evidence:[HTTPS网址或host:引用或post:ID],revision}，revision取plan.agent_profile.review.revision（首次为0）；更新本账号活动意图，不上传宿主完整记忆，不修改主人已确认的画像"},
+	"image":            {"profile:write", true, "query 搜索相关图片并返回 candidates（中英文均可）；选好后用 url=候选 image_url、data={source_url,title} 保存图片，返回 document.media。宿主已有素材也可通过原上传能力提供。失败时换来源或如实记录"},
+	"recall":           {"profile:read", false, "读取 scope 对应的待续事项；public 与 conversation:ID 隔离"},
+	"checkpoint":       {"profile:write", true, "保存待续事项：data={revision,pending,next_check_at}；不是成功回执"},
+	"publish":          {"broadcast:write", true, "data 使用 social share 格式；document.media 须有已准备的配图。缺图返回 POST_IMAGE_REQUIRED，补图后重试；成功返回真实公开帖子回执"},
+	"comment":          {"communication:write", true, "id 为帖子ID；data={content,idempotency_key,reply_to_comment_id?}"},
+	"react":            {"feed:feedback", true, "id 为帖子ID；data={kind:like或save,active:true或false}"},
+	"follow":           {"relations:write", true, "id 为人物ID；data={following:true或false}"},
+	"message":          {"communication:write", true, "data={conv_id或receiver_id,content}，回复实际会话或已授权联系人"},
 }
 
 func (s *Service) registerActivityRoutes(h *server.Hertz) {
@@ -203,6 +205,8 @@ func (s *Service) activityDispatch(ctx context.Context, id int64, name string, r
 	switch name {
 	case "plan":
 		add(s.activityPlan)
+	case "owner_events", "ack_owner_events":
+		add(func(ctx context.Context, c *app.RequestContext) { s.activityOwnerEvents(ctx, c, name, req) })
 	case "feed":
 		scope := req.Scope
 		if scope == "" {
@@ -330,7 +334,12 @@ func (s *Service) activityPlan(ctx context.Context, c *app.RequestContext) {
 		s.socialFailure(c, err)
 		return
 	}
-	reply(c, 200, map[string]any{"version": "activity-v1", "identity_core": companionpolicy.Identity, "activity_contract": companionpolicy.Activity, "settings": settings, "permissions": json.RawMessage(permissions), "policy": policy, "publishing_progress": progress, "round_objectives": map[string]any{"publish_target": min(1, progress.RemainingToMinimum), "interact": "主动寻找可推进的交流，实际回应不抵扣发帖目标"}, "recent_actions": json.RawMessage(recent), "tools": activityTools, "agent_profile": profile, "runtime": map[string]any{"max_steps": 16, "cadence_minutes": 120}, "workflow": []string{"restore", "review_if_due", "observe", "interact", "publish", "verify", "checkpoint"}})
+	ownerActions, err := s.ownerActivities(ctx, id)
+	if err != nil {
+		s.socialFailure(c, err)
+		return
+	}
+	reply(c, 200, map[string]any{"owner_actions": ownerActions, "version": "activity-v1", "identity_core": companionpolicy.Identity, "activity_contract": companionpolicy.Activity, "settings": settings, "permissions": json.RawMessage(permissions), "policy": policy, "publishing_progress": progress, "round_objectives": map[string]any{"publish_target": min(1, progress.RemainingToMinimum), "interact": "主动寻找可推进的交流，实际回应不抵扣发帖目标"}, "recent_actions": json.RawMessage(recent), "tools": activityTools, "agent_profile": profile, "runtime": map[string]any{"max_steps": 16, "cadence_minutes": 120}, "workflow": []string{"restore", "reconcile_owner_actions", "review_if_due", "observe", "interact", "publish", "verify", "checkpoint"}})
 }
 
 func (s *Service) activityObservations(ctx context.Context, c *app.RequestContext) {

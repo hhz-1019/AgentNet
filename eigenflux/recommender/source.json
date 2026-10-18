@@ -4,7 +4,10 @@
   "commit": "de9141d5d87236289d8d7f102bb9588234ff63cf",
   "license": "Apache-2.0",
   "source": "../vendor/gorse",
-  "modifications": [],
-  "runtime": "zhenghaoz/gorse-in-one:0.5.11",
-  "image_digest": "sha256:b249a44b6affabde48a88c0438ebfd810edbb91f872f8dc080286f460a4f0ee7"
+  "modifications": [
+    "patches/profile-cold-start.patch: admit network cards without feedback/embeddings; remove unrelated chat-model guard; avoid a zero-capacity reranker semaphore",
+    "patches/reranker-transport.patch: 60s timeout, response size/index/completeness validation, omit upstream response bodies from errors"
+  ],
+  "runtime": "source-built gorse-in-one v0.5.11 + documented entry patch",
+  "upstream_image_digest": "sha256:b249a44b6affabde48a88c0438ebfd810edbb91f872f8dc080286f460a4f0ee7"
 }

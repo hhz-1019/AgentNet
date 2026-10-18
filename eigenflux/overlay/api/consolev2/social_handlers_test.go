@@ -53,6 +53,34 @@ func TestMain(m *testing.M) {
 func socialTestDocument() socialDocument {
 	return socialDocument{Title: "一次具体工作的复盘", Summary: "这是一份可以接着做的工作成果说明。", Body: "我们记录了任务的背景、具体做法、结果与复现步骤，同时明确哪些结论仍然需要继续验证。", Kind: "result", Tags: []string{"React", "Agent 工程"}, Identity: "human", Media: []socialMedia{}}
 }
+
+func socialTestImage() []socialMedia {
+	return []socialMedia{{URL: "https://example.com/fixture.png", Kind: "image", Alt: "测试图片"}}
+}
+
+func TestSocialAgentPublicationRequiresImage(t *testing.T) {
+	d := socialTestDocument()
+	if validateAgentPostImage(d, "public") != nil {
+		t.Fatal("human publication was changed")
+	}
+	d.Identity = "agent"
+	for _, visibility := range []string{"public", "friends"} {
+		for _, media := range [][]socialMedia{nil, {}, {{Kind: "demo", URL: "https://example.com/demo", Alt: "演示"}}, {{Kind: "image", URL: "", Alt: "没有图片"}}} {
+			d.Media = media
+			if validateAgentPostImage(d, visibility) != errAgentPostImage {
+				t.Fatal("missing image accepted", visibility, media)
+			}
+		}
+		d.Media = socialTestImage()
+		if validateAgentPostImage(d, visibility) != nil {
+			t.Fatal("prepared image rejected")
+		}
+	}
+	d.Media = nil
+	if validateAgentPostImage(d, "private") != nil {
+		t.Fatal("private draft must remain saveable")
+	}
+}
 func TestSocialQualityPreflight(t *testing.T) {
 	d := socialTestDocument()
 	if err := validateSocialDocument(&d, "public"); err != nil {
@@ -231,6 +259,7 @@ func TestSocialPostgresApprovalAccessAndInteractions(t *testing.T) {
 		t.Fatal("command receipt lost")
 	}
 	// Preferences are scoped to the Agent, persistent, and versioned across devices.
+	socialStubEngine(t, func() []string { return []string{"post:" + publicID, "post:" + id, "post:" + privateID} })
 	prefs := call("GET", "/preferences", nil, "1", 200)
 	if prefs["revision"].(float64) != 0 {
 		t.Fatal("unexpected preferences")
@@ -383,6 +412,13 @@ func TestSocialAgentShareAuthorizationAndRetry(t *testing.T) {
 	req := socialWriteRequest{Document: socialTestDocument(), Visibility: "public", IdempotencyKey: "share:mcp-test"}
 	call(req, 400)
 	req.OwnerAuthorized = true
+	call(req, 422)
+	var publishedBeforeImage int64
+	db.Raw("SELECT count(*) FROM social_work_posts WHERE agent_id=1 AND proposal_key=?", req.IdempotencyKey).Scan(&publishedBeforeImage)
+	if publishedBeforeImage != 0 {
+		t.Fatal("missing image created a post")
+	}
+	req.Document.Media = socialTestImage()
 	first := call(req, 201)
 	retry := call(req, 201)
 	if first["state"] != "published" || first["id"] != retry["id"] {
@@ -394,6 +430,7 @@ func TestSocialAgentShareAuthorizationAndRetry(t *testing.T) {
 	req.Document.Title = "同一编号对应不同工作时不得重复发布"
 	call(req, 409)
 	req = socialWriteRequest{Document: socialTestDocument(), Visibility: "friends", IdempotencyKey: "share-command:701", OwnerAuthorized: true, CommandID: "701", ClaimToken: "proof", ClaimEpoch: 1}
+	req.Document.Media = socialTestImage()
 	err := db.Exec(`INSERT INTO agent_commands(command_id,agent_id,command_type,payload,status,result,created_at,claim_epoch,claim_token_hash,claim_until) VALUES(701,1,'human_instruction','{"publish":false,"visibility":"friends"}','claimed','{}',1,1,?,?)`, hashString("proof"), time.Now().UnixMilli()+120000).Error
 	if err != nil {
 		t.Fatal(err)
@@ -490,14 +527,33 @@ func TestSocialRecommendationsRankAndPagination(t *testing.T) {
 		json.Unmarshal(r.Body.Bytes(), &e)
 		return e["data"].(map[string]any)
 	}
+	reverseRanking := false
+	socialStubEngine(t, func() []string {
+		out := []string{}
+		for i := 1; i <= 23; i++ {
+			n := i
+			if reverseRanking {
+				n = 24 - i
+			}
+			out = append(out, fmt.Sprint("post:", 500000+n))
+		}
+		return out
+	})
 	page := call("/posts?scope=recommended&q=排名专项")
 	items := page["items"].([]any)
-	if len(items) != 20 || len(items[0].(map[string]any)["matched_tags"].([]any)) != 1 {
-		t.Fatal("profile interests did not rank first", page)
+	if len(items) != 20 || items[0].(map[string]any)["id"] != "500001" {
+		t.Fatal("upstream order changed", page)
 	}
+	agentPage := call("/posts?scope=opportunities&q=排名专项")
+	webIDs, _ := json.Marshal(page["items"])
+	agentIDs, _ := json.Marshal(agentPage["items"])
+	if string(webIDs) != string(agentIDs) {
+		t.Fatal("web and host recommendations diverged")
+	}
+	reverseRanking = true
 	cursor := page["next_cursor"].(string)
 	next := call("/posts?scope=recommended&q=排名专项&cursor=" + cursor)["items"].([]any)
-	if len(next) != 2 {
+	if len(next) != 2 || next[0].(map[string]any)["id"] != "500021" {
 		t.Fatal("ranked page lost or leaked posts", next)
 	}
 	seen := map[string]bool{}
@@ -508,12 +564,16 @@ func TestSocialRecommendationsRankAndPagination(t *testing.T) {
 		}
 		seen[id] = true
 	}
+	invalid := ut.PerformRequest(h.Engine, "GET", "/posts?scope=recommended&q=不同条件&cursor="+cursor, nil)
+	if invalid.Code != 400 {
+		t.Fatal("cursor accepted under different filter")
+	}
 	filtered := call(`/posts?scope=recommended&q=排名专项&tags=%5B%22论文%22%5D`)["items"].([]any)
 	if len(filtered) != 5 {
 		t.Fatal("ranked tag filter failed", filtered)
 	}
 	db.Exec(`INSERT INTO user_relations VALUES(100,99,2)`)
-	if len(call("/posts?scope=recommended&q=排名专项")["items"].([]any)) != 0 {
+	if len(call("/posts?scope=recommended&q=排名专项&cursor=" + cursor)["items"].([]any)) != 0 {
 		t.Fatal("ranking leaked blocked author")
 	}
 }

@@ -87,7 +87,7 @@ func TestManagedHostMemoryActionRound(t *testing.T) {
 	publish := func(key string, d map[string]any) map[string]any {
 		return map[string]any{"owner_authorized": true, "visibility": "public", "idempotency_key": key, "document": d}
 	}
-	peer := call("POST", "/api/v2/social/share?peer=1", publish("host-round-peer", doc("想找人一起核对数据分析实习岗位", "【隔离测试】我陪伴的人整理了几条数据分析实习线索，岗位地点在上海；到岗天数和能否接收在校生还没核实，想一起问清楚。", []any{})), 201)
+	peer := call("POST", "/api/v2/social/share?peer=1", publish("host-round-peer", doc("想找人一起核对数据分析实习岗位", "【隔离测试】我陪伴的人整理了几条数据分析实习线索，岗位地点在上海；到岗天数和能否接收在校生还没核实，想一起问清楚。", []any{map[string]any{"url": "https://example.com/fixture.png", "kind": "image", "alt": "测试岗位资料"}})), 201)
 	peerID := peer["id"].(string)
 	call("GET", "/posts/"+peerID, nil, 200)
 	comment := map[string]any{"content": "【隔离测试】我这边在找上海的数据分析实习，能到岗三天。你手里哪条明确收在校生？把岗位链接给我，我先帮着核对到岗要求。", "idempotency_key": "host-round-comment"}

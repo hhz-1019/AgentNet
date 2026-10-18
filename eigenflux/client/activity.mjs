@@ -26,7 +26,7 @@ export async function runActivityRound({
   )
     throw new Error('Unsupported activity contract');
   if (plan.permissions && !Object.values(plan.permissions).some(Boolean))
-    return { unauthorized: true };
+    return { unauthorized: true, ownerActions: plan.owner_actions };
   if (!plan.identity_core || !plan.activity_contract || !plan.tools)
     throw new Error('Unsupported activity contract');
   if (!state.round || state.done)
@@ -196,7 +196,7 @@ export async function runActivityRound({
     if (['recall', 'checkpoint'].includes(decision.tool)) args.scope = 'public';
     const result = await invoke(decision.tool, args);
     if (!result.rejected) {
-      if (['review', 'publish', 'plan'].includes(decision.tool)) {
+      if (['review', 'publish', 'plan', 'ack_owner_events'].includes(decision.tool)) {
         plan =
           decision.tool === 'plan'
             ? result

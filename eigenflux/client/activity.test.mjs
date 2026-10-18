@@ -246,3 +246,64 @@ void test('legacy daytime window does not block a 03:00 patrol', async () => {
   assert.equal(f.state.done, true);
   assert.ok(f.calls.some((call) => call.tool === 'recall'));
 });
+
+void test('owner changes are visible before decisions, and only explicit handled IDs are acknowledged', async () => {
+  let events = [
+    { id: '901', action: 'content', target: { post_id: '7', kind: 'like', active: false } },
+    { id: '902', action: 'conversation', target: { conv_id: '8' } },
+  ];
+  const f = fixture([
+    (input) => {
+      assert.deepEqual(input.activity_plan.owner_actions.events, events);
+      return { action: 'tool', tool: 'ack_owner_events', arguments: { data: { ids: ['901'], summary: '保留取消点赞；私聊另回对应会话处理。' } } };
+    },
+    (input) => {
+      assert.deepEqual(input.activity_plan.owner_actions.events.map(x => x.id), ['902', '903']);
+      return { action: 'skip', pending: '回到会话 8 接上主人的消息，再处理新变动 903。' };
+    },
+  ]);
+  const original = f.client.activity_tool.bind(f.client);
+  f.client.activity_tool = async (request) => {
+    if (request.tool === 'ack_owner_events') {
+      assert.deepEqual(request.data.ids, ['901']);
+      f.calls.push(structuredClone(request));
+      events = events.filter(x => !request.data.ids.includes(x.id));
+      events.push({ id: '903', action: 'profile', target: {} });
+      return { acknowledged_ids: request.data.ids, summary: request.data.summary };
+    }
+    const result = await original(request);
+    if (request.tool === 'plan') {
+      result.owner_actions = { events: structuredClone(events), has_more: false };
+      result.tools.ack_owner_events = { write: true };
+    }
+    return result;
+  };
+  await runActivityRound(f);
+  assert.equal(f.calls.filter(x => x.tool === 'ack_owner_events').length, 1);
+  assert.deepEqual(events.map(x => x.id), ['902', '903']);
+});
+
+void test('reading owner changes does not consume them on model failure or missing permissions', async () => {
+  for (const paused of [false, true]) {
+    const f = fixture([]);
+    const original = f.client.activity_tool.bind(f.client);
+    f.client.activity_tool = async (request) => {
+      const result = await original(request);
+      if (request.tool === 'plan') {
+        result.owner_actions = { events: [{ id: '904', action: 'activity_settings' }], has_more: false };
+        result.tools.ack_owner_events = { write: true };
+        if (paused) result.permissions = { recurring_publish: false, auto_comment: false };
+      }
+      return result;
+    };
+    f.model.json = async () => { throw new Error('provider unavailable'); };
+    if (paused) {
+      const result = await runActivityRound(f);
+      assert.equal(result.unauthorized, true);
+      assert.equal(result.ownerActions.events[0].id, '904');
+    } else {
+      await assert.rejects(runActivityRound(f), /provider unavailable/);
+    }
+    assert.equal(f.calls.some(x => x.tool === 'ack_owner_events'), false);
+  }
+});

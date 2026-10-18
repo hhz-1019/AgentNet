@@ -2,9 +2,13 @@ package consolev2
 
 import (
 	"bytes"
+	"compress/zlib"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -136,15 +140,22 @@ func (s *Service) syncLiveGorseViewer(ctx context.Context, g socialGorseClient, 
 		return 0, err
 	}
 	user := "agent:" + strconv.FormatInt(viewer, 10)
-	var stored struct{ Labels []string }
+	profile, err := s.recommendationProfile(ctx, viewer)
+	if err != nil {
+		return 0, err
+	}
+	var stored struct {
+		Labels  []string
+		Comment string
+	}
 	err = g.request(ctx, "GET", "/api/user/"+url.PathEscape(user), nil, &stored)
 	var upstream *socialGorseError
 	missing := errors.As(err, &upstream) && upstream.Status == http.StatusNotFound
 	if err != nil && !missing {
 		return 0, err
 	}
-	if missing || !slices.Equal(stored.Labels, prefs.Tags) {
-		if err = g.request(ctx, "POST", "/api/user", map[string]any{"UserId": user, "Labels": prefs.Tags}, nil); err != nil {
+	if missing || !slices.Equal(stored.Labels, prefs.Tags) || stored.Comment != profile {
+		if err = g.request(ctx, "POST", "/api/user", map[string]any{"UserId": user, "Labels": prefs.Tags, "Comment": profile}, nil); err != nil {
 			return 0, err
 		}
 	}
@@ -201,13 +212,13 @@ func (s *Service) getSocialOpportunities(ctx context.Context, c *app.RequestCont
 		fail(c, 503, "RECOMMENDATIONS_UNAVAILABLE", "推荐暂时不可用", nil)
 		return
 	}
-	if c.Query("cursor") != "" || c.Query("intent") != "" {
-		fail(c, 400, "INVALID_RECOMMENDATION_QUERY", "当轮意图由宿主 Agent 判断；下一批使用已读帖子列表", nil)
+	if c.Query("intent") != "" {
+		fail(c, 400, "INVALID_RECOMMENDATION_QUERY", "当轮私密意图由宿主 Agent 判断", nil)
 		return
 	}
 	var excluded []string
 	if raw := c.Query("exclude_ids"); raw != "" {
-		if json.Unmarshal([]byte(raw), &excluded) != nil || len(excluded) > 200 {
+		if json.Unmarshal([]byte(raw), &excluded) != nil || len(excluded) > 500 {
 			fail(c, 400, "INVALID_EXCLUSIONS", "已读帖子列表无效", nil)
 			return
 		}
@@ -241,11 +252,24 @@ func (s *Service) getSocialOpportunities(ctx context.Context, c *app.RequestCont
 		s.socialRecommendationFailure(c, err)
 		return
 	}
+	// Continuation carries the remaining upstream IDs: a model refresh cannot
+	// reorder an already-open feed. Every page still rechecks current access.
+	fingerprint := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprint(viewer)+"\n"+q+"\n"+c.Query("tags")+"\n"+c.Query("kind"))))
 	var ranked []string
-	err = g.request(ctx, "GET", "/api/recommend/"+url.PathEscape("agent:"+strconv.FormatInt(viewer, 10))+"?n=500", nil, &ranked)
-	if err != nil {
-		s.socialRecommendationFailure(c, err)
-		return
+	if cursor := c.Query("cursor"); cursor != "" {
+		var page recommendationCursor
+		raw, e := decodeRecommendationCursor(cursor)
+		if e != nil || len(raw) > 20000 || json.Unmarshal(raw, &page) != nil || page.Version != 1 || page.Filter != fingerprint || len(page.IDs) > 500 {
+			fail(c, 400, "INVALID_CURSOR", "请刷新推荐后重试", nil)
+			return
+		}
+		ranked = page.IDs
+	} else {
+		err = g.request(ctx, "GET", "/api/recommend/"+url.PathEscape("agent:"+strconv.FormatInt(viewer, 10))+"?n=500", nil, &ranked)
+		if err != nil {
+			s.socialRecommendationFailure(c, err)
+			return
+		}
 	}
 	if len(ranked) > 500 {
 		s.socialFailure(c, errors.New("recommendation response exceeded requested size"))
@@ -274,6 +298,10 @@ func (s *Service) getSocialOpportunities(ctx context.Context, c *app.RequestCont
 			pattern := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(q) + "%"
 			args = append(args, pattern, pattern, pattern)
 		}
+		if kind := c.Query("kind"); kind != "" && kind != "all" {
+			where += ` AND p.document->>'kind'=?`
+			args = append(args, kind)
+		}
 		if len(tags) > 0 {
 			b, _ := json.Marshal(tags)
 			where += ` AND p.document->'tags' @> ?::jsonb`
@@ -289,11 +317,13 @@ func (s *Service) getSocialOpportunities(ctx context.Context, c *app.RequestCont
 		byID[r.PostID] = r
 	}
 	selected := []socialPostRow{}
+	remaining := []string{}
 	for _, id := range ids {
 		if r, ok := byID[id]; ok {
-			selected = append(selected, r)
-			if len(selected) == 20 {
-				break
+			if len(selected) < 20 {
+				selected = append(selected, r)
+			} else {
+				remaining = append(remaining, "post:"+strconv.FormatInt(id, 10))
 			}
 		}
 	}
@@ -302,9 +332,18 @@ func (s *Service) getSocialOpportunities(ctx context.Context, c *app.RequestCont
 	for _, r := range selected {
 		items = append(items, socialView(r))
 	}
+	next := ""
+	if len(remaining) > 0 {
+		raw, _ := json.Marshal(recommendationCursor{1, fingerprint, remaining})
+		var compressed bytes.Buffer
+		writer := zlib.NewWriter(&compressed)
+		_, _ = writer.Write(raw)
+		_ = writer.Close()
+		next = base64.RawURLEncoding.EncodeToString(compressed.Bytes())
+	}
 	// Having feedback does not prove a personalized model is ready. Expose only
 	// the observed input state, not an inferred training/cold-start status.
-	reply(c, 200, map[string]any{"items": items, "next_cursor": "", "ranking_version": socialGorseVersion, "continuation": "exclude_ids", "feedback_count": count, "has_feedback": count > 0, "intent_handling": "host_agent", "candidate_count": len(ranked)})
+	reply(c, 200, map[string]any{"items": items, "next_cursor": next, "ranking_version": socialGorseVersion, "continuation": "exclude_ids", "feedback_count": count, "has_feedback": count > 0, "intent_handling": "network_profile_and_host", "candidate_count": len(ranked)})
 }
 
 func (s *Service) socialRecommendationFailure(c *app.RequestContext, err error) {
@@ -314,4 +353,27 @@ func (s *Service) socialRecommendationFailure(c *app.RequestContext, err error) 
 		return
 	}
 	s.socialFailure(c, err)
+}
+
+// Cursor holds public identifiers only, never profile text or provider keys.
+type recommendationCursor struct {
+	Version int      `json:"v"`
+	Filter  string   `json:"filter"`
+	IDs     []string `json:"ids"`
+}
+
+func decodeRecommendationCursor(cursor string) ([]byte, error) {
+	if len(cursor) > 12000 {
+		return nil, errors.New("cursor too large")
+	}
+	compressed, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		return nil, err
+	}
+	reader, err := zlib.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(io.LimitReader(reader, 20001))
 }

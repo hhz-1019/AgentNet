@@ -13,6 +13,8 @@ auto_insert_user = false
 auto_insert_item = false
 [recommend]
 cache_size = 500
+cache_expire = "30m"
+context_size = 5
 [recommend.data_source]
 positive_feedback_types = ["like", "save"]
 read_feedback_types = ["read"]
@@ -26,8 +28,26 @@ type = "items"
 [recommend.collaborative]
 type = "mf"
 [recommend.ranker]
-type = "fm"
+fit_period = "1m"
+cache_expire = "30m"
+type = "llm"
 recommenders = ["collaborative", "item-to-item/topics", "user-to-user/neighbors", "latest"]
+# Templates are executed by upstream logics.ChatReranker. User.Comment is the
+# complete reviewed network card, not a bag of truncated two-character tokens.
+query_template = """
+用户网络资料：{{ user.Comment }}
+关注标签：{{ user.Labels }}
+近期点赞或收藏：
+{% for post in feedback %}{{ post.Comment | truncate(240) }}
+{% endfor %}
+"""
+document_template = "{{ item.Comment }}"
+[recommend.ranker.reranker_api]
+# Standard Jina/Cohere-compatible endpoint. Supply private runtime variables:
+# RERANKER_URL, RERANKER_MODEL, RERANKER_AUTH_TOKEN.
+url = ""
+model = ""
+auth_token = ""
 [recommend.fallback]
 recommenders = ["item-to-item/topics", "latest"]
 [blob]

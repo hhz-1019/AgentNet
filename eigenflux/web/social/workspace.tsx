@@ -371,10 +371,7 @@ export function SocialWorkspace({
     feedViews.current.clear();
     feedHistory.current.clear();
     manualFeedRefresh.current = {
-      cursor:
-        route === 'explore' && feed === 'recommended'
-          ? page?.next_cursor || ''
-          : '',
+      cursor: '',
       key: JSON.stringify([route, search, topic, feed]),
       ids: page?.items.map((item) => item.id).join(',') || '',
     };
@@ -754,18 +751,19 @@ export function SocialWorkspace({
       !feedRoute ||
       peopleSearch ||
       (searchRoute && !search.trim()) ||
-      (route === 'explore' && feed === 'recommended') ||
       loading ||
       error ||
       !page?.next_cursor
     )
       return;
     let observer: IntersectionObserver;
+    let requested = false;
     const observe = () => {
       observer?.disconnect();
       observer = new IntersectionObserver(
         (entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) {
+          if (!requested && entries.some((entry) => entry.isIntersecting)) {
+            requested = true;
             // A refresh can cancel an in-flight append. Retry that same cursor
             // rather than leaving the sentinel unable to trigger a state change.
             if (page.next_cursor === cursor) setFeedRetry((v) => v + 1);
@@ -1156,6 +1154,8 @@ export function SocialWorkspace({
                               return;
                             }
                             setRefreshMessage('');
+                            if (feed !== id)
+                              window.scrollTo({ top: 0, behavior: 'auto' });
                             setFeed(id);
                             setCursor('');
                           }}
@@ -1446,10 +1446,7 @@ export function SocialWorkspace({
                               </output>
                             ) : page &&
                               page.items.length > 0 &&
-                              !page.next_cursor &&
-                              !(
-                                route === 'explore' && feed === 'recommended'
-                              ) ? (
+                              !page.next_cursor ? (
                               '已经看完全部动态'
                             ) : null}
                           </div>

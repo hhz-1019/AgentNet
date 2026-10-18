@@ -92,4 +92,56 @@ html[data-theme] #root :is(.sn-chat, .ew-live-chat) {
   html[data-theme] #root .sw-workspace[data-page='messages'] .sw-main {
     padding-bottom: calc(86px + env(safe-area-inset-bottom));
   }
+
+  /* Keep feed navigation available in the same document scroll container.
+     The opaque surface prevents cards from showing through the controls. */
+  html[data-theme] #root .ew-feed-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-height: calc(60px + env(safe-area-inset-top));
+    margin-inline: calc(-1 * var(--ew-page-gutter));
+    padding: calc(8px + env(safe-area-inset-top)) var(--ew-page-gutter) 8px;
+    background: var(--ew-surface);
+    box-shadow: 0 1px 0 var(--ew-line);
+  }
+  html[data-theme] #root .ew-feed-toolbar .sn-discover-heading {
+    flex: 1;
+    min-width: 0;
+    gap: 4px;
+    margin: 0;
+  }
+  html[data-theme] #root .ew-feed-toolbar .sn-tabs {
+    flex-wrap: nowrap;
+    gap: 2px;
+  }
+  html[data-theme] #root .ew-feed-toolbar .sn-tabs button {
+    min-height: 44px;
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
+  html[data-theme]
+    #root
+    .ew-feed-toolbar
+    :is(.ew-search-entry, .ew-feed-refresh, .ew-search-back) {
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 10px;
+  }
+  html[data-theme] #root .ew-feed-toolbar .ew-search-entry {
+    margin-left: auto;
+    justify-content: center;
+  }
+  html[data-theme] #root .ew-search-entry > span {
+    display: none;
+  }
+  html[data-theme] #root .ew-search-page-toolbar .sw-search {
+    flex: 1;
+    min-width: 0;
+  }
 }

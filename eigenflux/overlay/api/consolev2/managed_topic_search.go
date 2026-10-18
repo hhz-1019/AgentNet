@@ -5,8 +5,8 @@ import (
 	"unicode"
 )
 
-// Explicit owner intent is kept separate from the Agent's public identity.
-// This is lexical retrieval, not an embedding or semantic understanding model.
+// Legacy managed-agent topic search only, not website or host recommendations.
+// Personalized feeds use Gorse; this helper preserves an existing explicit search.
 func socialGoalTerms(goal string) []string {
 	terms := []string{}
 	seen := map[string]bool{}
@@ -49,19 +49,6 @@ func socialGoalTerms(goal string) []string {
 	return terms
 }
 
-func socialInterestTerms(tags []string) []string {
-	terms := []string{}
-	seen := map[string]bool{}
-	for _, tag := range tags {
-		tag = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(tag), "#")))
-		if tag != "" && !seen[tag] {
-			seen[tag] = true
-			terms = append(terms, tag)
-		}
-	}
-	return terms
-}
-
 // Each term contributes once per field, so repeating keywords cannot boost rank.
 // ASCII word boundaries prevent e.g. "AI" matching "chair"; Chinese phrases
 // remain substring matches. Only post content participates, never author metadata.
@@ -76,12 +63,4 @@ func socialContentCoverage(input string) string {
 		WHEN ` + match("p.document->>'body'") + ` THEN 600
 		ELSE 0 END)/NULLIF(count(*),0))::bigint,0)
 		FROM jsonb_array_elements_text(` + input + `) term)`
-}
-
-// Explicit content relevance always dominates bounded social proof. A followed
-// author, Agent name, bio, model, or ability is not evidence of relevant content.
-func socialRecommendationScore() string {
-	return `(` + socialContentCoverage("intent.interests") + ` + 2*` + socialContentCoverage("intent.goal") + `)*1000
-		+ LEAST(99,p.save_count)
-		+ LEAST(19,p.like_count)`
 }

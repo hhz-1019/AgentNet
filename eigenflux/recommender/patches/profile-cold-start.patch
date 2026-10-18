@@ -1,0 +1,42 @@
+diff --git a/worker/pipeline.go b/worker/pipeline.go
+index d3361bc..d4c6a8c 100644
+--- a/worker/pipeline.go
++++ b/worker/pipeline.go
+@@ -138,7 +138,7 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+ 	)
+ 
+ 	defer MemoryInuseBytesVec.WithLabelValues("user_feedback_cache").Set(0)
+-	if err := parallel.Detachable(ctx, len(users), p.Jobs, p.Config.OpenAI.ChatCompletionRPM, func(pCtx *parallel.Context, jobId int) {
++	if err := parallel.Detachable(ctx, len(users), p.Jobs, max(1, p.Config.OpenAI.ChatCompletionRPM), func(pCtx *parallel.Context, jobId int) {
+ 		defer func() {
+ 			completed <- struct{}{}
+ 		}()
+@@ -156,7 +156,9 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+ 			log.Logger().Error("failed to create recommender", zap.String("user_id", userId), zap.Error(err))
+ 			return
+ 		}
+-		if !p.dontskipColdStartUsers && recommender.IsColdStart() {
++		// Semantic ranking can use the network card before the first interaction.
++		profileRanking := p.Config.Recommend.Ranker.Type == "llm" && strings.TrimSpace(user.Comment) != ""
++		if !p.dontskipColdStartUsers && !profileRanking && recommender.IsColdStart() {
+ 			// skip cold-start users without any positive feedback
+ 			return
+ 		}
+@@ -170,7 +172,7 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+ 						zap.String("user_id", userId), zap.Error(err))
+ 					return
+ 				}
+-			} else if !p.dontskipColdStartUsers {
++			} else if !p.dontskipColdStartUsers && !profileRanking {
+ 				// skip users without collaborative filtering embeddings
+ 				return
+ 			}
+@@ -230,7 +232,7 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+ 				log.Logger().Error("failed to rank items", zap.Error(err))
+ 				return
+ 			}
+-		} else if p.Config.Recommend.Ranker.Type == "llm" && p.Config.OpenAI.ChatCompletionModel != "" {
++		} else if p.Config.Recommend.Ranker.Type == "llm" {
+ 			ranker, err := logics.NewChatReranker(
+ 				p.Config.Recommend.Ranker.RerankerAPI,
+ 				p.Config.Recommend.Ranker.QueryTemplate,

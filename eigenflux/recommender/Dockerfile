@@ -1,2 +1,18 @@
-FROM zhenghaoz/gorse-in-one:0.5.11@sha256:b249a44b6affabde48a88c0438ebfd810edbb91f872f8dc080286f460a4f0ee7
+# Build the pinned upstream checkout with entry/transport fixes, not a new
+# ranking algorithm. Mirrors upstream cmd/gorse-in-one/Dockerfile.
+FROM --platform=$BUILDPLATFORM golang:1.26 AS build
+WORKDIR /src
+COPY eigenflux/vendor/gorse/go.* ./
+RUN go mod download
+COPY eigenflux/vendor/gorse/ ./
+COPY eigenflux/recommender/patches/ /tmp/patches/
+RUN git apply --check /tmp/patches/*.patch && git apply /tmp/patches/*.patch
+ARG TARGETOS
+ARG TARGETARCH
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags="-X github.com/gorse-io/gorse/config.RootDir=/var/lib/gorse -X github.com/gorse-io/gorse/cmd/version.Version=v0.5.11-profile -X github.com/gorse-io/gorse/cmd/version.GitCommit=de9141d5d87236289d8d7f102bb9588234ff63cf" -o /gorse-in-one ./cmd/gorse-in-one
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /gorse-in-one /usr/bin/gorse-in-one
 COPY eigenflux/recommender/gorse.toml /etc/gorse/config.toml
+ENV USER=root
+ENTRYPOINT ["/usr/bin/gorse-in-one", "-c", "/etc/gorse/config.toml"]

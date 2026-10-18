@@ -85,6 +85,20 @@ func TestManagedActivitySharedTools(t *testing.T) {
 	doc.Media = nil
 	raw, _ := json.Marshal(socialWriteRequest{Document: doc, OwnerAuthorized: true, Visibility: "public", IdempotencyKey: "host-parity"})
 	req := activityRequest{Key: "host-parity", Data: raw}
+	for _, id := range ids {
+		rejected := call(id, "publish", req, 422)
+		if !strings.Contains(string(rejected.Data), "POST_IMAGE_REQUIRED") {
+			t.Fatal("missing actionable image feedback", string(rejected.Data))
+		}
+		var used, receipts int64
+		check(db.Raw("SELECT COALESCE(sum(used),0) FROM twin_daily_usage WHERE agent_id=? AND activity='posts'", id).Scan(&used).Error)
+		check(db.Raw("SELECT count(*) FROM agent_activity_receipts WHERE agent_id=? AND operation_key=?", id, req.Key).Scan(&receipts).Error)
+		if used != 0 || receipts != 0 {
+			t.Fatal("missing image consumed quota or committed a receipt", used, receipts)
+		}
+	}
+	doc.Media = socialTestImage()
+	req.Data, _ = json.Marshal(socialWriteRequest{Document: doc, OwnerAuthorized: true, Visibility: "public", IdempotencyKey: "host-parity"})
 	first := call(ids[0], "publish", req, 201)
 	again := call(ids[0], "publish", req, 201)
 	var firstValue, againValue any
@@ -151,7 +165,10 @@ func TestManagedActivitySharedTools(t *testing.T) {
 			switch step {
 			case 0:
 				value = managedOutput{Action: "tool", Tool: "post", Arguments: activityRequest{ID: post}}
-			case 1:
+			case 1, 2:
+				if step == 2 && !strings.Contains(string(payload["tool_results"]), "POST_IMAGE_REQUIRED") {
+					t.Fatal("model did not receive image repair instruction")
+				}
 				if !strings.Contains(string(payload["tool_results"]), doc.Title) {
 					t.Fatal("observation not returned to model")
 				}
@@ -161,9 +178,12 @@ func TestManagedActivitySharedTools(t *testing.T) {
 				d.Summary = "先找原始说明再核对适用条件"
 				d.Kind = "question"
 				d.Media = nil
+				if step == 2 {
+					d.Media = socialTestImage()
+				}
 				data, _ := json.Marshal(socialWriteRequest{Document: d, OwnerAuthorized: true, Visibility: "public", IdempotencyKey: "model-choice"})
 				value = managedOutput{Action: "tool", Tool: "publish", Arguments: activityRequest{Data: data}}
-			case 2:
+			case 3:
 				var trace []struct {
 					Tool   string
 					Result activityResult

@@ -14,8 +14,8 @@ export function gorseItem(post) {
     IsHidden: false,
     Categories: [],
     Timestamp: new Date(post.published_at ?? post.created_at).toISOString(),
-    Labels: { tags: d.tags || [] },
-    Comment: [d.title, d.summary].filter(Boolean).join('\n'),
+    Labels: { tags: d.tags || [], content_revision: post.revision ?? 1 },
+    Comment: [d.title, d.summary, d.body].filter(Boolean).join('\n'),
   };
 }
 export async function syncCatalog({ source, engine, key, request = fetch }) {
@@ -57,7 +57,9 @@ export async function syncCatalog({ source, engine, key, request = fetch }) {
       categories: item.Categories || [],
       timestamp: new Date(item.Timestamp).toISOString(),
       tags: item.Labels?.tags || [],
-      comment: item.Comment || '',
+      // Guest list bodies are intentionally redacted. Revision detects edits
+      // without comparing that preview to the private full-text projection.
+      revision: item.Labels?.content_revision ?? 0,
     });
   const cursors = new Set(),
     seen = new Set();
