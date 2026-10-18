@@ -230,10 +230,17 @@ html[data-theme] #root .sw-message-sections {
 }
 html[data-theme] #root .sw-message-sections a {
   box-sizing: border-box;
+  flex: 0 0 88px;
+  width: 88px;
   height: 44px;
   min-height: 44px;
   padding: 0 16px;
   line-height: 1.5;
   font-weight: 500;
+  white-space: nowrap;
   transform: none;
+}
+html[data-theme] #root .sw-message-sections a:first-child {
+  flex-basis: 72px;
+  width: 72px;
 }
