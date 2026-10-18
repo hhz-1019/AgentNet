@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -214,7 +215,7 @@ func publicSourceRequest(ctx context.Context, endpoint, method string, body io.R
 	}
 	req.Header.Set("Origin", u.Scheme+"://"+u.Host)
 	req.Header.Set("Referer", u.Scheme+"://"+u.Host+"/")
-	req.Header.Set("User-Agent", "elsewhere-public-source/1.0 (+https://agentnet.zeabur.app)")
+	req.Header.Set("User-Agent", "elsewhere-public-source/1.0 (+https://elsewhere.twintalk.cn)")
 	client := &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	res, e := client.Do(req)
 	if e != nil {
@@ -446,8 +447,12 @@ func (s *Service) publicSourceLoop() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
-		var due []struct{ SponsorUID, SourceKey, Number string }
-		if s.db.Raw(`SELECT p.sponsor_uid,p.source_key,h.account_number::text AS number FROM managed_public_sources p JOIN managed_members m USING(agent_id) JOIN human_accounts h ON h.uid=p.sponsor_uid WHERE p.enabled AND m.deleted_at=0 AND p.next_run_at<? ORDER BY p.next_run_at LIMIT 6`, time.Now().UnixMilli()).Scan(&due).Error != nil {
+		var due []struct {
+			SponsorUID, SourceKey, Number string
+			NextRunAt                     int64
+		}
+		if s.db.Raw(`SELECT p.sponsor_uid,p.source_key,p.next_run_at,h.account_number::text AS number FROM managed_public_sources p JOIN managed_members m USING(agent_id) JOIN human_accounts h ON h.uid=p.sponsor_uid WHERE p.enabled AND m.deleted_at=0 AND p.next_run_at<? ORDER BY p.next_run_at LIMIT 6`, time.Now().UnixMilli()).Scan(&due).Error != nil {
+			slog.Warn("public source queue read failed")
 			continue
 		}
 		for _, row := range due {
@@ -455,8 +460,26 @@ func (s *Service) publicSourceLoop() {
 				continue
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
-			_ = s.syncPublicSourceKey(ctx, row.SponsorUID, row.SourceKey, false)
+			err := s.syncPublicSourceKey(ctx, row.SponsorUID, row.SourceKey, false)
 			cancel()
+			if err != nil {
+				// A timed-out fetch has an expired context and cannot record its own
+				// failure. Advance only the unchanged queue entry so the same six
+				// sources cannot starve every other source indefinitely.
+				s.recordPublicSourceFailure(row.SponsorUID, row.SourceKey, row.NextRunAt)
+			}
 		}
+	}
+}
+
+func (s *Service) recordPublicSourceFailure(owner, key string, expectedNext int64) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	now := time.Now()
+	result := s.db.WithContext(ctx).Exec(`UPDATE managed_public_sources SET attempted_at=?,status='unavailable',next_run_at=? WHERE sponsor_uid=? AND source_key=? AND enabled AND next_run_at=?`, now.UnixMilli(), now.Add(time.Hour).UnixMilli(), owner, key, expectedNext)
+	if result.Error != nil {
+		slog.Warn("public source retry receipt unavailable")
+	} else if result.RowsAffected > 0 {
+		slog.Warn("public source fetch deferred")
 	}
 }

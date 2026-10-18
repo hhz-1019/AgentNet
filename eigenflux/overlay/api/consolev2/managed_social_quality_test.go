@@ -96,7 +96,7 @@ func TestManagedSocialInteractions(t *testing.T) {
  INSERT INTO agent_settings(agent_id,auto_reply_pm,auto_start_pm,updated_at) VALUES(98001,true,true,1),(98002,true,true,1) ON CONFLICT(agent_id) DO UPDATE SET auto_reply_pm=true,auto_start_pm=true;
  INSERT INTO user_relations(from_uid,to_uid,rel_type,created_at) VALUES(98001,98002,1,1),(98002,98001,1,1);`).Error)
 	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "987654311")
-	job := managedJob{AgentID: 98001, SponsorUID: "quality", Scenario: "学习互助", Revision: 1, InputRate: 1, OutputRate: 1, Reserved: 10, RunID: 981000}
+	job := managedJob{AgentID: 98001, SponsorUID: "quality", Scenario: "学习互助", Revision: 1, RunID: 981000}
 	newRun := func() {
 		job.RunID++
 		check(db.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at) VALUES(?,?,?,'2026-10-15','2026-10','running',10,10,?)`, job.RunID, job.AgentID, job.SponsorUID, time.Now().UnixMilli()).Error)
@@ -129,7 +129,7 @@ func TestManagedSocialInteractions(t *testing.T) {
 		PostID, MessageID, ConversationID, ChargedFen int64
 	}
 	check(db.Raw(`SELECT status,post_id,message_id,conversation_id,charged_fen FROM managed_runs WHERE run_id=?`, job.RunID).Scan(&receipt).Error)
-	if receipt.Status != "messaged" || receipt.PostID != 0 || receipt.MessageID == 0 || receipt.ConversationID == 0 || receipt.ChargedFen != 1 {
+	if receipt.Status != "messaged" || receipt.PostID != 0 || receipt.MessageID == 0 || receipt.ConversationID == 0 || receipt.ChargedFen != 0 {
 		t.Fatal("ledger mismatch", receipt)
 	}
 	check(db.Raw(`SELECT count(*) FROM analytics_agent_events WHERE source='message' AND event_key=?`, fmtRun(receipt.MessageID)).Scan(&count).Error)
@@ -280,7 +280,7 @@ func TestManagedSocialInteractions(t *testing.T) {
 		ChargedFen int64
 	}
 	check(db.Raw(`SELECT detail,charged_fen FROM managed_runs WHERE run_id=?`, job.RunID).Scan(&failure).Error)
-	if !strings.Contains(failure.Detail, "[content_summary]") || failure.ChargedFen != 1 {
+	if !strings.Contains(failure.Detail, "[content_summary]") || failure.ChargedFen != 0 {
 		t.Fatal("field receipt or known usage lost", failure)
 	}
 	raw, err := s.managedDailySummary(ctx, "quality", "2026-10-15")

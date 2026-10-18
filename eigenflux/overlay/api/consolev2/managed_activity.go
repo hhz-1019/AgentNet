@@ -20,7 +20,7 @@ func managedActivityPrompt() string {
 `
 }
 
-// Uses the same public activity tool registry as user hosts. Only model billing,
+// Uses the same public activity tool registry as user hosts. Only model calls,
 // lease admission and the source of private memory belong to this adapter.
 func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, payload map[string]any, input *managedContext) (managedModelResult, error) {
 	total := managedModelResult{UsageKnown: true}
@@ -70,7 +70,7 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	const maxSteps = 16
 	for step := 0; step < maxSteps; step++ {
 		if step > 0 {
-			if err := s.reserveManagedReview(ctx, job); err != nil {
+			if err := s.guardManagedReview(ctx, job); err != nil {
 				return total, err
 			}
 		}

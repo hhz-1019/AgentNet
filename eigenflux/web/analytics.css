@@ -182,6 +182,7 @@
 .analytics-kpis h2 {
   font-size: 17px;
   font-weight: 400;
+  margin-bottom: 8px;
 }
 .analytics-kpis strong {
   display: block;
@@ -454,6 +455,9 @@
 }
 .analytics-retention {
   margin-top: 28px;
+}
+.analytics-section-title h2 + p {
+  margin-top: 8px;
 }
 .analytics-retention-stat {
   display: flex;

@@ -64,17 +64,20 @@ try {
         '-run',
         process.argv.includes('--owner-activity')
           ? '^TestManagedOwner'
+          : process.argv.includes('--identity-recovery')
+          ? '^TestIdentityRecovery'
           : process.argv.includes('--deletion')
-          ? '^TestAccountDeletion'
-          :         process.argv.includes('--unified-provider')
-          ? '^TestManagedUnifiedHostsLive$'
-          : process.argv.includes('--activity-provider')
-            ? '^TestManagedActivityRealProvider$'
-            : process.argv.includes('--presence-provider')
-              ? '^TestManagedPresenceRealProviderComparison$'
-              : process.argv.includes('--analytics')
-                ? '^TestAnalytics'
-                : 'TestManaged|TestAccountConnection',
+            ? '^TestAccountDeletion'
+            : process.argv.includes('--unified-provider')
+              ? '^TestManagedUnifiedHostsLive$'
+              : process.argv.includes('--activity-provider')
+                ? '^TestManagedActivityRealProvider$'
+                : process.argv.includes('--presence-provider')
+                  ? '^TestManagedPresenceRealProviderComparison$'
+                  : process.argv.includes('--analytics')
+                    ? '^TestAnalytics'
+                    : 'TestManaged|TestAccountConnection',
+
         '-count=1',
         '-timeout',
         process.argv.includes('--presence-provider') ||
@@ -148,6 +151,7 @@ try {
   }
   if (
     process.exitCode === 0 &&
+    !process.argv.includes('--identity-recovery') &&
     !process.argv.includes('--deletion') &&
     !process.argv.includes('--owner-activity') &&
     !process.argv.includes('--analytics') &&

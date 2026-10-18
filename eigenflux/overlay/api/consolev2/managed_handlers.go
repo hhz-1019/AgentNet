@@ -115,21 +115,19 @@ func (s *Service) getManaged(_ context.Context, c *app.RequestContext) {
 	now := time.Now().UTC().Add(8 * time.Hour)
 	var data string
 	err := s.db.Raw(`SELECT json_build_object('sponsor_number',a.account_number::text,
- 'campaign',COALESCE((SELECT row_to_json(c) FROM (SELECT dm_reply_enabled,dm_start_enabled,enabled,monthly_budget_fen,input_fen_per_million,output_fen_per_million,revision FROM managed_campaigns WHERE sponsor_uid=a.uid)c),'null'::json),
- 'spent_fen',COALESCE((SELECT sum(charged_fen) FROM managed_runs WHERE sponsor_uid=a.uid AND month=?),0),
+ 'campaign',COALESCE((SELECT row_to_json(c) FROM (SELECT dm_reply_enabled,dm_start_enabled,enabled,revision FROM managed_campaigns WHERE sponsor_uid=a.uid)c),'null'::json),
  'members',COALESCE((SELECT json_agg(m ORDER BY seed_index) FROM (SELECT m.agent_id::text AS id,h.account_number::text AS number,m.seed_index,m.name,m.scenario,m.persona,m.enabled,m.daily_limit,0 AS start_hour,24 AS end_hour,m.revision,m.next_run_at,m.pending_topic,m.pending_action,m.pending_task_id,m.deleted_at,m.profile_version,m.persona_edited,agent.bio AS public_bio,(SELECT profile_data FROM agent_profiles WHERE agent_id=m.agent_id) AS public_identity,
  COALESCE((SELECT g.auto_reply_pm FROM agent_settings g WHERE g.agent_id=m.agent_id),false) AS reply_allowed,
  COALESCE((SELECT g.auto_start_pm FROM agent_settings g WHERE g.agent_id=m.agent_id),false) AS start_allowed,
  EXISTS(SELECT 1 FROM agent_principals ap WHERE ap.agent_id=m.agent_id AND ap.status='active') AS externally_controlled,
- (SELECT COALESCE(sum(charged_fen),0) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.month=to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai','YYYY-MM')) AS month_spent_fen,
  (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND r.status IN ('published','commented','liked','messaged')) AS successful_runs,
  (SELECT count(*) FROM console_v2_sessions cs JOIN managed_delegations d USING(session_id) WHERE cs.agent_id=m.agent_id AND d.sponsor_uid=m.sponsor_uid AND cs.status='active' AND cs.idle_expires_at>extract(epoch FROM now())*1000 AND cs.absolute_expires_at>extract(epoch FROM now())*1000) AS active_sessions,
  (SELECT count(*) FROM managed_runs r WHERE r.agent_id=m.agent_id AND day=?::date) AS today_runs,
  (SELECT status FROM managed_runs r WHERE r.agent_id=m.agent_id ORDER BY created_at DESC LIMIT 1) AS last_status,
  (SELECT max(finished_at) FROM managed_runs r WHERE r.agent_id=m.agent_id) AS last_active_at
  FROM managed_members m JOIN human_accounts h ON h.uid=m.owner_uid JOIN agents agent ON agent.agent_id=m.agent_id WHERE m.sponsor_uid=a.uid)m),'[]'::json),
- 'runs',COALESCE((SELECT json_agg(r) FROM (SELECT r.run_id::text AS id,r.agent_id::text AS agent_id,m.name,r.status,r.detail,r.charged_fen,r.input_tokens,r.output_tokens,r.task_id,r.requested_action,r.model_calls,r.repair_count,r.review_status,r.writing_trace,r.post_id::text AS post_id,r.message_id::text AS message_id,r.conversation_id::text AS conversation_id,r.created_at,r.provider_host,r.model FROM managed_runs r JOIN managed_members m USING(agent_id) WHERE r.sponsor_uid=a.uid ORDER BY r.created_at DESC LIMIT 50)r),'[]'::json),
- 'audit',COALESCE((SELECT json_agg(r) FROM (SELECT action,agent_id::text AS agent_id,created_at FROM managed_audit WHERE sponsor_uid=a.uid ORDER BY id DESC LIMIT 30)r),'[]'::json))::text FROM human_accounts a WHERE uid=?`, now.Format("2006-01"), now.Format("2006-01-02"), owner).Scan(&data).Error
+ 'runs',COALESCE((SELECT json_agg(r) FROM (SELECT r.run_id::text AS id,r.agent_id::text AS agent_id,m.name,r.status,r.detail,r.task_id,r.requested_action,r.model_calls,r.repair_count,r.review_status,r.writing_trace,r.post_id::text AS post_id,r.message_id::text AS message_id,r.conversation_id::text AS conversation_id,r.created_at,r.provider_host,r.model FROM managed_runs r JOIN managed_members m USING(agent_id) WHERE r.sponsor_uid=a.uid ORDER BY r.created_at DESC LIMIT 50)r),'[]'::json),
+ 'audit',COALESCE((SELECT json_agg(r) FROM (SELECT action,agent_id::text AS agent_id,created_at FROM managed_audit WHERE sponsor_uid=a.uid ORDER BY id DESC LIMIT 30)r),'[]'::json))::text FROM human_accounts a WHERE uid=?`, now.Format("2006-01-02"), owner).Scan(&data).Error
 	if err != nil {
 		s.managedError(c, err)
 		return
@@ -328,13 +326,10 @@ func managedPublicProfile(name, scenario string) draftPayload {
 }
 
 type managedCampaign struct {
-	DMReplyEnabled      *bool `json:"dm_reply_enabled"`
-	DMStartEnabled      *bool `json:"dm_start_enabled"`
-	Enabled             bool  `json:"enabled"`
-	MonthlyBudgetFen    int64 `json:"monthly_budget_fen"`
-	InputFenPerMillion  int64 `json:"input_fen_per_million"`
-	OutputFenPerMillion int64 `json:"output_fen_per_million"`
-	Revision            int64 `json:"revision"`
+	DMReplyEnabled *bool `json:"dm_reply_enabled"`
+	DMStartEnabled *bool `json:"dm_start_enabled"`
+	Enabled        bool  `json:"enabled"`
+	Revision       int64 `json:"revision"`
 }
 
 func (s *Service) putManagedCampaign(_ context.Context, c *app.RequestContext) {
@@ -343,12 +338,12 @@ func (s *Service) putManagedCampaign(_ context.Context, c *app.RequestContext) {
 		return
 	}
 	var req managedCampaign
-	if decodeBody(c, &req) != nil || req.MonthlyBudgetFen < 0 || req.MonthlyBudgetFen > 10000000 || req.InputFenPerMillion < 0 || req.InputFenPerMillion > 1000000 || req.OutputFenPerMillion < 0 || req.OutputFenPerMillion > 1000000 || req.Revision < 1 || (req.Enabled && (req.MonthlyBudgetFen == 0 || req.InputFenPerMillion == 0 || req.OutputFenPerMillion == 0 || !managedModelConfigured() || os.Getenv("AGENTNET_MANAGED_WORKER") != "true")) {
-		fail(c, 400, "MANAGED_CONFIG_INVALID", "请设置预算和模型实际单价，并先配置平台模型与调度器", nil)
+	if decodeBody(c, &req) != nil || req.Revision < 1 || (req.Enabled && (!managedModelConfigured() || os.Getenv("AGENTNET_MANAGED_WORKER") != "true")) {
+		fail(c, 400, "MANAGED_CONFIG_INVALID", "请先配置平台模型与调度器", nil)
 		return
 	}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		r := tx.Exec(`UPDATE managed_campaigns SET dm_reply_enabled=COALESCE(?,dm_reply_enabled),dm_start_enabled=COALESCE(?,dm_start_enabled),enabled=?,monthly_budget_fen=?,input_fen_per_million=?,output_fen_per_million=?,revision=revision+1 WHERE sponsor_uid=? AND revision=?`, req.DMReplyEnabled, req.DMStartEnabled, req.Enabled, req.MonthlyBudgetFen, req.InputFenPerMillion, req.OutputFenPerMillion, owner, req.Revision)
+		r := tx.Exec(`UPDATE managed_campaigns SET dm_reply_enabled=COALESCE(?,dm_reply_enabled),dm_start_enabled=COALESCE(?,dm_start_enabled),enabled=?,revision=revision+1 WHERE sponsor_uid=? AND revision=?`, req.DMReplyEnabled, req.DMStartEnabled, req.Enabled, owner, req.Revision)
 		if r.Error != nil {
 			return r.Error
 		}

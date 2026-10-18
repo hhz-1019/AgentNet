@@ -60,20 +60,6 @@ func TestManagedModelFailureClassificationAndUsage(t *testing.T) {
 	if managedFailureCode(err) != "input" || r.Requested {
 		t.Fatal("preflight reached provider", r, err)
 	}
-	job := managedJob{Reserved: 12, InputRate: 200, OutputRate: 800}
-	for _, tc := range []struct {
-		r    managedModelResult
-		want int64
-	}{
-		{managedModelResult{}, 0},
-		{managedModelResult{Requested: true}, 12},
-		{managedModelResult{Requested: true, UsageKnown: true}, 0},
-		{managedModelResult{Requested: true, UsageKnown: true, Input: 1000, Output: 100}, 1},
-	} {
-		if got := managedResultCost(job, tc.r); got != tc.want {
-			t.Fatal(got, tc.want)
-		}
-	}
 }
 
 func TestManagedFailureReceiptsAndProviderCooldown(t *testing.T) {
@@ -99,7 +85,7 @@ INSERT INTO managed_members(agent_id,owner_uid,sponsor_uid,seed_index,name,scena
 	now := time.Now()
 	day := now.UTC().Add(8 * time.Hour).Format("2006-01-02")
 	month := day[:7]
-	job := managedJob{AgentID: 96001, SponsorUID: "failure-sponsor", Reserved: 12, InputRate: 200, OutputRate: 800}
+	job := managedJob{AgentID: 96001, SponsorUID: "failure-sponsor"}
 	for i := int64(1); i <= 3; i++ {
 		job.RunID = 96100 + i
 		check(db.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at) VALUES(?,96001,'failure-sponsor',?::date,?,'running',12,12,?)`, job.RunID, day, month, now.UnixMilli()+i).Error)
@@ -122,7 +108,7 @@ INSERT INTO managed_members(agent_id,owner_uid,sponsor_uid,seed_index,name,scena
 		ChargedFen, InputTokens int64
 	}
 	check(db.Raw("SELECT detail,charged_fen,input_tokens FROM managed_runs WHERE run_id=?", claimed.RunID).Scan(&receipt).Error)
-	if receipt.ChargedFen != 1 || receipt.InputTokens != 1000 || strings.Contains(receipt.Detail, "credential") || !strings.HasPrefix(receipt.Detail, "[publish]") {
+	if receipt.ChargedFen != 0 || receipt.InputTokens != 0 || strings.Contains(receipt.Detail, "credential") || !strings.HasPrefix(receipt.Detail, "[publish]") {
 		t.Fatal(receipt)
 	}
 }

@@ -554,7 +554,7 @@
   padding: 0;
 }
 .sn-member-picker legend {
-  padding: 0 0 8px;
+  padding: 0 0 12px;
   color: var(--ew-muted);
   font-size: 16px;
 }
@@ -562,7 +562,7 @@
   flex-direction: row;
   gap: 12px;
   margin: 0;
-  padding: 13px 9px;
+  padding: 13px 16px;
   border-bottom: 1px solid var(--ew-line);
   border-radius: var(--ew-radius-control);
   color: var(--ew-ink);

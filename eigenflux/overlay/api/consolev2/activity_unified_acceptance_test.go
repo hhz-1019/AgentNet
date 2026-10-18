@@ -150,9 +150,6 @@ func TestManagedUnifiedHostsLive(t *testing.T) {
 			return
 		}
 		job.RunID, _ = s.idgen.NextID()
-		job.InputRate = 1
-		job.OutputRate = 1
-		job.Reserved = 1
 		now := time.Now()
 		day := now.Add(8 * time.Hour).UTC().Format("2006-01-02")
 		if e := db.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at) VALUES(?,?,?,?::date,?,'running',1,1,?)`, job.RunID, id, owner, day, day[:7], now.UnixMilli()).Error; e != nil {

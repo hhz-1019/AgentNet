@@ -37,7 +37,7 @@ func TestManagedOwnerDiscoveryAndInteraction(t *testing.T) {
  INSERT INTO user_relations(from_uid,to_uid,rel_type,created_at) VALUES(93006,93001,2,1);`).Error)
 	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "987654321")
 	s := &Service{db: db, idgen: &managedTestIDs{id: 93900000}}
-	job := managedJob{AgentID: 93001, SponsorUID: "discovery", Scenario: "植物养护", Topic: "植物", Revision: 1, InputRate: 1, OutputRate: 1, Reserved: 10, RunID: 938000}
+	job := managedJob{AgentID: 93001, SponsorUID: "discovery", Scenario: "植物养护", Topic: "植物", Revision: 1, RunID: 938000}
 	for _, p := range []struct {
 		id, author               int64
 		state, visibility, title string

@@ -37,9 +37,6 @@ const managedMaxOutput = 1500
 var managedPrivatePattern = regexp.MustCompile(`(?i)([a-z]:\\+(?:Users|Documents and Settings)\\|/(?:home|Users)/[^/\s]+/|\b1[3-9][0-9]{9}\b)`)
 
 func fmtRun(id int64) string { return strconv.FormatInt(id, 10) }
-func managedCost(input, output, inRate, outRate int64) int64 {
-	return (input*inRate + output*outRate + 999999) / 1000000
-}
 func managedModelURL() (string, bool) {
 	raw := strings.TrimRight(os.Getenv("LLM_BASE_URL"), "/")
 	u, err := url.Parse(raw)
@@ -54,20 +51,19 @@ func managedModelConfigured() bool {
 }
 
 type managedJob struct {
-	Action, TaskID, TaskDigest                       string
-	PriorityReply                                    bool
-	RecipientID                                      int64
-	PersonaEdited                                    bool
-	SeedIndex                                        *int
-	ProfileVersion                                   int
-	AgentID                                          int64
-	SponsorUID, Name, Scenario, Persona              string
-	Topic                                            string
-	Revision, RunID, InputRate, OutputRate, Reserved int64
+	Action, TaskID, TaskDigest          string
+	PriorityReply                       bool
+	RecipientID                         int64
+	PersonaEdited                       bool
+	SeedIndex                           *int
+	ProfileVersion                      int
+	AgentID                             int64
+	SponsorUID, Name, Scenario, Persona string
+	Topic                               string
+	Revision, RunID                     int64
 }
 
-// Admission and billing reservation are serialized in PostgreSQL, across all
-// replicas. A lost model response stays charged at the reserved upper bound.
+// Admission is serialized across replicas to prevent duplicate execution.
 func (s *Service) claimManaged(ctx context.Context, now time.Time) (*managedJob, error) {
 	return s.claimManagedMode(ctx, now, false)
 }
@@ -78,13 +74,13 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 			return err
 		}
 		local := now.UTC().Add(8 * time.Hour)
-		if err := tx.Exec(`UPDATE managed_runs SET status='uncertain',detail='执行中断，费用按预留上限计入，未重复发布',finished_at=? WHERE status='running' AND created_at<?`, now.UnixMilli(), now.Add(-5*time.Minute).UnixMilli()).Error; err != nil {
+		if err := tx.Exec(`UPDATE managed_runs SET status='uncertain',detail='执行中断，保留已完成动作，未重复发布',finished_at=? WHERE status='running' AND created_at<?`, now.UnixMilli(), now.Add(-5*time.Minute).UnixMilli()).Error; err != nil {
 			return err
 		}
 		var candidates []managedJob
-		err := tx.Raw(`SELECT m.agent_id,m.seed_index,m.profile_version,m.persona_edited,m.sponsor_uid,m.name,m.scenario,m.persona,m.pending_topic AS topic,m.pending_recipient_id AS recipient_id,m.pending_action AS action,m.pending_task_id AS task_id,m.pending_task_digest AS task_digest,`+managedIncomingSQL+` AS priority_reply,m.revision,c.input_fen_per_million AS input_rate,c.output_fen_per_million AS output_rate
+		err := tx.Raw(`SELECT m.agent_id,m.seed_index,m.profile_version,m.persona_edited,m.sponsor_uid,m.name,m.scenario,m.persona,m.pending_topic AS topic,m.pending_recipient_id AS recipient_id,m.pending_action AS action,m.pending_task_id AS task_id,m.pending_task_digest AS task_digest,`+managedIncomingSQL+` AS priority_reply,m.revision
  FROM managed_members m JOIN managed_campaigns c USING(sponsor_uid) JOIN human_accounts a ON a.uid=m.sponsor_uid JOIN agents agent ON agent.agent_id=m.agent_id AND agent.identity_state='active'
- WHERE m.enabled AND m.deleted_at=0 AND c.enabled AND c.monthly_budget_fen>0 AND c.input_fen_per_million>0 AND c.output_fen_per_million>0
+ WHERE m.enabled AND m.deleted_at=0 AND c.enabled
  AND (NOT ? OR m.pending_action='message' OR `+managedIncomingSQL+`)
  AND (m.next_run_at<=? OR `+managedIncomingSQL+`)
  AND NOT EXISTS(SELECT 1 FROM managed_runs WHERE agent_id=m.agent_id AND status='running')
@@ -110,12 +106,7 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 			if err := tx.Raw(`SELECT * FROM managed_campaigns WHERE sponsor_uid=? FOR UPDATE`, candidate.SponsorUID).Scan(&campaign).Error; err != nil {
 				return err
 			}
-			var spent int64
-			if err := tx.Raw(`SELECT COALESCE(sum(charged_fen),0) FROM managed_runs WHERE sponsor_uid=? AND month=?`, candidate.SponsorUID, local.Format("2006-01")).Scan(&spent).Error; err != nil {
-				return err
-			}
-			reserve := managedCost(managedMaxInput, managedMaxOutput, candidate.InputRate, candidate.OutputRate)
-			if !campaign.Enabled || reserve <= 0 || spent+reserve > campaign.MonthlyBudgetFen {
+			if !campaign.Enabled {
 				continue
 			}
 			topicKey := ""
@@ -136,7 +127,7 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 			if err != nil {
 				return err
 			}
-			if err := tx.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at,provider_host,model,topic_key,requested_action,task_id,task_digest) VALUES(?,?,?,?::date,?,'running',?,?,?,?,?,?,?,?,?)`, runID, candidate.AgentID, candidate.SponsorUID, local.Format("2006-01-02"), local.Format("2006-01"), reserve, reserve, now.UnixMilli(), managedProvider(), os.Getenv("LLM_MODEL"), topicKey, candidate.Action, candidate.TaskID, candidate.TaskDigest).Error; err != nil {
+			if err := tx.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at,provider_host,model,topic_key,requested_action,task_id,task_digest) VALUES(?,?,?,?::date,?,'running',?,?,?,?,?,?,?,?,?)`, runID, candidate.AgentID, candidate.SponsorUID, local.Format("2006-01-02"), local.Format("2006-01"), 0, 0, now.UnixMilli(), managedProvider(), os.Getenv("LLM_MODEL"), topicKey, candidate.Action, candidate.TaskID, candidate.TaskDigest).Error; err != nil {
 				return err
 			}
 			// Stable spread avoids synchronized waves. Attempts, including failures and
@@ -146,7 +137,6 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 				return err
 			}
 			candidate.RunID = runID
-			candidate.Reserved = reserve
 			job = &candidate
 			break
 		}
@@ -182,7 +172,7 @@ func (s *Service) managedLoop() {
 }
 
 // A slow public generation must not hold every incoming private reply behind
-// the bulk queue. Claims and billing still share the same database locks.
+// the bulk queue. Claims still share the same database locks.
 func (s *Service) managedReplyLoop() {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -221,7 +211,6 @@ type managedModelResult struct {
 	WritingTrace          managedWritingTrace
 	Calls, Repairs        int
 	ReviewStatus          string
-	UnknownReserved       int64
 	Requested, UsageKnown bool
 	Value                 managedOutput
 	Input, Output         int64
@@ -668,7 +657,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 				}
 			}
 		}
-		cost := managedResultCost(job, result)
+		cost := int64(0)
 		// A tool may have completed an action before the model ended quietly.
 		// Actual publication progress is always read from social_work_posts.
 		if status == "skipped" {
@@ -690,7 +679,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 				}
 			}
 		}
-		return tx.Exec(`UPDATE managed_runs SET status=?,detail=?,charged_fen=?,input_tokens=?,output_tokens=?,post_id=?,message_id=?,conversation_id=?,finished_at=?,model_calls=?,repair_count=?,review_status=?,writing_trace=?::jsonb WHERE run_id=?`, status, detail, cost, result.Input, result.Output, postID, messageID, conversationID, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID).Error
+		return tx.Exec(`UPDATE managed_runs SET status=?,detail=?,charged_fen=?,input_tokens=?,output_tokens=?,post_id=?,message_id=?,conversation_id=?,finished_at=?,model_calls=?,repair_count=?,review_status=?,writing_trace=?::jsonb WHERE run_id=?`, status, detail, cost, 0, 0, postID, messageID, conversationID, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID).Error
 	})
 }
 

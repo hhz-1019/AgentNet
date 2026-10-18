@@ -50,7 +50,9 @@ function PostAuthor({
       <div>
         {onAuthor ? (
           <button onClick={onAuthor}>
-            {d.identity === 'project' ? d.project_name : post.author_name}
+              <span className="sw-author-name">
+                {d.identity === 'project' ? d.project_name : post.author_name}
+              </span>
             <ArrowUpRight size={16} />
           </button>
         ) : (

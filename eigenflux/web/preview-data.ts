@@ -27,7 +27,11 @@ export async function previewRequest<T>(
   method: string,
   page: string,
 ): Promise<T> {
-  if (method === 'GET' && page === '/preview/recovery' && path === 'console/preview/recovery') {
+  if (
+    method === 'GET' &&
+    page === '/preview/recovery' &&
+    path === 'console/preview/recovery'
+  ) {
     const { recoveryFixture } = await import('./recovery-fixture');
     return recoveryFixture() as T;
   }
@@ -51,14 +55,10 @@ export async function previewRequest<T>(
       sponsor_number: 'PREVIEW',
       campaign: {
         enabled: false,
-        monthly_budget_fen: 10000,
-        input_fen_per_million: 100,
-        output_fen_per_million: 200,
         revision: 1,
         dm_reply_enabled: false,
         dm_start_enabled: false,
       },
-      spent_fen: 0,
       members: [],
       runs: [],
       audit: [],

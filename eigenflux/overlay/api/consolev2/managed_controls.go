@@ -3,7 +3,6 @@ package consolev2
 import (
 	"context"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -52,10 +51,6 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 	// Match stale-run recovery rather than flagging that bounded wait as a dead worker.
 	payload["runtime"] = map[string]any{"last_seen_at": health.LastSeenAt, "state": health.State, "healthy": health.State == "ready" && health.LastSeenAt > time.Now().Add(-5*time.Minute).UnixMilli()}
 	var usage struct {
-		SettledFen         int64 `json:"settled_fen"`
-		ReservedFen        int64 `json:"reserved_fen"`
-		InputTokens        int64 `json:"input_tokens"`
-		OutputTokens       int64 `json:"output_tokens"`
 		Published          int64 `json:"published"`
 		Messaged           int64 `json:"messaged"`
 		Liked              int64 `json:"liked"`
@@ -65,10 +60,7 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 		SuccessfulAccounts int64 `json:"successful_accounts"`
 	}
 	month := time.Now().UTC().Add(8 * time.Hour).Format("2006-01")
-	if err := s.db.Raw(`SELECT COALESCE(sum(charged_fen) FILTER(WHERE status IN ('published','commented','liked','messaged','skipped') OR (status='failed' AND (input_tokens>0 OR output_tokens>0))),0) AS settled_fen,
- COALESCE(sum(charged_fen) FILTER(WHERE status IN ('running','uncertain') OR (status='failed' AND input_tokens=0 AND output_tokens=0)),0) AS reserved_fen,
- COALESCE(sum(input_tokens),0) AS input_tokens,COALESCE(sum(output_tokens),0) AS output_tokens,
- count(*) FILTER(WHERE status='published') AS published,count(*) FILTER(WHERE status='commented') AS commented,count(*) FILTER(WHERE status='liked') AS liked,count(*) FILTER(WHERE status='messaged') AS messaged,
+	if err := s.db.Raw(`SELECT count(*) FILTER(WHERE status='published') AS published,count(*) FILTER(WHERE status='commented') AS commented,count(*) FILTER(WHERE status='liked') AS liked,count(*) FILTER(WHERE status='messaged') AS messaged,
  count(*) FILTER(WHERE status='skipped') AS skipped,count(*) FILTER(WHERE status IN ('failed','uncertain')) AS failed,
  count(DISTINCT agent_id) FILTER(WHERE status IN ('published','commented','liked','messaged')) AS successful_accounts
  FROM managed_runs WHERE sponsor_uid=? AND month=?`, owner, month).Scan(&usage).Error; err != nil {
@@ -77,12 +69,12 @@ func (s *Service) managedOverview(owner string, payload map[string]any) error {
 	if err := s.managedDailyFeedback(owner, payload); err != nil {
 		return err
 	}
-	payload["billing"] = map[string]any{"source": "platform_shared", "sponsor_number": payload["sponsor_number"], "provider_host": managedProvider(), "model": os.Getenv("LLM_MODEL"), "month": month, "usage": usage}
+	payload["activity"] = map[string]any{"month": month, "usage": usage}
 	return nil
 }
 
 // Call under the same advisory lock used by the scheduler; queueing cannot
-// promise execution while the budget or daily policy reject the task.
+// promise execution while the daily policy reject the task.
 func managedQueueBlock(tx *gorm.DB, owner string, id int64, now time.Time) (string, error) {
 	return managedQueueBlockWithSchedule(tx, owner, id, now, nil)
 }
@@ -109,7 +101,7 @@ func managedQueueBlockWithSchedule(tx *gorm.DB, owner string, id int64, now time
 		return "此角色已暂停，请先启用", nil
 	}
 	if !campaign.Enabled {
-		return "全部活动已暂停，请先在预算与调度中开启", nil
+		return "全部活动已暂停，请先在调度设置中开启", nil
 	}
 	local := now.UTC().Add(8 * time.Hour)
 	var counts struct{ Today, Running int64 }
@@ -121,14 +113,6 @@ func managedQueueBlockWithSchedule(tx *gorm.DB, owner string, id int64, now time
 	}
 	if counts.Today >= int64(member.DailyLimit) {
 		return "已达到今日尝试上限，可修改上限或明日再安排", nil
-	}
-	var spent int64
-	if err := tx.Raw(`SELECT COALESCE(sum(charged_fen),0) FROM managed_runs WHERE sponsor_uid=? AND month=?`, owner, local.Format("2006-01")).Scan(&spent).Error; err != nil {
-		return "", err
-	}
-	reserve := managedCost(managedMaxInput, managedMaxOutput, campaign.InputFenPerMillion, campaign.OutputFenPerMillion)
-	if campaign.InputFenPerMillion <= 0 || campaign.OutputFenPerMillion <= 0 || reserve <= 0 || spent+reserve > campaign.MonthlyBudgetFen {
-		return "本月剩余额度不足以预留一次调用，请调整预算", nil
 	}
 	return "", nil
 }

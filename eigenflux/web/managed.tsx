@@ -21,9 +21,6 @@ type Campaign = {
   dm_reply_enabled?: boolean;
   dm_start_enabled?: boolean;
   enabled: boolean;
-  monthly_budget_fen: number;
-  input_fen_per_million: number;
-  output_fen_per_million: number;
   revision: number;
 };
 type PublicIdentity = {
@@ -51,7 +48,6 @@ type Member = {
   reply_allowed?: boolean;
   start_allowed?: boolean;
   externally_controlled?: boolean;
-  month_spent_fen: number;
   successful_runs: number;
   active_sessions: number;
   enabled: boolean;
@@ -72,9 +68,6 @@ type Run = {
   name: string;
   status: string;
   detail: string;
-  charged_fen: number;
-  input_tokens: number;
-  output_tokens: number;
   post_id: string | null;
   message_id?: string | null;
   conversation_id?: string | null;
@@ -93,7 +86,6 @@ type DailySummary = {
   skipped: number;
   failed: number;
   running: number;
-  charged_fen: number;
   errors: {
     name: string;
     status: string;
@@ -116,24 +108,15 @@ type Data = {
   }[];
   sponsor_number: string;
   campaign: Campaign | null;
-  spent_fen: number;
   members: Member[];
   runs: Run[];
   audit: Audit[];
   worker_configured: boolean;
   model_configured: boolean;
   runtime?: { healthy: boolean; last_seen_at: number; state: string };
-  billing?: {
-    source: string;
-    sponsor_number: string;
-    provider_host: string;
-    model: string;
+  activity?: {
     month: string;
     usage: {
-      settled_fen: number;
-      reserved_fen: number;
-      input_tokens: number;
-      output_tokens: number;
       published: number;
       commented: number;
       liked?: number;
@@ -144,6 +127,19 @@ type Data = {
     };
   };
 };
+// Legacy receipts retain their operational result without obsolete billing copy.
+function receiptDetail(text: string) {
+  return text
+    .replace(/^\[[a-z0-9_]+\]\s*/i, '')
+    .replace(
+      /；(?:未调用模型，不计费用|按返回用量计入|用量未知，暂保留预算上限待核对)$/,
+      '',
+    )
+    .replace(
+      '执行中断，费用按预留上限计入，未重复发布',
+      '执行中断，未重复发布',
+    );
+}
 const labels: Record<string, string> = {
   running: '执行中',
   published: '已发帖',
@@ -160,7 +156,7 @@ const auditLabels: Record<string, string> = {
   delete_member: '删除角色（可恢复）',
   restore_member: '恢复角色',
   refresh_profiles: '升级身份档案',
-  update_campaign: '修改预算与调度',
+  update_campaign: '修改调度设置',
   update_member: '修改角色资料',
   login_member: '进入角色账号',
   queue_member: '安排一次活动',
@@ -170,11 +166,6 @@ const auditLabels: Record<string, string> = {
   revoke_sessions: '撤销角色登录',
   return_operator: '返回运营账号',
 };
-const money = (fen: number) =>
-  (fen / 100).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 const date = (value: number | null) =>
   value
     ? new Date(value).toLocaleString('zh-CN', {
@@ -342,14 +333,14 @@ export function ManagedConsole({ session }: { session: Session }) {
         <div className="managed-heading">
           <div>
             <h1>官方 Agent 管理</h1>
-            <p>管理托管 Agent的身份、节奏与额度。活动按北京时间安排。</p>
+            <p>管理托管 Agent 的身份与活动节奏。活动按北京时间安排。</p>
           </div>
           <button
             disabled={busy || !data?.campaign?.enabled}
             onClick={() =>
               void act(
                 () => api('console/managed/pause', {}),
-                '全部自动活动已暂停；已发出的模型请求仍可能计费。',
+                '全部自动活动已暂停。',
               )
             }
           >
@@ -368,7 +359,7 @@ export function ManagedConsole({ session }: { session: Session }) {
           </div>
         )}
         {notice && <output className="managed-notice">{notice}</output>}
-        {!data && !error && <output>正在读取角色与额度…</output>}
+        {!data && !error && <output>正在读取角色与调度设置…</output>}
         {data && (
           <>
             <div className="managed-summary">
@@ -378,10 +369,6 @@ export function ManagedConsole({ session }: { session: Session }) {
               </span>
               <span>
                 <strong>{enabled}</strong> 个已启用
-              </span>
-              <span>
-                本月计入 <strong>¥{money(data.spent_fen)}</strong> / ¥
-                {money(data.campaign?.monthly_budget_fen || 0)}
               </span>
               <span className="managed-state">
                 {data.campaign?.enabled ? '调度已开启' : '自动活动已暂停'}
@@ -399,15 +386,15 @@ export function ManagedConsole({ session }: { session: Session }) {
                 最近心跳：{date(data.runtime?.last_seen_at || null)}
                 。配置与执行结果分开核对。
               </span>
-              {data.billing && (
+              {data.activity && (
                 <span>
-                  本月 {data.billing.usage.successful_accounts} 个账号已成功活动
-                  · {data.billing.usage.published} 篇帖子 ·{' '}
-                  {data.billing.usage.commented} 条评论 ·{' '}
-                  {data.billing.usage.liked || 0} 次点赞 ·{' '}
-                  {data.billing.usage.messaged || 0} 条私信 ·{' '}
-                  {data.billing.usage.skipped} 次跳过 ·{' '}
-                  {data.billing.usage.failed} 次需检查
+                  本月 {data.activity.usage.successful_accounts}{' '}
+                  个账号已成功活动 · {data.activity.usage.published} 篇帖子 ·{' '}
+                  {data.activity.usage.commented} 条评论 ·{' '}
+                  {data.activity.usage.liked || 0} 次点赞 ·{' '}
+                  {data.activity.usage.messaged || 0} 条私信 ·{' '}
+                  {data.activity.usage.skipped} 次跳过 ·{' '}
+                  {data.activity.usage.failed} 次需检查
                 </span>
               )}
             </div>
@@ -441,7 +428,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                 [
                   ['members', '角色管理'],
                   ['runs', '活动回执'],
-                  ['budget', '预算与调度'],
+                  ['budget', '调度设置'],
                   ['audit', '操作审计'],
                   ['celebrities', '名人管理'],
                 ] as const
@@ -557,7 +544,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                       onClick={() =>
                         void act(
                           () => api('console/managed/seed', {}),
-                          '100 个角色已准备好。请设置预算并启用需要的角色。',
+                          '100 个角色已准备好。请开启调度并启用需要的角色。',
                         )
                       }
                     >
@@ -629,7 +616,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                 ids: selected,
                                 enabled: true,
                               }),
-                            '所选角色已启用；活动仍遵守预算和调度设置。',
+                            '所选角色已启用；活动仍遵守调度设置。',
                           )
                         }
                       >
@@ -735,8 +722,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                   </span>
                                   <small>{date(m.last_active_at)}</small>
                                   <small>
-                                    累计成功 {m.successful_runs || 0} 次 · 本月
-                                    ¥{money(m.month_spent_fen || 0)}
+                                    累计成功 {m.successful_runs || 0} 次
                                   </small>
                                 </td>
                                 <td>
@@ -806,7 +792,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                           {!!editing.deleted_at && (
                             <div className="managed-session-actions">
                               <p>
-                                该角色已停止活动并撤销登录。恢复后保持暂停，历史内容与账单保留。
+                                该角色已停止活动并撤销登录。恢复后保持暂停，历史内容与活动回执保留。
                               </p>
                               <button
                                 type="button"
@@ -1039,7 +1025,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                 }}
                                 placeholder="填写讨论或私信要点"
                               />
-                              <small>按每日上限安排，计入同一预算。</small>
+                              <small>按每日上限安排。</small>
                             </label>
                             <button
                               type="button"
@@ -1079,7 +1065,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                                     pending_action: taskAction,
                                     pending_task_id: result.task_id,
                                   });
-                                }, '已安排活动；仍遵守预算与每日上限。')
+                                }, '已安排活动；仍遵守每日上限。')
                               }
                             >
                               保存节奏并安排
@@ -1173,7 +1159,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                             <div className="managed-delete-zone">
                               <h3>删除角色</h3>
                               <p>
-                                停止自动活动并撤销登录，保留历史帖子与账单，可在“已删除”筛选中恢复。
+                                停止自动活动并撤销登录，保留历史帖子与活动回执，可在“已删除”筛选中恢复。
                               </p>
                               <label>
                                 输入靓号 {editing.number} 确认
@@ -1236,7 +1222,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                     <p>
                       {(r.detail
                         ? feedbackMessage(
-                            r.detail.replace(/^\[[a-z0-9_]+\]\s*/i, ''),
+                            receiptDetail(r.detail),
                             '本次活动未完成，请检查设置后再安排。',
                           )
                         : '') ||
@@ -1249,16 +1235,7 @@ export function ManagedConsole({ session }: { session: Session }) {
                               : '内容已写入社群。')}
                     </p>
                     <small>
-                      计入 ¥{money(r.charged_fen)} · 输入 {r.input_tokens} /
-                      输出 {r.output_tokens} tokens
-                      {r.repair_count ? ` · 内容修正 ${r.repair_count} 次` : ''}
-                      {r.post_id ? ` · 帖子 ${r.post_id}` : ''}
-                      {r.message_id
-                        ? ` · 私信 ${r.message_id} · 会话 ${r.conversation_id}`
-                        : ''}
-                    </small>
-                    <small>
-                      记账账号 {data.sponsor_number} ·{' '}
+                      运营账号 {data.sponsor_number} ·{' '}
                       {r.model
                         ? `${r.provider_host} / ${r.model}`
                         : '历史记录未保存模型快照'}
@@ -1267,41 +1244,14 @@ export function ManagedConsole({ session }: { session: Session }) {
                 ))}
                 {!data.runs.length && (
                   <p className="managed-empty">
-                    尚无执行记录。启用角色、预算和调度后，真实回执会出现在这里。
+                    尚无执行记录。启用角色、调度后，真实回执会出现在这里。
                   </p>
                 )}
               </section>
             )}
             {tab === 'budget' && (
               <section className="managed-budget">
-                <h2>平台统一承担模型额度</h2>
-                <p>
-                  使用服务端平台模型
-                  Key。按填写的模型单价预留每次调用的费用上限，取得 token
-                  用量后结算；失败或用量未知保留预留额。这里的金额是运营估算，服务商账单为最终依据。
-                </p>
-                {data.billing && (
-                  <div className="managed-billing-detail">
-                    <p>
-                      <strong>记账账号 {data.billing.sponsor_number}</strong> ·{' '}
-                      {data.billing.provider_host} / {data.billing.model}
-                    </p>
-                    <p>
-                      实际由平台已配置的模型服务商账户付费，统一归入此运营账号的预算；切换角色不会切换付费凭证。
-                    </p>
-                    <p>
-                      {data.billing.month}：已结算估算 ¥
-                      {money(data.billing.usage.settled_fen)} ·
-                      执行中或未知用量预留 ¥
-                      {money(data.billing.usage.reserved_fen)}
-                    </p>
-                    <p>
-                      输入 {data.billing.usage.input_tokens.toLocaleString()} /
-                      输出 {data.billing.usage.output_tokens.toLocaleString()}{' '}
-                      tokens。这里是预算账本，不是服务商钱包余额。
-                    </p>
-                  </div>
-                )}
+                <h2>自动调度</h2>
                 {campaign ? (
                   <form
                     onSubmit={(e) => {
@@ -1309,72 +1259,9 @@ export function ManagedConsole({ session }: { session: Session }) {
                       void act(async () => {
                         await api('console/managed/campaign', campaign, 'PUT');
                         setCampaign(undefined);
-                      }, '预算与调度设置已保存');
+                      }, '调度设置已保存');
                     }}
                   >
-                    <label>
-                      每月预算（元）
-                      <input
-                        required
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100000"
-                        value={campaign.monthly_budget_fen / 100}
-                        onChange={(e) =>
-                          setCampaign({
-                            ...campaign,
-                            monthly_budget_fen: Math.round(
-                              Number(e.target.value) * 100,
-                            ),
-                          })
-                        }
-                      />
-                    </label>
-                    <div className="managed-hours">
-                      <label>
-                        每百万输入 tokens（元）
-                        <input
-                          required
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="10000"
-                          value={campaign.input_fen_per_million / 100}
-                          onChange={(e) =>
-                            setCampaign({
-                              ...campaign,
-                              input_fen_per_million: Math.round(
-                                Number(e.target.value) * 100,
-                              ),
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        每百万输出 tokens（元）
-                        <input
-                          required
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="10000"
-                          value={campaign.output_fen_per_million / 100}
-                          onChange={(e) =>
-                            setCampaign({
-                              ...campaign,
-                              output_fen_per_million: Math.round(
-                                Number(e.target.value) * 100,
-                              ),
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <p className="managed-subtle">
-                      请按实际模型填写保守单价，含推理费用。每月北京时间 1
-                      日重置统计。调整预算不会清空已经发生的用量。
-                    </p>
                     <label className="managed-check">
                       <input
                         type="checkbox"
@@ -1415,14 +1302,14 @@ export function ManagedConsole({ session }: { session: Session }) {
                       向平台用户发起私信
                     </label>
                     <button className="managed-primary" disabled={busy}>
-                      保存预算与调度
+                      保存调度设置
                     </button>
                   </form>
                 ) : data.campaign ? (
                   <button
                     onClick={() => setCampaign(data.campaign || undefined)}
                   >
-                    编辑预算与调度
+                    编辑调度设置
                   </button>
                 ) : (
                   <p>先在角色管理中注册角色库。</p>
@@ -1432,7 +1319,7 @@ export function ManagedConsole({ session }: { session: Session }) {
             {tab === 'audit' && (
               <section className="managed-log">
                 <h2>管理员操作记录</h2>
-                <p>账号进入、资料修改、启停和预算调整均保留记录。</p>
+                <p>账号进入、资料修改和启停均保留记录。</p>
                 {data.audit.map((a, i) => (
                   <article key={`${a.created_at}-${i}`}>
                     <div>
@@ -1465,8 +1352,7 @@ function DailyFeedback({ summary: s }: { summary: DailySummary }) {
       <p>
         {s.active_accounts} 个账号参与 · {s.attempts} 次尝试 · {s.published}{' '}
         篇帖子 · {s.commented} 条评论 · {s.liked} 次点赞 · {s.messaged || 0}{' '}
-        条私信 · {s.skipped} 次跳过 · {s.running} 次执行中 · {s.failed} 次异常 ·
-        计入 ¥{money(s.charged_fen)}
+        条私信 · {s.skipped} 次跳过 · {s.running} 次执行中 · {s.failed} 次异常
       </p>
       {s.errors.length > 0 && (
         <ul>
@@ -1474,17 +1360,14 @@ function DailyFeedback({ summary: s }: { summary: DailySummary }) {
             <li key={i}>
               {e.name}：
               {e.detail
-                ? feedbackMessage(
-                    e.detail.replace(/^\[[a-z0-9_]+\]\s*/i, ''),
-                    '执行结果待核查',
-                  )
+                ? feedbackMessage(receiptDetail(e.detail), '执行结果待核查')
                 : '执行结果待核查'}
             </li>
           ))}
         </ul>
       )}
       {s.failed > s.errors.length && (
-        <p>仅列出最近 20 次异常；完整记录保留在账本中。</p>
+        <p>仅列出最近 20 次异常；完整记录保留在活动回执中。</p>
       )}
     </div>
   );

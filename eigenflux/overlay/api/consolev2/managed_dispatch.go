@@ -13,7 +13,7 @@ import (
 var managedActive = promauto.With(metrics.Registry).NewGauge(prometheus.GaugeOpts{Name: "elsewhere_managed_active", Help: "Current model/publication jobs in this process."})
 var managedDuration = promauto.With(metrics.Registry).NewHistogram(prometheus.HistogramOpts{Name: "elsewhere_managed_job_seconds", Help: "Model/publication job duration.", Buckets: []float64{1, 5, 15, 30, 60, 120, 210, 300}})
 
-// Slots are acquired before budget reservation. Existing database admission
+// Slots are acquired before task admission. Existing database admission
 // prevents concurrent execution of the same Agent across all instances.
 func managedConcurrency() int {
 	n, err := strconv.Atoi(os.Getenv("AGENTNET_MANAGED_CONCURRENCY"))

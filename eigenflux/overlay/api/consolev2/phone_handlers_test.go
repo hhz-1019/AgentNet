@@ -131,34 +131,35 @@ func TestPhonePostgresRegistration(t *testing.T) {
 	}
 	register := func(phone, agent, id string, want int) map[string]any {
 		t.Helper()
-		return call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "test-password-123", Phone: phone, ChallengeID: id, Code: sender.code(id)}, agent, "", want)
+		return call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "12345678", Phone: phone, ChallengeID: id, Code: sender.code(id)}, agent, "", want)
 	}
-	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "test-password-123"}, "1", "", 400)
+	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "12345678"}, "1", "", 400)
 	s.phoneSender = nil
 	call("POST", "/send", phoneRequest{Phone: "13800138000", Purpose: "register"}, "1", "", 503)
 	s.phoneSender = sender
 	id := send("13800138000", "1")
 	call("POST", "/send", phoneRequest{Phone: "13800138000", Purpose: "register"}, "1", "", 429)
-	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "test-password-123", Phone: "13800138000", ChallengeID: id, Code: sender.code(id)}, "2", "", 400)
-	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "test-password-123", Phone: "13800138001", ChallengeID: id, Code: sender.code(id)}, "1", "", 400)
+	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "12345678", Phone: "13800138000", ChallengeID: id, Code: sender.code(id)}, "2", "", 400)
+	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "12345678", Phone: "13800138001", ChallengeID: id, Code: sender.code(id)}, "1", "", 400)
+	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "1234567", Phone: "13800138000", ChallengeID: id, Code: sender.code(id)}, "1", "", 400)
 	owner := register("+8613800138000", "1", id, 201)["data"].(map[string]any)
 	if len(owner["uid"].(string)) != 5 {
 		t.Fatal("random public UID was not allocated", owner)
 	}
 	// Both phone formats resolve the verified owner and preserve agent ownership.
 	for _, phone := range []string{"13800138000", "+8613800138000"} {
-		out := call("POST", "/login", uidRequest{Phone: phone, Password: "test-password-123"}, "", "", 200)["data"].(map[string]any)
+		out := call("POST", "/login", uidRequest{Phone: phone, Password: "12345678"}, "", "", 200)["data"].(map[string]any)
 		if out["uid"] != owner["uid"] || len(out["agents"].([]any)) != 1 {
 			t.Fatal("phone did not resolve the existing owner", out)
 		}
 	}
-	call("POST", "/login", uidRequest{Phone: "13800138000", Password: "test-password-123", AgentID: "1"}, "", "", 200)
+	call("POST", "/login", uidRequest{Phone: "13800138000", Password: "12345678", AgentID: "1"}, "", "", 200)
 	for _, request := range []uidRequest{
 		{Phone: "13800138000", Password: "wrong-password"},
-		{Phone: "13800138999", Password: "test-password-123"},
-		{Phone: "invalid-phone", Password: "test-password-123"},
-		{Phone: "13800138000", UID: owner["uid"].(string), Password: "test-password-123"},
-		{Phone: "13800138000", Password: "test-password-123", AgentID: "2"},
+		{Phone: "13800138999", Password: "12345678"},
+		{Phone: "invalid-phone", Password: "12345678"},
+		{Phone: "13800138000", UID: owner["uid"].(string), Password: "12345678"},
+		{Phone: "13800138000", Password: "12345678", AgentID: "2"},
 	} {
 		out := call("POST", "/login", request, "", "", 401)
 		if out["error"].(map[string]any)["code"] != "UID_AUTH_INVALID" {
@@ -176,7 +177,7 @@ func TestPhonePostgresRegistration(t *testing.T) {
 		t.Fatal("duplicate account persisted")
 	}
 	// The same valid owner credentials cannot claim a second network identity.
-	blocked := call("POST", "/claim", uidRequest{UID: owner["uid"].(string), Password: "test-password-123"}, "2", "", 409)
+	blocked := call("POST", "/claim", uidRequest{UID: owner["uid"].(string), Password: "12345678"}, "2", "", 409)
 	if blocked["error"].(map[string]any)["code"] != "OWNER_HAS_AGENT" {
 		t.Fatal("second identity was not rejected by the owner limit", blocked)
 	}
@@ -187,7 +188,7 @@ func TestPhonePostgresRegistration(t *testing.T) {
 		if sender.code(wrong) == code {
 			code = "999999"
 		}
-		call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "test-password-123", Phone: "13800138002", ChallengeID: wrong, Code: code}, "3", "", 400)
+		call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "12345678", Phone: "13800138002", ChallengeID: wrong, Code: code}, "3", "", 400)
 	}
 	register("13800138002", "3", wrong, 400)
 	expired := send("13800138003", "4")
@@ -198,7 +199,7 @@ func TestPhonePostgresRegistration(t *testing.T) {
 	sender.fail = false
 	var failed string
 	_ = db.Raw(`SELECT challenge_id FROM human_phone_challenges WHERE phone_hash=?`, s.phoneHash("13800138004")).Scan(&failed).Error
-	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "test-password-123", Phone: "13800138004", ChallengeID: failed, Code: "123456"}, "5", "", 400)
+	call("POST", "/register", uidRequest{AgreementVersion: twinAgreementVersion, Password: "12345678", Phone: "13800138004", ChallengeID: failed, Code: "123456"}, "5", "", 400)
 	// An owner conflict rolls back account creation and proof consumption together.
 	rollback := send("13800138005", "6")
 	_ = db.Exec(`INSERT INTO agent_owners VALUES(6,'u_legacy_first',1)`).Error
@@ -228,7 +229,7 @@ func TestPhonePostgresRegistration(t *testing.T) {
 		t.Fatal(err)
 	}
 	manualProof := send("13800138009", "9")
-	manual := call("POST", "/register", uidRequest{UID: "77777", AgreementVersion: twinAgreementVersion, Password: "test-password-123", Phone: "13800138009", ChallengeID: manualProof, Code: sender.code(manualProof)}, "9", "", 201)
+	manual := call("POST", "/register", uidRequest{UID: "77777", AgreementVersion: twinAgreementVersion, Password: "12345678", Phone: "13800138009", ChallengeID: manualProof, Code: sender.code(manualProof)}, "9", "", 201)
 	if manual["data"].(map[string]any)["uid"] != "12345678901" {
 		t.Fatal("operator UID was not delivered", manual)
 	}

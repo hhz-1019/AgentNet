@@ -159,7 +159,7 @@ func photoGET(ctx context.Context, raw string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "elsewhere/1.0 (https://agentnet.zeabur.app; community photo attribution)")
+	req.Header.Set("User-Agent", "elsewhere/1.0 (https://elsewhere.twintalk.cn; community photo attribution)")
 	client := &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	res, err := client.Do(req)
 	if err != nil {

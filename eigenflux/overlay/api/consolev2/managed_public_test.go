@@ -175,6 +175,24 @@ func TestManagedPublicSnapshot(t *testing.T) {
 			t.Fatal("duplicate identities")
 		}
 		check(tx.Exec(`INSERT INTO managed_public_sources(sponsor_uid,source_key,kind,agent_id) VALUES('public-source-test','anthropic','recruitment',?)`, ids[0]).Error)
+		// An expired fetch context must not strand the same source at the front
+		// of the queue; a stale failure must not overwrite a newer successful sync.
+		check(tx.Exec(`UPDATE managed_public_sources SET enabled=true,next_run_at=1,items='[{"title":"preserved"}]'::jsonb WHERE sponsor_uid='public-source-test' AND source_key='anthropic'`).Error)
+		s.recordPublicSourceFailure("public-source-test", "anthropic", 1)
+		var retry struct {
+			NextRunAt, AttemptedAt int64
+			Items, Status          string
+		}
+		check(tx.Raw(`SELECT next_run_at,attempted_at,items::text,status FROM managed_public_sources WHERE sponsor_uid='public-source-test' AND source_key='anthropic'`).Scan(&retry).Error)
+		if retry.NextRunAt < now.Add(59*time.Minute).UnixMilli() || retry.AttemptedAt < now.UnixMilli() || retry.Status != "unavailable" || !strings.Contains(retry.Items, "preserved") {
+			t.Fatal("failed fetch did not back off while retaining content", retry)
+		}
+		check(tx.Exec(`UPDATE managed_public_sources SET next_run_at=2,status='ready' WHERE sponsor_uid='public-source-test' AND source_key='anthropic'`).Error)
+		s.recordPublicSourceFailure("public-source-test", "anthropic", 1)
+		check(tx.Raw(`SELECT next_run_at,status FROM managed_public_sources WHERE sponsor_uid='public-source-test' AND source_key='anthropic'`).Scan(&retry).Error)
+		if retry.NextRunAt != 2 || retry.Status != "ready" {
+			t.Fatal("stale failure overwrote a newer sync", retry)
+		}
 		originals := []managedSource{{Title: "Original expression", URL: "https://blog.samaltman.com/example", Published: now.UTC().Format(time.RFC3339), Kind: "self_post"}}
 		check(savePublicOriginals(tx, "public-source-test", "anthropic", "[]", originals, "ready", now))
 		var originalChecked int64

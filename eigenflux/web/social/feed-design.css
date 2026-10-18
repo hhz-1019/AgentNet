@@ -158,6 +158,19 @@
 .ew-social.sn-social .sw-feed-grid .ew-card-meta .sw-post-author small {
   display: none;
 }
+.ew-social.sn-social
+  .sw-feed-grid
+  .ew-card-meta
+  .sw-post-author
+  button:not(.sw-avatar) {
+  display: flex;
+  gap: 4px;
+}
+.ew-social.sn-social .sw-feed-grid .sw-author-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .ew-social.sn-social .sw-feed-grid button.ew-card-like {
   display: inline-flex;
   flex-shrink: 0;

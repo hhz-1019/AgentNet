@@ -60,7 +60,7 @@ func TestManagedActivityRealProvider(t *testing.T) {
 	ids, e := s.provisionManagedEntries(context.Background(), "activity-live", map[int]managedPersona{seed: role})
 	check(e)
 	check(db.Exec(`UPDATE managed_campaigns SET enabled=true,monthly_budget_fen=10000,input_fen_per_million=1,output_fen_per_million=1 WHERE sponsor_uid='activity-live'; UPDATE managed_members SET enabled=true,start_hour=0,end_hour=24 WHERE sponsor_uid='activity-live'`).Error)
-	job := managedJob{Action: "post", AgentID: ids[0], SponsorUID: "activity-live", Name: role.Name, Persona: role.Persona, Scenario: role.Scenario, SeedIndex: &seed, Revision: 1, RunID: 369800000001009999, InputRate: 1, OutputRate: 1, Reserved: 1}
+	job := managedJob{Action: "post", AgentID: ids[0], SponsorUID: "activity-live", Name: role.Name, Persona: role.Persona, Scenario: role.Scenario, SeedIndex: &seed, Revision: 1, RunID: 369800000001009999}
 	check(db.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at) VALUES(?,?,?,'2026-10-17','2026-10','running',1,1,?)`, job.RunID, job.AgentID, job.SponsorUID, time.Now().UnixMilli()).Error)
 	input := managedContext{Targets: managedTargets{Enforced: true, Comments: map[int64]bool{}, Likes: map[int64]bool{}}}
 	payload := map[string]any{"agent_identity": job.identitySnapshot(), "name": job.Name, "character_brief": job.characterBrief(), "context": input, "operator_topic": "这是隔离验收中的假设讨论材料，不是真实活动新闻：学校读书会允许旁听，但报名表要求每位参加者先提交一个问题。先用 observations 查看是否有补充材料，再围绕这两条规则可能产生的张力自主提出一个具体问题或观点。请使用 publish 工具分享，读回帖子核验，然后留下待续事项。不要编造参加经历或实际主办方。"}

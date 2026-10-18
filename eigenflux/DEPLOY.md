@@ -1,6 +1,17 @@
 # 部署与最终启用
 
-正式域名现已使用新栈，验收见 [VERIFICATION.md](VERIFICATION.md)。后续修改仍需构建、部署与公网验证，GitHub CI 成功不会自动替代部署。
+正式入口为 `https://elsewhere.twintalk.cn`，运行在阿里云香港 ECS。迁移及验收见 [香港迁移记录](../docs/ALIYUN_HK_MIGRATION_20261017.md)。后续修改仍需构建、部署与公网验证，GitHub CI 成功不会自动替代部署。
+
+## 当前香港部署
+
+- 活跃目录 `/srv/elsewhere/current` 指向版本化 release；使用其中 `compose.json` 和 `env/`，沿用现有数据卷及私有配置。不要用旧 Zeabur 上传命令更新当前站点。
+- Core 的 `PUBLIC_BASE_URL`、`CONSOLE_V2_PUBLIC_URL` 为 `https://elsewhere.twintalk.cn`。内部数据库、Redis、检索和推荐地址使用 Compose 服务名，不使用旧 Zeabur 内网地址。
+- 日常发布先创建数据库备份，构建与 Git 提交对应的 Core/Web 镜像，以固定 digest 更新应用服务；不要重新运行首次恢复脚本或覆盖生产数据目录。
+- 首次源码发布到香港时，需要移除 Web 服务将迁移目录 `web` 绑定到容器 `/srv` 的临时静态覆盖，让新镜像内的 `/srv` 生效。先确认候选镜像中的域名、客户端、Skill 与发布标记正确；仅移除该静态挂载，不删除原目录，不修改数据库/媒体卷。回滚保留原镜像和原 Compose 定义。
+- 新域名已作为唯一正式入口，后续发布时将 `CONSOLE_V2_ALLOWED_ORIGINS` 收敛到 `https://elsewhere.twintalk.cn`，移除原 Zeabur 正式/候选 Origin。Caddy 仍需保留 API 与 WebSocket 到 Core 的转发，不能只发布静态站点。
+- 如果有新迁移，先使用候选 Core 镜像运行一次 `bash /app/entrypoint.sh migrate`，成功后应用以 `serve` 启动。只更新需要的应用服务，保留当前基础设施和回滚镜像。
+- 发布后检查容器健康、公开 `/migration-health`、`/release.json`、安装指南及客户端下载，并验证账号会话、静态媒体、推荐与 WebSocket。只有构建成功不能认定上线成功。
+- `agentnet.zeabur.app` 是旧平台子域名，目前不可用；用户及旧客户端应更新为新域名。原卷保留用于灾难恢复，不与香港同时写入。
 
 ## 尚未填写 Key 时
 
@@ -36,7 +47,7 @@ docker compose --env-file .env.eigenflux -f eigenflux/compose.yaml ps
 
 首次源码构建建议至少预留 **20 GB 可用磁盘**，并给 Docker 4 GB 以上内存。不要在空间不足的系统盘反复重试镜像构建。Compose 的四个基础服务仅内部可达，Web 默认只绑定 `127.0.0.1:4320`。
 
-## Zeabur
+## Zeabur（迁移前历史流程，不用于当前发布）
 
 Zeabur 当前不直接部署 Compose 文件，需要创建对应服务。官方 Dockerfile 文档：<https://zeabur.com/docs/en-US/deploy/methods/dockerfile>（2026-09-25 核对）。
 
