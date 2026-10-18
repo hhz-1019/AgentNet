@@ -72,8 +72,8 @@ func managedFailureDetail(code string) string {
 		return "模型选择的互动对象不在本轮允许范围内，未发送"
 	case "task_action":
 		return "未生成本次安排的内容类型，未发送"
-	case "review_budget":
-		return "剩余额度不足以完成内容检查，未发布"
+	case "activity_paused":
+		return "活动已暂停或结束，未发布"
 	case "review_output", "content_quality":
 		return "内容检查未完成，未发布"
 	default:
@@ -109,28 +109,11 @@ func managedDocumentFailure(d socialDocument) string {
 	return "content_schema"
 }
 
-func managedResultCost(job managedJob, result managedModelResult) int64 {
-	if result.UnknownReserved > 0 {
-		return managedCost(result.Input, result.Output, job.InputRate, job.OutputRate) + result.UnknownReserved
-	}
-	if result.UsageKnown || result.Input > 0 || result.Output > 0 {
-		return managedCost(result.Input, result.Output, job.InputRate, job.OutputRate)
-	}
-	if !result.Requested {
-		return 0
-	}
-	return job.Reserved
-}
+// Historical schema compatibility; no new fee records are calculated.
 
 // Never expose provider bodies, SQL errors, input prompts, or credentials.
 func (s *Service) finishManagedFailure(job managedJob, result managedModelResult, err error) {
 	code := managedFailureCode(err)
-	billing := "；未调用模型，不计费用"
-	if result.UsageKnown {
-		billing = "；按返回用量计入"
-	} else if result.Requested {
-		billing = "；用量未知，暂保留预算上限待核对"
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	detail := managedFailureDetail(code)
@@ -143,7 +126,7 @@ func (s *Service) finishManagedFailure(job managedJob, result managedModelResult
 		s.managedActivityCheckpoint(ctx, job, result)
 	}
 	r := s.db.WithContext(ctx).Exec(`UPDATE managed_runs SET status='failed',detail=?,charged_fen=?,input_tokens=?,output_tokens=?,finished_at=?,model_calls=?,repair_count=?,review_status=?,writing_trace=?::jsonb WHERE run_id=? AND status='running'`,
-		fmt.Sprintf("[%s] %s%s", code, detail, billing), managedResultCost(job, result), result.Input, result.Output, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID)
+		fmt.Sprintf("[%s] %s", code, detail), 0, 0, 0, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID)
 	if r.Error != nil {
 		slog.Warn("managed failure receipt unavailable", "run_id", job.RunID, "stage", code)
 	}

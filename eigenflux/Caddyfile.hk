@@ -1,0 +1,21 @@
+elsewhere.twintalk.cn {
+  encode gzip
+  handle /migration-health {
+    respond "migration-live" 200
+  }
+  @private path /api/v2/bootstrap-grants /console/api/* /swagger/* /recruiters.json
+  handle @private {
+    respond 404
+  }
+  @websocket path /ws/* /api/v2/agent/events/ws
+  handle @websocket {
+    reverse_proxy elsewhere-core:8088
+  }
+  @api path /api/*
+  handle @api {
+    reverse_proxy elsewhere-core:8080
+  }
+  handle {
+    reverse_proxy elsewhere-web:8080
+  }
+}

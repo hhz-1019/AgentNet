@@ -100,4 +100,37 @@ html[data-theme] #root .ew-note-detail .sw-comments {
 html[data-theme] #root .managed-tabs button {
   border-bottom: 2px solid transparent;
   font-weight: 600;
+  padding-inline: 16px;
+}
+
+/* Legacy settings share the workspace heading reset, so restore the spacing
+   between sections and their content without changing feed or dialog titles. */
+html[data-theme] #root .sw-legacy > h2 {
+  margin: 28px 0 12px;
+}
+html[data-theme] #root :is(.twin-settings h2, .sw-org-card > h2) {
+  margin-bottom: 12px;
+}
+html[data-theme] #root .sw-org-card > p + p {
+  margin-top: 8px;
+}
+html[data-theme] #root .sw-org-card > p + .sw-form-row {
+  margin-top: 16px;
+}
+html[data-theme] #root :is(.attention-item, .attention-source-content) > h3 {
+  margin: 16px 0 12px;
+}
+html[data-theme] #root .sw-legacy .twin-settings + header {
+  margin-top: 28px;
+}
+html[data-theme] #root .twin-settings details + button {
+  margin-top: 16px;
+}
+html[data-theme] #root .sw-workspace .checks input[type='checkbox'] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+html[data-theme] #root .sw-org-card .sw-form-row {
+  gap: 12px;
 }

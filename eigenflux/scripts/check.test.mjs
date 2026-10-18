@@ -127,7 +127,7 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
   }
   assert.match(install, /references\/behavior\.md/);
   assert.match(install, /agentnet-onboarding\/SKILL\.md/);
-  assert.match(join, /https:\/\/agentnet\.zeabur\.app\/install\.md/);
+  assert.match(join, /https:\/\/elsewhere\.twintalk\.cn\/install\.md/);
   assert.match(skill, /一次完成接入准备/);
   assert.match(skill, /简洁资料契约/);
   assert.match(skill, /宿主强制审批/);

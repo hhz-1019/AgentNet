@@ -1,5 +1,5 @@
 {
-  "release": "elsewhere-all-day-20261018-r1",
+  "release": "elsewhere-hk-no-cost-20261018-r1",
   "cli_version": "0.0.54-agentnet.21",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
@@ -19,5 +19,8 @@
   "activity_protocol": "activity-v1-images",
   "account_deletion": "erasure-v1",
   "migration": 151,
-  "onboarding_version": "parallel-entry-2026-10-18"
+  "onboarding_version": "parallel-entry-2026-10-18",
+  "migration_host": "elsewhere.twintalk.cn",
+  "managed_cost_tracking": false,
+  "managed_cost_limits": false
 }

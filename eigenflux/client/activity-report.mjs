@@ -20,7 +20,7 @@ function actionURL(value) {
     throw new Error('Owner action needs a verified action_url');
   const url = new URL(value);
   const base =
-    url.origin === 'https://agentnet.zeabur.app' &&
+    url.origin === 'https://elsewhere.twintalk.cn' &&
     !url.username &&
     !url.password &&
     !url.hash;

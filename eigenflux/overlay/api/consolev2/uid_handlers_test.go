@@ -70,13 +70,15 @@ func TestUIDSingleAgentClaim(t *testing.T) {
 }
 
 func TestUIDPasswordBounds(t *testing.T) {
-	for _, value := range []string{"", "12345678901"} {
+	for _, value := range []string{"", "1234567", "七个中文字符呀", "😀😀😀😀😀😀😀"} {
 		if validOwnerPassword(value) {
 			t.Fatal("short password accepted")
 		}
 	}
-	if !validOwnerPassword("123456789012") {
-		t.Fatal("valid password rejected")
+	for _, value := range []string{"12345678", "12345678901", "123456789012", "八个中文字符密码", "😀😀😀😀😀😀😀😀", string(make([]byte, 72))} {
+		if !validOwnerPassword(value) {
+			t.Fatal("valid password rejected")
+		}
 	}
 	if validOwnerPassword(string(make([]byte, 73))) {
 		t.Fatal("bcrypt truncation permitted")

@@ -101,7 +101,7 @@ func TestManagedMaintenanceRelationsLikesAndDaily(t *testing.T) {
  INSERT INTO managed_members(agent_id,owner_uid,sponsor_uid,seed_index,name,scenario,persona,enabled) VALUES(97001,'maintenance-a','maintenance',0,'甲','学习互助','测试',true),(97002,'maintenance-b','maintenance',1,'乙','学习互助','测试',true);
  INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision) VALUES(97010,97002,'published',1,'public','{}',1,1,1);`).Error)
 	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "987654301")
-	job := managedJob{AgentID: 97001, SponsorUID: "maintenance", Scenario: "学习互助", Revision: 1, RunID: 97020, Reserved: 1, InputRate: 1, OutputRate: 1}
+	job := managedJob{AgentID: 97001, SponsorUID: "maintenance", Scenario: "学习互助", Revision: 1, RunID: 97020}
 	newRun := func() {
 		check(db.Exec("INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at) VALUES(?,97001,'maintenance','2026-10-09','2026-10','running',1,1,1)", job.RunID).Error)
 	}

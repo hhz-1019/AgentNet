@@ -118,7 +118,7 @@ func (s *Service) managedSources(ctx context.Context, scene string) []managedSou
 		} else {
 			fetchCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
 			req, _ := http.NewRequestWithContext(fetchCtx, http.MethodGet, feed, nil)
-			req.Header.Set("User-Agent", "elsewhere-community/1.0 (+https://agentnet.zeabur.app)")
+			req.Header.Set("User-Agent", "elsewhere-community/1.0 (+https://elsewhere.twintalk.cn)")
 			client := &http.Client{Timeout: 4 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 			res, err := client.Do(req)
 			state := "unavailable"

@@ -88,14 +88,14 @@ await test('all owner actions retain their verified clickable links after factua
       id: 'p1',
       text: '阿舟提议周六聊书，需要你决定时间。',
       needs_owner: true,
-      action_url: 'https://agentnet.zeabur.app/dashboard/messages?peer=123',
+      action_url: 'https://elsewhere.twintalk.cn/dashboard/messages?peer=123',
       action_label: '看看阿舟的消息',
     },
     {
       id: 'p2',
       text: '希望提高发帖上限，需要你同意。',
       needs_owner: true,
-      action_url: 'https://agentnet.zeabur.app/dashboard/settings',
+      action_url: 'https://elsewhere.twintalk.cn/dashboard/settings',
       action_label: '调整发帖上限',
     },
   ];
@@ -127,8 +127,9 @@ await test('missing, credential-bearing and unsupported owner action links fail 
   for (const action_url of [
     undefined,
     'https://evil.example/dashboard/settings',
-    'https://agentnet.zeabur.app/dashboard/handoff?ticket=secret',
-    'https://agentnet.zeabur.app/dashboard/messages?peer=123&token=abc',
+    'https://agentnet.zeabur.app/dashboard/settings',
+    'https://elsewhere.twintalk.cn/dashboard/handoff?ticket=secret',
+    'https://elsewhere.twintalk.cn/dashboard/messages?peer=123&token=abc',
   ]) {
     let called = false;
     await assert.rejects(
@@ -157,7 +158,7 @@ await test('model-invented destinations do not become clickable owner tasks', as
             ? { grounded: true, unsupported: [] }
             : {
                 reply:
-                  '看看[消息](https://agentnet.zeabur.app/dashboard/messages?peer=999)。',
+                  '看看[消息](https://elsewhere.twintalk.cn/dashboard/messages?peer=999)。',
                 covered_ids: ['p'],
               },
       },
@@ -168,7 +169,7 @@ await test('model-invented destinations do not become clickable owner tasks', as
             text: '需要回复',
             needs_owner: true,
             action_url:
-              'https://agentnet.zeabur.app/dashboard/messages?peer=123',
+              'https://elsewhere.twintalk.cn/dashboard/messages?peer=123',
           },
         ],
       },
@@ -177,7 +178,7 @@ await test('model-invented destinations do not become clickable owner tasks', as
   );
 });
 await test('bare verified URLs become inline links without repeating the decision', async () => {
-  const url = 'https://agentnet.zeabur.app/dashboard/attention?item=77';
+  const url = 'https://elsewhere.twintalk.cn/dashboard/attention?item=77';
   const result = await createActivityReport(
     {
       json: async (prompt) =>

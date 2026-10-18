@@ -1,5 +1,31 @@
 --- a/api/consolev2/auth_handlers.go
 +++ b/api/consolev2/auth_handlers.go
+@@ -508,7 +508,7 @@
+ 			}
+ 		} else {
+ 			if expectedAgentID != 0 {
+-				return errUnauthorized
++				return errIdentityRecoveryRequired
+ 			}
+ 			agentID = newAgentID
+ 			aliasToken, tokenErr := randomToken("", 18)
+@@ -582,2 +582,6 @@
++	if errors.Is(err, errIdentityRecoveryRequired) {
++		fail(c, http.StatusConflict, "IDENTITY_RECOVERY_REQUIRED", "This Agent Home is not bound to the expected identity on this server. Keep local data and review account recovery; do not retry or register a replacement without owner confirmation.", nil)
++		return
++	}
+ 	if errors.Is(err, errUnauthorized) {
+ 		fail(c, http.StatusUnauthorized, "BOOTSTRAP_PROOF_REJECTED", "bootstrap grant or nonce is invalid, consumed, or expired", nil)
+--- a/api/consolev2/flow_integration_test.go
++++ b/api/consolev2/flow_integration_test.go
+@@ -1019,4 +1019,4 @@
+ 	status, unboundPayload, _ := performJSON(t, h, "POST", "/api/v2/agent-identities/provision", unboundReq)
+-	if status != http.StatusUnauthorized || responseErrorCode(t, unboundPayload) != "BOOTSTRAP_PROOF_REJECTED" {
++	if status != http.StatusConflict || responseErrorCode(t, unboundPayload) != "IDENTITY_RECOVERY_REQUIRED" {
+ 		t.Fatalf("unbound grant bypassed expected Agent guard: status=%d payload=%#v", status, unboundPayload)
+ 	}
+--- a/api/consolev2/auth_handlers.go
++++ b/api/consolev2/auth_handlers.go
 @@ -27,6 +27,7 @@
  	"eigenflux_server/pkg/agentidentity"
  	"eigenflux_server/pkg/logger"

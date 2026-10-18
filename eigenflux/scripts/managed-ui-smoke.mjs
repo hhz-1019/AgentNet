@@ -57,7 +57,7 @@ const daily = {
     {
       name: '测试角色',
       status: 'failed',
-      detail: '模型未返回，请检查提供方配置',
+      detail: '模型未返回，请检查提供方配置；用量未知，暂保留预算上限待核对',
       created_at: Date.now(),
     },
   ],
@@ -84,7 +84,7 @@ const data = {
   model_configured: true,
   spent_fen: 1264,
   runtime: { healthy: true, last_seen_at: Date.now(), state: 'ready' },
-  billing: {
+  activity: {
     source: 'platform_shared',
     sponsor_number: '10001',
     provider_host: 'provider.test',
@@ -400,7 +400,7 @@ try {
     .getByRole('button', { name: '保存节奏并安排私信', exact: true })
     .click();
   await page
-    .getByText('已安排活动；仍遵守预算与每日上限。', { exact: true })
+    .getByText('已安排活动；仍遵守每日上限。', { exact: true })
     .waitFor();
   assert.equal(queuedRecipient, '10002');
   assert.equal(queuedAction, 'message');
@@ -441,30 +441,38 @@ try {
   await page.getByRole('checkbox', { name: '选择当前结果' }).check();
   await page.getByRole('button', { name: '启用', exact: true }).click();
   await page
-    .getByText('所选角色已启用；活动仍遵守预算和调度设置。', { exact: true })
+    .getByText('所选角色已启用；活动仍遵守调度设置。', { exact: true })
     .waitFor();
   assert.equal(
     data.members.filter((m) => m.scenario === '校园交友' && m.enabled).length,
     24,
   );
-  await page.getByRole('button', { name: '预算与调度', exact: true }).click();
-  await page.getByLabel('每月预算（元）', { exact: true }).fill('200');
+  await page.getByRole('button', { name: '调度设置', exact: true }).click();
+  assert.equal(
+    await page.getByLabel('每月预算（元）', { exact: true }).count(),
+    0,
+  );
+  assert.equal(await page.getByText(/输入单价|输出单价|本月费用/).count(), 0);
   await page.getByLabel('自动回复平台用户私信', { exact: true }).check();
   await page.getByLabel('向平台用户发起私信', { exact: true }).check();
-  await page
-    .getByRole('button', { name: '保存预算与调度', exact: true })
-    .click();
-  await page.getByText('预算与调度设置已保存', { exact: true }).waitFor();
-  assert.equal(data.campaign.monthly_budget_fen, 20000);
+  await page.getByRole('button', { name: '保存调度设置', exact: true }).click();
+  await page.getByText('调度设置已保存', { exact: true }).waitFor();
+  assert.equal(data.campaign.monthly_budget_fen, 10000); // Legacy fixture is not edited by the scheduling form.
   assert.equal(data.campaign.dm_reply_enabled, true);
   assert.equal(data.campaign.dm_start_enabled, true);
   await page.getByRole('button', { name: '全部暂停', exact: true }).click();
   await page
-    .getByText('全部自动活动已暂停；已发出的模型请求仍可能计费。', {
+    .getByText('全部自动活动已暂停。', {
       exact: true,
     })
     .waitFor();
   assert.equal(data.campaign.enabled, false);
+  assert.equal(
+    await page
+      .getByText(/暂保留预算|月预算|输入单价|输出单价|计入费用/)
+      .count(),
+    0,
+  );
   await page.getByRole('button', { name: '活动回执', exact: true }).click();
   await page.getByRole('heading', { name: '真实执行回执' }).waitFor();
   await page.getByRole('button', { name: '操作审计', exact: true }).click();
@@ -517,7 +525,7 @@ try {
   assert.equal(returnedOperator, true);
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: 100-row roster, filtering, edit failure recovery, batch activation, budget, pause, receipts, audit, login and mobile overflow. Synthetic fixtures only.',
+    'PASS: 100-row roster, filtering, edit failure recovery, batch activation, scheduling without cost controls, pause, receipts, audit, login and mobile overflow. Synthetic fixtures only.',
   );
 } catch (error) {
   console.error('Browser errors:', errors);

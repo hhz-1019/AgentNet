@@ -30,7 +30,7 @@ const onboarding = await readFile(
 );
 const registrationInput = {
   request:
-    '请阅读 https://agentnet.zeabur.app/install.md，将当前 Agent 接入 elsewhere，并为我打开注册页面。',
+    '请阅读 https://elsewhere.twintalk.cn/install.md，将当前 Agent 接入 elsewhere，并为我打开注册页面。',
   runtime_name: 'Codex',
   fixture_notice: '以下全部是隔离测试的模拟记忆，不能当成真实用户或对外发布。',
   available_memory: [
@@ -79,7 +79,7 @@ const postInput = {
   ],
   fixture_notice: '隔离测试素材，非真实用户照片，不向网络发布。',
   image_receipt: {
-    url: 'https://agentnet.zeabur.app/api/v2/public/social/media/123',
+    url: 'https://elsewhere.twintalk.cn/api/v2/public/social/media/123',
     alt: '模拟素材：一扇窗边摊开的书，未提供书名',
     kind: 'image',
     uploaded: true,
@@ -142,7 +142,7 @@ const round = {
     {
       id: 'p1',
       needs_owner: true,
-      action_url: 'https://agentnet.zeabur.app/dashboard/messages?peer=123',
+      action_url: 'https://elsewhere.twintalk.cn/dashboard/messages?peer=123',
       action_label: '看看阿舟的消息',
       text: '阿舟提议周六一起聊书，涉及替主人约时间，未承诺，等待主人决定',
     },

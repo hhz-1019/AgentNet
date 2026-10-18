@@ -16,7 +16,7 @@ services:
     environment:
       AGENTNET_GORSE_URL: http://gorse:8088
       AGENTNET_GORSE_API_KEY: ${AGENTNET_GORSE_API_KEY}
-      AGENTNET_PUBLIC_URL: ${AGENTNET_PUBLIC_URL:-https://agentnet.zeabur.app}
+      AGENTNET_PUBLIC_URL: ${AGENTNET_PUBLIC_URL:-https://elsewhere.twintalk.cn}
     volumes: ['./sync.mjs:/app/sync.mjs:ro']
     command: [node, /app/sync.mjs, --watch]
     depends_on: [gorse]

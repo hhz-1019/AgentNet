@@ -84,7 +84,7 @@ func TestManagedAnyUserInbox(t *testing.T) {
 	call("/agent", map[string]any{"conv_id": conv, "content": "第二条：我关心的是怎样找到不满足条件的例子。"}, 200)
 	call("/agent", map[string]any{"conv_id": conv, "content": "第三条：可以等你有空再回复，不需要现在补完整方案。"}, 200)
 	call("/agent", map[string]any{"conv_id": conv, "content": "第四条：这条应当等对方先回复才能发。"}, 429)
-	job := managedJob{AgentID: 98401, SponsorUID: "inbox-operator", Scenario: "学习互助", Revision: 1, RunID: 984100, Reserved: 10, InputRate: 1, OutputRate: 1}
+	job := managedJob{AgentID: 98401, SponsorUID: "inbox-operator", Scenario: "学习互助", Revision: 1, RunID: 984100}
 	input, err := s.managedContext(ctx, job)
 	check(err)
 	if input.Message == nil || input.Message.RecipientID != "98402" {

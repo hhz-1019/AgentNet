@@ -82,7 +82,7 @@ func TestManagedReviewRewriteBudgetAndReceipt(t *testing.T) {
 	local := time.Now().UTC().Add(8 * time.Hour)
 	check(db.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at) VALUES(994001,99401,'review-sponsor',?::date,?,'running',12,12,?)`, local.Format("2006-01-02"), local.Format("2006-01"), now).Error)
 	s := &Service{db: db, idgen: &managedTestIDs{id: 994010}}
-	job := managedJob{AgentID: 99401, SponsorUID: "review-sponsor", Persona: "写作结构", Action: "post", RunID: 994001, Reserved: 12, InputRate: 200, OutputRate: 800}
+	job := managedJob{AgentID: 99401, SponsorUID: "review-sponsor", Persona: "写作结构", Action: "post", RunID: 994001}
 	seed := 0
 	job.SeedIndex = &seed
 	payload := func() map[string]any {
@@ -139,18 +139,15 @@ func TestManagedReviewRewriteBudgetAndReceipt(t *testing.T) {
 	})
 	result := managedModelResult{Requested: true, UsageKnown: true, Input: 1000, Output: 100, Calls: 1, Value: managedOutput{Action: "post", Document: socialDocument{Title: "重复例子的候选正文", Summary: "太短", Body: observedSamplingB}}}
 	check(s.reviewManagedDraft(context.Background(), &job, &result, payload()))
-	if result.Calls != 4 || calls != 3 || result.ReviewStatus != "allowed" || result.Repairs != 2 || result.Input != 4000 || job.Reserved != 48 {
+	if result.Calls != 4 || calls != 3 || result.ReviewStatus != "allowed" || result.Repairs != 2 || result.Input != 4000 {
 		t.Fatal("review usage/rewrite bound", result, job)
 	}
 	if len(result.WritingTrace.Attempts) != 2 || result.WritingTrace.Attempts[0].Reason != "duplicate_structure" || result.WritingTrace.Attempts[1].Decision != "allow" {
 		t.Fatal("structural rejection or revised draft lost from diagnostic trace", result.WritingTrace)
 	}
-	if managedResultCost(job, result) > job.Reserved {
-		t.Fatal("review exceeded reserved budget")
-	}
-	// Uncertain provider use must be retained in addition to all known calls.
+	// A missing usage response must not make previously unknown usage appear known.
 	managedMergeUsage(&result, managedModelResult{Requested: true}, job)
-	if result.UsageKnown || managedResultCost(job, result) < 12 {
+	if result.UsageKnown {
 		t.Fatal("unknown usage was lost")
 	}
 	// Rejection after the one permitted rewrite must never publish or loop.
@@ -165,9 +162,11 @@ func TestManagedReviewRewriteBudgetAndReceipt(t *testing.T) {
 	if err := s.reviewManagedDraft(context.Background(), &job, &result, payload()); err == nil || managedFailureCode(err) != "review_output" || calls != 1 {
 		t.Fatal("malformed review did not fail closed", err, calls)
 	}
-	check(db.Exec(`UPDATE managed_campaigns SET monthly_budget_fen=48 WHERE sponsor_uid='review-sponsor'`).Error)
-	if s.reserveManagedReview(context.Background(), &job) == nil {
-		t.Fatal("review budget cap bypassed")
+	check(db.Exec(`UPDATE managed_campaigns SET monthly_budget_fen=0,input_fen_per_million=0,output_fen_per_million=0 WHERE sponsor_uid='review-sponsor'`).Error)
+	check(s.guardManagedReview(context.Background(), &job))
+	check(db.Exec(`UPDATE managed_campaigns SET enabled=false WHERE sponsor_uid='review-sponsor'`).Error)
+	if s.guardManagedReview(context.Background(), &job) == nil {
+		t.Fatal("paused activity allowed a review")
 	}
 	s.finishManagedFailure(job, result, managedFailure("review_output"))
 	var saved struct {

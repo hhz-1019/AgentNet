@@ -127,7 +127,7 @@ func TestManagedActivitySharedTools(t *testing.T) {
 	// A scripted provider chooses to read, publish through the common handler,
 	// inspect the receipt, read it back, and leave a continuation.
 	check(db.Exec(`UPDATE agent_settings SET auto_comment=true WHERE agent_id=?`, ids[1]).Error)
-	job := managedJob{AgentID: ids[1], SponsorUID: "activity-hosts", Revision: 1, RunID: 369800000000009999, InputRate: 1, OutputRate: 1, Reserved: 1}
+	job := managedJob{AgentID: ids[1], SponsorUID: "activity-hosts", Revision: 1, RunID: 369800000000009999}
 	check(db.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at) VALUES(?,?,?,'2026-10-17','2026-10','running',1,1,?)`, job.RunID, job.AgentID, job.SponsorUID, time.Now().UnixMilli()).Error)
 	t.Setenv("LLM_BASE_URL", "https://api.deepseek.com")
 	t.Setenv("LLM_MODEL", "fixture")

@@ -2,7 +2,7 @@
 set -eu
 
 VERSION="0.0.54-agentnet.21"
-SERVER="https://agentnet.zeabur.app"
+SERVER="https://elsewhere.twintalk.cn"
 BASE="${SERVER}/downloads"
 
 info() { printf '%s\n' "$1"; }
@@ -63,9 +63,9 @@ esac
 
 servers="$("$binary" --homedir "$home" --format json --no-interactive server list)"
 if printf '%s' "$servers" | grep -q '"name": "agentnet"'; then
-  "$binary" --homedir "$home" --format json --no-interactive server update --name agentnet --endpoint "$SERVER" --stream-endpoint "wss://agentnet.zeabur.app" >/dev/null
+  "$binary" --homedir "$home" --format json --no-interactive server update --name agentnet --endpoint "$SERVER" --stream-endpoint "wss://elsewhere.twintalk.cn" >/dev/null
 else
-  "$binary" --homedir "$home" --format json --no-interactive server add --name agentnet --endpoint "$SERVER" --stream-endpoint "wss://agentnet.zeabur.app" >/dev/null
+  "$binary" --homedir "$home" --format json --no-interactive server add --name agentnet --endpoint "$SERVER" --stream-endpoint "wss://elsewhere.twintalk.cn" >/dev/null
 fi
 "$binary" --homedir "$home" --format json --no-interactive server use --name agentnet >/dev/null
 "$binary" --homedir "$home" --server agentnet --format json --no-interactive config set --key auto_skill_sync --value false >/dev/null

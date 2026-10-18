@@ -75,9 +75,6 @@ func TestManagedCatalogAndCredentialBoundary(t *testing.T) {
 	if !managedAdminNumber("10002") || managedAdminNumber("100") || managedAdminNumber("") {
 		t.Fatal("allowlist bypass")
 	}
-	if managedCost(50000, 1500, 100, 200) != 6 {
-		t.Fatal("round reservation up")
-	}
 	for _, value := range []string{`C:\Users\owner\private.txt`, `/home/owner/private.txt`, `13800138000`} {
 		if !managedPrivatePattern.MatchString(value) {
 			t.Fatal("private data missed", value)
@@ -258,7 +255,7 @@ func TestManagedFullSchema(t *testing.T) {
 	call("GET", "/managed", nil, delegated, 403)
 	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "10001")
 	check(db.Exec(`UPDATE managed_members SET enabled=true,start_hour=0,end_hour=24,next_run_at=0,daily_limit=2`).Error)
-	check(db.Exec(`UPDATE managed_campaigns SET enabled=true,monthly_budget_fen=6,input_fen_per_million=100,output_fen_per_million=200`).Error)
+	check(db.Exec(`UPDATE managed_campaigns SET enabled=true,monthly_budget_fen=0,input_fen_per_million=0,output_fen_per_million=0`).Error)
 	job, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
 	if job == nil {
@@ -271,9 +268,10 @@ func TestManagedFullSchema(t *testing.T) {
 	}
 	other, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
-	if other != nil {
-		t.Fatal("budget overspent")
+	if other == nil || other.AgentID == job.AgentID {
+		t.Fatal("zero legacy budget blocked independent execution or duplicate admitted")
 	}
+	s.finishManagedFailure(*other, managedModelResult{}, managedFailure("provider_output"))
 	d := socialTestDocument()
 	d.Kind = "question"
 	photo, err := curatedManagedPhoto(d, job.Scenario)
@@ -383,16 +381,12 @@ func TestManagedFullSchema(t *testing.T) {
 		t.Fatal("repair changed prose or retained attribution", repaired)
 	}
 	call("POST", "/illustrate", map[string]any{"post_id": repairID, "remove": true, "revision": repairRevision}, session.ID, 409)
+	// Historical charges above the old monthly cap cannot block new tasks.
+	check(db.Exec(`UPDATE managed_runs SET charged_fen=1000000 WHERE run_id=?`, job.RunID).Error)
 	next, err := s.claimManaged(context.Background(), time.Now())
 	check(err)
-	if next != nil {
-		t.Fatal("reservation exceeded remaining budget")
-	}
-	check(db.Exec(`UPDATE managed_campaigns SET monthly_budget_fen=100`).Error)
-	next, err = s.claimManaged(context.Background(), time.Now())
-	check(err)
 	if next == nil {
-		t.Fatal("new budget unavailable")
+		t.Fatal("zero legacy budget blocked execution")
 	}
 	longPost := value
 	longPost.Value.Document.Body = strings.Repeat("长", 451)
@@ -402,8 +396,8 @@ func TestManagedFullSchema(t *testing.T) {
 		ChargedFen, InputTokens, OutputTokens, PostID int64
 	}
 	check(db.Raw(`SELECT status,detail,charged_fen,input_tokens,output_tokens,post_id FROM managed_runs WHERE run_id=?`, next.RunID).Scan(&held).Error)
-	if held.Status != "skipped" || held.Detail != "文字过长，暂不发布" || held.PostID != 0 || held.InputTokens != value.Input || held.OutputTokens != value.Output || held.ChargedFen != managedCost(value.Input, value.Output, next.InputRate, next.OutputRate) {
-		t.Fatal("style hold must not publish or lose actual usage", held)
+	if held.Status != "skipped" || held.Detail != "文字过长，暂不发布" || held.PostID != 0 || held.InputTokens != 0 || held.OutputTokens != 0 || held.ChargedFen != 0 {
+		t.Fatal("style hold must not publish or record costs", held)
 	}
 	next, err = s.claimManaged(context.Background(), time.Now())
 	check(err)
@@ -430,8 +424,8 @@ func TestManagedFullSchema(t *testing.T) {
 	}
 	s.finishManagedFailure(*next, managedModelResult{Requested: true}, managedFailure("provider_timeout"))
 	check(db.Raw(`SELECT charged_fen FROM managed_runs WHERE run_id=?`, next.RunID).Scan(&count).Error)
-	if count != next.Reserved {
-		t.Fatal("unknown provider charge refunded")
+	if count != 0 {
+		t.Fatal("timeout recorded a cost")
 	}
 	next, err = s.claimManaged(context.Background(), time.Now())
 	check(err)
@@ -503,6 +497,11 @@ func TestManagedFullSchema(t *testing.T) {
 	}
 	s.managedBeat("ready")
 	overview := string(call("GET", "/managed", nil, session.ID, 200))
+	for _, field := range []string{"monthly_budget_fen", "spent_fen", "charged_fen", "input_tokens", "output_tokens", "input_fen_per_million", "output_fen_per_million", "billing"} {
+		if strings.Contains(overview, `"`+field+`"`) {
+			t.Fatal("removed cost field exposed", field)
+		}
+	}
 	if !strings.Contains(overview, `"healthy":true`) || !strings.Contains(overview, `"provider_host":"provider.test"`) || strings.Contains(overview, "test-key-do-not-output") {
 		t.Fatal("health or billing readout incorrect")
 	}
@@ -542,7 +541,7 @@ func TestManagedFullSchema(t *testing.T) {
 		ChargedFen int64
 	}
 	check(db.Raw(`SELECT status,charged_fen FROM managed_runs WHERE run_id=?`, quiet.RunID).Scan(&quietReceipt).Error)
-	if modelCalls != 2 || quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != managedCost(200, 20, quiet.InputRate, quiet.OutputRate) {
+	if modelCalls != 2 || quietReceipt.Status != "skipped" || quietReceipt.ChargedFen != 0 {
 		t.Fatal("contextual decision or actual billing lost", modelCalls, quietReceipt)
 	}
 	createBody := map[string]any{"name": "新增验收角色", "scenario": "科研交流", "persona": managedCatalog()[84].Persona}

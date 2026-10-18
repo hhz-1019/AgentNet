@@ -20,7 +20,6 @@ const managedDailySummarySQL = `WITH public_progress AS (
  'skipped',count(*) FILTER(WHERE status='skipped'),
  'failed',count(*) FILTER(WHERE status IN ('failed','uncertain')),
  'running',count(*) FILTER(WHERE status='running'),
- 'charged_fen',COALESCE(sum(charged_fen),0),
  'errors',COALESCE((SELECT json_agg(e) FROM (
  SELECT m.name,r.status,r.detail,r.created_at FROM managed_runs r JOIN managed_members m USING(agent_id)
  WHERE r.sponsor_uid=? AND r.day=?::date AND r.status IN ('failed','uncertain')
@@ -70,7 +69,7 @@ func (s *Service) managedDailyFeedback(owner string, payload map[string]any) err
 		return err
 	}
 	var raw string
-	err = s.db.Raw(`SELECT COALESCE(json_agg(r),'[]'::json)::text FROM (SELECT day::text,summary,generated_at FROM managed_daily_reports WHERE sponsor_uid=? ORDER BY day DESC LIMIT 7)r`, owner).Scan(&raw).Error
+	err = s.db.Raw(`SELECT COALESCE(json_agg(r),'[]'::json)::text FROM (SELECT day::text,summary-'charged_fen' AS summary,generated_at FROM managed_daily_reports WHERE sponsor_uid=? ORDER BY day DESC LIMIT 7)r`, owner).Scan(&raw).Error
 	if err != nil {
 		return err
 	}
