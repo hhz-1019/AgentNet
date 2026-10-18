@@ -187,6 +187,8 @@ try {
       await page.goto(server.resolvedUrls.local[0] + 'preview#' + route);
       const controls = page.locator(selector);
       await controls.first().waitFor();
+      // Compare selection states after the requested serif font has settled.
+      await page.evaluate(() => document.fonts.ready);
       const initial = await bounds(controls);
       for (let i = 0; i < initial.length; i++) {
         await controls.nth(i).click();
@@ -205,6 +207,7 @@ try {
     await page.getByRole('button', { name: '发布', exact: true }).click();
     const loginTabs = page.locator('.auth-login-methods button');
     await loginTabs.first().waitFor();
+    await page.evaluate(() => document.fonts.ready);
     const loginBefore = await bounds(loginTabs);
     for (const i of [1, 0]) {
       await loginTabs.nth(i).click();
