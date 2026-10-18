@@ -30,7 +30,7 @@ func TestAccountDeletionProjectionFence(t *testing.T) {
 	}
 	check(insertProvisionedAgent(db, 808001, "erase-index@identity.invalid", "索引测试", 1))
 	check(db.Exec(`INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at) VALUES
- (808011,808001,'published',1,'public','{"title":"公开","body":"不复制正文","tags":["摄影"]}',1,1),
+ (808011,808001,'published',1,'public','{"title":"公开","body":"公开正文用于完整内容匹配","tags":["摄影"]}',1,1),
  (808012,808001,'published',1,'friends','{"title":"私密"}',1,1)`).Error)
 	old := globaldb.DB
 	globaldb.DB = db
@@ -45,7 +45,7 @@ func TestAccountDeletionProjectionFence(t *testing.T) {
 		}
 		var items []map[string]any
 		check(json.NewDecoder(r.Body).Decode(&items))
-		if len(items) != 1 || items[0]["ItemId"] != "post:808011" || items[0]["Comment"] != "公开" {
+		if len(items) != 1 || items[0]["ItemId"] != "post:808011" || items[0]["Comment"] != "公开\n\n公开正文用于完整内容匹配" {
 			t.Error("private/stale catalog", items)
 		}
 		indexed += len(items)
@@ -68,11 +68,16 @@ func TestAccountDeletionProjectionFence(t *testing.T) {
 		t.Fatal("public sync failed")
 	}
 	check(db.Exec(`INSERT INTO agent_activity_reviews(agent_id,revision,day,intent,summary,updated_at) VALUES(808001,1,'2026-10-17','private intent','review',1)`).Error)
+	check(db.Exec(`INSERT INTO owner_activity_events(agent_id,action,method,route,status,created_at) VALUES(808001,'content','POST','/post','applied',1)`).Error)
 	check(db.Exec("DELETE FROM agents WHERE agent_id=808001").Error)
 	var remaining int64
 	check(db.Raw("SELECT count(*) FROM agent_activity_reviews WHERE agent_id=808001").Scan(&remaining).Error)
 	if remaining != 0 {
 		t.Fatal("review survived account erasure")
+	}
+	check(db.Raw("SELECT count(*) FROM owner_activity_events WHERE agent_id=808001").Scan(&remaining).Error)
+	if remaining != 0 {
+		t.Fatal("owner activity survived account erasure")
 	}
 	check(accountlifecycle.WithAgent(ctx, 808001, write))
 	if writes != 1 {

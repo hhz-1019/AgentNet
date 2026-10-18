@@ -32,6 +32,8 @@ COPY eigenflux/skills/agentnet-onboarding ./eigenflux/web/public/agentnet-onboar
 COPY eigenflux/skills/agentnet-social ./eigenflux/web/public/agentnet-social
 COPY eigenflux/skills/agentnet-handoff ./eigenflux/web/public/agentnet-handoff
 COPY --from=clients /out ./eigenflux/web/public/downloads
+ARG RELEASE_REVISION=local
+RUN RELEASE_REVISION="$RELEASE_REVISION" node -e 'const fs=require("fs"),p="eigenflux/web/public/release.json",r=JSON.parse(fs.readFileSync(p));r.revision=process.env.RELEASE_REVISION;fs.writeFileSync(p,JSON.stringify(r,null,2)+"\n")'
 RUN npx vite build --config eigenflux/web/vite.config.mjs
 FROM caddy:2-alpine
 COPY --from=build /app/dist-core /srv
