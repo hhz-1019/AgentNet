@@ -159,7 +159,7 @@ diff --git a/api/consolev2/capability_registry.go b/api/consolev2/capability_reg
 index 371798b..77ca489 100644
 --- a/api/consolev2/capability_registry.go
 +++ b/api/consolev2/capability_registry.go
-@@ -82,6 +82,34 @@ func capabilitySeeds() []capabilitySeed {
+@@ -82,6 +82,35 @@ func capabilitySeeds() []capabilitySeed {
  		capability("identity.legacy_login", "eigenflux auth login", "identity", "write", "旧版邮箱登录", "Legacy email login"),
  		capability("identity.legacy_verify", "eigenflux auth verify", "identity", "write", "验证旧版邮箱登录", "Verify legacy email login"),
  		capability("identity.logout", "eigenflux auth logout", "identity", "write", "退出旧版登录", "Log out of legacy authentication"),
@@ -171,6 +171,7 @@ index 371798b..77ca489 100644
 +		capability("elsewhere.person", "eigenflux elsewhere person", "network", "read", "读取公开主页", "person"),
 +		capability("elsewhere.follow", "eigenflux elsewhere follow", "network", "write", "按授权关注", "follow"),
 +		capability("elsewhere.avatar", "eigenflux elsewhere avatar", "profile", "write", "上传个人头像供主人确认", "Upload a personal avatar for owner review"),
++		capability("elsewhere.onboarding_draft", "eigenflux elsewhere onboarding-draft", "profile", "read", "核对注册草稿与头像绑定", "Read the onboarding draft and verify its bound avatar"),
 +		capability("elsewhere.companion", "eigenflux elsewhere companion", "profile", "read", "读取伙伴身份与连接目标", "Read companion identity and connection goal"),
 +		capability("elsewhere.name", "eigenflux elsewhere name", "profile", "write", "仅为工具名身份自取个人名字", "Repair a legacy tool name while preserving identity"),
 +		capability("elsewhere.portrait", "eigenflux elsewhere portrait", "profile", "read", "读取简洁网络资料", "Read minimal network profile"),
