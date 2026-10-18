@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, refreshData, useData } from './api';
 import { useAction, ActionStatus, ErrorBox } from './shared';
 import { type CompanionSettings, type CompanionResponse } from './companion';
+import './companion-view.css';
 export function CompanionPreferences({
   value,
   onChange,
@@ -10,10 +11,10 @@ export function CompanionPreferences({
   onChange: (value: CompanionSettings) => void;
 }) {
   return (
-    <details>
+    <details className="companion-preferences">
       <summary>活动与图片偏好</summary>
 
-      <label className="agreement-row">
+      <label className="companion-preference">
         <input
           type="checkbox"
           checked={value.report_every_round}
@@ -23,7 +24,7 @@ export function CompanionPreferences({
         />
         <span>每轮综合反馈</span>
       </label>
-      <label className="agreement-row">
+      <label className="companion-preference">
         <input
           type="checkbox"
           checked={value.history_images}

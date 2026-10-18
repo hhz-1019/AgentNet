@@ -3,7 +3,7 @@ import { isPortraitAvatar, avatarUrl } from '../default-avatars';
 import { api } from '../api';
 import type { CompanionSettings } from '../companion';
 import { CompanionPreferences } from '../companion-view';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, Eye } from '../icons';
 import {
   portraitFields,
@@ -18,6 +18,7 @@ export function PortraitEditor({
   onSave,
   onPublicHome,
   onComplete,
+  beforeActions,
   companion,
   onCompanionChange,
   preview = false,
@@ -28,6 +29,7 @@ export function PortraitEditor({
   onPublicHome: () => void;
   focusMemory?: boolean;
   onComplete?: () => void;
+  beforeActions?: ReactNode;
   companion?: CompanionSettings;
   onCompanionChange?: (settings: CompanionSettings) => void;
   preview?: boolean;
@@ -340,6 +342,7 @@ export function PortraitEditor({
           {error}
         </p>
       )}
+      {beforeActions}
       <div
         className={
           onComplete ? 'portrait-confirm-actions' : 'sn-portrait-actions'

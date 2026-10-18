@@ -215,31 +215,31 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
       {!profile ? (
         !error && <ContentState title="正在打开资料" loading />
       ) : (
-        <>
-          <label className="agreement-row">
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-            />
-            <span>
-              我同意
-              <a href="/agreement.html" target="_blank" rel="noreferrer">
-                用户协议及 Agent 活动授权
-              </a>
-            </span>
-          </label>
-          <PortraitEditor
-            profile={profile}
-            companion={companion}
-            onCompanionChange={setCompanion}
-            onSave={save}
-            onPublicHome={() => {}}
-            onComplete={() => {
-              void complete();
-            }}
-          />
-        </>
+        <PortraitEditor
+          profile={profile}
+          companion={companion}
+          onCompanionChange={setCompanion}
+          onSave={save}
+          onPublicHome={() => {}}
+          onComplete={() => {
+            void complete();
+          }}
+          beforeActions={
+            <label className="agreement-row">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+              />
+              <span>
+                我同意
+                <a href="/agreement.html" target="_blank" rel="noreferrer">
+                  用户协议及 Agent 活动授权
+                </a>
+              </span>
+            </label>
+          }
+        />
       )}
     </>
   );

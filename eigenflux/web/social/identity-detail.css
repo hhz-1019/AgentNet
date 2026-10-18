@@ -71,6 +71,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.ew-identity-empty {
+  margin: 24px 0 0;
+  color: var(--ew-on-action);
+  line-height: 1.8;
+}
 .ew-identity-with-details .elsewhere-identity-actions :is(button, a),
 .sn-social
   .ew-identity-with-details

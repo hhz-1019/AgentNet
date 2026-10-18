@@ -858,6 +858,48 @@ export function SocialWorkspace({
       setPending((ids) => ids.filter((x) => x !== post.id));
     }
   }
+  const feedSearch = (
+    <form
+      className="sw-search"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setSearch(query);
+        setCursor('');
+      }}
+    >
+      <Search size={19} />
+      <label className="sw-sr-only" htmlFor="post-search">
+        {searchRoute ? '搜索动态或用户' : '搜索动态'}
+      </label>
+      <input
+        id="post-search"
+        maxLength={100}
+        value={query}
+        ref={searchInput}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={
+          searchRoute
+            ? '搜索动态或用户'
+            : route === 'liked'
+              ? '搜索我赞过的内容'
+              : route === 'saved'
+                ? '搜索我的收藏'
+                : route === 'drafts'
+                  ? '搜索草稿'
+                  : '搜索动态'
+        }
+      />
+      {query && (
+        <button
+          type="button"
+          aria-label="清空搜索"
+          onClick={() => setQuery('')}
+        >
+          <X size={16} />
+        </button>
+      )}
+    </form>
+  );
   const messageSections = (
     <nav className="sw-message-sections" aria-label="消息与通讯录">
       {[
@@ -1033,16 +1075,13 @@ export function SocialWorkspace({
                     bio={profileIntro}
                     interests={portrait.fields.interests}
                     accessibleName="我的身份"
-                    details={
-                      demo
-                        ? portraitFields
-                            .filter((field) => field.key !== 'name')
-                            .map((field) => ({
-                              label: field.label,
-                              value: portrait.fields[field.key] || '',
-                            }))
-                        : [{ label: '自我介绍', value: profileIntro || '' }]
-                    }
+                    details={portraitFields
+                      .filter((field) => field.key !== 'name')
+                      .map((field) => ({
+                        label: field.label,
+                        value: portrait.fields[field.key] || '',
+                      }))}
+                    onEdit={() => go('profile')}
                     meta={
                       session.owner_uid ? (
                         <span>
@@ -1068,18 +1107,27 @@ export function SocialWorkspace({
                   </div>
                 </div>
               </div>
-              <ContentTabs className="sn-tabs" label="我的内容">
-                {personalTabs.map(([id, label]) => (
-                  <a
-                    key={id}
-                    href={href(id)}
-                    onClick={(e) => go(id, e)}
-                    aria-current={route === id ? 'page' : undefined}
-                  >
-                    {label}
-                  </a>
-                ))}
-              </ContentTabs>
+              <div className="ew-personal-feed-heading">
+                <ContentTabs className="sn-tabs" label="我的内容">
+                  {personalTabs.map(([id, label]) => (
+                    <a
+                      key={id}
+                      href={href(id)}
+                      onClick={(e) => go(id, e)}
+                      aria-current={route === id ? 'page' : undefined}
+                    >
+                      {label}
+                    </a>
+                  ))}
+                </ContentTabs>
+                <div className="ew-personal-feed-actions">
+                  {feedSearch}
+                  <RefreshButton
+                    busy={!feedSettled || loading || refreshingFeed}
+                    onRefresh={refreshFeed}
+                  />
+                </div>
+              </div>
             </>
           )}
           {notice && <output className="sw-hint">{notice}</output>}
@@ -1126,120 +1174,78 @@ export function SocialWorkspace({
           ) : feedRoute ? (
             <>
               {route === 'explore' && <h1 className="sw-sr-only">发现</h1>}
-              <div
-                className={`ew-feed-toolbar${route === 'explore' ? '' : ' ew-personal-toolbar'}${searchRoute ? ' ew-search-page-toolbar' : ''}`}
-              >
-                {searchRoute ? (
-                  <button
-                    className="ew-search-back"
-                    aria-label="返回发现"
-                    onClick={() => go('explore')}
-                  >
-                    <ArrowLeft size={22} />
-                  </button>
-                ) : route === 'explore' ? (
-                  <div className="sn-discover-heading">
-                    <ContentTabs className="sn-tabs" label="发现频道">
-                      {[
-                        ['recommended', '推荐'],
-                        ['following', '关注'],
-                        ['latest', '最新'],
-                      ].map(([id, label]) => (
-                        <button
-                          key={id}
-                          aria-pressed={feed === id}
-                          onClick={() => {
-                            if (guest && id === 'following') {
-                              onRequireLogin?.('登录后查看关注的动态');
-                              return;
-                            }
-                            setRefreshMessage('');
-                            if (feed !== id)
-                              window.scrollTo({ top: 0, behavior: 'auto' });
-                            setFeed(id);
-                            setCursor('');
-                          }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </ContentTabs>
+              {!personal && (
+                <div
+                  className={`ew-feed-toolbar${searchRoute ? ' ew-search-page-toolbar' : ''}`}
+                >
+                  {searchRoute ? (
+                    <button
+                      className="ew-search-back"
+                      aria-label="返回发现"
+                      onClick={() => go('explore')}
+                    >
+                      <ArrowLeft size={22} />
+                    </button>
+                  ) : route === 'explore' ? (
+                    <div className="sn-discover-heading">
+                      <ContentTabs className="sn-tabs" label="发现频道">
+                        {[
+                          ['recommended', '推荐'],
+                          ['following', '关注'],
+                          ['latest', '最新'],
+                        ].map(([id, label]) => (
+                          <button
+                            key={id}
+                            aria-pressed={feed === id}
+                            onClick={() => {
+                              if (guest && id === 'following') {
+                                onRequireLogin?.('登录后查看关注的动态');
+                                return;
+                              }
+                              setRefreshMessage('');
+                              if (feed !== id)
+                                window.scrollTo({ top: 0, behavior: 'auto' });
+                              setFeed(id);
+                              setCursor('');
+                            }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </ContentTabs>
+                      <RefreshButton
+                        busy={!feedSettled || loading || refreshingFeed}
+                        onRefresh={refreshFeed}
+                      />
+                    </div>
+                  ) : null}
+                  {route === 'explore' ? (
+                    <button
+                      className="sw-search ew-search-entry"
+                      onClick={() => {
+                        go('search');
+                        setSearchKind('all');
+                      }}
+                      aria-label="搜索动态或用户"
+                    >
+                      <Search size={19} />
+                      <span>搜索动态或用户</span>
+                    </button>
+                  ) : (
+                    feedSearch
+                  )}
+                  {searchRoute && (
                     <RefreshButton
-                      busy={!feedSettled || loading || refreshingFeed}
+                      disabled={!search.trim() || peopleSearch}
+                      busy={
+                        Boolean(search.trim()) &&
+                        (!feedSettled || loading || refreshingFeed)
+                      }
                       onRefresh={refreshFeed}
                     />
-                  </div>
-                ) : (
-                  <RefreshButton
-                    busy={!feedSettled || loading || refreshingFeed}
-                    onRefresh={refreshFeed}
-                  />
-                )}
-                {route === 'explore' ? (
-                  <button
-                    className="sw-search ew-search-entry"
-                    onClick={() => {
-                      go('search');
-                      setSearchKind('all');
-                    }}
-                    aria-label="搜索动态或用户"
-                  >
-                    <Search size={19} />
-                    <span>搜索动态或用户</span>
-                  </button>
-                ) : (
-                  <form
-                    className="sw-search"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      setSearch(query);
-                      setCursor('');
-                    }}
-                  >
-                    <Search size={19} />
-                    <label className="sw-sr-only" htmlFor="post-search">
-                      {searchRoute ? '搜索动态或用户' : '搜索动态'}
-                    </label>
-                    <input
-                      id="post-search"
-                      maxLength={100}
-                      value={query}
-                      ref={searchInput}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={
-                        searchRoute
-                          ? '搜索动态或用户'
-                          : route === 'liked'
-                            ? '搜索我赞过的内容'
-                            : route === 'saved'
-                              ? '搜索我的收藏'
-                              : route === 'drafts'
-                                ? '搜索草稿'
-                                : '搜索动态'
-                      }
-                    />
-                    {query && (
-                      <button
-                        type="button"
-                        aria-label="清空搜索"
-                        onClick={() => setQuery('')}
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </form>
-                )}
-                {searchRoute && (
-                  <RefreshButton
-                    disabled={!search.trim() || peopleSearch}
-                    busy={
-                      Boolean(search.trim()) &&
-                      (!feedSettled || loading || refreshingFeed)
-                    }
-                    onRefresh={refreshFeed}
-                  />
-                )}
-              </div>
+                  )}
+                </div>
+              )}
               {searchRoute && (
                 <div className="ew-search-options">
                   <ContentTabs className="sn-tabs" label="搜索结果类型">

@@ -18,6 +18,46 @@ const browser = await chromium.launch({
     : {}),
   headless: true,
 });
+async function checkPreferenceLayout(page, width, context) {
+  await page.getByText('活动与图片偏好', { exact: true }).click();
+  for (const text of ['每轮综合反馈', '使用已授权的历史交流图片']) {
+    const geometry = await page
+      .getByRole('checkbox', { name: text, exact: true })
+      .evaluate((input) => {
+        const span = input.closest('label').querySelector('span');
+        const box = input.getBoundingClientRect();
+        const words = span.getBoundingClientRect();
+        return {
+          width: box.width,
+          gap: words.left - box.right,
+          textHeight: words.height,
+          lineHeight: parseFloat(getComputedStyle(span).lineHeight),
+          right: words.right,
+        };
+      });
+    assert.equal(
+      geometry.width,
+      18,
+      context + ': checkbox must not inherit full-width input styles',
+    );
+    assert.ok(
+      geometry.gap >= 11 && geometry.gap <= 13,
+      context + ': text stays beside checkbox',
+    );
+    assert.ok(
+      geometry.textHeight <= geometry.lineHeight * 2.1,
+      context + ': preference text must not become vertical',
+    );
+    assert.ok(
+      geometry.right <= width,
+      context + ': preference stays inside viewport',
+    );
+  }
+  await page
+    .getByRole('checkbox', { name: '使用已授权的历史交流图片', exact: true })
+    .scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${dir}/preferences-${context}-${width}.png` });
+}
 try {
   for (const width of [1440, 390]) {
     const ownerName = width === 390 ? '' : '预填昵称';
@@ -366,6 +406,7 @@ try {
         .getAttribute('src'),
       '/api/v2/public/avatars/' + 'a'.repeat(32),
     );
+    await checkPreferenceLayout(page, width, 'onboarding');
     await page.getByRole('checkbox', { name: /我同意/ }).check();
     await page.screenshot({
       path: `${dir}/profile-${width}.png`,
@@ -392,7 +433,14 @@ try {
       await page.getByLabel('Agent 的名字', { exact: true }).count(),
       0,
     ); // already navigated to network
-    await page.goto('http://127.0.0.1:4324/dashboard/profile');
+    await page.goto('http://127.0.0.1:4324/dashboard/me');
+    await page.getByRole('button', { name: '关于我', exact: true }).click();
+    const about = page.locator('.ew-identity-more[aria-hidden="false"]');
+    await about.getByText('记忆中的研究兴趣', { exact: true }).waitFor();
+    await about.getByText('找到研究伙伴', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '编辑资料', exact: true }).click();
+    await page.getByLabel('Agent 的名字', { exact: true }).waitFor();
+    await checkPreferenceLayout(page, width, 'profile');
     await page
       .getByLabel('Agent 的名字', { exact: true })
       .fill('设置中修改的昵称');

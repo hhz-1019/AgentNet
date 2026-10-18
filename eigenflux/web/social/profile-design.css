@@ -249,6 +249,13 @@
   display: flex;
   justify-content: flex-end;
 }
+.sn-portrait > .agreement-row {
+  margin: 24px 0 16px;
+}
+.sn-portrait > .agreement-row + .portrait-confirm-actions {
+  margin-top: 0;
+  padding-top: 0;
+}
 .sn-portrait .sn-portrait-actions button,
 .sn-portrait .portrait-confirm-actions button {
   border-radius: var(--ew-radius-control);

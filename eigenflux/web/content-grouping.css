@@ -1,3 +1,255 @@
+/* One spacing scale for controls, sections and readable content groups. */
+:root[data-theme] {
+  --ew-space-icon: 8px;
+  --ew-space-control: 12px;
+  --ew-space-section: 24px;
+  --ew-space-block: 32px;
+  --ew-group-inset: 24px;
+  --ew-control-height: 44px;
+}
+html[data-theme]
+  #root
+  :is(
+    .sn-page-heading,
+    .sw-page-heading,
+    .sw-message-heading,
+    .sw-section-heading,
+    .ew-search-section-heading
+  ) {
+  align-items: center;
+  gap: var(--ew-space-control);
+  margin-block: 0 var(--ew-space-section);
+}
+html[data-theme]
+  #root
+  :is(
+    .sn-page-heading,
+    .sw-page-heading,
+    .sw-message-heading,
+    .sw-section-heading,
+    .ew-search-section-heading
+  )
+  :is(h1, h2, p) {
+  margin: 0;
+}
+html[data-theme]
+  #root
+  :is(
+    .sn-tabs,
+    .sw-message-sections,
+    .sn-message-filters,
+    .sw-network-toolbar > fieldset,
+    .managed-tabs
+  ) {
+  column-gap: var(--ew-space-icon);
+  row-gap: var(--ew-space-icon);
+}
+html[data-theme]
+  #root
+  :is(.ew-feed-toolbar, .sw-network-toolbar, .ew-search-options) {
+  gap: var(--ew-space-section);
+  margin-block: 0 var(--ew-space-section);
+  padding-block: 0;
+}
+html[data-theme]
+  #root
+  :is(
+    .sn-personal-identity-actions,
+    .sn-person-actions,
+    .sn-profile-actions,
+    .sw-connection-actions,
+    .sw-peer-card-footer,
+    .sn-group-footer,
+    .sn-share-footer,
+    .sw-dialog-footer,
+    .sn-composer-footer,
+    .managed-session-actions,
+    .mb-detail-actions,
+    .mb-interaction-actions,
+    .mb-brief-actions
+  ) {
+  gap: var(--ew-space-control);
+}
+html[data-theme]
+  #root
+  :is(
+    .sn-personal-identity-actions,
+    .sn-person-actions,
+    .sn-profile-actions,
+    .sw-connection-actions,
+    .sw-peer-card-footer,
+    .sw-dialog-footer,
+    .sn-group-footer,
+    .sn-share-footer
+  )
+  > :is(button, a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ew-space-icon);
+  min-height: var(--ew-control-height);
+  margin: 0;
+  padding: 8px 16px;
+  line-height: 1.5;
+}
+/* Quiet secondary actions still have a visible hit area, including on touch. */
+html[data-theme]
+  #root
+  :is(
+    .sn-personal-identity-actions,
+    .sn-person-actions,
+    .sn-profile-actions,
+    .sw-peer-card-footer,
+    .sw-dialog-footer,
+    .sn-group-footer
+  )
+  > :is(button, a):not(.sw-primary) {
+  background: var(--ew-input-tint);
+  border-color: transparent;
+  box-shadow: none;
+}
+html[data-theme]
+  #root
+  :is(
+    .sn-personal-identity-actions,
+    .sn-person-actions,
+    .sn-profile-actions,
+    .sw-peer-card-footer,
+    .sw-dialog-footer,
+    .sn-group-footer
+  )
+  > :is(button, a):not(.sw-primary):hover {
+  background: var(--ew-tint);
+}
+html[data-theme] #root .sn-personal-identity {
+  gap: var(--ew-space-block);
+  padding: 16px 0 8px;
+}
+html[data-theme] #root .sn-personal-identity-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+html[data-theme] #root .sn-personal-identity-tools p {
+  margin: var(--ew-space-control) 0 var(--ew-space-section);
+}
+html[data-theme] #root .sn-private-note {
+  margin: 0 0 var(--ew-space-section);
+}
+html[data-theme] #root .sn-public-fields {
+  margin-block: 0;
+  padding-block: 0;
+}
+html[data-theme] #root :is(.sw-peer-grid, .ew-people-results) {
+  gap: var(--ew-space-section);
+}
+html[data-theme] #root .sw-network-page .sw-peer-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ew-space-control);
+  padding: var(--ew-group-inset);
+  border: 0;
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-input-tint);
+  box-shadow: none;
+}
+html[data-theme]
+  #root
+  .sw-network-page
+  .sw-peer-card
+  :is(h3, .sw-peer-bio, .sw-capability-tags) {
+  margin: 0;
+}
+html[data-theme] #root .sw-network-page .sw-peer-card-footer {
+  padding-top: var(--ew-space-control);
+}
+html[data-theme] #root .sw-network-page .sw-peer-card-footer > :is(button, a) {
+  background: var(--ew-surface);
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+html[data-theme]
+  #root
+  .sw-network-page
+  .sw-peer-card-footer
+  > :is(button, a):hover {
+  background: var(--ew-tint);
+}
+html[data-theme] #root .sw-network-page > .sw-section-heading {
+  margin-block-start: var(--ew-space-block);
+  margin-block-end: var(--ew-space-section);
+}
+html[data-theme] #root .sw-network-page {
+  gap: 0;
+}
+html[data-theme] #root .sw-network-page > .sw-page-heading {
+  margin-bottom: var(--ew-space-section);
+}
+html[data-theme] #root .sw-network-page .sw-connections-section {
+  display: grid;
+  gap: var(--ew-space-icon);
+}
+html[data-theme]
+  #root
+  .sw-network-page
+  .sw-connections-section
+  > .sw-section-heading {
+  margin: 0 0 var(--ew-space-icon);
+}
+html[data-theme] #root .sw-network-page .ew-friend-entry {
+  margin: 0;
+  background: var(--ew-input-tint);
+  border-radius: var(--ew-radius-control);
+}
+html[data-theme] #root .sw-network-page .ew-friend-name {
+  padding: 12px 16px;
+}
+html[data-theme] #root .sw-network-page .ew-friend-entry .sw-connection-card {
+  margin: 0;
+  padding: 8px 16px 16px;
+  background: transparent;
+}
+html[data-theme] #root :is(.sn-portrait-grid, .sw-form-row) {
+  gap: var(--ew-space-section);
+}
+html[data-theme] #root .sn-portrait-field > div {
+  margin-bottom: var(--ew-space-control);
+}
+html[data-theme] #root .sw-dialog-footer {
+  flex-wrap: wrap;
+  margin-top: var(--ew-space-section);
+  padding-top: 0;
+}
+html[data-theme] #root .ew-appearance-settings {
+  margin: var(--ew-space-section) 0;
+  padding: var(--ew-group-inset);
+  gap: var(--ew-space-section);
+  background: var(--ew-input-tint);
+  border-radius: var(--ew-radius-control);
+}
+html[data-theme] #root .sn-connection {
+  margin-top: var(--ew-space-block);
+  padding-top: 0;
+}
+html[data-theme] #root .sn-connection h2 {
+  margin: 0 0 var(--ew-space-control);
+}
+html[data-theme] #root .sn-connection p {
+  margin: 0 0 var(--ew-space-control);
+}
+html[data-theme] #root .sn-message-search {
+  margin: 0 0 var(--ew-space-control);
+  min-height: var(--ew-control-height);
+  background: var(--ew-input-tint);
+}
+html[data-theme] #root .sn-message-filters {
+  margin: 0 0 var(--ew-space-control);
+  padding: 0;
+}
+html[data-theme] #root :is(.sn-conversation, .messages > aside > button) {
+  margin-block: 0 var(--ew-space-icon);
+}
+
 /* Restore local grouping without boxing the entire page or shrinking the type. */
 html[data-theme] #root .sn-settings-list {
   display: flex;
@@ -43,8 +295,14 @@ html[data-theme] #root :is(.sn-public-fields > div, .ew-identity-fragment) {
   border-radius: 22px;
   padding: 22px 24px;
 }
+html[data-theme] #root .ew-identity-fragment dt {
+  color: var(--ew-muted);
+}
+html[data-theme] #root .ew-identity-fragment dd {
+  color: var(--ew-ink);
+}
 html[data-theme] #root .sn-public-fields {
-  gap: 18px;
+  gap: var(--ew-space-section);
 }
 html[data-theme] #root .sn-public-fields dt {
   margin: 0 0 12px;
@@ -102,5 +360,13 @@ html[data-theme] #root .attention-item h2 {
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+}
+@media (pointer: coarse) {
+  :root[data-theme] {
+    --ew-space-section: 20px;
+    --ew-space-block: 28px;
+    --ew-group-inset: 16px;
+    --ew-control-height: 40px;
   }
 }

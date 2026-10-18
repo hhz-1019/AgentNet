@@ -496,3 +496,103 @@ html[data-theme] #root .ew-search-posts-heading {
     animation: none;
   }
 }
+
+/* Section tools keep one reading edge; search and refresh remain paired. */
+html[data-theme]
+  #root
+  :is(.ew-personal-feed-heading, .ew-profile-feed-heading) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ew-space-section);
+  min-width: 0;
+  margin: var(--ew-space-section) 0;
+}
+html[data-theme] #root .ew-personal-feed-heading {
+  flex-wrap: wrap;
+  row-gap: var(--ew-space-control);
+}
+html[data-theme]
+  #root
+  :is(.ew-personal-feed-heading, .ew-profile-feed-heading)
+  > .sn-tabs {
+  flex: 1 0 auto;
+  min-width: 0;
+  margin: 0;
+}
+html[data-theme]
+  #root
+  :is(.ew-personal-feed-heading, .ew-profile-feed-heading)
+  .sn-tabs
+  :is(a, button) {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+html[data-theme] #root .ew-personal-feed-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ew-space-control);
+  flex: 1 1 300px;
+  max-width: 400px;
+  min-width: 0;
+  margin-inline-start: auto;
+}
+html[data-theme] #root .ew-personal-feed-actions .sw-search {
+  display: flex;
+  align-items: center;
+  gap: var(--ew-space-icon);
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  min-height: var(--ew-control-height);
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--ew-radius-control);
+  background: var(--ew-input-tint);
+}
+html[data-theme] #root .ew-personal-feed-actions .sw-search:focus-within {
+  border-color: var(--ew-muted);
+}
+html[data-theme] #root .ew-personal-feed-actions .sw-search input {
+  width: 100%;
+  min-width: 0;
+}
+html[data-theme] #root .ew-personal-feed-actions .ew-feed-refresh {
+  width: var(--ew-control-height);
+  height: var(--ew-control-height);
+  min-width: var(--ew-control-height);
+  min-height: var(--ew-control-height);
+  flex-shrink: 0;
+}
+html[data-theme] #root .sn-discover-heading {
+  column-gap: var(--ew-space-section);
+}
+@media (max-width: 1100px) {
+  html[data-theme] #root .ew-personal-feed-actions {
+    max-width: none;
+  }
+}
+@media (max-width: 760px) {
+  html[data-theme] #root .ew-personal-feed-actions {
+    flex-basis: 100%;
+  }
+  html[data-theme] #root .ew-personal-feed-heading > .sn-tabs {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) and (pointer: fine),
+  (max-width: 760px) and (pointer: none) {
+  html[data-theme] #root .ew-profile-feed-heading > .sn-tabs {
+    gap: var(--ew-space-icon);
+  }
+  html[data-theme]
+    #root
+    :is(.ew-personal-feed-heading, .ew-profile-feed-heading)
+    > .sn-tabs
+    :is(a, button) {
+    padding: 8px;
+  }
+}

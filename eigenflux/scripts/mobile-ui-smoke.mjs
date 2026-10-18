@@ -223,7 +223,7 @@ try {
   await page.locator('.sw-post').first().waitFor();
   assert.equal(
     await font(page.locator('.sw-feed-grid .sw-post-title').first()),
-    '18px',
+    '22px',
   );
   await page
     .getByRole('navigation', { name: '发现频道' })

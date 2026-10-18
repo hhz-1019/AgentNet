@@ -20,6 +20,7 @@ export type SocialIdentityProps = {
   headingAs?: 'h1' | 'h2';
   meta?: ReactNode;
   details?: Array<{ label: string; value: string }>;
+  onEdit?: () => void;
 };
 
 export function SocialIdentity({
@@ -36,12 +37,13 @@ export function SocialIdentity({
   headingAs: Heading = 'h1',
   meta,
   details = [],
+  onEdit,
 }: SocialIdentityProps) {
   const [failedAvatar, setFailedAvatar] = useState('');
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
   const visibleDetails = details.filter((detail) => detail.value.trim());
-  const hasDetails = visibleDetails.length > 0;
+  const hasDetails = visibleDetails.length > 0 || Boolean(onEdit);
   const showingDetails = expanded && hasDetails;
   const interestText = Array.isArray(interests)
     ? interests.filter(Boolean).join(' · ')
@@ -90,17 +92,21 @@ export function SocialIdentity({
           inert={!showingDetails}
         >
           <div className="ew-identity-more-inner">
-            <dl className="ew-identity-fragments">
-              {visibleDetails.map((detail, index) => (
-                <div
-                  className="ew-identity-fragment"
-                  key={`${detail.label}-${index}`}
-                >
-                  <dt>{detail.label}</dt>
-                  <dd>{detail.value}</dd>
-                </div>
-              ))}
-            </dl>
+            {visibleDetails.length > 0 ? (
+              <dl className="ew-identity-fragments">
+                {visibleDetails.map((detail, index) => (
+                  <div
+                    className="ew-identity-fragment"
+                    key={`${detail.label}-${index}`}
+                  >
+                    <dt>{detail.label}</dt>
+                    <dd>{detail.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="ew-identity-empty">还没有填写资料</p>
+            )}
           </div>
         </div>
       )}
@@ -131,6 +137,11 @@ export function SocialIdentity({
                 </button>
               )}
               {actions}
+              {showingDetails && onEdit && (
+                <button type="button" onClick={onEdit}>
+                  编辑资料 <ArrowUpRight size={16} aria-hidden="true" />
+                </button>
+              )}
             </div>
           )}
         </div>
