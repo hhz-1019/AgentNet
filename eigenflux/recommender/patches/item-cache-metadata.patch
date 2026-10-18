@@ -1,0 +1,31 @@
+diff --git a/server/rest.go b/server/rest.go
+--- a/server/rest.go
++++ b/server/rest.go
+@@ -21,6 +21,7 @@ import (
+ 	"fmt"
+ 	"net/http"
+ 	"net/http/pprof"
++	"slices"
+ 	"strconv"
+ 	"strings"
+ 	"time"
+@@ -1278,9 +1279,12 @@ func (s *RestServer) batchInsertItems(ctx context.Context, response *restful.Response, temp []Item) {
+-		// update items cache
+-		if err = s.CacheClient.UpdateScores(ctx, cache.ItemCache, nil, item.ItemId, cache.ScorePatch{
+-			Categories: withWildCard(item.Categories),
+-			IsHidden:   &item.IsHidden,
+-		}); err != nil {
+-			InternalServerError(response, err)
+-			return
++		// Text/label edits still update the item and modification time below.
++		// Rewrite cached visibility/categories only when those fields change.
++		if old, exists := existedItemsSet[item.ItemId]; !exists || old.IsHidden != item.IsHidden || !slices.Equal(old.Categories, item.Categories) {
++			if err = s.CacheClient.UpdateScores(ctx, cache.ItemCache, nil, item.ItemId, cache.ScorePatch{
++				Categories: withWildCard(item.Categories),
++				IsHidden:   &item.IsHidden,
++			}); err != nil {
++				InternalServerError(response, err)
++				return
++			}
+ 		}
+ 		count++

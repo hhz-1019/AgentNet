@@ -1,0 +1,15 @@
+diff --git a/storage/cache/sql.go b/storage/cache/sql.go
+--- a/storage/cache/sql.go
++++ b/storage/cache/sql.go
+@@ -237,6 +237,11 @@ func (db *SQLDatabase) Init() error {
+ 	case SQLite:
+ 		err = db.gormDB.AutoMigrate(&SQLDocument{})
++		if err != nil {
++			return errors.Trace(err)
++		}
++		// Match other SQL backends: item updates span all user/cache subsets.
++		err = db.gormDB.Exec(fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_collection_id ON %s (collection, id)", db.DocumentTable())).Error
+ 	}
+ 	return errors.Trace(err)
+ }
+ 

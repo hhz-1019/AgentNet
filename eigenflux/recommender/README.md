@@ -31,6 +31,8 @@ flowchart LR
 
 1. `patches/profile-cold-start.patch`：原版跳过无正反馈/无协同向量的用户，且语义分支依赖无关的 OpenAI chat 配置。允许有网络画像的新用户进入原生语义排序，取消无关门槛，并避免默认零容量的并发信号量阻塞。
 2. `patches/reranker-transport.patch`：为上游模型请求加 60 秒超时、8 MiB 读取边界，核验索引、重复和完整性；错误不记录提供商响应正文。没有修改评分公式。
+3. `patches/sqlite-cache-item-index.patch`：补齐 SQLite 的 `(collection, id)` 缓存索引，与上游其他 SQL 后端一致，避免更新帖子时扫描所有用户缓存。重复初始化保留已有数据；镜像构建时测试实际查询计划和数据保留。
+4. `patches/item-cache-metadata.patch`：正文或标签更新时，不重复改写未变化的缓存可见性和分类；仍更新原始帖子及修改时间以触发重排。隐藏、分类变化和新帖子继续执行原有缓存更新。
 
 无画像且无互动的用户仍使用 Gorse 回退。排序在后台每分钟检查更新；画像或反馈变更会触发重新计算，常规缓存 30 分钟。首次计算完成之前、或更新暂时失败时，可能返回原有缓存或引擎的回退候选，不能据 `has_feedback` 宣称本次已经完成个性化。API 的 ranking_version 是引擎版本，不是效果认证。
 
