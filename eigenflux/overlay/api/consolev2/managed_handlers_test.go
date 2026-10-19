@@ -398,8 +398,8 @@ func TestManagedFullSchema(t *testing.T) {
 		ChargedFen, InputTokens, OutputTokens, PostID int64
 	}
 	check(db.Raw(`SELECT status,detail,charged_fen,input_tokens,output_tokens,post_id FROM managed_runs WHERE run_id=?`, next.RunID).Scan(&held).Error)
-	if held.Status != "skipped" || held.Detail != "文字过长，暂不发布" || held.PostID != 0 || held.InputTokens != 0 || held.OutputTokens != 0 || held.ChargedFen != 0 {
-		t.Fatal("style hold must not publish or record costs", held)
+	if held.Status != "skipped" || held.Detail != "文字过长，暂不发布" || held.PostID != 0 || held.InputTokens != 500 || held.OutputTokens != 100 || held.ChargedFen != 0 {
+		t.Fatal("style hold must preserve provider usage without publishing or charging", held)
 	}
 	next, err = s.claimManaged(context.Background(), time.Now())
 	check(err)

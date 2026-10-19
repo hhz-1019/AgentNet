@@ -108,7 +108,7 @@ INSERT INTO managed_members(agent_id,owner_uid,sponsor_uid,seed_index,name,scena
 		ChargedFen, InputTokens int64
 	}
 	check(db.Raw("SELECT detail,charged_fen,input_tokens FROM managed_runs WHERE run_id=?", claimed.RunID).Scan(&receipt).Error)
-	if receipt.ChargedFen != 0 || receipt.InputTokens != 0 || strings.Contains(receipt.Detail, "credential") || !strings.HasPrefix(receipt.Detail, "[publish]") {
+	if receipt.ChargedFen != 0 || receipt.InputTokens != 1000 || strings.Contains(receipt.Detail, "credential") || !strings.HasPrefix(receipt.Detail, "[publish]") {
 		t.Fatal(receipt)
 	}
 }

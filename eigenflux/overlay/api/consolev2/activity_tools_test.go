@@ -220,6 +220,44 @@ func TestManagedActivitySharedTools(t *testing.T) {
 	if !strings.Contains(string(continuation.Data), "新评论") {
 		t.Fatal("continuation missing")
 	}
+	// Re-submitting an already published body cannot pass the existing write
+	// guard. Catch it before the paid reviewer, while still delivering feedback.
+	var duplicateRaw string
+	check(db.Raw("SELECT document::text FROM social_work_posts WHERE post_id=?", socialDecimal(published)).Scan(&duplicateRaw).Error)
+	var duplicateDoc socialDocument
+	check(json.Unmarshal([]byte(duplicateRaw), &duplicateDoc))
+	duplicateJob := job
+	duplicateJob.RunID++
+	check(db.Exec(`INSERT INTO managed_runs(run_id,agent_id,sponsor_uid,day,month,status,reserved_fen,charged_fen,created_at) VALUES(?,?,?,'2026-10-17','2026-10','running',0,0,?)`, duplicateJob.RunID, job.AgentID, job.SponsorUID, time.Now().UnixMilli()).Error)
+	duplicateSteps := 0
+	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) {
+		var wire struct {
+			Messages []struct{ Role, Content string }
+		}
+		check(json.NewDecoder(r.Body).Decode(&wire))
+		var payload map[string]json.RawMessage
+		check(json.Unmarshal([]byte(wire.Messages[1].Content), &payload))
+		if payload["candidate"] != nil {
+			t.Fatal("paid reviewer called for a duplicate already rejected by write policy")
+		}
+		value := managedOutput{Action: "skip"}
+		if duplicateSteps == 0 {
+			data, _ := json.Marshal(socialWriteRequest{Document: duplicateDoc, OwnerAuthorized: true, Visibility: "public"})
+			value = managedOutput{Action: "tool", Tool: "publish", Arguments: activityRequest{Data: data}}
+		} else if !strings.Contains(string(payload["tool_results"]), "already discussed") {
+			t.Fatal("duplicate feedback lost")
+		}
+		duplicateSteps++
+		raw, _ := json.Marshal(value)
+		response, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"finish_reason": "stop", "message": map[string]string{"content": string(raw)}}}, "usage": map[string]int{"prompt_tokens": 100, "completion_tokens": 40}})
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(string(response)))}, nil
+	})
+	duplicateResult, e := s.managedActivityModel(ctx, &duplicateJob, map[string]any{"context": input}, &input)
+	check(e)
+	if duplicateResult.ReviewStatus != "duplicate_example" || duplicateSteps > 3 {
+		t.Fatal("duplicate preflight did not bound the no-op", duplicateResult)
+	}
+	check(s.commitManaged(ctx, duplicateJob, duplicateResult, nil))
 	// A later provider failure cannot erase an earlier tool publication or turn
 	// the daily post count into a count of successful runs.
 	check(db.Exec("UPDATE managed_runs SET status='running' WHERE run_id=?", job.RunID).Error)

@@ -67,19 +67,16 @@ func managedAngle(job managedJob) string {
 
 // Drop oldest optional context without truncating JSON, the persona, or rules.
 func managedFitInput(payload map[string]any, c *managedContext) bool {
-	promptBytes := len(managedPrompt)
+	prompt := managedPrompt
 	if payload["activity_mode"] == true {
-		promptBytes = len(managedActivityPrompt())
+		prompt = managedActivityPrompt()
+	} else if payload["presence_brief"] != nil {
+		prompt = managedPilotPrompt()
 	}
-	if payload["presence_brief"] != nil {
-		promptBytes += len(managedPresencePrompt)
-	}
-	if payload["celebrity_profile"] != nil {
-		promptBytes += len(celebrityWritingPrompt) + len(celebrityIdentityPrompt)
-	}
+	promptBytes := len(managedEffectivePrompt(payload, prompt))
 	for {
 		payload["context"] = *c
-		data, err := json.Marshal(payload)
+		data, err := managedMarshalInput(payload)
 		if err != nil {
 			return false
 		}

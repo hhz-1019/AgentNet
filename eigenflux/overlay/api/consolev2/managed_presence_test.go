@@ -91,8 +91,8 @@ func TestManagedPresenceModelContractAndInputBound(t *testing.T) {
 	if !managedFitInput(payload, &c) || len(c.PublicEvents) >= 100 {
 		t.Fatal("unbounded event history")
 	}
-	raw, _ := json.Marshal(payload)
-	if len(raw)+len(managedPrompt)+len(managedPresencePrompt) > managedMaxInput-1000 {
+	raw, _ := managedMarshalInput(payload)
+	if len(raw)+len(managedEffectivePrompt(payload, managedPilotPrompt())) > managedMaxInput-1000 {
 		t.Fatal("trial prompt omitted from byte budget")
 	}
 	if _, err := callManagedModel(context.Background(), payload); err != nil {

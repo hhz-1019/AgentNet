@@ -2,8 +2,6 @@ package consolev2
 
 import (
 	"context"
-	"eigenflux_server/pkg/companionpolicy"
-	"encoding/json"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -210,11 +208,8 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 		// Keep grounding and persona intact. Reduce the optional comparison window
 		// before the model's hard byte ceiling, without any extra summarizer call.
 		for n := len(recent); n > 0; n-- {
-			raw, e := json.Marshal(checkInput)
-			promptBytes := len(reviewPrompt) + len(companionpolicy.Identity)
-			if checkInput["celebrity_profile"] != nil {
-				promptBytes += len(celebrityWritingPrompt) + len(celebrityIdentityPrompt)
-			}
+			raw, e := managedMarshalInput(checkInput)
+			promptBytes := len(managedEffectivePrompt(checkInput, reviewPrompt))
 			if e == nil && len(raw)+promptBytes <= managedMaxInput-1000 {
 				break
 			}

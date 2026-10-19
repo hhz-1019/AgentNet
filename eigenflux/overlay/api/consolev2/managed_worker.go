@@ -231,19 +231,12 @@ func callManagedModel(ctx context.Context, input any) (managedModelResult, error
 }
 func callManagedModelWithPrompt(ctx context.Context, input any, prompt string) (managedModelResult, error) {
 	result := managedModelResult{}
-	if !strings.Contains(prompt, companionpolicy.Identity) {
-		prompt = companionpolicy.Identity + prompt
-	}
-	// Apply after selecting the writer/reviewer prompt so other writing modes
-	// cannot replace celebrity constraints, including on repair requests.
-	if payload, ok := input.(map[string]any); ok && payload["celebrity_profile"] != nil {
-		prompt += celebrityWritingPrompt + celebrityIdentityPrompt
-	}
+	prompt = managedEffectivePrompt(input, prompt)
 	endpoint, ok := managedModelURL()
 	if !ok {
 		return result, managedFailure("configuration")
 	}
-	data, err := json.Marshal(input)
+	data, err := managedMarshalInput(input)
 	if err != nil || len(data)+len(prompt) > managedMaxInput-1000 || socialSecretPattern.Match(data) {
 		return result, managedFailure("input")
 	}
@@ -292,8 +285,10 @@ func callManagedModelWithPrompt(ctx context.Context, input any, prompt string) (
 			Finish string `json:"finish_reason"`
 		} `json:"choices"`
 		Usage *struct {
-			Input  int64 `json:"prompt_tokens"`
-			Output int64 `json:"completion_tokens"`
+			Input     int64 `json:"prompt_tokens"`
+			Output    int64 `json:"completion_tokens"`
+			CacheHit  int64 `json:"prompt_cache_hit_tokens"`
+			CacheMiss int64 `json:"prompt_cache_miss_tokens"`
 		} `json:"usage"`
 	}
 	if json.Unmarshal(raw, &envelope) != nil {
@@ -307,6 +302,9 @@ func callManagedModelWithPrompt(ctx context.Context, input any, prompt string) (
 		return result, managedFailure("usage")
 	}
 	result.UsageKnown = envelope.Usage != nil
+	if envelope.Usage != nil {
+		slog.Info("managed model usage", "model", os.Getenv("LLM_MODEL"), "input_tokens", result.Input, "output_tokens", result.Output, "cache_hit_tokens", envelope.Usage.CacheHit, "cache_miss_tokens", envelope.Usage.CacheMiss)
+	}
 	if len(envelope.Choices) == 1 && envelope.Choices[0].Finish == "length" {
 		return result, managedFailure("output_length")
 	}
@@ -679,7 +677,7 @@ func (s *Service) commitManaged(ctx context.Context, job managedJob, result mana
 				}
 			}
 		}
-		return tx.Exec(`UPDATE managed_runs SET status=?,detail=?,charged_fen=?,input_tokens=?,output_tokens=?,post_id=?,message_id=?,conversation_id=?,finished_at=?,model_calls=?,repair_count=?,review_status=?,writing_trace=?::jsonb WHERE run_id=?`, status, detail, cost, 0, 0, postID, messageID, conversationID, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID).Error
+		return tx.Exec(`UPDATE managed_runs SET status=?,detail=?,charged_fen=?,input_tokens=?,output_tokens=?,post_id=?,message_id=?,conversation_id=?,finished_at=?,model_calls=?,repair_count=?,review_status=?,writing_trace=?::jsonb WHERE run_id=?`, status, detail, cost, result.Input, result.Output, postID, messageID, conversationID, time.Now().UnixMilli(), result.Calls, result.Repairs, result.ReviewStatus, managedTraceJSON(result.WritingTrace), job.RunID).Error
 	})
 }
 

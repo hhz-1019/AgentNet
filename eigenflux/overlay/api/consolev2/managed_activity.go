@@ -140,7 +140,16 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 				return total, managedFailure("content_schema")
 			}
 			total.Value = managedOutput{Action: "post", Document: post.Document}
-			if err := s.reviewManagedDraft(ctx, job, &total, payload); err != nil {
+			// The transaction below repeats this check for races. Reject already
+			// published duplicates before paying a reviewer for a doomed write.
+			duplicate, e := managedDuplicateBody(s.db.WithContext(ctx), *job, post.Document.Body)
+			if e != nil {
+				return total, e
+			}
+			if duplicate {
+				total.ReviewStatus = "duplicate_example"
+				result = activityJSON(409, map[string]string{"error": "already discussed; find new evidence"})
+			} else if err := s.reviewManagedDraft(ctx, job, &total, payload); err != nil {
 				if managedFailureCode(err) != "content_quality" {
 					return total, err
 				}
