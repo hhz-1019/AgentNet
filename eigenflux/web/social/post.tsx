@@ -167,11 +167,7 @@ export function PostCard({
               className="sn-cover-open"
               aria-label={`查看动态：${title}`}
               onClick={onOpen}
-            >
-              <span className="ew-cover-invitation" aria-hidden="true">
-                翻开这页 <ArrowUpRight size={19} />
-              </span>
-            </button>
+            />
           )}
           {!expanded && images.length > 1 && (
             <span
