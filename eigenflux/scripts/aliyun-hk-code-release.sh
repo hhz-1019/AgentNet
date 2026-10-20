@@ -31,6 +31,10 @@ test -f "$root/BUILT"
 test ! -e "$root/ACTIVATED"
 previous=$(readlink -f /srv/elsewhere/current)
 [[ "$previous" == /srv/elsewhere/releases/* && "$previous" != "$root" ]]
+# Use the live origin so a model-only release preserves concurrent domain changes.
+public_origin=$(docker inspect elsewhere-core --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^PUBLIC_BASE_URL=//p')
+[[ "$public_origin" =~ ^https://[a-zA-Z0-9.-]+$ ]]
+public_host=${public_origin#https://}
 cp -a "$previous/env" "$previous/configs" "$root/"
 # Fail before changing live services if model configuration or mounts are invalid.
 docker run --rm --network none --mount type=bind,src=/srv/elsewhere,dst=/srv/elsewhere --mount "type=bind,src=$source_dir/eigenflux/scripts,dst=/scripts,readonly" --mount "type=bind,src=$source_dir/eigenflux/recommender,dst=/recommender,readonly" node:24-alpine node /scripts/aliyun-hk-code-compose.mjs "$previous" "$root"
@@ -45,8 +49,8 @@ rollback() {
 }
 trap rollback ERR
 docker compose -f "$root/compose.json" up -d --no-deps --wait --wait-timeout 300 core web gorse sync > "$root/evidence/activate.log" 2>&1
-curl -fsS --max-time 20 --resolve elsewhere.twintalk.cn:443:127.0.0.1 https://elsewhere.twintalk.cn/api/v1/website/stats > "$root/evidence/website-stats.json"
-curl -fsS --max-time 20 --resolve elsewhere.twintalk.cn:443:127.0.0.1 https://elsewhere.twintalk.cn/release.json > "$root/evidence/public-release.json"
+curl -fsS --max-time 20 --resolve "$public_host:443:127.0.0.1" "$public_origin/api/v1/website/stats" > "$root/evidence/website-stats.json"
+curl -fsS --max-time 20 --resolve "$public_host:443:127.0.0.1" "$public_origin/release.json" > "$root/evidence/public-release.json"
 docker run --rm --network none --mount "type=bind,src=$root/evidence,dst=/evidence,readonly" node:24-alpine node -e 'const r=require("/evidence/public-release.json");if(r.revision!==process.argv[1]||r.migration!==152)process.exit(1)' "$revision"
 ln -s "$root" /srv/elsewhere/current.next
 mv -Tf /srv/elsewhere/current.next /srv/elsewhere/current
