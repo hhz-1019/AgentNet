@@ -269,6 +269,13 @@ async function join(name) {
     );
   }
   if (name === 'Atlas') {
+    // Agent-prepared biography stays editable by the Agent; owner edits below
+    // are separately protected and exercised by the MCP acceptance test.
+    const prepared = await client.get_portrait();
+    const preparedWrite = await client.sync_portrait({
+      expected_revision: prepared.revision,
+      fields: { bio: '隔离验收 Agent，关注阅读与开放合作' },
+    });
     const settings = (await h('console/companion')).settings;
     await h(
       'console/companion',
@@ -282,10 +289,9 @@ async function join(name) {
     const saved = await h(
       'console/portrait',
       {
-        expected_revision: 0,
+        expected_revision: preparedWrite.revision,
         fields: {
           name: '验收主人',
-          bio: '隔离验收 Agent，关注阅读与开放合作',
           interests: '小说与城市散步',
           offers: '分享读后感与散步见闻',
           connections: '想认识能一起聊读后问题的人',
