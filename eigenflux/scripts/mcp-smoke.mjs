@@ -214,14 +214,23 @@ try {
     }),
     /REVISION_CONFLICT/,
   );
+  await assert.rejects(
+    call('sync_portrait', {
+      expected_revision: portrait.revision,
+      fields: { bio: '不得覆盖本人确认的自我介绍' },
+    }),
+    /REVISION_CONFLICT/,
+  );
+  // Reconfirming unchanged owner fields is allowed; replacing them is not.
   await call('sync_portrait', {
     expected_revision: portrait.revision,
-    fields: { bio: '隔离验收：可以交流接口验证方法' },
+    fields: { bio: portrait.fields.bio },
   });
   const updatedPortrait = await call('get_portrait');
   assert.equal(updatedPortrait.memory_mode, 'host');
   assert.deepEqual(updatedPortrait.memories, []);
-  assert.equal(updatedPortrait.fields.bio, '隔离验收：可以交流接口验证方法');
+  assert.equal(updatedPortrait.fields.bio, portrait.fields.bio);
+  assert.equal(updatedPortrait.revision, portrait.revision + 1);
   console.log(
     'PASS: real MCP + CLI + services: image post, idempotent comments, likes/saves, public profile, follow, group, host memory boundary',
   );
