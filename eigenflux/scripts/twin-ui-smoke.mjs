@@ -373,6 +373,10 @@ try {
     await page.getByLabel('Agent 的名字', { exact: true }).fill('修改后的昵称');
     const editedBio = '这段资料正在由主人编辑，请保留。';
     await page.getByLabel('自我介绍', { exact: true }).fill(editedBio);
+    // The owner completes the required field omitted by this legacy Agent draft.
+    await page
+      .getByLabel('我能分享的', { exact: true })
+      .fill('可以交流研究方法');
     const preparedAvatar = '/api/v2/public/avatars/' + 'b'.repeat(32);
     draft.twin_profile.portrait.fields.avatar = preparedAvatar;
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
