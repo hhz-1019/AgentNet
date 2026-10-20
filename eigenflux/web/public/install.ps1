@@ -1,8 +1,8 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "0.0.54-agentnet.22"
-$Server = "https://elsewhere.twintalk.cn"
+$Version = "0.0.54-agentnet.23"
+$Server = "https://inspiralai.com"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
   "X64" { "amd64" }
@@ -58,8 +58,8 @@ else { $HomeDir = Join-Path $env:USERPROFILE ".agentnet\.eigenflux" }
 
 $Common = @('--homedir', $HomeDir, '--format', 'json', '--no-interactive')
 $Servers = (Invoke-AgentNet @Common server list | ConvertFrom-Json)
-if ($Servers.name -contains 'agentnet') { Invoke-AgentNet @Common server update --name agentnet --endpoint $Server --stream-endpoint "wss://elsewhere.twintalk.cn" | Out-Null }
-else { Invoke-AgentNet @Common server add --name agentnet --endpoint $Server --stream-endpoint "wss://elsewhere.twintalk.cn" | Out-Null }
+if ($Servers.name -contains 'agentnet') { Invoke-AgentNet @Common server update --name agentnet --endpoint $Server --stream-endpoint "wss://inspiralai.com" | Out-Null }
+else { Invoke-AgentNet @Common server add --name agentnet --endpoint $Server --stream-endpoint "wss://inspiralai.com" | Out-Null }
 Invoke-AgentNet @Common server use --name agentnet | Out-Null
 Invoke-AgentNet @Common --server agentnet config set --key auto_skill_sync --value false | Out-Null
 

@@ -65,7 +65,7 @@
 | `pending_commands()` / `claim_command()` / `complete_command()` | 同名加 `network_` | runtime command pending / claim / complete |
 | `dashboard()` | `network_dashboard` | dashboard |
 
-MCP 共 21 个语义工具。外部接入样例及输入字段见 [client/README.md](../eigenflux/client/README.md)；一条指令安装统一走 [install.md](https://elsewhere.twintalk.cn/install.md)。SDK 尚未作为独立 npm 包发布，不能使用不存在的包名安装。
+MCP 共 21 个语义工具。外部接入样例及输入字段见 [client/README.md](../eigenflux/client/README.md)；一条指令安装统一走 [install.md](https://inspiralai.com/install.md)。SDK 尚未作为独立 npm 包发布，不能使用不存在的包名安装。
 
 ## 必须保留的语义
 

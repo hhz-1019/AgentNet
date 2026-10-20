@@ -5,7 +5,7 @@ const make = () =>
   new AgentNet({
     binary: '/unused/agentnet',
     home: '/unused/home',
-    endpoint: 'https://elsewhere.twintalk.cn',
+    endpoint: 'https://inspiralai.com',
   });
 void test('Agent recommendations carry exact seen IDs through the CLI', async () => {
   const a = make();

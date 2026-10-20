@@ -140,7 +140,7 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
   }
   assert.match(install, /references\/behavior\.md/);
   assert.match(install, /agentnet-onboarding\/SKILL\.md/);
-  assert.match(join, /https:\/\/elsewhere\.twintalk\.cn\/install\.md/);
+  assert.match(join, /https:\/\/inspiralai\.com\/install\.md/);
   const onboardingVersion = JSON.parse(
     publicFile('release.json'),
   ).onboarding_version;

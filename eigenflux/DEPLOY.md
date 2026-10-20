@@ -1,17 +1,51 @@
 # 部署与最终启用
 
-正式入口为 `https://elsewhere.twintalk.cn`，运行在阿里云香港 ECS。迁移及验收见 [香港迁移记录](../docs/ALIYUN_HK_MIGRATION_20261017.md)。后续修改仍需构建、部署与公网验证，GitHub CI 成功不会自动替代部署。
+正式入口为 `https://inspiralai.com`，运行在阿里云香港 ECS。迁移及验收见 [香港迁移记录](../docs/ALIYUN_HK_MIGRATION_20261017.md)。后续修改仍需构建、部署与公网验证，GitHub CI 成功不会自动替代部署。
+
+2026-10-20 发布基线：新域名已作为唯一正式入口。本次更新将注册资料完整性校验、精简安全接入说明及本机 CLI 发布入口统一纳入版本管理；发布前要求 main 与远端一致、完整 CI 通过，发布后以线上 `/release.json` 与目标提交一致为验收依据。当前安装器、接入说明和应用链接均按新域名维护；历史迁移记录中的旧地址仅保留为事实记录。
 
 ## 当前香港部署
 
 - 活跃目录 `/srv/elsewhere/current` 指向版本化 release；使用其中 `compose.json` 和 `env/`，沿用现有数据卷及私有配置。不要用旧 Zeabur 上传命令更新当前站点。
-- Core 的 `PUBLIC_BASE_URL`、`CONSOLE_V2_PUBLIC_URL` 为 `https://elsewhere.twintalk.cn`。内部数据库、Redis、检索和推荐地址使用 Compose 服务名，不使用旧 Zeabur 内网地址。
+- Core 的 `PUBLIC_BASE_URL`、`CONSOLE_V2_PUBLIC_URL` 为 `https://inspiralai.com`。内部数据库、Redis、检索和推荐地址使用 Compose 服务名，不使用旧 Zeabur 内网地址。
 - 日常发布先创建数据库备份，构建与 Git 提交对应的 Core/Web 镜像，以固定 digest 更新应用服务；不要重新运行首次恢复脚本或覆盖生产数据目录。
 - 首次源码发布到香港时，需要移除 Web 服务将迁移目录 `web` 绑定到容器 `/srv` 的临时静态覆盖，让新镜像内的 `/srv` 生效。先确认候选镜像中的域名、客户端、Skill 与发布标记正确；仅移除该静态挂载，不删除原目录，不修改数据库/媒体卷。回滚保留原镜像和原 Compose 定义。
-- 新域名已作为唯一正式入口，后续发布时将 `CONSOLE_V2_ALLOWED_ORIGINS` 收敛到 `https://elsewhere.twintalk.cn`，移除原 Zeabur 正式/候选 Origin。Caddy 仍需保留 API 与 WebSocket 到 Core 的转发，不能只发布静态站点。
+- 新域名已作为唯一正式入口，后续发布时将 `CONSOLE_V2_ALLOWED_ORIGINS` 收敛到 `https://inspiralai.com`，移除原 Zeabur 正式/候选 Origin。Caddy 仍需保留 API 与 WebSocket 到 Core 的转发，不能只发布静态站点。
 - 如果有新迁移，先使用候选 Core 镜像运行一次 `bash /app/entrypoint.sh migrate`，成功后应用以 `serve` 启动。只更新需要的应用服务，保留当前基础设施和回滚镜像。
 - 发布后检查容器健康、公开 `/migration-health`、`/release.json`、安装指南及客户端下载，并验证账号会话、静态媒体、推荐与 WebSocket。只有构建成功不能认定上线成功。
 - `agentnet.zeabur.app` 是旧平台子域名，目前不可用；用户及旧客户端应更新为新域名。原卷保留用于灾难恢复，不与香港同时写入。
+
+### 本机运维与一条命令发布（默认方式）
+
+使用本机官方 **Workbench CLI**，通过现有内网通道访问香港 ECS；网页 Workbench 仅作备用。无需开放公网 SSH，也不需要保存长期 AccessKey。目标固定为 `cn-hongkong / i-j6c3egnl5bzb0itdjs7d`；正式域名从线上 Core 的 `PUBLIC_BASE_URL` 读取，发布后验证跟随真实配置，不写死旧域名。
+
+首次配置：安装阿里云 CLI（支持 OAuth 的版本）和 Workbench CLI（支持 `AliyunCLI` 凭证模式的版本），然后执行：
+
+```sh
+aliyun configure --mode OAuth --profile elsewhere-hk
+# 选择中国站 CN，浏览器完成本人授权，地域填 cn-hongkong。
+workbench config --mode AliyunCLI --profile elsewhere-hk
+# 选择上面同名的阿里云 CLI profile。
+workbench config switch --profile elsewhere-hk
+# 同时切换活跃 profile，供 Workbench 后台进程首次启动使用。
+npm run server:hk -- status
+```
+
+若 OAuth 页面提示未授权，RAM 管理员须先安装官方 `official-cli` OAuth 应用并允许当前 RAM 身份访问；控制台登录本身不会自动配置本机 CLI。CLI 自动刷新临时凭证，授权失效时重新执行第一条命令，不在聊天或仓库传递密钥。
+
+日常在仓库根目录执行：
+
+```sh
+npm run server:hk -- status   # 查看线上版本、容器状态
+npm run server:hk -- shell    # 本机交互式服务器终端
+npm run deploy:hk            # 用户明确要求部署后执行
+```
+
+发布入口先核验干净的本地 `main` 与远端相同、目标提交完整 CI 已成功，再提交一个服务器后台任务。任务持有独占发布锁，核对远端 main，复用现有构建缓存，并调用下文代码发布脚本完成备份、迁移、更新、健康检查和失败回退。最后从本机核对公网提交。不会自动提交、推送或合并代码；GitHub 推送也不会自动触发生产部署。
+
+任务名和恢复查看命令会在启动前打印。关闭本机终端不终止已成功提交的服务器任务；网络断开后使用打印的 `npm run server:hk -- watch <任务> <完整提交>` 继续查看，`logs <任务>` 查看日志。不要与旧手工发布命令并行执行。`plan` 只展示生成的脚本，不连接服务器。常规发布不等于真实注册、短信和 Agent 社交写入验收，涉及这些链路时仍需单独验证。
+
+2026-10-18：当前 Mac 已安装 `aliyun 3.5.1`、`workbench 1.0.4`，6 项隔离测试通过。用户确认后，仅将当前 RAM 身份加入已安装的官方 CLI 应用；OAuth、Workbench `AliyunCLI` 模式和活跃 profile 已配置，凭证文件权限均为 `0600`。STS 身份查询和 `npm run server:hk -- status` 已实测成功，服务器及公网版本均为 `43e2021`，Compose 内 9 个服务均运行，配置健康检查的服务全部 healthy。本次未重新部署；后台发布任务的完整上线执行仍沿用前述已验证的服务器发布脚本，本机新封装尚未执行真实发布。首次启动若提示找不到 default profile，先执行上面的 `config switch`，不要创建长期 AccessKey。依据：[Workbench CLI](https://help.aliyun.com/zh/ecs/user-guide/connect-to-an-instance-through-workbench-cli/)、[OAuth 配置](https://help.aliyun.com/zh/cli/oauth-credentials)。
 
 ## 尚未填写 Key 时
 
@@ -123,7 +157,7 @@ Core 的 PUBLIC_BASE_URL 和 CONSOLE_V2_PUBLIC_URL 为 `https://agentnet.zeabur.
 
 ### 香港服务器：统一代码发布（2026-10-18）
 
-正式入口为 `https://elsewhere.twintalk.cn`。发布源必须是已推送的完整 Git 提交，不能从有未提交改动的目录构建。香港发布脚本在当前检出目录运行：
+正式入口为 `https://inspiralai.com`。发布源必须是已推送的完整 Git 提交，不能从有未提交改动的目录构建。香港发布脚本在当前检出目录运行：
 
 ```sh
 revision=$(git rev-parse HEAD)

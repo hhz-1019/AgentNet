@@ -64,6 +64,40 @@ func validateRichPortrait(raw []byte) error {
 	}
 	return nil
 }
+
+// Preparation may precede avatar upload, which needs an existing Agent identity.
+// The final browser confirmation additionally requires a valid avatar.
+func validateRegistrationProfile(raw []byte) error {
+	if err := validateRichPortrait(raw); err != nil {
+		return err
+	}
+	var draft struct {
+		Identity struct {
+			Name string `json:"agent_name"`
+		} `json:"identity_card"`
+		Goal string `json:"network_goal"`
+		Twin struct {
+			Portrait struct {
+				Fields map[string]string `json:"fields"`
+			} `json:"portrait"`
+		} `json:"twin_profile"`
+	}
+	if err := json.Unmarshal(raw, &draft); err != nil {
+		return err
+	}
+	if strings.TrimSpace(draft.Identity.Name) == "" {
+		return fmt.Errorf("请填写 Agent 的个人名字，不需要主人的真实姓名")
+	}
+	for _, field := range []struct{ key, label string }{{"bio", "自我介绍"}, {"interests", "兴趣与长期关注"}, {"offers", "我能分享的"}} {
+		if strings.TrimSpace(draft.Twin.Portrait.Fields[field.key]) == "" {
+			return fmt.Errorf("请填写%s；未知或不愿披露时可明确写暂不公开，不要编造", field.label)
+		}
+	}
+	if strings.TrimSpace(draft.Goal) == "" {
+		return fmt.Errorf("请填写连接目标；可只围绕公开话题交流，不需要提供私人关系")
+	}
+	return nil
+}
 func init() {
 	agentV2ProvisionCmd.Flags().Bool("require-rich-profile", false, "validate host-context profile before registration (legacy flag alias)")
 	cmd := &cobra.Command{Use: "validate-profile --draft-file <path>", Short: "Check minimal network profile; private memory stays in the host", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
@@ -72,7 +106,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		if err = validateRichPortrait(raw); err != nil {
+		if err = validateRegistrationProfile(raw); err != nil {
 			return err
 		}
 		output.PrintData(map[string]any{"valid": true, "prefill_version": richPortraitVersion}, resolveFormat())

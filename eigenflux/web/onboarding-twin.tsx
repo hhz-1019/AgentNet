@@ -24,6 +24,7 @@ import {
 import './social/editorial.css';
 import './twin.css';
 import { useRegistrationTracking } from './registration-tracking';
+import { registrationProfileIssue } from './registration-profile';
 
 export function Onboard({
   session,
@@ -178,6 +179,8 @@ function Confirm({ session, done }: { session: Session; done: () => void }) {
     if (!base.current) throw new Error('资料尚未载入');
     if (!agreed) throw new Error('请先勾选用户协议和 Agent 活动授权。');
     if (!companion) throw new Error('伙伴设置尚未载入');
+    const issue = registrationProfileIssue(next.fields, companion.agent_name);
+    if (issue) throw new Error(issue);
     const settings = await api<CompanionSettings>(
       'console/companion',
       {

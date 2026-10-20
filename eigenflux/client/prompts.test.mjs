@@ -10,7 +10,7 @@ void test('structured JSON, nested credentials and quoted provider keys are bloc
   const cases = [
     {
       text:
-        'https://elsewhere.twintalk.cn/dashboard/register#connect=efcn_' +
+        'https://inspiralai.com/dashboard/register#connect=efcn_' +
         'a'.repeat(64),
     },
     { password: 'do-not-share-123' },

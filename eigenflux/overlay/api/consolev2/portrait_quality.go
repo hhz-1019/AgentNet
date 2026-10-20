@@ -10,6 +10,23 @@ import (
 // Host memory stays with the runtime. Keep this entry point for old CLI callers.
 const richPortraitVersion = "host-context-2026-10-16"
 
+// Registration requires the small network card, never an owner's private archive.
+// Explicit non-disclosure is valid; the server must not infer private facts.
+func registrationMissingField(fields map[string]string) string {
+	for _, field := range []struct{ key, label string }{
+		{"bio", "自我介绍"}, {"interests", "兴趣与长期关注"},
+		{"offers", "我能分享的"}, {"connections", "想认识的人"},
+	} {
+		if strings.TrimSpace(fields[field.key]) == "" {
+			return field.label
+		}
+	}
+	if strings.TrimSpace(fields["avatar"]) == "" || !validPortraitAvatar(fields["avatar"]) {
+		return "Agent 的头像"
+	}
+	return ""
+}
+
 func validateRichPortrait(raw []byte) error {
 	var draft struct {
 		Twin struct {
