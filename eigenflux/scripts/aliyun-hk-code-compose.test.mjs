@@ -26,6 +26,14 @@ await test('updates all four applications while retaining data and infrastructur
   assert.equal(next.services.core.env_file[0].format,'raw');
   assert.equal(next.services.gorse.ports,undefined);
 });
+await test('old Compose model overrides cannot revive separate providers',()=>{
+  const old=fixture();
+  old.services.core.environment={EMBEDDING_DISABLED:'false',SAFETY_LLM_API_KEY:'old',OTHER:'keep'};
+  old.services.gorse.environment={RERANKER_AUTH_TOKEN:'old',OTHER:'keep'};
+  const next=releaseCompose(old,{previous,root,images});
+  assert.deepEqual(next.services.core.environment,{OTHER:'keep'});
+  assert.deepEqual(next.services.gorse.environment,{OTHER:'keep'});
+});
 await test('rejects unexpected mounts, missing services, or missing egress before activation',()=>{
   let old=fixture();old.services.web.volumes[0].source='/unrelated';
   assert.throws(()=>releaseCompose(old,{previous,root,images}));
@@ -68,4 +76,16 @@ await test('provider preflight accepts complete results and rejects outages or i
     status=400;body={error:'PRIVATE_PROVIDER_RESPONSE'};
     const result=await run();assert.equal(result.code,1);assert.match(result.output,/Provider HTTP 400/);assert(!result.output.includes('PRIVATE_'));assert(!result.output.includes('private-test-key'));
   }finally{server.close();}
+});
+
+await test('DeepSeek chat preflight accepts JSON scores and rejects truncated output',async()=>{
+ const {createServer}=await import('node:http');const {spawn}=await import('node:child_process');
+ let finish='stop';
+ const server=createServer(async(req,res)=>{
+  let raw='';for await(const chunk of req)raw+=chunk;
+  const body=JSON.parse(raw);assert.equal(body.thinking.type,'disabled');assert.equal(body.response_format.type,'json_object');
+  res.end(JSON.stringify({choices:[{finish_reason:finish,message:{content:JSON.stringify({results:[{index:0,relevance_score:0.9},{index:1,relevance_score:0.1}]})}}]}));
+ });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const run=()=>new Promise(resolve=>{const child=spawn(process.execPath,['eigenflux/scripts/recommender-provider-preflight.mjs'],{env:{...process.env,RERANKER_URL:`http://127.0.0.1:${server.address().port}/chat/completions`,RERANKER_MODEL:'test'},stdio:'ignore'});child.on('close',resolve)});
+ try{assert.equal(await run(),0);finish='length';assert.equal(await run(),1)}finally{server.close()}
 });

@@ -27,7 +27,7 @@ flowchart LR
 
 ## 原版代码和补丁
 
-`Dockerfile` 从固定的完整源码构建，不再使用未打补丁的官方运行镜像。原生排序器、召回器与模型客户端协议均沿用 Gorse。
+`Dockerfile` 从固定的完整源码构建，不再使用未打补丁的官方运行镜像。候选召回和缓存沿用 Gorse，语义排序增加 DeepSeek Chat Completions 适配层。
 
 1. `patches/profile-cold-start.patch`：原版跳过无正反馈/无协同向量的用户，且语义分支依赖无关的 OpenAI chat 配置。允许有网络画像的新用户进入原生语义排序，取消无关门槛，并避免默认零容量的并发信号量阻塞。
 2. `patches/reranker-transport.patch`：为上游模型请求加 60 秒超时、8 MiB 读取边界，核验索引、重复和完整性；错误不记录提供商响应正文。没有修改评分公式。
@@ -40,11 +40,11 @@ flowchart LR
 
 合并 `eigenflux/compose.yaml` 与 `eigenflux/compose.recommendation.yaml`，或单独用本目录 `compose.yaml`。两个入口都构建同一源码镜像。core 使用 `AGENTNET_GORSE_URL` 与 `AGENTNET_GORSE_API_KEY`；Gorse 需要：
 
-- `RERANKER_URL`：完整标准 rerank 接口地址。
-- `RERANKER_MODEL`：服务支持的模型名。
-- `RERANKER_AUTH_TOKEN`：按提供商配置，私网自托管可留空。
+Compose 使用与 core 相同的 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY`，映射到 Gorse 的 RERANKER_*。API base 不带尾部斜杠。生产发布脚本强制复用现有官方 DeepSeek 配置，不再读取独立的百炼推荐密钥。密钥不写入仓库。
 
-本地真实验证使用 qwen3-rerank 的兼容接口。没有将模型或提供商写死，也不需要 OpenAI 账号。接口规格见 [Gorse ranking](https://gorse.io/docs/concepts/ranking) 和 [百炼 rerank API](https://help.aliyun.com/en/model-studio/text-rerank-api)。密钥不得写入仓库。不能共用不同环境的目录数据库。
+`chat-completion-ranking.patch` 与 overlay 将完整画像和公开帖子交给 DeepSeek 返回 JSON 分数；每批最多 32 条、输入最多 120 KB，关闭思考，验证完整索引及 0–1 分数。分批使用同一评分标准，但不保证与原 rerank 模型效果等同，需要上线后观察推荐质量。失败保留 Gorse 原有缓存/回退行为，不转调其他模型。
+
+core 默认设置 `EMBEDDING_DISABLED=true`：停用发帖、画像、后台补全和委托的向量生成，停用向量召回，保留关键词索引与检索。已有资料和帖子向量不批量删除；既有索引维度保留，关闭期间更新的委托文档仅写关键词内容。手动向量回填命令会收到 disabled 错误，不发出模型请求。
 
 ## 验证
 

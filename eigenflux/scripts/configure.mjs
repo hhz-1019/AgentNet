@@ -26,5 +26,5 @@ for (const name of [
 }
 await writeFile(file, source, { mode: 0o600 });
 console.log(
-  `Private configuration prepared: ${file}\nFill the DeepSeek API key, Bailian embedding fields and PNVS SMS credentials, then run npm run core:check. Generated secrets are not printed.`,
+  `Private configuration prepared: ${file}\nFill the shared DeepSeek API key and PNVS SMS credentials, then run npm run core:check. Generated secrets are not printed.`,
 );

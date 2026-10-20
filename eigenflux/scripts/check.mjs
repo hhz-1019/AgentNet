@@ -48,6 +48,7 @@ export function checkConfig(env, { providers = true } = {}) {
     'EMBEDDING_MODEL',
     'EMBEDDING_DIMENSIONS',
   ]) {
+    if (env.EMBEDDING_DISABLED === 'true' && ['EMBEDDING_BASE_URL', 'EMBEDDING_MODEL'].includes(key)) continue;
     if (!providers && /^(LLM_|EMBEDDING_|RESEND_|SMTP_|SMS_)/.test(key))
       continue;
     if (
@@ -75,11 +76,13 @@ export function checkConfig(env, { providers = true } = {}) {
   }
   if (
     providers &&
+    env.EMBEDDING_DISABLED !== 'true' &&
     env.EMBEDDING_PROVIDER !== 'ollama' &&
     !env.EMBEDDING_API_KEY?.trim()
   )
     errors.push('EMBEDDING_API_KEY is missing');
   for (const key of ['PUBLIC_BASE_URL', 'LLM_BASE_URL', 'EMBEDDING_BASE_URL']) {
+    if (key === 'EMBEDDING_BASE_URL' && env.EMBEDDING_DISABLED === 'true') continue;
     if (!providers && key !== 'PUBLIC_BASE_URL' && !env[key]?.trim()) continue;
     try {
       const url = new URL(env[key]);

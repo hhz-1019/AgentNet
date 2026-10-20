@@ -40,6 +40,7 @@ const probes = [
   },
 ];
 for (const probe of probes) {
+  if (probe.name === 'Embedding' && env.EMBEDDING_DISABLED === 'true') continue;
   const response = await fetch(probe.url, {
     method: 'POST',
     headers: {

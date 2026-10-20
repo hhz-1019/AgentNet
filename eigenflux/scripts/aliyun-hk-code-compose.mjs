@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
+import { sharedModelConfig } from './shared-model-config.mjs';
 
 function applicationEnvPath(service, name) {
   assert.equal(service.env_file?.length, 1, `Unexpected env files: ${name}`);
@@ -23,6 +24,15 @@ export function releaseCompose(old, { previous, root, images }) {
     assert.match(images[name], /^sha256:[a-f0-9]{64}$/);
     service.image = images[name];
     service.pull_policy = 'never';
+    // Model configuration comes from the newly generated private env file.
+    // Compose environment entries otherwise override it and can revive old keys.
+    if (['core', 'gorse'].includes(name) && service.environment) {
+      assert(!Array.isArray(service.environment), 'Expected normalized Compose environment');
+      for (const key of Object.keys(service.environment)) {
+        if (/^(SAFETY_LLM_|RERANKER_)/.test(key) || ['EMBEDDING_DISABLED', 'EMBEDDING_API_KEY', 'EMBEDDING_BASE_URL'].includes(key))
+          delete service.environment[key];
+      }
+    }
     const envPath = applicationEnvPath(service, name);
     const serviceRelease = envPath.slice(0, -(`/env/${name}.env`.length));
     service.env_file = (service.env_file ?? []).map(entry => {
@@ -74,18 +84,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     return `${k}=${v}`;
   }).join('\n') + '\n', {mode:0o600});
   const core = readEnv(fs.readFileSync(root + '/env/core.env', 'utf8'));
-  Object.assign(core, { CONSOLE_V2_ALLOWED_ORIGINS: 'https://elsewhere.twintalk.cn', CONSOLE_V2_PUBLIC_URL: 'https://elsewhere.twintalk.cn', PUBLIC_BASE_URL: 'https://elsewhere.twintalk.cn' });
-  writeEnv('core', core);
-  const gorse = readEnv(fs.readFileSync(root + '/env/gorse.env', 'utf8'));
-  const privatePath = '/srv/elsewhere/secrets/recommender.env';
-  if (fs.existsSync(privatePath)) {
-    const provider = readEnv(fs.readFileSync(privatePath, 'utf8'));
-    for (const key of ['RERANKER_URL', 'RERANKER_MODEL', 'RERANKER_AUTH_TOKEN']) if (provider[key] !== undefined) gorse[key] = provider[key];
+  // Preserve the live domain configuration, including collaborators' updates.
+  for (const [key, value] of Object.entries(old.services.core.environment ?? {})) {
+    if (key.startsWith('LLM_')) core[key] = value;
   }
-  assert(gorse.RERANKER_URL && gorse.RERANKER_MODEL, 'Configure private RERANKER_URL and RERANKER_MODEL before activation');
-  const endpoint = new URL(gorse.RERANKER_URL);
-  assert(['http:', 'https:'].includes(endpoint.protocol) && !endpoint.username && !endpoint.password);
-  writeEnv('gorse', gorse);
+  const gorse = readEnv(fs.readFileSync(root + '/env/gorse.env', 'utf8'));
+  const shared = sharedModelConfig(core, gorse);
+  writeEnv('core', shared.core);
+  writeEnv('gorse', shared.gorse);
   // Existing SQLite data must continue to be addressed by the same paths.
   const configMount = old.services.gorse.volumes?.find(m => m.target === '/etc/gorse/config.toml');
   const previousConfig = fs.readFileSync(configMount?.source ?? previous + '/configs/gorse-config.toml', 'utf8');

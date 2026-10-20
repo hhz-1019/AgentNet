@@ -50,6 +50,7 @@ await test('domestic providers need SMTP credentials, not a Resend key', () => {
   assert(
     checkConfig({
       ...configured,
+      EMBEDDING_DISABLED: 'false',
       EMBEDDING_BASE_URL:
         'https://<workspace-id>.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
     }).length,
@@ -174,4 +175,10 @@ await test('SMS settings fail closed and cap cannot be disabled', () => {
         { providers: false },
       ).length,
     );
+});
+
+await test('disabled vectors need no model credentials but retain index dimensions',()=>{
+ const disabled={...env,EMBEDDING_DISABLED:'true',EMBEDDING_API_KEY:'',EMBEDDING_BASE_URL:'',EMBEDDING_MODEL:''};
+ assert(!checkConfig(disabled).some(e=>/EMBEDDING_(API_KEY|BASE_URL|MODEL)/.test(e)));
+ assert(checkConfig({...disabled,EMBEDDING_DIMENSIONS:'0'}).some(e=>e.includes('EMBEDDING_DIMENSIONS')));
 });

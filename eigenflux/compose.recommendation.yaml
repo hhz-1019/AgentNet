@@ -11,9 +11,9 @@ services:
       dockerfile: eigenflux/recommender/Dockerfile
     environment:
       GORSE_SERVER_API_KEY: ${AGENTNET_GORSE_API_KEY}
-      RERANKER_URL: ${RERANKER_URL:?Set a private semantic reranker endpoint}
-      RERANKER_MODEL: ${RERANKER_MODEL:?Set a reranker model}
-      RERANKER_AUTH_TOKEN: ${RERANKER_AUTH_TOKEN:-}
+      RERANKER_URL: ${LLM_BASE_URL:-https://api.deepseek.com/v1}/chat/completions
+      RERANKER_MODEL: ${LLM_MODEL:?Set the shared DeepSeek model}
+      RERANKER_AUTH_TOKEN: ${LLM_API_KEY:?Set the shared DeepSeek API key}
       GORSE_DASHBOARD_USER_NAME: admin
       GORSE_DASHBOARD_PASSWORD: ${AGENTNET_GORSE_API_KEY}
     volumes: [gorse-data:/var/lib/gorse]

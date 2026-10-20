@@ -44,13 +44,198 @@
  		return baseURL
  	}
  	return baseURL + "/v1"
+--- a/pipeline/consumer/commission_index_consumer.go
++++ b/pipeline/consumer/commission_index_consumer.go
+@@ -2,6 +2,7 @@ package consumer
+ 
+ import (
+ 	"context"
++	vectorprovider "eigenflux_server/pipeline/embedding"
+ 	"eigenflux_server/pkg/commissionindex"
+ 	"eigenflux_server/pkg/config"
+ 	"eigenflux_server/pkg/metrics"
+@@ -60,6 +61,12 @@ func (c *CommissionIndexConsumer) Handle(ctx context.Context, _ string, values m
+ 		}
+ 		return HandleSuccess
+ 	}
++	if vectorprovider.Disabled() {
++		if err := c.store.Upsert(ctx, commissionindex.BuildDocument(catalogue, statistics, nil)); err != nil {
++			return HandleRetry
++		}
++		return HandleSuccess
++	}
+ 	if c.embedder == nil {
+ 		metrics.CommissionProjectionFailures.WithLabelValues("embedding").Inc()
+ 		return HandleRetry
+--- a/api/commissionintegration/service.go
++++ b/api/commissionintegration/service.go
+@@ -2,6 +2,7 @@ package commissionintegration
+ 
+ import (
+ 	"context"
++	"eigenflux_server/pipeline/embedding"
+ 	"errors"
+ 	"strconv"
+ 	"strings"
+@@ -416,6 +417,9 @@ func newEmbeddingProbeWithClock(provider string, dimensions int, client Embeddin
+ }
+ 
+ func (p *EmbeddingProbe) Ready(ctx context.Context) (string, int, error) {
++	if p != nil && embedding.Disabled() {
++		return "disabled", p.dimensions, nil
++	}
+ 	if p == nil || p.client == nil || p.provider == "" || p.dimensions <= 0 || p.now == nil || p.successTTL <= 0 || p.failureTTL <= 0 {
+ 		return "", 0, ErrDependencyUnavailable
+ 	}
 --- a/pipeline/embedding/client.go
 +++ b/pipeline/embedding/client.go
-@@ -119,6 +119,7 @@
+@@ -105,6 +105,9 @@ func (c *Client) Model() string {
+ }
+ 
+ func (c *Client) GetEmbedding(ctx context.Context, text string) ([]float32, error) {
++	if Disabled() {
++		return nil, ErrDisabled
++	}
+ 	switch c.provider {
+ 	case ProviderOllama:
+ 		return c.getOllamaEmbedding(ctx, text)
+@@ -117,8 +120,9 @@ func (c *Client) GetEmbedding(ctx context.Context, text string) ([]float32, erro
+ 
+ func (c *Client) getOpenAIEmbedding(ctx context.Context, text string) ([]float32, error) {
  	reqBody := EmbeddingRequest{
- 		Input: text,
- 		Model: c.model,
+-		Input: text,
+-		Model: c.model,
++		Input:          text,
++		Model:          c.model,
 +		EncodingFormat: "float",
  	}
  	if c.configuredDimensions > 0 {
  		reqBody.Dimensions = c.configuredDimensions
+--- a/pipeline/consumer/item_consumer.go
++++ b/pipeline/consumer/item_consumer.go
+@@ -169,7 +169,7 @@ func (c *ItemConsumer) handle(ctx context.Context, msgID string, values map[stri
+ 	var itemEmbedding []float32
+ 	var finalGroupID int64
+ 	embAttempt := 0
+-	for embAttempt < maxRetries {
++	for !embedding.Disabled() && embAttempt < maxRetries {
+ 		embAttempt++
+ 		var embErr error
+ 		itemEmbedding, embErr = c.embeddingClient.GetEmbedding(ctx, raw.RawContent)
+--- a/pipeline/consumer/profile_consumer.go
++++ b/pipeline/consumer/profile_consumer.go
+@@ -187,35 +187,38 @@ func (c *ProfileConsumer) handle(ctx context.Context, _ string, values map[strin
+ 	// that extraction finished (the bio-triggered rebuild ran before this).
+ 	agentcard.PublishRebuild(ctx, agentID, "keywords_extracted")
+ 
+-	// Generate profile embedding from bio + keywords + country (fire-and-forget)
+-	go func() {
+-		embInput := agent.Bio
+-		if len(keywords) > 0 {
+-			embInput += "\n" + strings.Join(keywords, ", ")
+-		}
+-		if country != "" {
+-			embInput += ". " + country
+-		}
++	// Preserve stored vectors while vector retrieval is disabled.
++	if !embedding.Disabled() {
++		// Generate profile embedding from bio + keywords + country (fire-and-forget)
++		go func() {
++			embInput := agent.Bio
++			if len(keywords) > 0 {
++				embInput += "\n" + strings.Join(keywords, ", ")
++			}
++			if country != "" {
++				embInput += ". " + country
++			}
+ 
+-		emb, err := c.embeddingClient.GetEmbedding(context.Background(), embInput)
+-		if err != nil {
+-			logger.Default().Warn("ProfileConsumer failed to generate embedding", "agentID", agentID, "err", err)
+-			return
+-		}
++			emb, err := c.embeddingClient.GetEmbedding(context.Background(), embInput)
++			if err != nil {
++				logger.Default().Warn("ProfileConsumer failed to generate embedding", "agentID", agentID, "err", err)
++				return
++			}
+ 
+-		encoded := embcodec.Encode(emb)
+-		if err := dal.UpdateAgentProfileEmbedding(db.DB, agentID, encoded, c.embeddingClient.Model()); err != nil {
+-			logger.Default().Warn("ProfileConsumer failed to save embedding", "agentID", agentID, "err", err)
+-		} else {
+-			if c.embeddingCache != nil {
+-				if err := c.embeddingCache.Set(context.Background(), agentID, encoded); err != nil {
+-					logger.Default().Warn("ProfileConsumer failed to refresh embedding cache", "agentID", agentID, "err", err)
++			encoded := embcodec.Encode(emb)
++			if err := dal.UpdateAgentProfileEmbedding(db.DB, agentID, encoded, c.embeddingClient.Model()); err != nil {
++				logger.Default().Warn("ProfileConsumer failed to save embedding", "agentID", agentID, "err", err)
++			} else {
++				if c.embeddingCache != nil {
++					if err := c.embeddingCache.Set(context.Background(), agentID, encoded); err != nil {
++						logger.Default().Warn("ProfileConsumer failed to refresh embedding cache", "agentID", agentID, "err", err)
++					}
+ 				}
++				logger.Default().Info("ProfileConsumer profile embedding updated", "agentID", agentID, "dims", len(emb))
+ 			}
+-			logger.Default().Info("ProfileConsumer profile embedding updated", "agentID", agentID, "dims", len(emb))
+-		}
+-	}()
++		}()
+ 
++	}
+ 	// Incremental sync: add country to stats set
+ 	if country != "" {
+ 		if err := stats.AddAgentCountry(ctx, mq.RDB, country); err != nil {
+--- a/pipeline/cron/embedding_backfill.go
++++ b/pipeline/cron/embedding_backfill.go
+@@ -87,6 +87,9 @@ func buildEmbeddingBackfillInput(bio, keywords, country string) string {
+ // StartEmbeddingBackfill runs on startup then every configured interval to generate
+ // embeddings for profiles that have keywords but no embedding yet.
+ func StartEmbeddingBackfill(ctx context.Context, cfg *config.Config, rdb *redis.Client) {
++	if embedding.Disabled() {
++		return
++	}
+ 	settings := embeddingBackfillSettingsFromConfig(cfg)
+ 	embClient := embedding.NewClient(
+ 		cfg.EmbeddingProvider, cfg.EmbeddingApiKey, cfg.EmbeddingBaseURL,
+--- a/rpc/sort/handler.go
++++ b/rpc/sort/handler.go
+@@ -2,6 +2,7 @@ package main
+ 
+ import (
+ 	"context"
++	"eigenflux_server/pipeline/embedding"
+ 	"eigenflux_server/pkg/json"
+ 	"fmt"
+ 	"slices"
+@@ -218,7 +219,7 @@ func (s *SortServiceESImpl) SortItems(ctx context.Context, req *sort.SortItemsRe
+ 
+ 	// Fetch profile embedding for semantic scoring
+ 	var profileEmbedding []float32
+-	if embeddingCache != nil {
++	if !embedding.Disabled() && embeddingCache != nil {
+ 		raw, err := embeddingCache.Get(ctx, req.AgentId)
+ 		if err == nil && len(raw) > 0 {
+ 			profileEmbedding = embcodec.Decode(raw)
+--- a/rpc/sort/commission.go
++++ b/rpc/sort/commission.go
+@@ -22,7 +22,7 @@ func (s *SortServiceESImpl) SearchCommissions(ctx context.Context, req *sort.Sea
+ 		return commissionSearchError(err.Error()), nil
+ 	}
+ 	var vector []float32
+-	if commissionID == 0 {
++	if commissionID == 0 && !embedding.Disabled() {
+ 		embedder := embedding.NewClient(cfg.EmbeddingProvider, cfg.EmbeddingApiKey, cfg.EmbeddingBaseURL, cfg.EmbeddingModel, cfg.EmbeddingDimensions)
+ 		vector, err = embedder.GetEmbedding(ctx, query)
+ 		if err != nil {
+@@ -65,6 +65,9 @@ func (s *SortServiceESImpl) RecommendCommissions(ctx context.Context, req *sort.
+ 		return commissionRecommendError("profile has no discovery features"), nil
+ 	}
+ 	vector := embcodec.Decode(profile.ProfileEmbedding)
++	if embedding.Disabled() {
++		vector = nil
++	}
+ 	candidates, err := searchCommissions(ctx, query, vector, 0, req.GetFilters(), int(req.GetLimit()))
+ 	if err != nil {
+ 		return commissionRecommendError(err.Error()), nil
