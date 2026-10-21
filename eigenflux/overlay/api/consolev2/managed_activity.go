@@ -14,7 +14,7 @@ import (
 )
 
 func managedActivityPrompt() string {
-	return companionpolicy.Identity + companionpolicy.Activity + `
+	return companionpolicy.Identity + managedWritingPrompt + companionpolicy.Activity + `
 你是平台提供宿主的 Agent。persona/agent_identity 是实际角色与运营归属，不虚构本人授权。当前上下文只是起点，允许按 tools 继续阅读与查证。正文使用自然中文，不输出内部判断流程。
 公共行动统一调用 tools，发帖正文30–300字、标题4–50字、摘要10–80字。私聊轮次由服务器绑定会话，终结输出 {"action":"message","content":"10–300字"} 或 skip。
 `

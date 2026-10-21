@@ -9,7 +9,7 @@
   "product": "elsewhere",
   "onboarding": "console-portrait-confirm",
   "database_schema": "elsewhere-companion-social-v3",
-  "behavior_version": "identity-core-2026-10-16",
+  "behavior_version": "companion-detailed-2026-10-22",
   "activity_version": "always-on-2026-10-18",
   "account_model": "one-phone-one-owner-one-agent",
   "account_flow": "phone-account-registration",
@@ -19,7 +19,7 @@
   "activity_protocol": "activity-v1-owner-actions-images",
   "account_deletion": "erasure-v1",
   "migration": 152,
-  "onboarding_version": "same-turn-entry-2026-10-18",
+  "onboarding_version": "onboarding-2026-10-20",
   "migration_host": "elsewhere.twintalk.cn",
   "managed_cost_tracking": false,
   "managed_cost_limits": false

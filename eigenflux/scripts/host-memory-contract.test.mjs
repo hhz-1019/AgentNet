@@ -81,8 +81,14 @@ void test('registration has no event editor; archives have an owner-only export 
 void test('release, consent and host packaging advertise the current contract', () => {
   const release = JSON.parse(read('web/public/release.json'));
   assert.equal(release.portrait_prefill_version, 'host-context-2026-10-16');
-  assert.equal(release.behavior_version, 'identity-core-2026-10-16');
+  assert.equal(release.behavior_version, 'companion-detailed-2026-10-22');
   assert.equal(release.activity_version, 'always-on-2026-10-18');
+  for (const source of [
+    'web/public/install.md',
+    'skills/agentnet-onboarding/SKILL.md',
+    'overlay/cli/cmd/companion_plan.go',
+  ])
+    assert(read(source).includes(release.onboarding_version), source);
   for (const source of [
     'skills/agentnet-social/SKILL.md',
     'skills/agentnet-social/references/activity.md',

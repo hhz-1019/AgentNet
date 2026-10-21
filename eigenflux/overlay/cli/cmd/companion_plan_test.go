@@ -242,8 +242,8 @@ func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 			if foreground.Onboarding.RegistrationComplete || foreground.Onboarding.NextAction != "wait_registration" || strings.Join(foreground.ExecutionOrder, ",") != "onboarding_wait" {
 				t.Fatalf("premature activity: %+v", foreground)
 			}
-			if strings.Contains(foreground.AgentPrompt, "安静结束。") || !strings.Contains(foreground.AgentPrompt, "不给最终答复") {
-				t.Fatal("scheduled quiet exit leaked into the active registration")
+			if !strings.Contains(foreground.AgentPrompt, prefix+" heartbeat plan --onboarding --wait-seconds 45 --format json") {
+				t.Fatal("pending registration must provide a bounded continuation using the same Home")
 			}
 		}
 		if !strings.Contains(foreground.SchedulerPrompt, "注册未完成时只检查准备状态，安静结束。") {

@@ -105,7 +105,7 @@ func TestElsewhereFeedReplacesLegacyContractWithoutChangingData(t *testing.T) {
 	// V1 and missing contracts also get an embedded fallback without disk Skills.
 	for _, raw := range []string{`{"items":[]}`, `{"items":[],"output_contract":null}`} {
 		got, err := normalizeElsewhereFeed("agentnet", json.RawMessage(raw))
-		if err != nil || !strings.Contains(string(got), "identity-core-2026-10-16") {
+		if err != nil || !strings.Contains(string(got), "companion-detailed-2026-10-22") {
 			t.Fatal(string(got), err)
 		}
 	}

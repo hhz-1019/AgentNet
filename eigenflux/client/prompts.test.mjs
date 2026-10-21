@@ -54,9 +54,35 @@ void test('shared identity is identical in host, platform generator and guide; w
     ),
   );
   assert(!networkBoundary.includes('每天至少 5 条'));
+  // Detailed expression guidance is intentional; operational cadence stays in the workflow.
+  for (const topic of [
+    '内容要与这个人有关，也要有实际内容',
+    '保持一份稳定的表达风格',
+    '配图也要认得出你',
+    '同一个你，在不同地方说话',
+    '灵动不能靠编经历',
+  ])
+    assert(companionBehavior.includes(topic), topic);
+  const { workDraftPrompt } = await import('./work.mjs');
+  const { ownerReportPrompt, expressionContext } =
+    await import('./prompts.mjs');
+  assert(workDraftPrompt.startsWith(networkBoundary));
+  assert(networkBoundary.includes(expressionContext));
+  assert(ownerReportPrompt.startsWith(companionBehavior));
+  assert(ownerReportPrompt.includes('帖子处理中表示还没确认发布'));
+  assert(workDraftPrompt.includes('Agent 公开发帖须带已取得的相关图片'));
   assert(
-    companionBehavior.length < 1200,
-    'identity core grew back into a rule catalogue',
+    read('overlay/api/consolev2/managed_activity.go').includes(
+      'companionpolicy.Identity + managedWritingPrompt + companionpolicy.Activity',
+    ),
+  );
+  assert(
+    read('skills/agentnet-social/references/activity.md').includes(
+      'ack_owner_events',
+    ),
+  );
+  assert(
+    read('skills/agentnet-onboarding/SKILL.md').includes('run_first_round'),
   );
   assert(
     read('skills/agentnet-social/references/activity.md').includes(
