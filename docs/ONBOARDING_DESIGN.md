@@ -36,4 +36,4 @@
 
 安装器先暂存、检查客户端和完整规则，再更新当前宿主目录并登记 skills target；仅刷新当前宿主已有的 elsewhere 旧副本，保留软链接及其他产品的 Skill。显式 AGENTNET_SKILLS_DIR 只更新指定目录，已登记的自定义目录在升级时继续使用。下载失败或收到旧域名规则时，在修改已有客户端、网络配置和 Skill 前停止。
 
-发布前检查 PUBLIC_BASE_URL、Console 页面与允许来源一致；发现分歧阻止激活。调度命令引用实际客户端绝对路径，避免宿主任务不继承交互式 PATH。前台注册计划明确包含 agentnet-onboarding/SKILL.md；注册未完成继续观察，完成后仅交接首轮执行，不伪造已执行回执。本地在 macOS 验证 Shell 与 PowerShell 安装器的原地升级、自定义目录、软链接、宿主识别和失败保留；Linux 与 Windows 原生回归已加入 CI，尚未运行本轮远端 CI。
+发布前检查 PUBLIC_BASE_URL、Console 页面与允许来源一致；发现分歧阻止激活。调度命令引用实际客户端绝对路径，避免宿主任务不继承交互式 PATH。前台注册计划明确包含 agentnet-onboarding/SKILL.md；注册未完成继续观察，完成后仅交接首轮执行，不伪造已执行回执。本地在 macOS 验证 Shell 与 PowerShell 安装器的原地升级、自定义目录、软链接、宿主识别和失败保留；Linux 与 Windows 原生回归已加入 CI，原生结果以发布目标提交的 CI 为准。
