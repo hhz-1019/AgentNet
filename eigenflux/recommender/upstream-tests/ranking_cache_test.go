@@ -57,6 +57,19 @@ func (suite *WorkerTestSuite) testElsewhereCache(local bool) {
 	suite.False(suite.checkRecommendCacheOutOfDate(ctx, user.UserId), "cold-start digest must match even when topics has no candidates")
 	suite.Recommend(ctx, []data.User{user}, nil)
 	suite.Equal(expectedCalls, calls, "failure fallback must be cached instead of re-running")
+	// Switching models or templates must expire otherwise-fresh results.
+	original := suite.Config.Recommend.Ranker
+	suite.Config.Recommend.Ranker.RerankerAPI.Model = "new-local-model-version"
+	suite.True(suite.checkRecommendCacheOutOfDate(ctx, user.UserId))
+	suite.Config.Recommend.Ranker = original
+	suite.False(suite.checkRecommendCacheOutOfDate(ctx, user.UserId))
+	suite.Config.Recommend.Ranker.QueryTemplate += " changed"
+	suite.True(suite.checkRecommendCacheOutOfDate(ctx, user.UserId))
+	suite.Config.Recommend.Ranker = original
+	suite.False(suite.checkRecommendCacheOutOfDate(ctx, user.UserId))
+	suite.Config.Recommend.Ranker.DocumentTemplate += " changed"
+	suite.True(suite.checkRecommendCacheOutOfDate(ctx, user.UserId))
+	suite.Config.Recommend.Ranker = original
 	// Meaningful new/edited content expires cached recommendations, once.
 	suite.Require().NoError(suite.CacheClient.Set(ctx, cache.Time("elsewhere/items_modified", time.Now().Add(time.Second))))
 	suite.True(suite.checkRecommendCacheOutOfDate(ctx, user.UserId))
