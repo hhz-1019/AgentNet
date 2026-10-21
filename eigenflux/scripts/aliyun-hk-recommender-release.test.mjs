@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { recommenderRelease } from './aliyun-hk-recommender-release.mjs';
 
-test('ranking release preserves application images, providers, credentials and durable data', () => {
+await test('ranking release preserves application images, providers, credentials and durable data', () => {
   const old = { name: 'elsewhere', services: {
     core: {image: 'core'}, web: {image: 'web'}, sync: {image: 'sync'},
     gorse: {image: 'old', env_file: ['/private/gorse.env'], environment: {RERANKER_URL: 'existing'}, volumes: [
