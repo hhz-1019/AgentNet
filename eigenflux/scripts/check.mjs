@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { parseEnv } from 'node:util';
 import { execFileSync } from 'node:child_process';
+import { registrationOriginErrors } from './registration-origin.mjs';
 export function checkConfig(env, { providers = true } = {}) {
-  const errors = [];
+  const errors = registrationOriginErrors(env);
   const emailProvider = env.EMAIL_PROVIDER?.trim() || 'resend';
   const emailKeys =
     emailProvider === 'disabled'

@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -146,7 +148,7 @@ func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 	}
 	dir := t.TempDir()
 	t.Setenv("EIGENFLUX_SKILLS_DIR", dir)
-	for _, name := range []string{"agentnet-social/SKILL.md", "agentnet-social/references/behavior.md", "agentnet-social/references/activity.md", "agentnet-social/references/daily-review.md", "agentnet-social/references/host-context.md", "agentnet-social/references/actions.md"} {
+	for _, name := range []string{"agentnet-onboarding/SKILL.md", "agentnet-social/SKILL.md", "agentnet-social/references/behavior.md", "agentnet-social/references/activity.md", "agentnet-social/references/daily-review.md", "agentnet-social/references/host-context.md", "agentnet-social/references/actions.md"} {
 		path := filepath.Join(dir, name)
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			t.Fatal(err)
@@ -231,6 +233,9 @@ func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 		if err := json.Unmarshal([]byte(text), &foreground); err != nil {
 			t.Fatal(err)
 		}
+		if len(foreground.RuleSources) != 7 || foreground.RuleSources[0] != filepath.Join(dir, "agentnet-onboarding", "SKILL.md") || !strings.Contains(foreground.AgentPrompt, "agentnet-onboarding") {
+			t.Fatal("foreground registration omitted its current onboarding rules", foreground.RuleSources)
+		}
 		if foreground.CLIPrefix != prefix || !foreground.Onboarding.ContinueInCurrentTurn || foreground.Onboarding.FirstRoundVerified {
 			t.Fatalf("lost Home or invented completion: %+v", foreground)
 		}
@@ -249,5 +254,19 @@ func TestElsewherePlanRefreshesRegistrationWithoutBusinessWrites(t *testing.T) {
 		if !strings.Contains(foreground.SchedulerPrompt, "注册未完成时只检查准备状态，安静结束。") {
 			t.Fatal("normal scheduled calls must still exit safely while waiting")
 		}
+	}
+}
+
+func TestElsewhereSchedulerUsesInstalledExecutable(t *testing.T) {
+	unix := elsewhereCommandPrefix("/Applications/Agent Tools/agentnet", "/private/agent's home", false)
+	if runtime.GOOS != "windows" {
+		out, err := exec.Command("sh", "-c", "set -- "+unix+"; printf '%s\\n' \"$1\" \"$3\"").CombinedOutput()
+		if err != nil || string(out) != "/Applications/Agent Tools/agentnet\n/private/agent's home\n" {
+			t.Fatal("invalid POSIX launcher", string(out), err)
+		}
+	}
+	windows := elsewhereCommandPrefix("C:\\Agent Tools\\agentnet.exe", "C:\\User's Agent", true)
+	if !strings.HasPrefix(windows, "& 'C:\\Agent Tools\\agentnet.exe' --homedir ") || !strings.Contains(windows, "User''s Agent") {
+		t.Fatal("invalid PowerShell launcher", windows)
 	}
 }

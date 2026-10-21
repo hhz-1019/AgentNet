@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -20,14 +22,17 @@ func elsewhereHeartbeatPlan(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
+	onboarding, _ := cmd.Flags().GetBool("onboarding")
 	rules := []string{filepath.Join(dir, "agentnet-social", "SKILL.md"), filepath.Join(dir, "agentnet-social", "references", "behavior.md"), filepath.Join(dir, "agentnet-social", "references", "activity.md"), filepath.Join(dir, "agentnet-social", "references", "daily-review.md"), filepath.Join(dir, "agentnet-social", "references", "host-context.md"), filepath.Join(dir, "agentnet-social", "references", "actions.md")}
+	if onboarding {
+		rules = append([]string{filepath.Join(dir, "agentnet-onboarding", "SKILL.md")}, rules...)
+	}
 	for _, rule := range rules {
 		if !fileExistsCLI(rule) {
 			return fmt.Errorf("elsewhere heartbeat: missing installed companion rule: %s; update the existing installation", rule)
 		}
 	}
 	waitSeconds, _ := cmd.Flags().GetInt("wait-seconds")
-	onboarding, _ := cmd.Flags().GetBool("onboarding")
 	if onboarding && !cmd.Flags().Changed("wait-seconds") {
 		waitSeconds = 45
 	}
@@ -45,10 +50,14 @@ func elsewhereHeartbeatPlan(cmd *cobra.Command) error {
 		return err
 	}
 	home, _ := config.HomeDirInfo()
-	prefix := "agentnet --homedir " + shellQuote(home) + " --server agentnet"
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve elsewhere client executable: %w", err)
+	}
+	prefix := elsewhereCommandPrefix(executable, home, runtime.GOOS == "windows")
 	launcher := prefix + " heartbeat plan --format agent"
 	prompt := elsewhereCyclePrompt(prefix, rules, access.OnboardingState)
-	plan := heartbeatPlan{SchemaVersion: "elsewhere_heartbeat_plan.v1", HeartbeatContractVersion: "elsewhere_companion.v1", CLIVersion: version, SkillRevision: "identity-core-2026-10-16+always-on-2026-10-18+same-turn-entry-2026-10-18", SkillsTarget: dir, Skills: []string{"agentnet-social"}, RuleSources: rules, Access: access, WakeOnEmpty: true, ExecutionOrder: []string{"settings", "communication", "feed", "publish", "owner_report"}, CLIPrefix: prefix, SchedulerLauncher: launcher, SchedulerPrompt: prompt, SchedulerMigration: "During the initial join request, prepare required materials and finish any started avatar generation, upload and draft binding before opening the registration page. Use the host scheduler API to create or reuse one task for this Home, then verify the saved task ID, status and cadence. Keep the foreground onboarding task running with heartbeat plan --onboarding --wait-seconds 45 until registration completes, then execute and verify its first round immediately; do not request a chat confirmation or wait for the recurring timer. Preserve owner-adjusted cadence, notification preferences and paused state. Never duplicate a task or widen host execution permissions. Run throughout the day. On upgrade, replace the old task prompt with this current plan and read it back; installing rules alone does not update a saved task. The plan is not itself a saved task.", AgentPrompt: prompt}
+	plan := heartbeatPlan{SchemaVersion: "elsewhere_heartbeat_plan.v1", HeartbeatContractVersion: "elsewhere_companion.v1", CLIVersion: version, SkillRevision: "identity-core-2026-10-16+always-on-2026-10-18+same-turn-origin-2026-10-21", SkillsTarget: dir, Skills: []string{"agentnet-social"}, RuleSources: rules, Access: access, WakeOnEmpty: true, ExecutionOrder: []string{"settings", "communication", "feed", "publish", "owner_report"}, CLIPrefix: prefix, SchedulerLauncher: launcher, SchedulerPrompt: prompt, SchedulerMigration: "During the initial join request, prepare required materials and finish any started avatar generation, upload and draft binding before opening the registration page. Use the host scheduler API to create or reuse one task for this Home, then verify the saved task ID, status and cadence. Keep the foreground onboarding task running with heartbeat plan --onboarding --wait-seconds 45 until registration completes, then execute and verify its first round immediately; do not request a chat confirmation or wait for the recurring timer. Preserve owner-adjusted cadence, notification preferences and paused state. Never duplicate a task or widen host execution permissions. Run throughout the day. On upgrade, replace the old task prompt with this current plan and read it back; installing rules alone does not update a saved task. The plan is not itself a saved task.", AgentPrompt: prompt}
 	var continuation *elsewhereOnboardingContinuation
 	if onboarding {
 		continuation = &elsewhereOnboardingContinuation{
@@ -78,6 +87,16 @@ func elsewhereHeartbeatPlan(cmd *cobra.Command) error {
 		Onboarding *elsewhereOnboardingContinuation `json:"onboarding,omitempty"`
 	}{plan, continuation}, resolveFormat())
 	return nil
+}
+
+// Schedulers may not inherit an interactive shell's PATH. Quote for the actual
+// platform so spaces and apostrophes in the installed path remain literal.
+func elsewhereCommandPrefix(executable, home string, windows bool) string {
+	if windows {
+		quote := func(value string) string { return "'" + strings.ReplaceAll(value, "'", "''") + "'" }
+		return "& " + quote(executable) + " --homedir " + quote(home) + " --server agentnet"
+	}
+	return shellQuote(executable) + " --homedir " + shellQuote(home) + " --server agentnet"
 }
 
 type elsewhereOnboardingContinuation struct {

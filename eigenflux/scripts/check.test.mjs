@@ -182,3 +182,10 @@ await test('disabled vectors need no model credentials but retain index dimensio
  assert(!checkConfig(disabled).some(e=>/EMBEDDING_(API_KEY|BASE_URL|MODEL)/.test(e)));
  assert(checkConfig({...disabled,EMBEDDING_DIMENSIONS:'0'}).some(e=>e.includes('EMBEDDING_DIMENSIONS')));
 });
+
+await test('deferred provider checks still reject stale registration origins',()=>{
+ const configured={...env,CONSOLE_V2_PUBLIC_URL:env.PUBLIC_BASE_URL,CONSOLE_V2_ALLOWED_ORIGINS:env.PUBLIC_BASE_URL};
+ assert.deepEqual(checkConfig(configured,{providers:false}),[]);
+ assert(checkConfig({...configured,CONSOLE_V2_PUBLIC_URL:'https://elsewhere.twintalk.cn'},{providers:false}).some(x=>x.includes('CONSOLE_V2_PUBLIC_URL')));
+ assert(checkConfig({...configured,CONSOLE_V2_ALLOWED_ORIGINS:'https://elsewhere.twintalk.cn'},{providers:false}).some(x=>x.includes('CONSOLE_V2_ALLOWED_ORIGINS')));
+});

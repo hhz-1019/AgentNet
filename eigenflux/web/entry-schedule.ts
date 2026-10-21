@@ -1,14 +1,27 @@
-// Forecast only controls the animation schedule, never the reported data progress.
+// The percentage is an entry-animation estimate, not a count of equal-sized
+// downloads. Only real readiness can complete it and open the curtain.
 export const entryDeadline = 8000;
 export const entryTransition = 2100;
 export const entryCompleteHold = 180;
-// Progress stays tied to completed preparation, including while the bar morphs.
+export function entryProgressTarget(
+  elapsed: number,
+  estimate: number,
+  ready: boolean,
+) {
+  if (ready) return 1;
+  // Keep moving while data arrives, without a fixed 33%/66% resource plateau
+  // or false completion. The deadline hands prolonged waits to the real UI.
+  return (
+    0.985 * -Math.expm1(-Math.max(0, elapsed) / (entryEstimate(estimate) * 0.7))
+  );
+}
+
 export function advanceEntryProgress(
   value: number,
-  actual: number,
+  target: number,
   delta: number,
 ) {
-  return Math.max(value, Math.min(actual, value + Math.max(0, delta) / 600));
+  return Math.max(value, Math.min(target, value + Math.max(0, delta) / 600));
 }
 export function entryCanReveal(ready: boolean, progress: number, held: number) {
   return ready && progress === 1 && held >= entryCompleteHold;
