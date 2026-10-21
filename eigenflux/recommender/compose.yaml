@@ -6,15 +6,36 @@ services:
       dockerfile: eigenflux/recommender/Dockerfile
     environment:
       GORSE_SERVER_API_KEY: ${AGENTNET_GORSE_API_KEY:?Set a private recommender API key}
-      RERANKER_URL: ${LLM_BASE_URL:-https://api.deepseek.com/v1}/chat/completions
-      RERANKER_MODEL: ${LLM_MODEL:?Set the shared DeepSeek model}
-      RERANKER_AUTH_TOKEN: ${LLM_API_KEY:?Set the shared DeepSeek API key}
+      RERANKER_URL: http://local-ranker:8090/v1/rerank
+      RERANKER_MODEL: bge-hybrid-v1
+      RERANKER_AUTH_TOKEN: ''
+      RERANKER_MODE: local
+      RERANKER_DAILY_CALL_LIMIT: '0'
+      RERANKER_DAILY_TOKEN_LIMIT: '0'
       GORSE_DASHBOARD_USER_NAME: admin
       GORSE_DASHBOARD_PASSWORD: ${AGENTNET_GORSE_API_KEY}
     ports: ['127.0.0.1:14389:8088']
+    networks: [default, local-ranking]
     volumes:
       - ./gorse.toml:/etc/gorse/config.toml:ro
       - gorse-data:/var/lib/gorse
+    restart: unless-stopped
+  local-ranker:
+    build:
+      context: ../..
+      dockerfile: eigenflux/recommender/local_ranker/Dockerfile
+    networks: [local-ranking]
+    read_only: true
+    cpus: 0.75
+    mem_limit: 1536m
+    pids_limit: 64
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ['/tmp:size=64m']
+    volumes:
+      - /opt/elsewhere-model-runtime/env:/runtime:ro
+      - /opt/elsewhere-model-runtime/model:/model:ro
+      - /opt/elsewhere-local-ranker-cache:/cache
     restart: unless-stopped
   catalog-sync:
     image: node:24-alpine
@@ -28,3 +49,6 @@ services:
     restart: unless-stopped
 volumes:
   gorse-data:
+networks:
+  local-ranking:
+    internal: true

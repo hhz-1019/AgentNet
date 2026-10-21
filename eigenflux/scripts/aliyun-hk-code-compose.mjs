@@ -51,9 +51,16 @@ export function releaseCompose(old, { previous, root, images }) {
       });
     }
     if (name === 'gorse') {
-      assert(Array.isArray(service.networks));
-      assert(next.networks.outbound && !next.networks.outbound.internal);
-      service.networks = [...new Set([...service.networks, 'outbound'])];
+      if (next.services['local-ranker']) {
+        assert(next.networks['local-ranking']?.internal, 'Local ranking must remain private');
+        service.networks = Array.isArray(service.networks)
+          ? Object.fromEntries(service.networks.map(n => [n, null])) : service.networks;
+        service.networks['local-ranking'] = null;
+      } else {
+        assert(Array.isArray(service.networks));
+        assert(next.networks.outbound && !next.networks.outbound.internal);
+        service.networks = [...new Set([...service.networks, 'outbound'])];
+      }
     }
   }
   return next;

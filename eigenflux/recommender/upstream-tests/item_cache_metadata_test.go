@@ -43,11 +43,13 @@ func TestElsewhereItemCacheMetadata(t *testing.T) {
 		old     []data.Item
 		item    Item
 		updates int
+		modifications int
 	}{
-		{"text-only", []data.Item{{ItemId: "1", Comment: "old"}}, Item{ItemId: "1", Comment: "complete updated body", Labels: map[string]any{"content_revision": 2}}, 0},
-		{"hidden", []data.Item{{ItemId: "1"}}, Item{ItemId: "1", IsHidden: true}, 1},
-		{"category", []data.Item{{ItemId: "1"}}, Item{ItemId: "1", Categories: []string{"new"}}, 1},
-		{"new", nil, Item{ItemId: "1"}, 1},
+		{"text-only", []data.Item{{ItemId: "1", Comment: "old"}}, Item{ItemId: "1", Comment: "complete updated body", Labels: map[string]any{"content_revision": 2}}, 0, 2},
+		{"hidden", []data.Item{{ItemId: "1"}}, Item{ItemId: "1", IsHidden: true}, 1, 2},
+		{"category", []data.Item{{ItemId: "1"}}, Item{ItemId: "1", Categories: []string{"new"}}, 1, 2},
+		{"new", nil, Item{ItemId: "1"}, 1, 2},
+		{"unchanged", []data.Item{{ItemId: "1", Comment: "same"}}, Item{ItemId: "1", Comment: "same"}, 0, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			d := &elsewhereItemData{existing: tc.old}
@@ -61,7 +63,7 @@ func TestElsewhereItemCacheMetadata(t *testing.T) {
 			if c.updates != tc.updates {
 				t.Fatalf("cache rewrites=%d expected=%d", c.updates, tc.updates)
 			}
-			if len(d.written) != 1 || d.written[0].Comment != tc.item.Comment || c.modifications != 1 {
+			if len(d.written) != 1 || d.written[0].Comment != tc.item.Comment || c.modifications != tc.modifications {
 				t.Fatal("item update or ranking invalidation lost")
 			}
 		})

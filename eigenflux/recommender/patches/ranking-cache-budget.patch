@@ -19,12 +19,14 @@ index d3361bc..e4e4459 100644
  		if err != nil {
  			log.Logger().Error("failed to recommend items", zap.String("user_id", userId), zap.Error(err))
  			return
-@@ -222,6 +221,9 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+@@ -222,6 +221,11 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
  			}
  		}
  
-+		// Bound paid ranking before constructing model inputs. Preserve recall order.
-+		if p.Config.Recommend.Ranker.Type == "llm" && len(candidates) > 30 { candidates = candidates[:30] }
++		// Keep local hybrid candidates broad; paid ranking remains tightly bounded.
++		limit := 30
++		if os.Getenv("RERANKER_MODE") == "local" { limit = 500 }
++		if p.Config.Recommend.Ranker.Type == "llm" && len(candidates) > limit { candidates = candidates[:limit] }
 +
  		// rank by click-through-rate
  		var results []cache.Score

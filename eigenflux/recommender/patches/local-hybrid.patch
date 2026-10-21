@@ -1,0 +1,58 @@
+diff --git a/worker/pipeline.go b/worker/pipeline.go
+--- a/worker/pipeline.go
++++ b/worker/pipeline.go
+@@ -17,5 +17,6 @@ package worker
+ import (
+ 	"context"
++	"os"
+ 	"strings"
+ 	"sync"
+ 	"time"
+@@ -358,6 +360,11 @@ func (p *Pipeline) checkRecommendCacheOutOfDate(ctx context.Context, userId string)
+ 		return true
+ 	}
+ 
++	// Real item edits/new items invalidate results once per worker cycle. Unchanged
++	// sync writes do not advance this timestamp; vector cache updates remain incremental.
++	if changed, e := p.CacheClient.Get(ctx, "elsewhere/items_modified").Time(); e == nil && changed.After(recommendTime) {
++		return true
++	}
+ 	// 4. If update time + cache expire > current time, not stale.
+ 	if recommendTime.Before(time.Now().Add(-p.Config.Recommend.CacheExpire)) {
+ 		return true
+@@ -529,8 +535,9 @@ func (p *Pipeline) rankByLLM(
+ 	}
+ 	// rank by LLM
+-	pCtx.Detach()
++	local := os.Getenv("RERANKER_MODE") == "local"
++	if !local { pCtx.Detach() }
+ 	parsed, err := ranker.Rank(ctx, user, feedbackItems, items)
+-	pCtx.Attach()
++	if !local { pCtx.Attach() }
+ 	if err != nil {
+ 		return nil, errors.Trace(err)
+ 	}
+diff --git a/server/rest.go b/server/rest.go
+--- a/server/rest.go
++++ b/server/rest.go
+@@ -17,3 +17,4 @@ package server
+ import (
++	"reflect"
+ 	"context"
+ 	"encoding/json"
+@@ -1305,6 +1306,15 @@ func (s *RestServer) batchInsertItems(ctx context.Context, response *restful.Response
+ 	for i, item := range items {
+ 		values[i] = cache.Time(cache.Key(cache.LastModifyItemTime, item.ItemId), time.Now())
+ 	}
++	for _, item := range items {
++		old, exists := existedItemsSet[item.ItemId]
++		if !exists || old.Comment != item.Comment || !reflect.DeepEqual(old.Labels, item.Labels) ||
++			old.IsHidden != item.IsHidden || !slices.Equal(old.Categories, item.Categories) || !old.Timestamp.Equal(item.Timestamp) {
++			values = append(values, cache.Time("elsewhere/items_modified", time.Now()))
++			break
++		}
++	}
++
+ 	if err = s.CacheClient.Set(ctx, values...); err != nil {
+ 		InternalServerError(response, err)
+ 		return

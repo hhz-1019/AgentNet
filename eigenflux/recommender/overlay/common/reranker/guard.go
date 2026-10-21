@@ -34,6 +34,9 @@ func (c *Client) Rerank(ctx context.Context, req RerankRequest) (*RerankResponse
 	if len(req.Documents) == 0 {
 		return &RerankResponse{Model: req.Model}, nil
 	}
+	if os.Getenv("RERANKER_MODE") == "local" {
+		return c.rankLocal(ctx, req)
+	}
 	// One bounded batch, including for callers outside the worker pipeline.
 	if len(req.Documents) > 30 || len(req.Query) > 12000 {
 		return nil, ErrRankingLimited

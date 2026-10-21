@@ -1,11 +1,11 @@
-# Build pinned Gorse with the shared DeepSeek chat ranking adapter.
+# Build pinned Gorse with local hybrid ranking and disabled-by-default paid calls.
 FROM --platform=$BUILDPLATFORM golang:1.26 AS build
 WORKDIR /src
 COPY eigenflux/vendor/gorse/go.* ./
 RUN go mod download
 COPY eigenflux/vendor/gorse/ ./
 COPY eigenflux/recommender/patches/ /tmp/patches/
-RUN git apply --check /tmp/patches/*.patch && git apply /tmp/patches/*.patch
+RUN git apply /tmp/patches/*.patch
 COPY eigenflux/recommender/overlay/ ./
 COPY eigenflux/recommender/upstream-tests/sqlite_cache_index_test.go ./storage/cache/elsewhere_sqlite_index_test.go
 COPY eigenflux/recommender/upstream-tests/item_cache_metadata_test.go ./server/elsewhere_item_cache_test.go
@@ -19,5 +19,5 @@ COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /gorse-in-one /usr/bin/gorse-in-one
 COPY eigenflux/recommender/gorse.toml /etc/gorse/config.toml
 ENV USER=root
-ENV RERANKER_DAILY_CALL_LIMIT=60 RERANKER_DAILY_TOKEN_LIMIT=1000000 RERANKER_BUDGET_DB=/var/lib/gorse/ranking-guard.db
+ENV RERANKER_MODE=local RERANKER_DAILY_CALL_LIMIT=0 RERANKER_DAILY_TOKEN_LIMIT=0 RERANKER_BUDGET_DB=/var/lib/gorse/ranking-guard.db
 ENTRYPOINT ["/usr/bin/gorse-in-one", "-c", "/etc/gorse/config.toml"]

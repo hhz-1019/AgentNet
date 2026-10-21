@@ -1,68 +1,35 @@
-# Elsewhere × Gorse
+# Elsewhere × Gorse 本地混合推荐
 
-直接运行 [Gorse](https://github.com/gorse-io/gorse) v0.5.11 的推荐服务。完整 Apache-2.0 源码保留在 `../vendor/gorse`；固定提交 `de9141d5d87236289d8d7f102bb9588234ff63cf`，来源与补丁见 `source.json`。不是自写一个同名推荐算法。
+使用固定版本的 Gorse v0.5.11 负责协同、标签、邻居及最新内容召回，再用本地 BAAI/bge-small-zh-v1.5 向量相似度、字符与双字词 TF-IDF、Gorse 原有候选顺序做等权 RRF 融合。语义匹配在召回候选内进行，不代表对全库每一篇内容穷举匹配。模型 revision 固定为 `7999e1d3359715c523056ef9478215996d62a620`。
 
-```mermaid
-flowchart LR
-  U[用户已填网络资料\n简介 · 兴趣 · 能提供什么 · 连接目标] --> A[Elsewhere 适配层]
-  F[真实点赞与收藏、关注标签] --> A
-  P[公开帖子\n标题 · 摘要 · 完整正文 · 标签] --> G[Gorse 召回与原生 ChatReranker]
-  A --> G
-  G --> R[兼容 rerank API 的语义模型]
-  R --> G
-  G --> V[当前访问权限检查与稳定翻页]
-  V --> W[网页推荐]
-  V --> H[Agent opportunities]
-```
+## 数据与缓存
 
-## 数据和边界
+- 仅使用获准用于推荐的网络资料、公开帖子、关注标签及近期真实互动；不读取宿主私密记忆、手机号或凭据。最终结果仍经过当前权限、屏蔽、已读和筛选检查。
+- 每次最多 500 个候选，帖子模板最多 600 字符；模型最多编码 512 tokens。长内容可能截断，不保证覆盖全文所有信息。
+- SQLite 持久缓存按模型版本和文本摘要复用向量；相同文本跨用户共用，只有新增或变化文本重新编码。结果键包含查询、候选内容及顺序，结果有效期 6 小时。
+- 并发缺失串行领取，避免重复编码。缓存只保存摘要、向量及排序结果，不保存原始文本。闲置向量 30 天清理，上限 100,000；结果上限 10,000。
+- Gorse 每 5 分钟检查任务。画像、反馈或帖子实际内容/标签/可见性变化触发更新；未变化的同步不让全体推荐失效。
+- 本地模型暂不可用时，保留 Gorse 原候选排序并缓存；不回退到付费模型。无画像用户继续使用基础推荐。
 
-- 用户资料读取 `twin_users.portrait_fields` 的 bio、interests、offers，加上 `agent_companions.connection_goal`。旧账号无 companion 时兼容既有目标。明确清空的目标不会从旧数据恢复。Agent 人格简介不能冒充主人的画像。
-- 这四项完整进入 Gorse 的 User.Comment，已选关注标签进入 Labels；不再将长目标切成前 64 个中文双字词。未填写的内容不编造。
-- 本地完整记忆、旧私密记忆、手机号、账号凭据不进入推荐。外部语义模型会处理上述网络资料、公开帖子及少量点赞/收藏上下文；部署时必须选择获准的数据处理服务，也可配置自托管兼容服务。
-- 帖子目录由 core 重新核验公开状态后投影完整正文。同步器只提交 ID，以 revision 判断变化；访客预览没有正文，不与完整索引比较而造成重复写入。完整扫描成功后才清理失效项。
-- Gorse 直接负责协同/内容/最新候选召回与语义排序。Elsewhere 只保留当前权限、屏蔽、自己帖子、已读和筛选条件检查，不叠加招聘比例或自定相关性分数。
-- 网站 `recommended` 与 Agent `opportunities` 共用入口。浏览器通过压缩 cursor 保留本轮排序，下一页仍检查权限；Agent 也可继续使用 exclude_ids。
-- 完整宿主记忆和当轮私密意图仍由 Agent 自己使用。推荐结果是候选，不表示已经核实某个岗位、合作对象满足全部要求。
+## 运行与发布
 
-## 原版代码和补丁
+`RERANKER_MODE=local`，端点固定为 `http://local-ranker:8090/v1/rerank`，鉴权为空。两个付费预算上限默认均为 0。配置中的 `llm` 是上游重排协议入口名称，默认实际调用本地向量服务，不调用生成式模型。
 
-`Dockerfile` 从固定的完整源码构建，不再使用未打补丁的官方运行镜像。候选召回和缓存沿用 Gorse，语义排序增加 DeepSeek Chat Completions 适配层。
+本地模型服务只连接 Docker 内部网络，不开放宿主端口。CPU 上限 0.75 核，内存上限 1536 MiB，单线程推理。Conda 运行环境和固定权重只读挂载在 `/opt/elsewhere-model-runtime`，缓存位于 `/opt/elsewhere-local-ranker-cache`，避免占用接近满载的业务数据盘。
 
-1. `patches/profile-cold-start.patch`：原版跳过无正反馈/无协同向量的用户，且语义分支依赖无关的 OpenAI chat 配置。允许有网络画像的新用户进入原生语义排序，取消无关门槛，并避免默认零容量的并发信号量阻塞。
-2. `patches/reranker-transport.patch`：为上游模型请求加 60 秒超时、8 MiB 读取边界，核验索引、重复和完整性；错误不记录提供商响应正文。没有修改评分公式。
-3. `patches/sqlite-cache-item-index.patch`：补齐 SQLite 的 `(collection, id)` 缓存索引，与上游其他 SQL 后端一致，避免更新帖子时扫描所有用户缓存。重复初始化保留已有数据；镜像构建时测试实际查询计划和数据保留。
-4. `patches/item-cache-metadata.patch`：正文或标签更新时，不重复改写未变化的缓存可见性和分类；仍更新原始帖子及修改时间以触发重排。隐藏、分类变化和新帖子继续执行原有缓存更新。
+首次部署运行 `bash eigenflux/scripts/aliyun-hk-recommender-release.sh <完整提交>`。该脚本从已完成基准测试的 `/opt/elsewhere-embedding-bench` 复制 Conda 环境和固定权重；不存在时停止，不自动下载其他模型。构建并完成 Linux 单元测试、真实权重离线测试、Gorse 回归测试后，启动内部模型服务并替换 Gorse，健康验证通过后切换 current。失败恢复原服务。Core/Web 不在此次组件发布范围，版本以镜像 revision 标签和 `evidence/recommender-revision` 为准。
 
-无画像且无互动的用户仍使用 Gorse 回退。排序在后台每分钟检查更新；画像或反馈变更会触发重新计算，常规缓存 30 分钟。首次计算完成之前、或更新暂时失败时，可能返回原有缓存或引擎的回退候选，不能据 `has_feedback` 宣称本次已经完成个性化。API 的 ranking_version 是引擎版本，不是效果认证。
+后续整站发布保留本地模型服务与内部网络，生成的推荐配置仍指向本地模型。Core 的其他模型功能配置独立；本次仅取消默认推荐重排的 API 成本。核心向量写入仍默认 `EMBEDDING_DISABLED=true`，不批量删除已有向量。
 
-## 运行
+开发 Compose 入口为 `eigenflux/compose.recommendation.yaml` 或本目录 `compose.yaml`；运行前也需准备上述 Conda 环境及权重挂载。
 
-合并 `eigenflux/compose.yaml` 与 `eigenflux/compose.recommendation.yaml`，或单独用本目录 `compose.yaml`。两个入口都构建同一源码镜像。core 使用 `AGENTNET_GORSE_URL` 与 `AGENTNET_GORSE_API_KEY`；Gorse 需要：
+## 验证与边界
 
-Compose 使用与 core 相同的 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY`，映射到 Gorse 的 RERANKER_*。API base 不带尾部斜杠。生产发布脚本强制复用现有官方 DeepSeek 配置，不再读取独立的百炼推荐密钥。密钥不写入仓库。
+- Conda 环境运行 `python -m unittest discover -s eigenflux/recommender/local_ranker -v`，覆盖并发、重启、增量、TTL、输入限制及 HTTP 协议。
+- 容器内 `smoke.py` 使用真实权重，离线核验中文相关性、重启缓存和单条内容增量编码。
+- Gorse 镜像构建运行重排、冷启动缓存、失败降级、SQLite 查询计划和帖子变更回归；本地模式测试确认不会访问付费提供商。
+- 发布脚本 Node 测试覆盖内部网络、零付费预算以及后续整站发布不恢复付费默认配置。
 
-`chat-completion-ranking.patch` 与 overlay 将完整画像和公开帖子交给 DeepSeek 返回 JSON 分数；每批最多 32 条、输入最多 120 KB，关闭思考，验证完整索引及 0–1 分数。分批使用同一评分标准，但不保证与原 rerank 模型效果等同，需要上线后观察推荐质量。失败保留 Gorse 原有缓存/回退行为，不转调其他模型。
+历史模型基准测试和早期评估不等同于当前线上推荐效果证明。混合推荐能消除默认付费重排请求，但是否达到原重排的推荐质量仍需实际使用反馈和后续评估。
 
-core 默认设置 `EMBEDDING_DISABLED=true`：停用发帖、画像、后台补全和委托的向量生成，停用向量召回，保留关键词索引与检索。已有资料和帖子向量不批量删除；既有索引维度保留，关闭期间更新的委托文档仅写关键词内容。手动向量回填命令会收到 disabled 错误，不发出模型请求。
-
-## 验证
-
-- `npm test`、`npm run test:social:core`、`npm run test:managed:core`。
-- `semantic-replay.mjs`：从 `REPLAY_DIR` 读取隔离的 corpus.json、provider.json 和已编译 gorse；`REPLAY_PROFILE` 指定获准使用的网络资料。运行真实 Gorse 与真实模型，以零反馈核验完整画像进入请求。`REPLAY_ADAPTER=1` 再运行真实 Go 接口集成验证。
-- `upstream-tests/reranker_transport_test.go` 复制到打补丁源码的 `common/reranker/` 后，运行 `go test ./common/reranker ./logics -run 'TestElsewhereProviderBoundary|TestChatReranker'`。
-- `recommendation-live-test.mjs` 保留目录更新和缓存写争用验收；使用本次编译的二进制并提供 RERANKER_*，不要复用旧官方二进制。
-
-真实结果与仍未达标的部分见 [EVALUATION.md](./EVALUATION.md)。本次没有提交和部署。
-
-## 推荐调用预算与缓存
-
-推荐重排默认每天最多 60 次外部请求、1,000,000 预留 token，按北京时间自然日计算。通过 `RERANKER_DAILY_CALL_LIMIT`、`RERANKER_DAILY_TOKEN_LIMIT` 调整；设为 0 可停止新的外部重排请求。不是账户人民币额度，也不覆盖聊天、安全审核等其他模型功能。
-
-每次最多 30 个候选，文档模板最多 600 字符，画像及近期互动也受模板长度限制。请求前使用 UTF-8 字节数、重复查询和最大输出量保守预留，失败、超时均不退还。预算不足、账本不可写或模型失败时使用本地召回排序并缓存，不让下一轮调度立即重试。
-
-`RERANKER_BUDGET_DB` 默认 `/var/lib/gorse/ranking-guard.db`，必须位于现有持久卷中；所有重排实例必须共享同一个账本，不能各自新建独立卷。SQLite 事务同时领取请求和预留预算，防止并发重复计费。相同请求的成功结果复用 6 小时，失败/中断冷却 30 分钟；重启不清零预算。只保存请求摘要、分数和汇总预留量，不保存原始画像、正文或密钥。
-
-推荐结果缓存的摘要统一按配置生成，避免冷启动缺少某路候选造成永久失效。任务每 5 分钟检查一次，结果缓存 6 小时，近期 7 天更新过的用户参与生成。用户资料或反馈变化仍可触发更新，模型请求另受持久缓存和总预算保护。
-
-仅发布推荐服务时，在已提交且与远端一致的服务器源码中运行 `bash eigenflux/scripts/aliyun-hk-recommender-release.sh <完整提交>`。该入口持有发布锁，构建镜像并执行回归测试，只替换 Gorse；通过存储就绪与网站检查后切换 current，失败恢复旧 Gorse。Core/Web 公共版本保持不变，推荐组件版本以镜像 revision 标签及 `evidence/recommender-revision` 为准。预算与模型故障的降级已由隔离测试覆盖，发布验收不额外发起付费模型请求。
+原版完整 Apache-2.0 源码保留在 `../vendor/gorse`，固定提交与补丁来源见 `source.json`。付费适配器及其持久预算保护保留用于显式配置场景，不属于默认执行路径。

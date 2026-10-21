@@ -1,4 +1,4 @@
-# Gorse v0.5.11 with bounded ranking and persistent cost guards.
+# Gorse v0.5.11 with local semantic/lexical/prior fusion and durable caches.
 [database]
 data_store = "sqlite:///var/lib/gorse/data.db"
 cache_store = "sqlite:///var/lib/gorse/cache.db"
@@ -33,7 +33,7 @@ fit_period = "5m"
 cache_expire = "6h"
 type = "llm"
 recommenders = ["collaborative", "item-to-item/topics", "user-to-user/neighbors", "latest"]
-# Use bounded excerpts for paid ranking; the source network card remains intact.
+# Local BGE scores bounded excerpts; labels and positive feedback inform the query.
 query_template = """
 用户网络资料：{{ user.Comment | truncate(600) }}
 关注标签：{{ user.Labels | truncate(240) }}
@@ -43,10 +43,9 @@ query_template = """
 """
 document_template = "{{ item.Comment | truncate(600) }}"
 [recommend.ranker.reranker_api]
-# Standard Jina/Cohere-compatible endpoint. Supply private runtime variables:
-# RERANKER_URL, RERANKER_MODEL, RERANKER_AUTH_TOKEN.
-url = ""
-model = ""
+# The upstream "llm" slot is a protocol adapter; this endpoint uses no generative API.
+url = "http://local-ranker:8090/v1/rerank"
+model = "bge-hybrid-v1"
 auth_token = ""
 [recommend.fallback]
 recommenders = ["item-to-item/topics", "latest"]
