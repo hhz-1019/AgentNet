@@ -1,0 +1,52 @@
+diff --git a/worker/pipeline.go b/worker/pipeline.go
+index d3361bc..e4e4459 100644
+--- a/worker/pipeline.go
++++ b/worker/pipeline.go
+@@ -179,7 +179,6 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+ 		// Generate recommendation from recommenders.
+ 		var (
+ 			scores           []cache.Score
+-			digest           string
+ 			recommenderNames []string
+ 		)
+ 		if len(p.Config.Recommend.Ranker.Recommenders) > 0 {
+@@ -187,7 +186,7 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+ 		} else {
+ 			recommenderNames = p.Config.Recommend.ListRecommenders()
+ 		}
+-		scores, digest, err = recommender.RecommendSequential(ctx, scores, 0, recommenderNames...)
++		scores, _, err = recommender.RecommendSequential(ctx, scores, 0, recommenderNames...)
+ 		if err != nil {
+ 			log.Logger().Error("failed to recommend items", zap.String("user_id", userId), zap.Error(err))
+ 			return
+@@ -222,6 +221,9 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+ 			}
+ 		}
+ 
++		// Bound paid ranking before constructing model inputs. Preserve recall order.
++		if p.Config.Recommend.Ranker.Type == "llm" && len(candidates) > 30 { candidates = candidates[:30] }
++
+ 		// rank by click-through-rate
+ 		var results []cache.Score
+ 		if p.Config.Recommend.Ranker.Type == "fm" && p.ClickThroughRateModel != nil && !p.ClickThroughRateModel.Invalid() {
+@@ -241,8 +243,9 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+ 			}
+ 			results, err = p.rankByLLM(ctx, pCtx, ranker, &user, recommender.UserFeedback(), candidates, itemCache, recommendTime)
+ 			if err != nil {
+-				log.Logger().Error("failed to rank items by LLM", zap.Error(err))
+-				return
++				log.Logger().Warn("ranking unavailable; using local recall", zap.Error(err))
++				results = append([]cache.Score(nil), candidates...)
++				for i := range results { results[i].Score = float64(len(results)-i) }
+ 			}
+ 		} else {
+ 			results = candidates
+@@ -267,7 +270,7 @@ func (p *Pipeline) Recommend(ctx context.Context, users []data.User, progress fu
+ 		}
+ 		if err = p.CacheClient.Set(ctx,
+ 			cache.Time(cache.Key(cache.RecommendUpdateTime, userId), recommendTime),
+-			cache.String(cache.Key(cache.RecommendDigest, userId), digest),
++			cache.String(cache.Key(cache.RecommendDigest, userId), p.Config.Recommend.Hash()),
+ 		); err != nil {
+ 			log.Logger().Error("failed to cache recommendation time", zap.Error(err))
+ 		}

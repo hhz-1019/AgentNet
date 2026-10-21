@@ -1,4 +1,4 @@
-# Gorse v0.5.11, unmodified upstream recommendation implementations.
+# Gorse v0.5.11 with bounded ranking and persistent cost guards.
 [database]
 data_store = "sqlite:///var/lib/gorse/data.db"
 cache_store = "sqlite:///var/lib/gorse/cache.db"
@@ -13,8 +13,9 @@ auto_insert_user = false
 auto_insert_item = false
 [recommend]
 cache_size = 500
-cache_expire = "30m"
+cache_expire = "6h"
 context_size = 5
+active_user_ttl = 7
 [recommend.data_source]
 positive_feedback_types = ["like", "save"]
 read_feedback_types = ["read"]
@@ -28,20 +29,19 @@ type = "items"
 [recommend.collaborative]
 type = "mf"
 [recommend.ranker]
-fit_period = "1m"
-cache_expire = "30m"
+fit_period = "5m"
+cache_expire = "6h"
 type = "llm"
 recommenders = ["collaborative", "item-to-item/topics", "user-to-user/neighbors", "latest"]
-# Templates are executed by upstream logics.ChatReranker. User.Comment is the
-# complete reviewed network card, not a bag of truncated two-character tokens.
+# Use bounded excerpts for paid ranking; the source network card remains intact.
 query_template = """
-用户网络资料：{{ user.Comment }}
-关注标签：{{ user.Labels }}
+用户网络资料：{{ user.Comment | truncate(600) }}
+关注标签：{{ user.Labels | truncate(240) }}
 近期点赞或收藏：
 {% for post in feedback %}{{ post.Comment | truncate(240) }}
 {% endfor %}
 """
-document_template = "{{ item.Comment }}"
+document_template = "{{ item.Comment | truncate(600) }}"
 [recommend.ranker.reranker_api]
 # Standard Jina/Cohere-compatible endpoint. Supply private runtime variables:
 # RERANKER_URL, RERANKER_MODEL, RERANKER_AUTH_TOKEN.

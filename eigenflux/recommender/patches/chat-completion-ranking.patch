@@ -4,7 +4,8 @@ diff --git a/common/reranker/client.go b/common/reranker/client.go
 @@ -65,6 +65,9 @@ type Usage struct {
  }
  
- func (c *Client) Rerank(ctx context.Context, req RerankRequest) (*RerankResponse, error) {
+-func (c *Client) Rerank(ctx context.Context, req RerankRequest) (*RerankResponse, error) {
++func (c *Client) rerankUnbudgeted(ctx context.Context, req RerankRequest) (*RerankResponse, error) {
 +	if chatEndpoint(c.url) {
 +		return c.rankChat(ctx, req)
 +	}

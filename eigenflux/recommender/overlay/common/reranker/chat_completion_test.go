@@ -39,7 +39,7 @@ func TestChatRankingBatchesAndTopN(t *testing.T) {
 	for i := range docs {
 		docs[i] = "full public content"
 	}
-	result, err := NewClient("shared-test", server.URL+"/chat/completions").Rerank(context.Background(), RerankRequest{Model: "test-model", Documents: docs, TopN: 2})
+	result, err := NewClient("shared-test", server.URL+"/chat/completions").rankChat(context.Background(), RerankRequest{Model: "test-model", Documents: docs, TopN: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestChatRankingRejectsInvalidResults(t *testing.T) {
 				json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"finish_reason": "stop", "message": map[string]any{"content": content}}}})
 			}))
 			defer server.Close()
-			_, err := NewClient("test", server.URL+"/chat/completions").Rerank(context.Background(), RerankRequest{Documents: []string{"a", "b"}})
+			_, err := NewClient("test", server.URL+"/chat/completions").rankChat(context.Background(), RerankRequest{Documents: []string{"a", "b"}})
 			if err == nil {
 				t.Fatal("accepted invalid scores")
 			}
@@ -79,11 +79,11 @@ func TestChatRankingNoFallbackOrSecretLeak(t *testing.T) {
 	}))
 	defer server.Close()
 	client := NewClient("test", server.URL+"/chat/completions")
-	_, err := client.Rerank(context.Background(), RerankRequest{Documents: []string{"a"}})
+	_, err := client.rankChat(context.Background(), RerankRequest{Documents: []string{"a"}})
 	if err == nil || strings.Contains(err.Error(), "private") || calls != 1 {
 		t.Fatal("unsafe retry/error")
 	}
-	_, err = client.Rerank(context.Background(), RerankRequest{Documents: []string{strings.Repeat("a", 120001)}})
+	_, err = client.rankChat(context.Background(), RerankRequest{Documents: []string{strings.Repeat("a", 120001)}})
 	if err == nil || calls != 1 {
 		t.Fatal("oversized input sent")
 	}
