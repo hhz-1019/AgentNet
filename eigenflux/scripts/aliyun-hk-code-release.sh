@@ -39,7 +39,7 @@ cp -a "$previous/env" "$previous/configs" "$root/"
 # Fail before changing live services if model configuration or mounts are invalid.
 docker run --rm --network none --mount type=bind,src=/srv/elsewhere,dst=/srv/elsewhere --mount "type=bind,src=$source_dir/eigenflux/scripts,dst=/scripts,readonly" --mount "type=bind,src=$source_dir/eigenflux/recommender,dst=/recommender,readonly" node:24-alpine node /scripts/aliyun-hk-code-compose.mjs "$previous" "$root"
 docker compose -f "$root/compose.json" config --quiet
-docker run --rm --env-file "$root/env/gorse.env" --mount "type=bind,src=$source_dir/eigenflux/scripts,dst=/scripts,readonly" node:24-alpine node /scripts/recommender-provider-preflight.mjs > "$root/evidence/reranker-preflight.log" 2>&1
+docker run --rm --network container:elsewhere-gorse --env-file "$root/env/gorse.env" --mount "type=bind,src=$source_dir/eigenflux/scripts,dst=/scripts,readonly" node:24-alpine node /scripts/recommender-provider-preflight.mjs > "$root/evidence/reranker-preflight.log" 2>&1
 systemctl start elsewhere-pg-backup.service
 [[ "$(systemctl show elsewhere-pg-backup.service -p Result --value)" == success ]]
 printf '%s\n' "$previous" > "$root/evidence/previous-release"

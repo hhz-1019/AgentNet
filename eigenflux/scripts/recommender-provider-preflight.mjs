@@ -4,10 +4,11 @@ import assert from 'node:assert/strict';
 try {
   const {RERANKER_URL:url,RERANKER_MODEL:model,RERANKER_AUTH_TOKEN:token=''}=process.env;
   assert(url && model, 'Missing reranker configuration');
+  if(process.env.RERANKER_MODE==='local') assert.equal(url,'http://local-ranker:8090/v1/rerank');
   const chat=new URL(url).pathname.replace(/\/$/, '').endsWith('/chat/completions');
   const input={query:'寻找摄影交流伙伴',documents:['分享摄影作品和拍摄经验','交流家庭烹饪食谱']};
   const body=chat ? {model,thinking:{type:'disabled'},max_tokens:512,response_format:{type:'json_object'},messages:[{role:'system',content:'Return JSON results containing each document index exactly once and relevance_score from 0 to 1.'},{role:'user',content:JSON.stringify(input)}]} : {model,...input};
-  const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
+  const response=await fetch(url,{method:'POST',redirect:'error',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(process.env.RERANKER_MODE==='local'?'':token)},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
   if(!response.ok) throw new Error('Provider HTTP '+response.status);
   let data=await response.json();
   if(chat){assert.equal(data.choices?.[0]?.finish_reason,'stop');data=JSON.parse(data.choices[0].message.content);}

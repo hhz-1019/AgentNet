@@ -1,6 +1,6 @@
 {
-  "release": "elsewhere-same-turn-onboarding-20261018-r1",
-  "cli_version": "0.0.54-agentnet.22",
+  "release": "elsewhere-detailed-companion-20261022-r1",
+  "cli_version": "0.0.54-agentnet.24",
   "stack": "eigenflux-go",
   "upstream_commit": "02735b5b6954503e1e1caa1f8e1eda6cfcc669b6",
   "human_auth": "uid",
@@ -19,8 +19,10 @@
   "activity_protocol": "activity-v1-owner-actions-images",
   "account_deletion": "erasure-v1",
   "migration": 152,
-  "onboarding_version": "onboarding-2026-10-20",
-  "migration_host": "elsewhere.twintalk.cn",
+  "onboarding_version": "same-turn-origin-2026-10-21",
+  "migration_host": "inspiralai.com",
   "managed_cost_tracking": false,
-  "managed_cost_limits": false
+  "managed_cost_limits": false,
+  "registration_profile_version": "complete-safe-profile-2026-10-20",
+  "public_origin": "https://inspiralai.com"
 }

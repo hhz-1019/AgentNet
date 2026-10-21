@@ -1,5 +1,11 @@
 import { feedbackMessage } from '../feedback-message';
-import { isPortraitAvatar, avatarUrl } from '../default-avatars';
+import {
+  isPortraitAvatar,
+  isDefaultAvatar,
+  suggestAvatar,
+  avatarUrl,
+} from '../default-avatars';
+import { registrationProfileIssue } from '../registration-profile';
 import { api } from '../api';
 import type { CompanionSettings } from '../companion';
 import { CompanionPreferences } from '../companion-view';
@@ -41,7 +47,9 @@ export function PortraitEditor({
     ...mergedProfile.fields,
     avatar: isPortraitAvatar(profile.fields.avatar)
       ? profile.fields.avatar
-      : '',
+      : onComplete
+        ? suggestAvatar(profile.fields)
+        : '',
   }));
   const [avatarPreview, setAvatarPreview] = useState('');
   const uploadInput = useRef<HTMLInputElement>(null);
@@ -50,7 +58,7 @@ export function PortraitEditor({
     const preparedAvatar = profile.fields.avatar;
     if (!avatarChosen.current && isPortraitAvatar(preparedAvatar)) {
       setFields((current) =>
-        !isPortraitAvatar(current.avatar)
+        current.avatar !== preparedAvatar
           ? { ...current, avatar: preparedAvatar }
           : current,
       );
@@ -109,6 +117,17 @@ export function PortraitEditor({
             e.preventDefault();
             if (!(companion ? companion.agent_name : fields.name).trim())
               return;
+            if (onComplete) {
+              const issue = registrationProfileIssue(
+                fields,
+                companion?.agent_name || fields.name,
+              );
+              if (issue) {
+                setError(issue);
+                setStatus('');
+                return;
+              }
+            }
             const saved = await save(
               {
                 ...profile,
@@ -138,6 +157,10 @@ export function PortraitEditor({
                 height={96}
               />
               <div>
+                {isDefaultAvatar(fields.avatar) &&
+                  !(preview && previewAvatar) && (
+                    <span className="sn-avatar-kind">默认头像</span>
+                  )}
                 <input
                   ref={uploadInput}
                   type="file"
@@ -220,7 +243,7 @@ export function PortraitEditor({
                   <div>
                     <label htmlFor={`${formId}-${field.key}`}>
                       {field.label}
-                      {field.key === 'name' && (
+                      {(field.key === 'name' || onComplete) && (
                         <span className="required-mark" aria-hidden="true">
                           {' '}
                           *
@@ -273,6 +296,8 @@ export function PortraitEditor({
                   ) : (
                     <textarea
                       id={`${formId}-${field.key}`}
+                      aria-label={field.label}
+                      required={!!onComplete}
                       rows={3}
                       maxLength={
                         {

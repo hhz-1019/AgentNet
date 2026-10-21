@@ -427,9 +427,75 @@ func (s *Service) putFollow(ctx context.Context, c *app.RequestContext) {
 }
 
 // The social onboarding confirms the reviewed portrait in one transaction. It
-// keeps the existing context compiler and credential activation, without making
-// an optional network goal or synthetic biography a signup prerequisite.
+// keeps the existing context compiler and credential activation. Require the
+// reviewed network card, without requiring private facts or synthetic biography.
 var errCompanionNameRequired = errors.New("personal companion name required")
+var errRegistrationProfileIncomplete = errors.New("registration profile incomplete")
+
+func registrationCardIssue(db *gorm.DB, owner string, id int64, raw string) (string, error) {
+	var fields map[string]string
+	if strings.TrimSpace(raw) != "" {
+		if err := json.Unmarshal([]byte(raw), &fields); err != nil {
+			return "", err
+		}
+	}
+	settings, err := readCompanion(db, owner, id)
+	if err != nil {
+		return "", err
+	}
+	if !validCompanionName(settings.AgentName) {
+		return "Agent 的名字", nil
+	}
+	if fields == nil {
+		fields = map[string]string{}
+	}
+	fields["connections"] = settings.ConnectionGoal
+	return registrationMissingField(fields), nil
+}
+
+// Older console clients cannot complete registration through the retired
+// five-step endpoint without the same reviewed network card. Existing completed
+// identities remain valid and retries keep their original semantics.
+func (s *Service) requireRegistrationCard(ctx context.Context, c *app.RequestContext) {
+	var req struct {
+		Step int16 `json:"step"`
+	}
+	if json.Unmarshal(c.Request.Body(), &req) != nil || req.Step != 5 {
+		c.Next(ctx)
+		return
+	}
+	owner, id, ok := s.twinOwner(c)
+	if !ok {
+		c.Abort()
+		return
+	}
+	var state string
+	if err := s.db.WithContext(ctx).Raw("SELECT state FROM agent_onboarding_v2 WHERE agent_id=?", id).Scan(&state).Error; err != nil {
+		s.socialFailure(c, err)
+		c.Abort()
+		return
+	}
+	if state != "completed" {
+		r, err := readPortraitRow(s.db.WithContext(ctx), owner, false)
+		if err != nil {
+			s.socialFailure(c, err)
+			c.Abort()
+			return
+		}
+		missing, err := registrationCardIssue(s.db.WithContext(ctx), owner, id, r.Fields)
+		if err != nil {
+			s.socialFailure(c, err)
+			c.Abort()
+			return
+		}
+		if missing != "" {
+			fail(c, 400, "PROFILE_INCOMPLETE", fmt.Sprintf("请补充%s后确认。", missing), nil)
+			c.Abort()
+			return
+		}
+	}
+	c.Next(ctx)
+}
 
 func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 	defer s.registrationOutcome(c, "profile")
@@ -447,6 +513,7 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 	}
 	now := time.Now().UnixMilli()
 	activated := false
+	missingField := ""
 	e := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		r, e := readPortraitRow(tx, owner, true)
 		if e != nil {
@@ -474,6 +541,13 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 		}
 		if !validCompanionName(name) {
 			return errCompanionNameRequired
+		}
+		missingField, e = registrationCardIssue(tx, owner, id, r.Fields)
+		if e != nil {
+			return e
+		}
+		if missingField != "" {
+			return errRegistrationProfileIncomplete
 		}
 		if e = tx.Exec(`INSERT INTO twin_agreement_acceptances(user_id,version,accepted_at) VALUES(?,?,?) ON CONFLICT DO NOTHING`, owner, twinAgreementVersion, now).Error; e != nil {
 			return e
@@ -511,6 +585,8 @@ func (s *Service) confirmPortrait(ctx context.Context, c *app.RequestContext) {
 	if e != nil {
 		if errors.Is(e, errCompanionNameRequired) {
 			fail(c, 400, "COMPANION_NAME_REQUIRED", "请为 Agent 起一个个人名字，不能使用工具或模型名称", nil)
+		} else if errors.Is(e, errRegistrationProfileIncomplete) {
+			fail(c, 400, "PROFILE_INCOMPLETE", fmt.Sprintf("请补充%s后确认。", missingField), nil)
 		} else if errors.Is(e, errConflict) {
 			fail(c, 409, "REVISION_CONFLICT", "请重新读取并确认画像", nil)
 		} else {

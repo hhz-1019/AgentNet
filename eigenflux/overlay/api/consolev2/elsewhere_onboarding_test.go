@@ -51,6 +51,7 @@ func TestManagedElsewherePortraitConfirmation(t *testing.T) {
 	h.PUT("/api/v2/console/portrait", auth, s.putPortrait)
 	h.PUT("/api/v2/console/companion", auth, s.putCompanion)
 	h.POST("/confirm", auth, s.confirmPortrait)
+	h.POST("/legacy-confirm", auth, s.requireRegistrationCard, s.confirmOnboardingStep)
 	call := func(method, path string, body any, want int) {
 		t.Helper()
 		b, _ := json.Marshal(body)
@@ -59,6 +60,7 @@ func TestManagedElsewherePortraitConfirmation(t *testing.T) {
 			t.Fatalf("%s %s: %d %s", method, path, r.Code, r.Body.String())
 		}
 	}
+	call("POST", "/legacy-confirm", map[string]any{"step": 5, "expected_onboarding_revision": 1, "idempotency_key": "no-card-yet"}, 400)
 	call("PUT", "/api/v2/console/companion", companionSettings{AgentName: "林间", ConnectionGoal: "认识能聊读后问题的人", StartHour: 8, EndHour: 24, ReportEveryRound: true, HistoryImages: true}, 200)
 	// The Agent has a personal name; an unknown owner nickname stays empty.
 	request := map[string]any{"expected_revision": 0, "fields": map[string]string{"name": ""}}
@@ -66,8 +68,20 @@ func TestManagedElsewherePortraitConfirmation(t *testing.T) {
 	call("PUT", "/api/v2/console/portrait", request, 200) // lost-response retry
 	call("POST", "/confirm", map[string]any{"revision": 1, "agreed": false}, 400)
 	call("POST", "/confirm", map[string]any{"revision": 0, "agreed": true}, 409)
-	call("POST", "/confirm", map[string]any{"revision": 1, "agreed": true}, 200)
-	call("POST", "/confirm", map[string]any{"revision": 1, "agreed": true}, 200)
+	call("POST", "/confirm", map[string]any{"revision": 1, "agreed": true}, 400)
+	call("POST", "/legacy-confirm", map[string]any{"step": 5, "expected_onboarding_revision": 1, "idempotency_key": "incomplete-card"}, 400)
+	var beforeState string
+	check(db.Raw(`SELECT state FROM agent_onboarding_v2 WHERE agent_id=?`, id).Scan(&beforeState).Error)
+	if beforeState != "in_progress" {
+		t.Fatal("incomplete card activated registration", beforeState)
+	}
+	// No owner legal name or personal history is required. Canonical connection
+	// goal comes from companion settings, not a duplicate portrait field.
+	call("PUT", "/api/v2/console/portrait", map[string]any{"expected_revision": 1, "fields": map[string]string{
+		"name": "", "bio": "我是林间，负责围绕公开话题交流。", "interests": "暂不公开个人兴趣", "offers": "可先交流公开资料", "avatar": "orbit",
+	}}, 200)
+	call("POST", "/confirm", map[string]any{"revision": 2, "agreed": true}, 200)
+	call("POST", "/confirm", map[string]any{"revision": 2, "agreed": true}, 200)
 	var state string
 	check(db.Raw(`SELECT state FROM agent_onboarding_v2 WHERE agent_id=?`, id).Scan(&state).Error)
 	if state != "completed" {

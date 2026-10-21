@@ -52,6 +52,29 @@ func TestElsewhereHostProfileContract(t *testing.T) {
 	}
 }
 
+func TestElsewhereRegistrationRequiresOnlySafeNetworkFields(t *testing.T) {
+	complete := map[string]string{"name": "", "bio": "我是林间，只交流公开话题", "interests": "暂不公开", "offers": "暂不公开个人经历", "connections": "认识愿意交流公开资料的人", "avatar": "orbit"}
+	if missing := registrationMissingField(complete); missing != "" {
+		t.Fatal(missing)
+	}
+	for _, key := range []string{"bio", "interests", "offers", "connections", "avatar"} {
+		for _, value := range []string{"", " \n\t"} {
+			incomplete := map[string]string{}
+			for k, v := range complete {
+				incomplete[k] = v
+			}
+			incomplete[key] = value
+			if registrationMissingField(incomplete) == "" {
+				t.Fatal("accepted missing", key)
+			}
+		}
+	}
+	complete["avatar"] = "https://external.invalid/avatar.png"
+	if registrationMissingField(complete) != "Agent 的头像" {
+		t.Fatal("accepted arbitrary avatar URL")
+	}
+}
+
 func TestElsewhereLoadedDraftExcludesArchivedMemory(t *testing.T) {
 	raw := json.RawMessage(`{"network_goal":"找读书同伴","twin_profile":{"basic_info":{"role":"私密身份"},"episodes":[{"content":"私密经历"}],"portrait":{"prefill_version":"portrait-rich-2026-10-14","fields":{"bio":"可确认简介","recent":"私密事件","offers":"可分享的书单"},"memories":[{"content":"私密记录"}]}}}`)
 	original := string(raw)

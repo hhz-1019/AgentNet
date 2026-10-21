@@ -19,6 +19,7 @@ import {
   entryEstimate,
   entryShouldMorph,
   advanceEntryProgress,
+  entryProgressTarget,
   entryCanReveal,
 } from './entry-schedule';
 import {
@@ -291,17 +292,16 @@ export function BrandEntry({
       }
       const delta = previous ? Math.min(64, now - previous) : 0;
       previous = now;
-      const actual =
-        (Number(state.resources.fonts) +
-          Number(state.resources.logo) +
-          Number(state.ready)) /
-        3;
-      displayed = advanceEntryProgress(displayed, actual, delta);
-      completeHeld = actual === 1 && displayed === 1 ? completeHeld + delta : 0;
+      const allReady =
+        state.resources.fonts && state.resources.logo && state.ready;
+      displayed = advanceEntryProgress(
+        displayed,
+        entryProgressTarget(elapsed, estimate, allReady),
+        delta,
+      );
+      completeHeld = allReady && displayed === 1 ? completeHeld + delta : 0;
       if (currentPhase === 'loading') {
-        if (
-          entryShouldMorph(elapsed, estimate, actual === 1 && displayed === 1)
-        ) {
+        if (entryShouldMorph(elapsed, estimate, allReady && displayed === 1)) {
           morphStart = displayed;
           currentPhase = 'morph';
           time = 0;
@@ -315,7 +315,7 @@ export function BrandEntry({
         if (
           currentPhase === 'morph' &&
           time >= entryTiming.morph &&
-          entryCanReveal(actual === 1, displayed, completeHeld)
+          entryCanReveal(allReady, displayed, completeHeld)
         ) {
           currentPhase = 'reveal';
           time = 0;

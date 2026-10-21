@@ -10,7 +10,9 @@ const server = await preview({
   preview: { host: '127.0.0.1', port: 0 },
 });
 const origin = server.resolvedUrls.local[0];
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+  executablePath: process.env.AGENTNET_CHROMIUM_PATH || undefined,
+});
 const results = [];
 try {
   for (const test of [
@@ -62,6 +64,9 @@ try {
             at: performance.now(),
             percent: Number.parseInt(args[0]),
             phase: node.dataset.entryPhase,
+            covered: document
+              .querySelector('.ew-entry-content')
+              ?.hasAttribute('data-entry-covered'),
             paintMs:
               performance.now() - (starts.get(this) || performance.now()),
           });
@@ -249,6 +254,18 @@ try {
           .every((f) => f.percent === 100),
         test.name + ': incomplete percentage during reveal',
       );
+      assert.ok(
+        capture.frames
+          .filter((f) => f.phase !== 'reveal')
+          .every((f) => f.covered),
+        test.name + ': content exposed before reveal',
+      );
+      const at66 = capture.frames.filter((f) => f.percent === 66);
+      if (at66.length > 1)
+        assert.ok(
+          at66.at(-1).at - at66[0].at < 200,
+          test.name + ': visible progress stalled at 66%',
+        );
     }
     const paint = capture.frames.map((f) => f.paintMs).sort((a, b) => a - b);
     results.push({

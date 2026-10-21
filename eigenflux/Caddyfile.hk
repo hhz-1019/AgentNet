@@ -1,4 +1,4 @@
-elsewhere.twintalk.cn {
+inspiralai.com {
   encode gzip
   handle /migration-health {
     respond "migration-live" 200

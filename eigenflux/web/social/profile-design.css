@@ -500,6 +500,12 @@
 .ew-personal-avatar-row p {
   margin: 0 0 12px;
 }
+.sn-avatar-kind {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--ew-muted, #72766c);
+  font-size: 14px;
+}
 @media (max-width: 600px) {
   .ew-personal-avatar-row {
     gap: 16px;

@@ -1,0 +1,21 @@
+diff --git a/config/config.go b/config/config.go
+--- a/config/config.go
++++ b/config/config.go
+@@ -19,5 +19,6 @@ import (
+ 	"crypto/md5"
+ 	_ "embed"
+ 	"encoding/hex"
++	"fmt"
+ 	"os"
+ 	"path/filepath"
+@@ -224,6 +224,10 @@ func (r *RecommendConfig) Hash() string {
+ 	if recommenders.Contains("latest") {
+ 		digests = append(digests, "latest")
+ 	}
++	// A new ranking model or input template must not reuse the previous ranking.
++	digests = append(digests, r.Ranker.Type, r.Ranker.QueryTemplate,
++		r.Ranker.DocumentTemplate, r.Ranker.RerankerAPI.URL, r.Ranker.RerankerAPI.Model,
++		fmt.Sprint(r.ContextSize))
+ 	return util.MD5(digests...)
+ }
+ 

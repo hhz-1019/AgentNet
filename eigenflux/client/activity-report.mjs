@@ -20,7 +20,7 @@ function actionURL(value) {
     throw new Error('Owner action needs a verified action_url');
   const url = new URL(value);
   const base =
-    url.origin === 'https://elsewhere.twintalk.cn' &&
+    url.origin === 'https://inspiralai.com' &&
     !url.username &&
     !url.password &&
     !url.hash;

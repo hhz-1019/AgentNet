@@ -140,19 +140,21 @@ await test('public elsewhere installer uses Console-first setup and refreshes st
   }
   assert.match(install, /references\/behavior\.md/);
   assert.match(install, /agentnet-onboarding\/SKILL\.md/);
-  assert.match(join, /https:\/\/elsewhere\.twintalk\.cn\/install\.md/);
+  assert.match(join, /https:\/\/inspiralai\.com\/install\.md/);
   const onboardingVersion = JSON.parse(
     publicFile('release.json'),
   ).onboarding_version;
   assert(skill.includes(onboardingVersion));
   assert(install.includes(onboardingVersion));
   assert.match(skill, /heartbeat plan --onboarding/);
-  assert.match(skill, /简洁资料契约/);
-  assert.match(skill, /宿主强制审批/);
+  assert.match(skill, /references\/rich-profile\.md/);
+  assert.match(skill, /检索已授权记忆、历史和资料/);
+  assert.match(skill, /权限按宿主流程处理/);
   assert.doesNotMatch(skill, /Do not combine the three user choices/);
   assert.match(skill, /scheduler_prompt/);
-  assert.match(skill, /\/dashboard\/register/);
-  assert.match(skill, /不是一次性认领/);
+  assert.match(skill, /console_url/);
+  assert.match(skill, /打开绑定本身份的注册或登录页/);
+  assert.match(skill, /手机号验证、协议和公开资料由用户在网页确认/);
 });
 
 await test('SMS settings fail closed and cap cannot be disabled', () => {
@@ -181,4 +183,11 @@ await test('disabled vectors need no model credentials but retain index dimensio
  const disabled={...env,EMBEDDING_DISABLED:'true',EMBEDDING_API_KEY:'',EMBEDDING_BASE_URL:'',EMBEDDING_MODEL:''};
  assert(!checkConfig(disabled).some(e=>/EMBEDDING_(API_KEY|BASE_URL|MODEL)/.test(e)));
  assert(checkConfig({...disabled,EMBEDDING_DIMENSIONS:'0'}).some(e=>e.includes('EMBEDDING_DIMENSIONS')));
+});
+
+await test('deferred provider checks still reject stale registration origins',()=>{
+ const configured={...env,CONSOLE_V2_PUBLIC_URL:env.PUBLIC_BASE_URL,CONSOLE_V2_ALLOWED_ORIGINS:env.PUBLIC_BASE_URL};
+ assert.deepEqual(checkConfig(configured,{providers:false}),[]);
+ assert(checkConfig({...configured,CONSOLE_V2_PUBLIC_URL:'https://elsewhere.twintalk.cn'},{providers:false}).some(x=>x.includes('CONSOLE_V2_PUBLIC_URL')));
+ assert(checkConfig({...configured,CONSOLE_V2_ALLOWED_ORIGINS:'https://elsewhere.twintalk.cn'},{providers:false}).some(x=>x.includes('CONSOLE_V2_ALLOWED_ORIGINS')));
 });

@@ -5,7 +5,8 @@ index e883f79..fa78853 100644
 @@ -385,6 +385,8 @@ func (s *Service) Register(h *server.Hertz) {
  	h.PUT("/api/v2/console/onboarding-draft", s.consoleAuth(true), s.putOnboardingDraft)
  	h.GET("/api/v2/agents/me/onboarding-draft", s.consoleAuth(false), s.getOnboardingDraft)
- 	h.POST("/api/v2/agents/me/onboarding-draft/confirm", s.consoleAuth(true), s.confirmOnboardingStep)
+-	h.POST("/api/v2/agents/me/onboarding-draft/confirm", s.consoleAuth(true), s.confirmOnboardingStep)
++	h.POST("/api/v2/agents/me/onboarding-draft/confirm", s.consoleAuth(true), s.requireRegistrationCard, s.confirmOnboardingStep)
 +	h.GET("/api/v2/console/community-preferences", s.consoleAuth(false), s.requireCompleted, s.getCommunityPreferences)
 +	h.PUT("/api/v2/console/community-preferences", s.consoleAuth(true), s.requireCompleted, s.putCommunityPreferences)
  	h.GET("/api/v2/agents/me/control-context", s.consoleAuth(false), s.requireCompleted, s.getControlContext)

@@ -163,7 +163,7 @@
  			return err
 +		}
 +		if rich, _ := cmd.Flags().GetBool("require-rich-profile"); rich {
-+			if err := validateRichPortrait(draft); err != nil { return err }
++			if err := validateRegistrationProfile(draft); err != nil { return err }
  		}
  		noHandoff, _ := cmd.Flags().GetBool("no-handoff")
  		recoverAccount, _ := cmd.Flags().GetBool("recover-account")
@@ -221,7 +221,7 @@
  func capabilitySeeds() []capabilitySeed {
  	seeds := []capabilitySeed{
  		capability("capabilities.read", "eigenflux capabilities", "discovery", "read", "读取 Agent 能力注册表", "Read the Agent capability registry"),
-+		capability("profile.validate", "eigenflux validate-profile", "local", "read", "检查完整画像草稿", "Validate a complete rich portrait offline"),
++		capability("profile.validate", "eigenflux validate-profile", "local", "read", "检查注册必填的简洁网络资料", "Validate required network-card fields locally; private memory stays in the host"),
  		capability("identity.initialize", "eigenflux agent init", "identity", "write", "初始化本地 Agent 身份", "Initialize local Agent identity"),
  		capability("identity.provision", "eigenflux agent provision", "identity", "write", "创建或认领 Agent", "Provision or claim an Agent"),
  		capability("identity.recover_account", "eigenflux agent provision --recover-account", "identity", "write", "恢复历史 Agent", "Recover a historical Agent"),

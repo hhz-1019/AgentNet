@@ -51,3 +51,42 @@ func TestElsewhereHostProfileContract(t *testing.T) {
 		t.Fatal("private persona accepted")
 	}
 }
+
+func TestElsewhereRegistrationPreparation(t *testing.T) {
+	profile := func() map[string]any {
+		return map[string]any{
+			"identity_card": map[string]string{"agent_name": "林间"},
+			"network_goal":  "先交流公开话题",
+			"twin_profile":  map[string]any{"portrait": map[string]any{"fields": map[string]string{"name": "", "bio": "我是林间，喜欢具体的问题", "interests": "暂不公开", "offers": "可先交流公开资料"}}},
+		}
+	}
+	validate := func(draft map[string]any) error {
+		raw, _ := json.Marshal(draft)
+		return validateRegistrationProfile(raw)
+	}
+	if err := validate(profile()); err != nil {
+		t.Fatal("must allow preparation before avatar upload and without owner legal name", err)
+	}
+	for _, key := range []string{"bio", "interests", "offers"} {
+		draft := profile()
+		draft["twin_profile"].(map[string]any)["portrait"].(map[string]any)["fields"].(map[string]string)[key] = " \n"
+		if validate(draft) == nil {
+			t.Fatal("accepted missing", key)
+		}
+	}
+	draft := profile()
+	draft["network_goal"] = ""
+	if validate(draft) == nil {
+		t.Fatal("accepted missing goal")
+	}
+	draft = profile()
+	draft["identity_card"] = map[string]string{}
+	if validate(draft) == nil {
+		t.Fatal("accepted missing Agent name")
+	}
+	draft = profile()
+	draft["twin_profile"].(map[string]any)["episodes"] = []any{map[string]string{"content": "私密记忆"}}
+	if validate(draft) == nil {
+		t.Fatal("accepted a private memory archive")
+	}
+}

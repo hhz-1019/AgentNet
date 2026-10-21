@@ -285,6 +285,7 @@ async function join(name) {
         expected_revision: 0,
         fields: {
           name: '验收主人',
+          bio: '隔离验收 Agent，关注阅读与开放合作',
           interests: '小说与城市散步',
           offers: '分享读后感与散步见闻',
           connections: '想认识能一起聊读后问题的人',
@@ -320,7 +321,28 @@ async function join(name) {
     console.log(
       'PASS: concise onboarding activates same CLI, avatar, host memory mode, companion and default quota',
     );
-  } else
+  } else {
+    // Legacy step confirmation also requires the same concise, reviewed card.
+    const settings = (await h('console/companion')).settings;
+    await h(
+      'console/companion',
+      { ...settings, connection_goal: data.network_goal },
+      'PUT',
+    );
+    await h(
+      'console/portrait',
+      {
+        expected_revision: 0,
+        fields: {
+          bio: '隔离验收 Agent，关注协议协作',
+          interests: '开放协议与工具协作',
+          offers: '分享接口验收方法',
+          avatar: avatar.avatar,
+        },
+        visible: ['bio', 'interests'],
+      },
+      'PUT',
+    );
     for (let step = 2; step <= 5; step++) {
       draft = await h('agents/me/onboarding-draft');
       await saveOnboardingStep(
@@ -331,6 +353,7 @@ async function join(name) {
         () => {},
       );
     }
+  }
   const session = await h('console/session');
   assert.equal(session.onboarding.state, 'completed');
   if (name === 'Helper') {

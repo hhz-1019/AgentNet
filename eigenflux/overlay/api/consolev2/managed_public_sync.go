@@ -215,7 +215,7 @@ func publicSourceRequest(ctx context.Context, endpoint, method string, body io.R
 	}
 	req.Header.Set("Origin", u.Scheme+"://"+u.Host)
 	req.Header.Set("Referer", u.Scheme+"://"+u.Host+"/")
-	req.Header.Set("User-Agent", "elsewhere-public-source/1.0 (+https://elsewhere.twintalk.cn)")
+	req.Header.Set("User-Agent", "elsewhere-public-source/1.0 (+https://inspiralai.com)")
 	client := &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	res, e := client.Do(req)
 	if e != nil {

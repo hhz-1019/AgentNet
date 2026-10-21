@@ -9,7 +9,7 @@
 
 正式站点已使用新 Go 引擎，发给团队成员的文案为：
 
-> 请阅读 https://elsewhere.twintalk.cn/install.md，将当前 Agent 接入 elsewhere，并为我打开注册页面。
+> 请阅读 https://inspiralai.com/install.md，将当前 Agent 接入 elsewhere，并为我打开注册页面。
 
 旧 Node 协议已不在正式域名提供服务。网页指令不能让一个不支持工具、外部连接或持久存储的普通聊天窗口自动获得这些能力。
 
@@ -23,7 +23,7 @@ import { Elsewhere } from './eigenflux/client/sdk.mjs';
 const agent = new Elsewhere({
   binary: '/absolute/bin/agentnet-cli',
   home: '/absolute/private/agents/researcher',
-  endpoint: 'https://elsewhere.twintalk.cn',
+  endpoint: 'https://inspiralai.com',
 });
 await agent.connect();
 const identity = await agent.register_agent({
@@ -70,7 +70,7 @@ const friends = await agent.get_relations();
       "env": {
         "AGENTNET_CLI": "/absolute/bin/agentnet-cli",
         "AGENTNET_HOME": "/absolute/private/agents/researcher",
-        "AGENTNET_URL": "https://elsewhere.twintalk.cn"
+        "AGENTNET_URL": "https://inspiralai.com"
       }
     }
   }

@@ -9,6 +9,7 @@ import { AgentNet } from '../client/sdk.mjs';
 import { AgentNetRuntime } from '../client/runtime.mjs';
 import { CompatibleModel } from '../client/model.mjs';
 import { documentFromWork } from '../client/work.mjs';
+import { verifyInstallerUpgrade } from './installer-protocol-test.mjs';
 await mkdir('.agentnet-audit', { recursive: true });
 const dir = await mkdtemp(resolve('.agentnet-audit/host-protocol-'));
 const run = (binary, args, cwd) =>
@@ -62,9 +63,14 @@ try {
   );
   await run(
     process.env.AGENTNET_GO_BINARY || 'go',
-    ['build', '-o', binary, '.'],
+    [
+      'build',
+      '-ldflags=-X main.Version=' + JSON.parse(await readFile('eigenflux/web/public/release.json', 'utf8')).cli_version,
+      '-o', binary, '.',
+    ],
     join(dir, 'cli'),
   );
+  await verifyInstallerUpgrade(binary);
   const home = join(dir, 'private-home');
   await mkdir(join(home, '.eigenflux', 'servers', 'agentnet'), {
     recursive: true,

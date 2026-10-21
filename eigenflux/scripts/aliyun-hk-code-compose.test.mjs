@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { releaseCompose, readEnv } from './aliyun-hk-code-compose.mjs';
+import { recommenderRelease } from './aliyun-hk-recommender-release.mjs';
 const previous = '/srv/elsewhere/releases/hk-cutover-20261018090000';
 const root = '/srv/elsewhere/releases/hk-code-' + 'a'.repeat(40);
 const images = Object.fromEntries(['core', 'web', 'gorse', 'sync'].map((s,i)=>[s,'sha256:'+String(i).repeat(64)]));
@@ -12,6 +13,13 @@ const fixture = () => ({name:'elsewhere', networks:{backend:{internal:true},outb
   postgres:{image:'postgres',env_file:[previous+'/env/postgres.env'],volumes:[{source:previous+'/postgres',target:'/var/lib/postgresql/data'}]},
   redis:{image:'redis',volumes:[{source:previous+'/redis',target:'/data'}]},
 }});
+await test('future full releases retain the private local model and its network',()=>{
+  const local = recommenderRelease(fixture(), images.gorse, 'sha256:'+'f'.repeat(64));
+  const next = releaseCompose(local, {previous,root,images});
+  assert.deepEqual(next.services['local-ranker'],local.services['local-ranker']);
+  assert.equal(next.networks['local-ranking'].internal,true);
+  assert.equal(next.services.gorse.networks['local-ranking'],null);
+});
 await test('updates all four applications while retaining data and infrastructure',()=>{
   const old=fixture(), backup=structuredClone(old),next=releaseCompose(old,{previous,root,images});
   assert.deepEqual(old,backup);

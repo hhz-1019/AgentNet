@@ -9,7 +9,6 @@ export function sharedModelConfig(core, gorse = {}) {
   'Expected the existing official DeepSeek endpoint');
   assert(['', '/', '/v1', '/v1/'].includes(base.pathname), 'Unexpected DeepSeek base path');
   assert(core.LLM_API_KEY?.trim() && core.LLM_MODEL?.trim(), 'Missing shared model configuration');
-  const url = core.LLM_BASE_URL.replace(/\/+$/, '') + '/chat/completions';
   return {
     core: {
       ...core, EMBEDDING_DISABLED: 'true', EMBEDDING_API_KEY: '', EMBEDDING_BASE_URL: '',
@@ -17,8 +16,9 @@ export function sharedModelConfig(core, gorse = {}) {
       SAFETY_LLM_MODEL: core.LLM_MODEL,
     },
     gorse: {
-      ...gorse, RERANKER_URL: url, RERANKER_MODEL: core.LLM_MODEL,
-      RERANKER_AUTH_TOKEN: core.LLM_API_KEY,
+      ...gorse, RERANKER_MODE: 'local', RERANKER_URL: 'http://local-ranker:8090/v1/rerank',
+      RERANKER_MODEL: 'bge-hybrid-v1', RERANKER_AUTH_TOKEN: '',
+      RERANKER_DAILY_CALL_LIMIT: '0', RERANKER_DAILY_TOKEN_LIMIT: '0',
     },
   };
 }

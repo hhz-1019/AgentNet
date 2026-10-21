@@ -13,6 +13,7 @@ import {
   entryShouldMorph,
   entryCanReveal,
   advanceEntryProgress,
+  entryProgressTarget,
   entryCompleteHold,
 } from './entry-schedule.ts';
 
@@ -28,18 +29,35 @@ await test('forecast may overlap morph, but cannot bypass complete progress befo
   assert.equal(entryEstimate(Number.NaN), 3000);
 });
 
-await test('visible progress continues in every phase, reaches exact 100 and never counts unfinished work', () => {
-  let displayed = 0;
-  for (let i = 0; i < 400; i++)
-    displayed = advanceEntryProgress(displayed, 2 / 3, 16);
-  assert.equal(displayed, 2 / 3);
-  let previous = displayed;
-  for (let i = 0; i < 40; i++) {
-    displayed = advanceEntryProgress(displayed, 1, 16);
-    assert.ok(displayed >= previous && displayed - previous < 0.03);
-    previous = displayed;
+await test('pending data never parks progress at 66% and readiness finishes without a jump', () => {
+  for (const estimate of [2100, 3000, 5000]) {
+    let displayed = 0;
+    let at66 = 0;
+    for (let elapsed = 0; elapsed <= 8000; elapsed += 16) {
+      const previous = displayed;
+      displayed = advanceEntryProgress(
+        displayed,
+        entryProgressTarget(elapsed, estimate, false),
+        16,
+      );
+      if (Math.floor(displayed * 100) === 66) at66 += 16;
+      assert.ok(displayed >= previous && displayed < 1);
+    }
+    assert.ok(at66 > 0 && at66 < 160, `66% held for ${at66}ms`);
+    for (let i = 0; i < 40; i++) {
+      const previous = displayed;
+      displayed = advanceEntryProgress(
+        displayed,
+        entryProgressTarget(8000 + i * 16, estimate, true),
+        16,
+      );
+      assert.ok(displayed >= previous && displayed - previous < 0.03);
+    }
+    assert.equal(displayed, 1);
   }
-  assert.equal(displayed, 1);
+  assert.ok(entryProgressTarget(60000, 3000, false) < 1);
+  assert.equal(entryProgressTarget(-10, 3000, false), 0);
+  assert.equal(entryProgressTarget(0, 3000, true), 1);
 });
 
 await test('early morph starts at the actual bar width and converges to the unchanged logo', () => {
