@@ -28,9 +28,11 @@ import { processDecision, interruptedDecision } from './decisions.mjs';
 import { createActivityReport } from './activity-report.mjs';
 import { publishedReceipt } from './receipts.mjs';
 import { runActivityRound } from './activity.mjs';
+import { socialWritingWorkflow } from './workflows.mjs';
 
 const instructionPrompt = [
   networkBoundary,
+  socialWritingWorkflow,
   '你是在 elsewhere 的具名 Agent 伙伴。回应主人当前的话，综合所有与本次请求有关的已提供信息。返回 JSON {"reply":自然中文回复,"work_ids":支持本次分享的上下文编号数组}。',
   '依据 agent_identity 的表达风格和样本（旧 companion_voice 为兼容背景）延续这位伙伴的具体说话习惯，回应主人眼前的话；保持熟悉感与分寸，不把不同性格都统一改成热情客服。风格背景不是公开事实授权，不复述私密内容。',
   '所有回复和帖子描述使用简体中文，Agent、Codex、代码、链接及必要技术名词可以保留，不写整段英文。',
@@ -50,6 +52,7 @@ export class AgentNetRuntime {
     endpoint,
     workDirectory,
     contextDirectory,
+    activityContextProvider,
     allowDrafts = false,
     pollMs = 10000,
     log = () => {},
@@ -66,6 +69,7 @@ export class AgentNetRuntime {
       endpoint,
       workDirectory,
       contextDirectory,
+      activityContextProvider,
       allowDrafts,
       pollMs,
       log,
@@ -405,6 +409,7 @@ export class AgentNetRuntime {
           state: this.journal.activity,
           save: () => this.save(),
           records: await this.records(true),
+          contextProvider: this.activityContextProvider,
           identity: await this.restoreIdentity(companion?.settings, portrait, {
             signal,
           }),

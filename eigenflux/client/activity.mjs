@@ -2,6 +2,19 @@ import { randomUUID } from 'node:crypto';
 import { secretInDraft } from './work.mjs';
 import { generationIdentity } from './identity.mjs';
 import { expressionContext } from './prompts.mjs';
+import { restoreActivityContext, contextAudit } from './activity-context.mjs';
+
+function planContext(plan) {
+  const {
+    identity_core: _identity,
+    activity_contract: _activity,
+    execution_contract: _execution,
+    workflows: _workflows,
+    tools: _tools,
+    ...data
+  } = plan;
+  return data;
+}
 
 // Hosts differ in model and memory adapters. All observations and mutations use
 // the same server registry and receipts as the platform host.
@@ -13,6 +26,7 @@ export async function runActivityRound({
   records = [],
   identity,
   voice,
+  contextProvider,
   signal,
   now = Date.now(),
 }) {
@@ -53,7 +67,11 @@ export async function runActivityRound({
       // An explicit rejection is a tool observation; a lost response remains
       // unresolved and is replayed with the same key on the next host start.
       if (!error.apiCode) throw error;
-      result = { rejected: true, code: error.apiCode, message: error.result?.error?.message };
+      result = {
+        rejected: true,
+        code: error.apiCode,
+        message: error.result?.error?.message,
+      };
     }
     // Never reconstruct a publication receipt from model prose.
     if (
@@ -66,15 +84,7 @@ export async function runActivityRound({
       tool === 'publish' && !result.rejected
         ? await client.activity_tool({ tool: 'post', id: result.id })
         : undefined;
-    const observation =
-      tool === 'plan'
-        ? (({
-            identity_core: _identity,
-            activity_contract: _contract,
-            tools: _tools,
-            ...rest
-          }) => rest)(result)
-        : result;
+    const observation = tool === 'plan' ? planContext(result) : result;
     state.results.push({
       tool,
       arguments: args,
@@ -110,7 +120,23 @@ export async function runActivityRound({
     tool: 'recall',
     scope: 'public',
   });
-  let { identity_core, activity_contract, ...settings } = plan;
+  let { identity_core, activity_contract } = plan;
+  let settings = planContext(plan);
+  const workflows = { ...plan.workflows };
+  let workingContext;
+  const restore = async () => {
+    workingContext = await restoreActivityContext({
+      provider: contextProvider,
+      plan,
+      continuation,
+      records,
+      signal,
+      now,
+    });
+    state.contextAudit = contextAudit(workingContext, plan.execution_manifest);
+    await save();
+  };
+  await restore();
   state.evidence ||= [];
   state.completed ||= [];
   let formatFeedback;
@@ -120,7 +146,13 @@ export async function runActivityRound({
     let decision;
     try {
       decision = await model.json(
-        identity_core + '\n' + expressionContext + '\n' + activity_contract,
+        identity_core +
+          '\n' +
+          expressionContext +
+          '\n' +
+          activity_contract +
+          '\n' +
+          (plan.execution_contract || ''),
         {
           activity_plan: settings,
           agent_identity: generationIdentity(
@@ -129,6 +161,8 @@ export async function runActivityRound({
           ),
           companion_voice: voice,
           continuation,
+          working_context: workingContext,
+          workflows,
           records,
           tools: plan.tools,
           steps_remaining: maxSteps - state.step,
@@ -196,12 +230,29 @@ export async function runActivityRound({
     if (['recall', 'checkpoint'].includes(decision.tool)) args.scope = 'public';
     const result = await invoke(decision.tool, args);
     if (!result.rejected) {
-      if (['review', 'publish', 'plan', 'ack_owner_events'].includes(decision.tool)) {
+      if (
+        ['review', 'publish', 'plan', 'ack_owner_events'].includes(
+          decision.tool,
+        )
+      ) {
         plan =
           decision.tool === 'plan'
             ? result
             : await client.activity_tool({ tool: 'plan' });
-        ({ identity_core, activity_contract, ...settings } = plan);
+        ({ identity_core, activity_contract } = plan);
+        settings = planContext(plan);
+        if (['review', 'ack_owner_events'].includes(decision.tool))
+          await restore();
+      }
+      if (
+        decision.tool === 'workflow' &&
+        typeof result.id === 'string' &&
+        typeof result.content === 'string'
+      ) {
+        workflows[result.id] = result;
+        state.contextAudit.workflows = Object.values(workflows).map(
+          ({ id, version }) => ({ id, version }),
+        );
       }
       await save();
     }

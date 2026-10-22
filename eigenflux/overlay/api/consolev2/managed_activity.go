@@ -14,7 +14,7 @@ import (
 )
 
 func managedActivityPrompt() string {
-	return companionpolicy.Identity + managedWritingPrompt + companionpolicy.Activity + `
+	return companionpolicy.Identity + managedWritingPrompt + companionpolicy.Activity + companionpolicy.Execution + `
 你是平台提供宿主的 Agent。persona/agent_identity 是实际角色与运营归属，不虚构本人授权。当前上下文只是起点，允许按 tools 继续阅读与查证。正文使用自然中文，不输出内部判断流程。
 公共行动统一调用 tools，发帖正文30–300字、标题4–50字、摘要10–80字。私聊轮次由服务器绑定会话，终结输出 {"action":"message","content":"10–300字"} 或 skip。
 `
@@ -32,12 +32,24 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	delete(planData, "identity_core")
 	delete(planData, "activity_contract")
 	delete(planData, "tools")
+	delete(planData, "execution_contract")
+	delete(planData, "workflows")
 	payload["activity_plan"] = planData
 	payload["agent_identity"] = planData["agent_profile"]
+	workflows := companionpolicy.DefaultWorkflows()
+	payload["workflows"] = workflows
+	manifest := companionpolicy.Manifest()
+	payload["execution_manifest"] = manifest
+	manifestJSON, _ := json.Marshal(manifest)
+	if err := s.db.WithContext(ctx).Exec("UPDATE managed_runs SET execution_manifest=?::jsonb WHERE run_id=? AND agent_id=?", string(manifestJSON), job.RunID, job.AgentID).Error; err != nil {
+		return total, err
+	}
+	payload["working_context"] = map[string]any{"version": "working-context-v1", "retrieval": map[string]any{"status": "unavailable", "source": "host-memory", "reason": "managed host uses operator profile and public sources, not the represented person's private memory"}, "profile_ref": "activity_plan.agent_profile", "facts_ref": "evidence", "scope": "public"}
 	scope := "public"
 	if input.Targets.Private && input.Message != nil && input.Message.ConversationID != "" {
 		scope = "conversation:" + input.Message.ConversationID
 		delete(planData, "owner_actions")
+		payload["working_context"].(map[string]any)["scope"] = scope
 	}
 	memory, err := s.activityTool(ctx, job.AgentID, "recall", activityRequest{Scope: scope})
 	if err != nil {
@@ -185,6 +197,10 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 				}
 			}
 			updated := activityData(compactActivityResult("plan", refreshed))
+			for _, field := range []string{"identity_core", "activity_contract", "execution_contract", "workflows", "tools"} {
+				delete(updated, field)
+			}
+			planData = updated
 			payload["activity_plan"] = updated
 			payload["agent_identity"] = updated["agent_profile"]
 		}
@@ -204,6 +220,18 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 			observation["readback"] = verified
 		}
 		if result.Status < 400 {
+			if name == "workflow" {
+				if w, ok := companionpolicy.LoadWorkflow(req.ID); ok {
+					workflows[w.ID] = w
+				}
+			}
+			if name == "checkpoint" || name == "recall" {
+				refreshed, e := s.activityTool(ctx, job.AgentID, "recall", activityRequest{Scope: scope})
+				if e != nil || refreshed.Status >= 400 {
+					return total, managedFailure("context")
+				}
+				payload["continuation"] = refreshed.Data
+			}
 			if name == "read" || name == "sources" || name == "post" || name == "observations" {
 				evidence = append(evidence, observation)
 				if len(evidence) > 5 {
@@ -395,6 +423,8 @@ func compactActivityResult(name string, result activityResult) activityResult {
 	if name == "plan" {
 		delete(data, "identity_core")
 		delete(data, "activity_contract")
+		delete(data, "execution_contract")
+		delete(data, "workflows")
 		delete(data, "tools")
 	}
 	if name == "read" {

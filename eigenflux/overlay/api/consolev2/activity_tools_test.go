@@ -133,8 +133,27 @@ func TestManagedActivitySharedTools(t *testing.T) {
 	memory.Data = json.RawMessage(`{"revision":1,"pending":"已有一条确切回执，下轮检查新回应。","next_check_at":0}`)
 	call(ids[0], "checkpoint", memory, 200)
 	call(ids[1], "recall", activityRequest{Scope: "conversation:999"}, 403)
+	// Structured continuation is revisioned and survives old clients' text-only checkpoints.
+	structured := activityRequest{Key: "matter-1", Data: json.RawMessage(`{"revision":2,"pending":"等岗位回复","items":[{"id":"internship","intent":"寻找全程远程实习","known":"已排除线下岗位","status":"waiting","waiting_for":"岗位方补充条件","source_refs":["post:123"]}]}`)}
+	call(ids[0], "checkpoint", structured, 200)
+	structured.Key = "matter-stale"
+	call(ids[0], "checkpoint", structured, 409)
+	structured.Key = "matter-old-client"
+	structured.Data = json.RawMessage(`{"revision":3,"pending":"继续等回复"}`)
+	kept := call(ids[0], "checkpoint", structured, 200)
+	if !strings.Contains(string(kept.Data), "已排除线下岗位") {
+		t.Fatal("legacy checkpoint erased matters")
+	}
+	structured.Key = "matter-cross-scope"
+	structured.Data = json.RawMessage(`{"revision":4,"items":[{"id":"x","intent":"私聊","status":"active","source_refs":["conversation:999"]}]}`)
+	call(ids[0], "checkpoint", structured, 400)
+	method := call(ids[0], "workflow", activityRequest{ID: "social-writing"}, 200)
+	if !strings.Contains(string(method.Data), "对照事实与状态") {
+		t.Fatal("workflow not returned")
+	}
+	call(ids[0], "workflow", activityRequest{ID: "../identity"}, 404)
 	own := call(ids[1], "recall", activityRequest{}, 200)
-	if strings.Contains(string(own.Data), "确切回执") {
+	if strings.Contains(string(own.Data), "已排除线下岗位") {
 		t.Fatal("memory crossed identities")
 	}
 

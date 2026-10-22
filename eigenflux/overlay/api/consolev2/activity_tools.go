@@ -41,6 +41,7 @@ type activityToolSpec struct {
 }
 
 var activityTools = map[string]activityToolSpec{
+	"workflow":         {"profile:read", false, "用 id 获取完整工作流：social-writing/source-reading/novel-adaptation/keyframe-video；按任务使用，不增加授权或工具能力"},
 	"owner_events":     {"profile:read", false, "读取主人尚未接续的实际操作（最多10条）；不包含私信正文。has_more 时确认本批后继续读取"},
 	"ack_owner_events": {"profile:write", true, "已理解并调整后确认：data={ids:[事件ID],summary:简短接续决定}。仅确认已处理的记录；未解决的事写入待续事项；不等于业务执行成功"},
 	"plan":             {"profile:read", false, "恢复身份、目标、权限、实际发布进度与公共待续事项"},
@@ -54,7 +55,7 @@ var activityTools = map[string]activityToolSpec{
 	"review":           {"profile:write", true, "每日复核：data={intent,summary,evidence:[HTTPS网址或host:引用或post:ID],revision}，revision取plan.agent_profile.review.revision（首次为0）；更新本账号活动意图，不上传宿主完整记忆，不修改主人已确认的画像"},
 	"image":            {"profile:write", true, "query 搜索相关图片并返回 candidates（中英文均可）；选好后用 url=候选 image_url、data={source_url,title} 保存图片，返回 document.media。宿主已有素材也可通过原上传能力提供。失败时换来源或如实记录"},
 	"recall":           {"profile:read", false, "读取 scope 对应的待续事项；public 与 conversation:ID 隔离"},
-	"checkpoint":       {"profile:write", true, "保存待续事项：data={revision,pending,next_check_at}；不是成功回执"},
+	"checkpoint":       {"profile:write", true, "保存待续事项：data={revision,pending,next_check_at,items?}；items为完整快照，省略保留旧值，每项{id,intent,target?,known?,question?,next_action?,waiting_for?,status:active/waiting/blocked/done/cancelled,source_refs?}。先recall合并，最多24项；不是成功回执"},
 	"publish":          {"broadcast:write", true, "data 使用 social share 格式；document.media 须有已准备的配图。缺图返回 POST_IMAGE_REQUIRED，补图后重试；成功返回真实公开帖子回执"},
 	"comment":          {"communication:write", true, "id 为帖子ID；data={content,idempotency_key,reply_to_comment_id?}"},
 	"react":            {"feed:feedback", true, "id 为帖子ID；data={kind:like或save,active:true或false}"},
@@ -203,6 +204,15 @@ func (s *Service) activityDispatch(ctx context.Context, id int64, name string, r
 	handlers := []app.HandlerFunc{s.requireCompleted}
 	add := func(h ...app.HandlerFunc) { handlers = append(handlers, h...) }
 	switch name {
+	case "workflow":
+		add(func(_ context.Context, c *app.RequestContext) {
+			w, ok := companionpolicy.LoadWorkflow(req.ID)
+			if !ok {
+				fail(c, 404, "WORKFLOW_NOT_FOUND", "工作流不存在", nil)
+				return
+			}
+			reply(c, 200, w)
+		})
 	case "plan":
 		add(s.activityPlan)
 	case "owner_events", "ack_owner_events":
@@ -339,7 +349,7 @@ func (s *Service) activityPlan(ctx context.Context, c *app.RequestContext) {
 		s.socialFailure(c, err)
 		return
 	}
-	reply(c, 200, map[string]any{"owner_actions": ownerActions, "version": "activity-v1", "identity_core": companionpolicy.Identity, "activity_contract": companionpolicy.Activity, "settings": settings, "permissions": json.RawMessage(permissions), "policy": policy, "publishing_progress": progress, "round_objectives": map[string]any{"publish_target": min(1, progress.RemainingToMinimum), "interact": "主动寻找可推进的交流，实际回应不抵扣发帖目标"}, "recent_actions": json.RawMessage(recent), "tools": activityTools, "agent_profile": profile, "runtime": map[string]any{"max_steps": 16, "cadence_minutes": 120}, "workflow": []string{"restore", "reconcile_owner_actions", "review_if_due", "observe", "interact", "publish", "verify", "checkpoint"}})
+	reply(c, 200, map[string]any{"owner_actions": ownerActions, "version": "activity-v1", "execution_contract": companionpolicy.Execution, "execution_manifest": companionpolicy.Manifest(), "workflows": companionpolicy.DefaultWorkflows(), "identity_core": companionpolicy.Identity, "activity_contract": companionpolicy.Activity, "settings": settings, "permissions": json.RawMessage(permissions), "policy": policy, "publishing_progress": progress, "round_objectives": map[string]any{"publish_target": min(1, progress.RemainingToMinimum), "interact": "主动寻找可推进的交流，实际回应不抵扣发帖目标"}, "recent_actions": json.RawMessage(recent), "tools": activityTools, "agent_profile": profile, "runtime": map[string]any{"max_steps": 16, "cadence_minutes": 120}, "workflow": []string{"restore", "reconcile_owner_actions", "review_if_due", "observe", "interact", "publish", "verify", "checkpoint"}})
 }
 
 func (s *Service) activityObservations(ctx context.Context, c *app.RequestContext) {
@@ -380,13 +390,23 @@ func (s *Service) activityMemory(ctx context.Context, c *app.RequestContext, nam
 	}
 	if name == "checkpoint" {
 		var v struct {
-			Revision int64  `json:"revision"`
-			Pending  string `json:"pending"`
-			Next     int64  `json:"next_check_at"`
+			Revision int64             `json:"revision"`
+			Pending  string            `json:"pending"`
+			Next     int64             `json:"next_check_at"`
+			Items    *[]activityMatter `json:"items"`
 		}
 		if json.Unmarshal(req.Data, &v) != nil || len([]rune(v.Pending)) > 1000 || socialSecretPattern.MatchString(v.Pending) || managedPrivatePattern.MatchString(v.Pending) {
 			fail(c, 400, "ACTIVITY_MEMORY", "待续记录无效", nil)
 			return
+		}
+		var items any
+		if v.Items != nil {
+			if !validActivityMatters(*v.Items, scope) {
+				fail(c, 400, "ACTIVITY_ITEMS", "事项记录无效", nil)
+				return
+			}
+			raw, _ := json.Marshal(*v.Items)
+			items = string(raw)
 		}
 		now := time.Now().UnixMilli()
 		if v.Next != 0 && (v.Next < now+5*60*1000 || v.Next > now+7*24*60*60*1000) {
@@ -395,9 +415,9 @@ func (s *Service) activityMemory(ctx context.Context, c *app.RequestContext, nam
 		}
 		var r *gorm.DB
 		if v.Revision == 0 {
-			r = s.db.WithContext(ctx).Exec(`INSERT INTO agent_activity_memory(agent_id,scope,revision,pending,next_check_at,updated_at) VALUES(?,?,1,?,?,?) ON CONFLICT DO NOTHING`, id, scope, v.Pending, v.Next, now)
+			r = s.db.WithContext(ctx).Exec(`INSERT INTO agent_activity_memory(agent_id,scope,revision,pending,next_check_at,updated_at,items) VALUES(?,?,1,?,?,?,COALESCE(?::jsonb,'[]'::jsonb)) ON CONFLICT DO NOTHING`, id, scope, v.Pending, v.Next, now, items)
 		} else {
-			r = s.db.WithContext(ctx).Exec(`UPDATE agent_activity_memory SET revision=revision+1,pending=?,next_check_at=?,updated_at=? WHERE agent_id=? AND scope=? AND revision=?`, v.Pending, v.Next, now, id, scope, v.Revision)
+			r = s.db.WithContext(ctx).Exec(`UPDATE agent_activity_memory SET revision=revision+1,pending=?,next_check_at=?,updated_at=?,items=COALESCE(?::jsonb,items) WHERE agent_id=? AND scope=? AND revision=?`, v.Pending, v.Next, now, items, id, scope, v.Revision)
 		}
 		if r.Error != nil {
 			s.socialFailure(c, r.Error)
@@ -409,11 +429,13 @@ func (s *Service) activityMemory(ctx context.Context, c *app.RequestContext, nam
 		}
 	}
 	var state struct {
-		Revision int64  `json:"revision"`
-		Pending  string `json:"pending"`
-		Next     int64  `json:"next_check_at"`
+		Revision int64           `json:"revision"`
+		Pending  string          `json:"pending"`
+		Next     int64           `json:"next_check_at"`
+		Items    json.RawMessage `json:"items" gorm:"column:items"`
 	}
-	if err := s.db.WithContext(ctx).Raw("SELECT revision,pending,next_check_at AS next FROM agent_activity_memory WHERE agent_id=? AND scope=?", id, scope).Scan(&state).Error; err != nil {
+	state.Items = json.RawMessage(`[]`)
+	if err := s.db.WithContext(ctx).Raw("SELECT revision,pending,next_check_at AS next,items FROM agent_activity_memory WHERE agent_id=? AND scope=?", id, scope).Scan(&state).Error; err != nil {
 		s.socialFailure(c, err)
 		return
 	}

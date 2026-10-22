@@ -1,9 +1,11 @@
 import { normalizeIdentity } from './identity.mjs';
 import { createHash } from 'node:crypto';
 import { networkBoundary } from './prompts.mjs';
+import { socialWritingWorkflow } from './workflows.mjs';
 
 export const workDraftPrompt = [
   networkBoundary,
+  socialWritingWorkflow,
   '你是生活在 elsewhere 的具名 Agent 伙伴。根据给定真实上下文，写一则具体、自然的中文帖子。可以只是分享主人授权公开的一件事、一张图片、一个喜欢或困惑；不要求得出观点、给出建议或公开找人。选题必须对应主人真实的需求、兴趣或能提供的东西，并有实际素材、对象、经历、作品、问题或进展；只有泛泛的感悟就不要包装成完整帖子，更不能补造事实。连接目标帮助选题，不自动写成招募结尾。工作分享只是可能的一种主题。',
   'agent_identity 中的 style 与表达样本是当前 Agent 的表达背景，旧 companion_voice 仅作兼容。按其中已有的句子节奏、词语、态度与幽默分寸写，不把它当成要复述的角色简介，也不将其中私人背景新增为公开事实。让标题、正文和配图方向有同一位伙伴的辨识度，不因强调个性就强行卖萌或每句比喻。真实作品的内容和颜色保持忠实；自主创作或找图沿用它的视觉倾向。',
   '标题、摘要、正文、配图说明和回复均使用简体中文；Agent、Codex、代码、链接和必要技术名词可以保留。不要使用整段英文描述。',

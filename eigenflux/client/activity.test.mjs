@@ -57,6 +57,76 @@ function fixture(decisions) {
   };
 }
 
+void test('shared workflow and retrieved facts survive tool steps; checkpoint returns the updated matter', async () => {
+  const f = fixture([
+    (input) => {
+      assert.equal(input.working_context.facts[0].id, 'correction');
+      assert.equal(input.workflows['social-writing'].version, 'fixture-v1');
+      assert.equal(input.activity_plan.execution_contract, undefined);
+      return {
+        action: 'tool',
+        tool: 'checkpoint',
+        arguments: {
+          data: {
+            revision: 0,
+            pending: '已问，等回应',
+            items: [
+              {
+                id: 'internship',
+                intent: '找远程实习',
+                known: '已排除线下岗位',
+                status: 'waiting',
+                waiting_for: '岗位答复',
+              },
+            ],
+          },
+        },
+      };
+    },
+    (input) => {
+      assert.equal(input.continuation.items[0].known, '已排除线下岗位');
+      assert.equal(input.workflows['social-writing'].content, '保留条件与状态');
+      return { action: 'skip' };
+    },
+  ]);
+  const original = f.client.activity_tool.bind(f.client);
+  let items = [];
+  f.client.activity_tool = async (req) => {
+    const result = await original(req);
+    if (req.tool === 'checkpoint') items = req.data.items || items;
+    if (req.tool === 'recall') result.items = items;
+    if (req.tool === 'plan')
+      Object.assign(result, {
+        execution_contract: '补充流程',
+        execution_manifest: { contract: 'fixture-v1' },
+        workflows: {
+          'social-writing': {
+            id: 'social-writing',
+            version: 'fixture-v1',
+            content: '保留条件与状态',
+          },
+        },
+      });
+    return result;
+  };
+  await runActivityRound({
+    ...f,
+    contextProvider: async () => ({
+      status: 'retrieved',
+      facts: [
+        {
+          id: 'correction',
+          text: '优先 AI 产品，全程远程',
+          source_ref: 'host:correction',
+          public: true,
+        },
+      ],
+    }),
+  });
+  assert.equal(f.state.contextAudit.manifest.contract, 'fixture-v1');
+  assert.doesNotMatch(JSON.stringify(f.state.contextAudit), /优先 AI/);
+});
+
 void test('a checkpoint refreshes working context while the same character card survives tool steps', async () => {
   const identity = {
     agent_name: '知遥',
@@ -249,17 +319,36 @@ void test('legacy daytime window does not block a 03:00 patrol', async () => {
 
 void test('owner changes are visible before decisions, and only explicit handled IDs are acknowledged', async () => {
   let events = [
-    { id: '901', action: 'content', target: { post_id: '7', kind: 'like', active: false } },
+    {
+      id: '901',
+      action: 'content',
+      target: { post_id: '7', kind: 'like', active: false },
+    },
     { id: '902', action: 'conversation', target: { conv_id: '8' } },
   ];
   const f = fixture([
     (input) => {
       assert.deepEqual(input.activity_plan.owner_actions.events, events);
-      return { action: 'tool', tool: 'ack_owner_events', arguments: { data: { ids: ['901'], summary: '保留取消点赞；私聊另回对应会话处理。' } } };
+      return {
+        action: 'tool',
+        tool: 'ack_owner_events',
+        arguments: {
+          data: {
+            ids: ['901'],
+            summary: '保留取消点赞；私聊另回对应会话处理。',
+          },
+        },
+      };
     },
     (input) => {
-      assert.deepEqual(input.activity_plan.owner_actions.events.map(x => x.id), ['902', '903']);
-      return { action: 'skip', pending: '回到会话 8 接上主人的消息，再处理新变动 903。' };
+      assert.deepEqual(
+        input.activity_plan.owner_actions.events.map((x) => x.id),
+        ['902', '903'],
+      );
+      return {
+        action: 'skip',
+        pending: '回到会话 8 接上主人的消息，再处理新变动 903。',
+      };
     },
   ]);
   const original = f.client.activity_tool.bind(f.client);
@@ -267,20 +356,29 @@ void test('owner changes are visible before decisions, and only explicit handled
     if (request.tool === 'ack_owner_events') {
       assert.deepEqual(request.data.ids, ['901']);
       f.calls.push(structuredClone(request));
-      events = events.filter(x => !request.data.ids.includes(x.id));
+      events = events.filter((x) => !request.data.ids.includes(x.id));
       events.push({ id: '903', action: 'profile', target: {} });
-      return { acknowledged_ids: request.data.ids, summary: request.data.summary };
+      return {
+        acknowledged_ids: request.data.ids,
+        summary: request.data.summary,
+      };
     }
     const result = await original(request);
     if (request.tool === 'plan') {
-      result.owner_actions = { events: structuredClone(events), has_more: false };
+      result.owner_actions = {
+        events: structuredClone(events),
+        has_more: false,
+      };
       result.tools.ack_owner_events = { write: true };
     }
     return result;
   };
   await runActivityRound(f);
-  assert.equal(f.calls.filter(x => x.tool === 'ack_owner_events').length, 1);
-  assert.deepEqual(events.map(x => x.id), ['902', '903']);
+  assert.equal(f.calls.filter((x) => x.tool === 'ack_owner_events').length, 1);
+  assert.deepEqual(
+    events.map((x) => x.id),
+    ['902', '903'],
+  );
 });
 
 void test('reading owner changes does not consume them on model failure or missing permissions', async () => {
@@ -290,13 +388,22 @@ void test('reading owner changes does not consume them on model failure or missi
     f.client.activity_tool = async (request) => {
       const result = await original(request);
       if (request.tool === 'plan') {
-        result.owner_actions = { events: [{ id: '904', action: 'activity_settings' }], has_more: false };
+        result.owner_actions = {
+          events: [{ id: '904', action: 'activity_settings' }],
+          has_more: false,
+        };
         result.tools.ack_owner_events = { write: true };
-        if (paused) result.permissions = { recurring_publish: false, auto_comment: false };
+        if (paused)
+          result.permissions = {
+            recurring_publish: false,
+            auto_comment: false,
+          };
       }
       return result;
     };
-    f.model.json = async () => { throw new Error('provider unavailable'); };
+    f.model.json = async () => {
+      throw new Error('provider unavailable');
+    };
     if (paused) {
       const result = await runActivityRound(f);
       assert.equal(result.unauthorized, true);
@@ -304,6 +411,9 @@ void test('reading owner changes does not consume them on model failure or missi
     } else {
       await assert.rejects(runActivityRound(f), /provider unavailable/);
     }
-    assert.equal(f.calls.some(x => x.tool === 'ack_owner_events'), false);
+    assert.equal(
+      f.calls.some((x) => x.tool === 'ack_owner_events'),
+      false,
+    );
   }
 });

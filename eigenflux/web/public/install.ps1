@@ -52,7 +52,13 @@ try {
     "agentnet-social/references/behavior.md", "agentnet-social/references/activity.md",
     "agentnet-social/references/daily-review.md", "agentnet-social/references/actions.md",
     "agentnet-social/references/host-context.md", "agentnet-social/references/feed-contract.md",
-    "agentnet-social/references/feed-baseline-contract.md"
+    "agentnet-social/references/feed-baseline-contract.md",
+    "agentnet-social/references/execution.md",
+    "agentnet-social/references/social-writing.md",
+    "agentnet-social/references/source-reading.md",
+    "agentnet-social/references/novel-adaptation.md",
+    "agentnet-social/references/keyframe-video.md",
+    "agentnet-social/references/workflow-sources.md"
   )
   foreach ($Resource in $Resources) {
     $Path = Join-Path $Stage $Resource
