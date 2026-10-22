@@ -50,10 +50,20 @@ export async function runActivityRound({
     try {
       result = await client.activity_tool({ ...args, tool });
     } catch (error) {
+      if (
+        ['ACCOUNT_DELETED', 'ACCOUNT_DELETION_CLEANUP_REQUIRED'].includes(
+          error.apiCode,
+        )
+      )
+        throw error;
       // An explicit rejection is a tool observation; a lost response remains
       // unresolved and is replayed with the same key on the next host start.
       if (!error.apiCode) throw error;
-      result = { rejected: true, code: error.apiCode, message: error.result?.error?.message };
+      result = {
+        rejected: true,
+        code: error.apiCode,
+        message: error.result?.error?.message,
+      };
     }
     // Never reconstruct a publication receipt from model prose.
     if (
@@ -196,7 +206,11 @@ export async function runActivityRound({
     if (['recall', 'checkpoint'].includes(decision.tool)) args.scope = 'public';
     const result = await invoke(decision.tool, args);
     if (!result.rejected) {
-      if (['review', 'publish', 'plan', 'ack_owner_events'].includes(decision.tool)) {
+      if (
+        ['review', 'publish', 'plan', 'ack_owner_events'].includes(
+          decision.tool,
+        )
+      ) {
         plan =
           decision.tool === 'plan'
             ? result

@@ -217,10 +217,11 @@
  	normalizedDraft, draftObject, normalizeErr := normalizeOnboardingDraftJSON(req.Draft)
 --- a/api/consolev2/capability_registry.go
 +++ b/api/consolev2/capability_registry.go
-@@ -75,6 +75,7 @@
+@@ -75,6 +75,8 @@
  func capabilitySeeds() []capabilitySeed {
  	seeds := []capabilitySeed{
  		capability("capabilities.read", "eigenflux capabilities", "discovery", "read", "读取 Agent 能力注册表", "Read the Agent capability registry"),
++		capability("identity.account_status", "eigenflux agent account-status", "identity", "write", "确认注销并清理本地连接", "Confirm account deletion and clean local connection"),
 +		capability("profile.validate", "eigenflux validate-profile", "local", "read", "检查注册必填的简洁网络资料", "Validate required network-card fields locally; private memory stays in the host"),
  		capability("identity.initialize", "eigenflux agent init", "identity", "write", "初始化本地 Agent 身份", "Initialize local Agent identity"),
  		capability("identity.provision", "eigenflux agent provision", "identity", "write", "创建或认领 Agent", "Provision or claim an Agent"),
@@ -504,3 +505,54 @@
  	body, err := json.Marshal(map[string]any{"scripted_upsert": true, "script": map[string]any{"lang": "painless", "source": "if (ctx.op == 'create') { ctx._source = params.doc; } else { if (params.doc.catalogue_version >= ctx._source.catalogue_version) { for (entry in params.doc.entrySet()) { if (entry.getKey() != 'statistics_version' && entry.getKey() != 'completed_count' && entry.getKey() != 'refunded_count' && entry.getKey() != 'completion_rate_bps' && entry.getKey() != 'average_rating_milli' && entry.getKey() != 'has_rating' && entry.getKey() != 'average_delivery_ms') { ctx._source[entry.getKey()] = entry.getValue(); } } } if (params.doc.statistics_version >= ctx._source.statistics_version) { ctx._source.statistics_version = params.doc.statistics_version; ctx._source.completed_count = params.doc.completed_count; ctx._source.refunded_count = params.doc.refunded_count; ctx._source.completion_rate_bps = params.doc.completion_rate_bps; ctx._source.average_rating_milli = params.doc.average_rating_milli; ctx._source.has_rating = params.doc.has_rating; ctx._source.average_delivery_ms = params.doc.average_delivery_ms; } }", "params": map[string]any{"doc": doc}}, "upsert": doc})
  	if err != nil {
  		return fmt.Errorf("marshal Commission update: %w", err)
+--- a/cli/cmd/v2_helpers.go
++++ b/cli/cmd/v2_helpers.go
+@@ -65,6 +65,12 @@
+ 	err := auth.WithV2CredentialsLock(serverName, 35*time.Second, func() error {
++		if err := resumeConnectionDeletion(serverName); err != nil {
++			return err
++		}
+ 		var refreshErr error
+ 		credentials, refreshErr = ensureV2CredentialsUnlocked(serverName, endpoint, force)
++		if refreshErr != nil {
++			return deletionAfterAuthFailure(serverName, endpoint, refreshErr)
++		}
+ 		return refreshErr
+ 	})
+ 	return credentials, err
+--- a/cli/cmd/helpers.go
++++ b/cli/cmd/helpers.go
+@@ -39,6 +39,9 @@
+ 	}
+ 	if requireAuth {
++		if err := guardDeletedServer(srv.Name); err != nil {
++			output.Die(output.ExitAuthRequired, "%v", err)
++		}
+ 		hasV2, v2Err := auth.HasV2Credentials(srv.Name)
+ 		if v2Err != nil {
+ 			output.Die(output.ExitAuthRequired, "inspect Agent V2 credentials for server %q: %v", srv.Name, v2Err)
+ 		}
+--- a/cli/cmd/agent_v2.go
++++ b/cli/cmd/agent_v2.go
+@@ -321,6 +321,9 @@
+ var agentV2ProvisionCmd = &cobra.Command{
+ 	Use:   "provision",
+ 	Short: "Provision or recover the Agent bound to this installation key",
+ 	RunE: func(cmd *cobra.Command, _ []string) error {
++		if err := guardDeletedConnection(); err != nil {
++			return err
++		}
+ 		grant, _ := cmd.Flags().GetString("bootstrap-grant")
+ 		nonce, _ := cmd.Flags().GetString("nonce")
+--- a/cli/cmd/agent_v2.go
++++ b/cli/cmd/agent_v2.go
+@@ -167,6 +167,9 @@
+ 	RunE: func(cmd *cobra.Command, _ []string) error {
++		if err := guardDeletedConnection(); err != nil {
++			return err
++		}
+ 		cfg, err := config.Load()
+ 		if err != nil {
+ 			return err
+ 		}
+ 		server, err := cfg.GetActive(serverFlag)

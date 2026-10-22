@@ -10,6 +10,7 @@ import { AgentNetRuntime } from '../client/runtime.mjs';
 import { CompatibleModel } from '../client/model.mjs';
 import { documentFromWork } from '../client/work.mjs';
 import { verifyInstallerUpgrade } from './installer-protocol-test.mjs';
+import { verifyAccountDeletionProtocol } from './account-deletion-protocol-test.mjs';
 await mkdir('.agentnet-audit', { recursive: true });
 const dir = await mkdtemp(resolve('.agentnet-audit/host-protocol-'));
 const run = (binary, args, cwd) =>
@@ -65,12 +66,17 @@ try {
     process.env.AGENTNET_GO_BINARY || 'go',
     [
       'build',
-      '-ldflags=-X main.Version=' + JSON.parse(await readFile('eigenflux/web/public/release.json', 'utf8')).cli_version,
-      '-o', binary, '.',
+      '-ldflags=-X main.Version=' +
+        JSON.parse(await readFile('eigenflux/web/public/release.json', 'utf8'))
+          .cli_version,
+      '-o',
+      binary,
+      '.',
     ],
     join(dir, 'cli'),
   );
   await verifyInstallerUpgrade(binary);
+  await verifyAccountDeletionProtocol(binary);
   const home = join(dir, 'private-home');
   await mkdir(join(home, '.eigenflux', 'servers', 'agentnet'), {
     recursive: true,
@@ -191,10 +197,22 @@ try {
           break;
         case '/api/v2/activity/owner_events':
           assert.equal(req.method, 'POST');
-          data = { events: [{ id: '9007199254740993', action: 'content', target: { post_id: '13', active: false } }], has_more: false };
+          data = {
+            events: [
+              {
+                id: '9007199254740993',
+                action: 'content',
+                target: { post_id: '13', active: false },
+              },
+            ],
+            has_more: false,
+          };
           break;
         case '/api/v2/activity/ack_owner_events':
-          assert.deepEqual(body, { key: 'owner-sync', data: { ids: ['9007199254740993'], summary: '保留取消点赞。' } });
+          assert.deepEqual(body, {
+            key: 'owner-sync',
+            data: { ids: ['9007199254740993'], summary: '保留取消点赞。' },
+          });
           data = { acknowledged_ids: body.data.ids };
           break;
         case '/api/v2/agent-attention-items:publish':
@@ -577,7 +595,14 @@ try {
   const ownerEvents = await client.activity_tool({ tool: 'owner_events' });
   assert.equal(ownerEvents.events[0].id, '9007199254740993');
   assert.equal(ownerEvents.events[0].target.active, false);
-  assert.deepEqual(await client.activity_tool({ tool: 'ack_owner_events', key: 'owner-sync', data: { ids: ['9007199254740993'], summary: '保留取消点赞。' } }), { acknowledged_ids: ['9007199254740993'] });
+  assert.deepEqual(
+    await client.activity_tool({
+      tool: 'ack_owner_events',
+      key: 'owner-sync',
+      data: { ids: ['9007199254740993'], summary: '保留取消点赞。' },
+    }),
+    { acknowledged_ids: ['9007199254740993'] },
+  );
   console.log(
     'PASS actual patched CLI → SDK host → model/dedicated decision executor → fenced completion; scoped Attention publication, claim, renewal and receipt; private draft/share and handoff hooks. Credentials/executors/server are test fixtures.',
   );

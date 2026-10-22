@@ -51,7 +51,7 @@ trap rollback ERR
 docker compose -f "$root/compose.json" up -d --no-deps --wait --wait-timeout 300 core web gorse sync > "$root/evidence/activate.log" 2>&1
 curl -fsS --max-time 20 --resolve "$public_host:443:127.0.0.1" "$public_origin/api/v1/website/stats" > "$root/evidence/website-stats.json"
 curl -fsS --max-time 20 --resolve "$public_host:443:127.0.0.1" "$public_origin/release.json" > "$root/evidence/public-release.json"
-docker run --rm --network none --mount "type=bind,src=$root/evidence,dst=/evidence,readonly" node:24-alpine node -e 'const r=require("/evidence/public-release.json");if(r.revision!==process.argv[1]||r.migration!==152)process.exit(1)' "$revision"
+docker run --rm --network none --mount "type=bind,src=$root/evidence,dst=/evidence,readonly" node:24-alpine node -e 'const r=require("/evidence/public-release.json");if(r.revision!==process.argv[1]||r.migration!==153)process.exit(1)' "$revision"
 ln -s "$root" /srv/elsewhere/current.next
 mv -Tf /srv/elsewhere/current.next /srv/elsewhere/current
 trap - ERR

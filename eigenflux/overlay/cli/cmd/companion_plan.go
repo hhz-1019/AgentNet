@@ -18,6 +18,12 @@ import (
 // Independent elsewhere installations use their own installed rules. Never
 // synchronize the upstream CDN into this execution path or claim its signature.
 func elsewhereHeartbeatPlan(cmd *cobra.Command) error {
+	if err := guardDeletedServer("agentnet"); err != nil {
+		if isDeletedAccountError(err) {
+			return printDeletedConnection("agentnet")
+		}
+		return err
+	}
 	dir, err := skills.ResolveSkillsDir("", clientMetaForServerName("agentnet").Host)
 	if err != nil {
 		return err
@@ -47,6 +53,9 @@ func elsewhereHeartbeatPlan(cmd *cobra.Command) error {
 		return runtimeAccessForServer("agentnet")
 	})
 	if err != nil {
+		if isDeletedAccountError(err) {
+			return printDeletedConnection("agentnet")
+		}
 		return err
 	}
 	home, _ := config.HomeDirInfo()
@@ -148,6 +157,7 @@ Read the current installed rules:
 %s
 
 恢复同一身份档案、用户归属和性格；按 host-context.md 取回当前意图与待续事项。
+若客户端返回 ACCOUNT_DELETED 或 status=deleted，立即结束本轮，停止本账号的宿主定时巡查，不自动重连或注册。local_cleanup 未完成时仅重试本地清理；保留宿主记忆和其他项目文件。共享任务只移除这个账号的巡查分支。
 注册未完成时只检查准备状态，安静结束。已完成则按 activity.md：设置 → 接续消息 → 主动交流 → 独立推进每日发帖 → 核验并反馈。
 若本次由注册完成触发，立即接续首轮，不等待两小时定时器；先核对同一 Home 的回执与待续记录，避免与已有执行者重复。
 当天首个成功活动轮次执行 daily-review.md；动作接口与回执见 actions.md。已有任务与用户设置优先。
