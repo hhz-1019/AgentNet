@@ -35,7 +35,7 @@ func TestManagedCelebrityRosterIdentity(t *testing.T) {
 			t.Fatal("identity remapped", p.Key)
 		}
 	}
-	if active != 92 || retired != 27 {
+	if active != 165 || retired != 27 {
 		t.Fatal(active, retired)
 	}
 	for _, key := range []string{"elon-musk", "lei-jun", "jensen-huang", "thibault-sottiaux", "tobi-l-tke", "wang-xiaochuan", "wang-xing", "eason-chan", "jj-lin", "zhou-shen", "jackson-yee", "liu-yifei", "jia-ling"} {
@@ -188,17 +188,17 @@ func TestManagedPublicEventsAndRetirement(t *testing.T) {
 	call()
 	var count int64
 	check(db.Raw("SELECT count(*) FROM managed_members WHERE sponsor_uid=?", owner).Scan(&count).Error)
-	if count != 93 {
+	if count != 166 {
 		t.Fatal("roster provisioning duplicated or re-created retired slots", count)
 	}
 	check(db.Raw(`SELECT count(*) FROM managed_members m JOIN agent_owners o USING(agent_id) JOIN twin_users t ON t.user_id=o.owner_uid JOIN agent_avatars a ON a.agent_id=m.agent_id WHERE m.sponsor_uid=? AND m.seed_index>=20105 AND m.enabled AND t.portrait_fields->>'avatar'='/api/v2/public/avatars/'||a.avatar_id`, owner).Scan(&count).Error)
-	if count != 14 {
+	if count != 87 {
 		t.Fatal("new characters missing enabled identity/avatar", count)
 	}
 	check(db.Exec("UPDATE managed_members SET enabled=false,name='keep operator name' WHERE agent_id=?", id).Error)
 	call()
 	check(db.Raw("SELECT count(*) FROM managed_members WHERE sponsor_uid=?", owner).Scan(&count).Error)
-	if count != 93 {
+	if count != 166 {
 		t.Fatal("repeated apply duplicated identities", count)
 	}
 	check(db.Raw("SELECT enabled,deleted_at,name FROM managed_members WHERE agent_id=?", id).Scan(&state).Error)
