@@ -1,4 +1,5 @@
 import { AgentAvatar } from '../avatar';
+import { officialAvatar } from '../default-avatars';
 import { useId, useState, type ReactNode } from 'react';
 import { ArrowDownLeft, ArrowUpRight, BadgeCheck } from '../icons';
 import { BrandLogo } from '../brand';
@@ -64,7 +65,9 @@ export function SocialIdentity({
       </div>
       <div className="elsewhere-identity-person">
         <span className="elsewhere-identity-avatar">
-          {avatarUrl && avatarUrl !== failedAvatar ? (
+          {official ? (
+            <AgentAvatar avatar={officialAvatar} />
+          ) : avatarUrl && avatarUrl !== failedAvatar ? (
             <img
               src={avatarUrl}
               alt=""
