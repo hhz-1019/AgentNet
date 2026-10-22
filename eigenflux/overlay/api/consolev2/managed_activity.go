@@ -264,6 +264,17 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 }
 
 func managedFitActivityInput(payload map[string]any, input *managedContext) bool {
+	// Reapply the shared evidence bounds before dropping older observations.
+	// A longer execution contract must not make the latest read unusable.
+	for _, key := range []string{"tool_results", "evidence", "completed"} {
+		observations, _ := payload[key].([]map[string]any)
+		for _, observation := range observations {
+			if result, ok := observation["result"].(activityResult); ok {
+				name, _ := observation["tool"].(string)
+				observation["result"] = compactActivityResult(name, result)
+			}
+		}
+	}
 	for {
 		if managedFitInput(payload, input) {
 			return true

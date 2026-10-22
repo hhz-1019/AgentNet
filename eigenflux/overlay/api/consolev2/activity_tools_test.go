@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"eigenflux_server/pkg/companionpolicy"
 	"gorm.io/gorm"
 )
 
@@ -331,10 +332,12 @@ func TestManagedActivityResearchBoundary(t *testing.T) {
 func TestManagedActivityBoundsLargeEvidence(t *testing.T) {
 	trace := []map[string]any{}
 	for i := 0; i < 4; i++ {
-		trace = append(trace, map[string]any{"tool": "read", "result": activityJSON(200, map[string]any{"id": fmtRun(int64(i + 1)), "text": strings.Repeat("有日期和链接的公开材料", 600)})})
+		trace = append(trace, map[string]any{"tool": "read", "result": activityJSON(200, map[string]any{"data": map[string]any{"id": fmtRun(int64(i + 1)), "text": strings.Repeat("有日期和链接的公开材料", 600)}})})
 	}
 	input := managedContext{Targets: managedTargets{Comments: map[int64]bool{}, Likes: map[int64]bool{}}}
 	payload := map[string]any{"activity_mode": true, "tool_results": trace, "background_documents": strings.Repeat("旧背景", 12000), "original_samples": strings.Repeat("表达样本", 6000)}
+	payload["workflows"] = companionpolicy.DefaultWorkflows()
+	payload["execution_manifest"] = companionpolicy.Manifest()
 	if !managedFitActivityInput(payload, &input) {
 		t.Fatal("large observations prevent continuation")
 	}
