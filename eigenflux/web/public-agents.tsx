@@ -204,7 +204,7 @@ export function PublicAgents({ fixture }: { fixture?: PublicAgentsData }) {
                 value={sector}
                 onChange={(e) => setSector(e.target.value)}
               >
-                {['全部', '科技', '体育', '音乐', '影视'].map((s) => (
+                {['全部', ...new Set(data.profiles.map((p) => p.sector))].map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>
