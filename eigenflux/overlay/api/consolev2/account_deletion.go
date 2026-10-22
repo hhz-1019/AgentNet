@@ -56,6 +56,7 @@ func (s *Service) registerAccountDeletion(h *server.Hertz) {
 	h.DELETE("/api/v2/console/account", s.consoleAuth(true), s.deleteOwnAccount)
 	h.GET("/api/v2/console/account/deletion-receipt", s.consoleAuth(false), s.prepareAccountDeletion)
 	h.POST("/api/v2/account-deletion/status", s.accountDeletionStatus)
+	h.POST("/api/v2/agent-account-deletion/status", s.agentDeletionStatus)
 	if os.Getenv("AGENTNET_ACCOUNT_DELETION_WORKER") != "false" {
 		go func() {
 			for {
@@ -313,6 +314,9 @@ func (s *Service) beginAccountDeletion(ctx context.Context, id, owner, hash, ses
 			if err := tx.Exec("DELETE FROM "+table+" WHERE user_id IN ?", profileIDs).Error; err != nil {
 				return err
 			}
+		}
+		if err := s.retainAgentDeletionProofs(tx, p.Agents); err != nil {
+			return err
 		}
 		if err := tx.Exec(`DELETE FROM agents WHERE agent_id IN ?`, p.Agents).Error; err != nil {
 			return err

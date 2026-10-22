@@ -71,6 +71,9 @@ func (s *Service) addPostAvatars(ctx context.Context, posts []socialPostRow) {
 		if preview, ok := previews[id]; ok {
 			portrait = preview
 		}
+		if p.IsOfficial {
+			portrait = avatarPreview{Avatar: officialAvatar}
+		}
 		posts[i].AuthorAvatar = &portrait
 	}
 }

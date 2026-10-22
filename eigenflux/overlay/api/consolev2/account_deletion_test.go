@@ -3,6 +3,8 @@ package consolev2
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"eigenflux_server/pkg/owneruid"
 	"encoding/base64"
 	"encoding/json"
@@ -54,6 +56,9 @@ func TestAccountDeletionLifecycle(t *testing.T) {
 	check(err)
 	check(insertProvisionedAgent(db, id, "erase@identity.invalid", "待注销", now))
 	check(insertProvisionedAgent(db, peer, "erase-peer@identity.invalid", "保留", now))
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	check(err)
+	exec(`INSERT INTO agent_principals(agent_id,key_fingerprint,public_key,created_at,last_seen_at) VALUES(?,?,?,?,?)`, id, fingerprint(publicKey), []byte(publicKey), now, now)
 	var number int64
 	check(db.Transaction(func(tx *gorm.DB) error {
 		var e error
@@ -108,6 +113,7 @@ func TestAccountDeletionLifecycle(t *testing.T) {
 	}
 	h.DELETE("/delete", inject, s.deleteOwnAccount)
 	h.POST("/status", s.accountDeletionStatus)
+	h.POST("/agent-status", s.agentDeletionStatus)
 	receipt := s.deletionReceipt(base64.RawURLEncoding.EncodeToString([]byte(owner)) + "~erase_test")
 	request := func(method, path string, body any) (int, map[string]any) {
 		t.Helper()
@@ -127,6 +133,28 @@ func TestAccountDeletionLifecycle(t *testing.T) {
 	}
 	if statusOf() != "not_started" {
 		t.Fatal("prepared receipt claimed success")
+	}
+	agentStatus := func(agent int64, key ed25519.PrivateKey, age time.Duration, mutate bool) (int, string) {
+		t.Helper()
+		nonce := strings.Repeat("n", 32)
+		issuedAt := time.Now().Add(age).UnixMilli()
+		body := map[string]any{"agent_id": fmt.Sprint(agent), "public_key": base64.RawURLEncoding.EncodeToString(key.Public().(ed25519.PublicKey)), "issued_at": issuedAt, "nonce": nonce}
+		body["signature"] = base64.RawURLEncoding.EncodeToString(ed25519.Sign(key, []byte(fmt.Sprintf("ELSEWHERE-ACCOUNT-DELETION-V1\n%d\n%d\n%s", agent, issuedAt, nonce))))
+		if mutate {
+			body["agent_id"] = fmt.Sprint(agent + 1)
+		}
+		code, value := request("POST", "/agent-status", body)
+		if code != 200 {
+			return code, ""
+		}
+		data := value["data"].(map[string]any)
+		if data["nonce"] != nonce || data["agent_id"] != fmt.Sprint(agent) {
+			t.Fatal("status response not bound to request", data)
+		}
+		return code, data["status"].(string)
+	}
+	if code, status := agentStatus(id, privateKey, 0, false); code != 200 || status != "not_deleted" {
+		t.Fatal("active account marked deleted", code, status)
 	}
 	for _, body := range []map[string]any{
 		{"password": "wrong", "confirmation": fmt.Sprint(number), "receipt": receipt},
@@ -150,6 +178,9 @@ func TestAccountDeletionLifecycle(t *testing.T) {
 	exec(`DROP TRIGGER reject_erasure_fixture ON agents; DROP FUNCTION reject_erasure_fixture()`)
 	if count(`SELECT count(*) FROM social_work_posts WHERE agent_id=?`, id) != 1 {
 		t.Fatal("partial deletion")
+	}
+	if count(`SELECT count(*) FROM agent_account_deletions`) != 0 {
+		t.Fatal("rolled back deletion retained proof")
 	}
 	exec(`INSERT INTO managed_delegations(session_id,sponsor_uid) VALUES(?,?)`, session.ID, owner)
 	if err = s.beginAccountDeletion(context.Background(), "delegated", owner, string(hash), session.ID); err == nil {
@@ -212,6 +243,25 @@ func TestAccountDeletionLifecycle(t *testing.T) {
 	}
 	if count(`SELECT count(*) FROM account_deletion_jobs`) != 0 {
 		t.Fatal("erasure manifest retained")
+	}
+	if code, status := agentStatus(id, privateKey, 0, false); code != 200 || status != "deleted" {
+		t.Fatal("offline host cannot confirm after erasure", code, status)
+	}
+	if code, status := agentStatus(id+2, privateKey, 0, false); code != 200 || status != "not_deleted" {
+		t.Fatal("reused key inherited deletion", code, status)
+	}
+	_, otherKey, _ := ed25519.GenerateKey(rand.Reader)
+	if code, status := agentStatus(id, otherKey, 0, false); code != 200 || status != "not_deleted" {
+		t.Fatal("other key learned account deletion", code, status)
+	}
+	if code, _ := agentStatus(id, privateKey, -10*time.Minute, false); code != 401 {
+		t.Fatal("expired proof accepted", code)
+	}
+	if code, _ := agentStatus(id, privateKey, 0, true); code != 401 {
+		t.Fatal("modified signed request accepted", code)
+	}
+	if count(`SELECT count(*) FROM agent_account_deletions WHERE proof_hash=?`, s.agentDeletionHash(fmt.Sprint(id), fingerprint(publicKey))) != 1 {
+		t.Fatal("missing minimal deletion proof")
 	}
 	// Reissue the exact public number through the normal reservation/allocator.
 	check(insertProvisionedAgent(db, 807003, "erase-new@identity.invalid", "新账号", now))

@@ -8,6 +8,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
+const officialAvatar = "/brand/official-avatar.svg"
+
 func validDefaultAvatar(id string) bool {
 	switch id {
 	case "", "citrus", "bloom", "tide", "sprout", "spark", "orbit":
@@ -34,10 +36,11 @@ func (s *Service) getAvatars(ctx context.Context, c *app.RequestContext) {
 		ids = append(ids, id)
 	}
 	var rows []struct {
-		AgentID int64
-		Avatar  string
+		AgentID    int64
+		Avatar     string
+		IsOfficial bool
 	}
-	err := s.db.WithContext(ctx).Raw(`SELECT a.agent_id, COALESCE(t.portrait_fields->>'avatar','') AS avatar
+	err := s.db.WithContext(ctx).Raw(`SELECT a.agent_id, a.is_official, COALESCE(t.portrait_fields->>'avatar','') AS avatar
  FROM agents a LEFT JOIN agent_owners o USING(agent_id) LEFT JOIN twin_users t ON t.user_id=o.owner_uid
  WHERE a.agent_id IN ? AND a.identity_state='active' AND NOT EXISTS (SELECT 1 FROM user_relations b WHERE b.rel_type=2
  AND ((b.from_uid=? AND b.to_uid=a.agent_id) OR (b.to_uid=? AND b.from_uid=a.agent_id)))`, ids, viewer, viewer).Scan(&rows).Error
@@ -47,7 +50,9 @@ func (s *Service) getAvatars(ctx context.Context, c *app.RequestContext) {
 	}
 	avatars := map[string]string{}
 	for _, row := range rows {
-		if validPortraitAvatar(row.Avatar) {
+		if row.IsOfficial {
+			avatars[strconv.FormatInt(row.AgentID, 10)] = officialAvatar
+		} else if validPortraitAvatar(row.Avatar) {
 			avatars[strconv.FormatInt(row.AgentID, 10)] = row.Avatar
 		}
 	}

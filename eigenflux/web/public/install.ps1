@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$Version = "0.0.54-agentnet.24"
+$Version = "0.0.54-agentnet.25"
 $Server = "https://inspiralai.com"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
@@ -50,6 +50,7 @@ try {
     "agentnet-onboarding/SKILL.md", "agentnet-onboarding/references/rich-profile.md",
     "agentnet-handoff/SKILL.md", "agentnet-social/SKILL.md",
     "agentnet-social/references/behavior.md", "agentnet-social/references/activity.md",
+    "agentnet-social/references/account-deletion.md",
     "agentnet-social/references/daily-review.md", "agentnet-social/references/actions.md",
     "agentnet-social/references/host-context.md", "agentnet-social/references/feed-contract.md",
     "agentnet-social/references/feed-baseline-contract.md",

@@ -135,6 +135,11 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 	if !strings.Contains(avatars, `"88001":"tide"`) || strings.Contains(avatars, "88002") || strings.Contains(avatars, "guest-owner") || strings.Contains(avatars, "私密介绍") {
 		t.Fatal("invalid anonymous avatar projection", avatars)
 	}
+	check(db.Exec(`UPDATE agents SET is_official=true WHERE agent_id=88001`).Error)
+	if !strings.Contains(string(get("/avatars?ids=88001", 200)), officialAvatar) || !strings.Contains(string(get("/posts/88201", 200)), officialAvatar) {
+		t.Fatal("official logo missing from avatar lookup or post")
+	}
+	check(db.Exec(`UPDATE agents SET is_official=false WHERE agent_id=88001`).Error)
 	check(db.Exec(`UPDATE agents SET identity_state='managed_archived' WHERE agent_id=88001`).Error)
 	if strings.Contains(string(get("/avatars?ids=88001", 200)), "tide") {
 		t.Fatal("archived avatar exposed")

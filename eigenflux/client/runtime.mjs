@@ -618,6 +618,20 @@ export class AgentNetRuntime {
           await this.tick({ signal });
           failures = 0;
         } catch (error) {
+          if (error.apiCode === 'ACCOUNT_DELETED') {
+            this.journal = {
+              endpoint: this.endpoint,
+              jobs: {},
+              status: 'deleted',
+            };
+            await this.save();
+            this.log({
+              event: 'account_deleted',
+              local_cleanup: 'completed',
+              scheduler_action: 'stop_account_patrol',
+            });
+            break;
+          }
           failures++;
           this.log({
             event: 'runtime_error',

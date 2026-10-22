@@ -1,4 +1,5 @@
 /** Stable public IDs shared with the registration Agent; never accept arbitrary URLs. */
+export const officialAvatar = '/brand/official-avatar.svg';
 export const defaultAvatars = [
   {
     id: 'citrus',
@@ -53,9 +54,10 @@ export function isCustomAvatar(value: unknown): value is string {
   );
 }
 export function isPortraitAvatar(value: unknown): value is string {
-  return isCustomAvatar(value) || isDefaultAvatar(value);
+  return value === officialAvatar || isCustomAvatar(value) || isDefaultAvatar(value);
 }
 export function avatarUrl(value: unknown, seed = '') {
+  if (value === officialAvatar) return officialAvatar;
   if (isCustomAvatar(value)) return value;
   if (isDefaultAvatar(value)) return `/avatars/${value}.svg?v=2`;
   const initial = (seed.trim()[0] || '·').replace(/[<>&"']/g, '');

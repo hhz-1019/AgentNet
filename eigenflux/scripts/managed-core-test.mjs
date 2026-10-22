@@ -65,18 +65,18 @@ try {
         process.argv.includes('--owner-activity')
           ? '^TestManagedOwner'
           : process.argv.includes('--identity-recovery')
-          ? '^TestIdentityRecovery'
-          : process.argv.includes('--deletion')
-            ? '^TestAccountDeletion'
-            : process.argv.includes('--unified-provider')
-              ? '^TestManagedUnifiedHostsLive$'
-              : process.argv.includes('--activity-provider')
-                ? '^TestManagedActivityRealProvider$'
-                : process.argv.includes('--presence-provider')
-                  ? '^TestManagedPresenceRealProviderComparison$'
-                  : process.argv.includes('--analytics')
-                    ? '^TestAnalytics'
-                    : 'TestManaged|TestAccountConnection',
+            ? '^TestIdentityRecovery'
+            : process.argv.includes('--deletion')
+              ? '^TestAccountDeletion'
+              : process.argv.includes('--unified-provider')
+                ? '^TestManagedUnifiedHostsLive$'
+                : process.argv.includes('--activity-provider')
+                  ? '^TestManagedActivityRealProvider$'
+                  : process.argv.includes('--presence-provider')
+                    ? '^TestManagedPresenceRealProviderComparison$'
+                    : process.argv.includes('--analytics')
+                      ? '^TestAnalytics'
+                      : 'TestManaged|TestAccountConnection',
 
         '-count=1',
         '-timeout',
@@ -148,6 +148,19 @@ try {
     console.log(
       'Account deletion migration: pending jobs and revoked grants block unsafe rollback; clean down/up passed.',
     );
+    const proofMigration = await readFile(
+      dir + '/migrations/000153_agent_account_deletion.sql',
+      'utf8',
+    );
+    await db.exec('BEGIN');
+    try {
+      await assert.rejects(
+        db.exec(proofMigration.split('-- +goose Down')[1]),
+        /Keep account deletion proofs/,
+      );
+    } finally {
+      await db.exec('ROLLBACK');
+    }
   }
   if (
     process.exitCode === 0 &&

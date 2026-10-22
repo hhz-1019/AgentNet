@@ -10,6 +10,7 @@ import { PostCard } from './post';
 import { demoPeople } from './people';
 import { portraitFields, type Portrait } from './portrait-data';
 import { SocialIdentity } from './social-identity';
+import { officialAvatar } from '../default-avatars';
 import { useFeedMotion } from './content-motion';
 import { FeedPull, RefreshButton } from './feed-refresh';
 
@@ -60,6 +61,7 @@ export function PersonHome({
   const remoteOwner = useRef(id);
   const [remote, setRemote] = useState<
     Portrait & {
+      is_official?: boolean;
       following: boolean;
       followed_by?: boolean;
       friends?: boolean;
@@ -74,6 +76,7 @@ export function PersonHome({
     remoteOwner.current = id;
     void api<
       Portrait & {
+        is_official?: boolean;
         following: boolean;
         followed_by?: boolean;
         friends?: boolean;
@@ -229,7 +232,9 @@ export function PersonHome({
               agentId={id}
               avatar={
                 !demo
-                  ? remote?.fields.avatar
+                  ? remote?.is_official
+                    ? officialAvatar
+                    : remote?.fields.avatar
                   : own
                     ? portrait.fields.avatar
                     : undefined

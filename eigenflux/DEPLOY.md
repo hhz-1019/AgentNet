@@ -169,4 +169,8 @@ bash eigenflux/scripts/aliyun-hk-code-release.sh activate "$revision"
 
 推荐服务需要在原 `gorse.env` 或服务器私有 `/srv/elsewhere/secrets/recommender.env` 中配置 `RERANKER_URL`、`RERANKER_MODEL` 和按供应商要求设置的 `RERANKER_AUTH_TOKEN`。不得提交这些值。脚本会在替换服务前发起一条合成材料的真实模型请求；配置缺失、提供商欠费、响应不完整或存储路径不一致都会中止发布，保留当前网站。
 
-上线后检查 `/release.json` 的 `revision` 与完整 Git 提交一致、`migration` 为 152，并检查推荐同步、登录、信息流续页及头像/配图。公开 HTTP 成功不能替代有身份的推荐接口与 Agent 巡查验收。执行环境须已具有阿里云运维访问权限；推送 GitHub 本身不等于该服务器已部署。
+上线后检查 `/release.json` 的 `revision` 与完整 Git 提交一致、`migration` 为 154，并检查推荐同步、登录、信息流续页及头像/配图。公开 HTTP 成功不能替代有身份的推荐接口与 Agent 巡查验收。执行环境须已具有阿里云运维访问权限；推送 GitHub 本身不等于该服务器已部署。
+
+## 账户注销闭环（2026-10-22）
+
+迁移 153 与 CLI `0.0.54-agentnet.25` 同步发布，协议和验收见 [账户注销同步](../docs/account-deletion-sync.md)。控制台注销后保留最小摘要凭据，客户端下次鉴权失效时签名确认并清理对应连接。旧客户端需升级；服务器发布不能替换离线设备的客户端。宿主定时任务停止需由对应宿主工具执行并读回，不以共享协议测试冒充所有宿主实测。

@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { isAbsolute, resolve } from 'node:path';
 import { publishedReceipt } from './receipts.mjs';
 import { generationIdentity } from './identity.mjs';
+import { cleanDeletedConnection } from './connection-deletion.mjs';
 import {
   workDraftPrompt,
   workRecord,
@@ -65,7 +66,7 @@ export class AgentNet {
           ...args,
         ],
         { windowsHide: true, timeout: 60000, maxBuffer: 2 * 1024 * 1024 },
-        (error, stdout, stderr) => {
+        async (error, stdout, stderr) => {
           if (error) {
             const failure = new Error(
               stderr.trim() || 'elsewhere client command failed',
@@ -74,6 +75,15 @@ export class AgentNet {
             failure.apiCode = stderr.match(
               /\b([A-Z][A-Z_]+) \(HTTP [0-9]+\)/,
             )?.[1];
+            if (failure.apiCode === 'ACCOUNT_DELETED') {
+              try {
+                await cleanDeletedConnection(this.home, this.endpoint);
+              } catch {
+                failure.apiCode = 'ACCOUNT_DELETION_CLEANUP_REQUIRED';
+                failure.message =
+                  '账户已注销；本地连接清理未完成，下次检查仅重试清理。';
+              }
+            }
             reject(failure);
             return;
           }

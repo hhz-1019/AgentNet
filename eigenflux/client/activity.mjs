@@ -64,6 +64,12 @@ export async function runActivityRound({
     try {
       result = await client.activity_tool({ ...args, tool });
     } catch (error) {
+      if (
+        ['ACCOUNT_DELETED', 'ACCOUNT_DELETION_CLEANUP_REQUIRED'].includes(
+          error.apiCode,
+        )
+      )
+        throw error;
       // An explicit rejection is a tool observation; a lost response remains
       // unresolved and is replayed with the same key on the next host start.
       if (!error.apiCode) throw error;
