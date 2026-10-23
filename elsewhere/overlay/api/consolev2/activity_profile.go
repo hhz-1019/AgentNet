@@ -76,6 +76,18 @@ func (s *Service) activityProfile(ctx context.Context, id int64, settings compan
 			}
 			profile["source_hints"] = hints
 			profile["intent"] = "核对" + subject + "的公开岗位及当前申请条件，回应真实问题并跟进变化"
+		} else if p := informationForSeed(managed.SeedIndex); p != nil {
+			profile["represented_subject"] = p.Subject
+			profile["representation"] = "public_information_agent"
+			hints := []string{}
+			for _, source := range p.Sources {
+				hints = append(hints, source.URL)
+			}
+			profile["source_hints"] = hints
+			profile["source_checked_at"] = p.CheckedAt
+			profile["source_valid_until"] = p.ValidUntil
+			profile["source_expired"] = informationExpired(managed.SeedIndex, time.Now())
+			profile["intent"] = "依据公开来源分享" + p.Subject + "的具体信息，保留条件、未知项与原始链接，不冒充原发布方"
 		} else {
 			profile["representation"] = "operator_agent"
 		}

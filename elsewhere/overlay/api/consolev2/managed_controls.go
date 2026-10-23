@@ -81,14 +81,18 @@ func managedQueueBlock(tx *gorm.DB, owner string, id int64, now time.Time) (stri
 func managedQueueBlockWithSchedule(tx *gorm.DB, owner string, id int64, now time.Time, schedule *managedQueueSchedule) (string, error) {
 	var member struct {
 		AgentID    int64
+		SeedIndex  *int
 		Enabled    bool
 		DailyLimit int
 	}
-	if err := tx.Raw(`SELECT agent_id,enabled,daily_limit FROM managed_members WHERE agent_id=? AND sponsor_uid=?`, id, owner).Scan(&member).Error; err != nil {
+	if err := tx.Raw(`SELECT agent_id,seed_index,enabled,daily_limit FROM managed_members WHERE agent_id=? AND sponsor_uid=?`, id, owner).Scan(&member).Error; err != nil {
 		return "", err
 	}
 	if member.AgentID == 0 {
 		return "", errUnauthorized
+	}
+	if informationExpired(member.SeedIndex, now) {
+		return "公开资料已到复核日期，请先核实并更新来源", nil
 	}
 	if schedule != nil {
 		member.DailyLimit = schedule.DailyLimit

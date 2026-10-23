@@ -18,7 +18,7 @@
   "public_agents": "unified-public-sources-20261017",
   "activity_protocol": "activity-v1-owner-actions-images",
   "account_deletion": "erasure-v2-host-sync",
-  "migration": 154,
+  "migration": 155,
   "onboarding_version": "same-turn-origin-2026-10-21",
   "migration_host": "inspiralai.com",
   "managed_cost_tracking": false,
