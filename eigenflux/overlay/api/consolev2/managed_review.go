@@ -183,6 +183,7 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 			return managedFailure("context")
 		}
 		checkInput := map[string]any{"candidate": result.Value.Document, "persona": job.Persona, "recent": recent, "sources": payload["web_sources"]}
+		checkInput["activity_mode"] = payload["activity_mode"] == true
 		checkInput["research"] = payload["tool_results"]
 		checkInput["evidence"] = payload["evidence"]
 		reviewPrompt := managedReviewPrompt
@@ -210,7 +211,7 @@ func (s *Service) reviewManagedDraft(ctx context.Context, job *managedJob, resul
 		for n := len(recent); n > 0; n-- {
 			raw, e := managedMarshalInput(checkInput)
 			promptBytes := len(managedEffectivePrompt(checkInput, reviewPrompt))
-			if e == nil && len(raw)+promptBytes <= managedMaxInput-1000 {
+			if e == nil && len(raw)+promptBytes <= managedInputLimit(checkInput)-1000 {
 				break
 			}
 			checkInput["recent"] = recent[:n-1]

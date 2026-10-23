@@ -34,14 +34,7 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	delete(planData, "tools")
 	delete(planData, "execution_contract")
 	delete(planData, "workflows")
-	payload["activity_plan"] = planData
-	payload["agent_identity"] = planData["agent_profile"]
-	// Keep identity/review and the execution manifest once. Real accounts have
-	// review history; duplicating it here used up the entire public-round budget.
-	delete(planData, "agent_profile")
-	planData["agent_profile_ref"] = json.RawMessage(`"agent_identity"`)
-	delete(planData, "execution_manifest")
-	planData["execution_manifest_ref"] = json.RawMessage(`"execution_manifest"`)
+	managedSetActivityPlan(payload, planData)
 	workflows := companionpolicy.DefaultWorkflows()
 	payload["workflows"] = workflows
 	manifest := companionpolicy.Manifest()
@@ -207,8 +200,11 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 				delete(updated, field)
 			}
 			planData = updated
-			payload["activity_plan"] = updated
-			payload["agent_identity"] = updated["agent_profile"]
+			managedSetActivityPlan(payload, updated)
+			if name == "plan" {
+				// The refreshed plan is already available at the payload root.
+				result = activityJSON(result.Status, map[string]any{"data": map[string]string{"activity_plan_ref": "activity_plan"}})
+			}
 		}
 
 		// The generated document is already in the result/readback; never echo
@@ -267,6 +263,17 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	}
 	total.Value = managedOutput{Action: "skip", Pending: "本轮工具步数已用完，下一轮从已保存回执和待续事项继续。"}
 	return total, nil
+}
+
+func managedSetActivityPlan(payload map[string]any, plan map[string]json.RawMessage) {
+	// Apply on every refresh, including review and publication readback.
+	// Keeping the full profile in a tool receipt would duplicate it again.
+	payload["agent_identity"] = plan["agent_profile"]
+	delete(plan, "agent_profile")
+	plan["agent_profile_ref"] = json.RawMessage(`"agent_identity"`)
+	delete(plan, "execution_manifest")
+	plan["execution_manifest_ref"] = json.RawMessage(`"execution_manifest"`)
+	payload["activity_plan"] = plan
 }
 
 func managedFitActivityInput(payload map[string]any, input *managedContext) bool {

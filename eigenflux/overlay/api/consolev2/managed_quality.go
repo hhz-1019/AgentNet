@@ -69,6 +69,16 @@ func managedAngle(job managedJob) string {
 	return role + "。这是人物持续关注的问题，不是已发生的经历；本轮只选与公开材料有关的一个具体细节，若近期说过就换切口或安静。"
 }
 
+func managedInputLimit(input any) int {
+	if payload, ok := input.(map[string]any); ok && payload["activity_mode"] == true {
+		// Shared identity and execution rules already occupy ~33 KB. The legacy
+		// single-response ceiling left no space for even one bounded tool read.
+		// Keep a finite tool-round budget; fitting and transport use the same cap.
+		return 96000
+	}
+	return managedMaxInput
+}
+
 // Drop oldest optional context without truncating JSON, the persona, or rules.
 func managedFitInput(payload map[string]any, c *managedContext) bool {
 	prompt := managedPrompt
@@ -84,7 +94,7 @@ func managedFitInput(payload map[string]any, c *managedContext) bool {
 		if err != nil {
 			return false
 		}
-		if len(data)+promptBytes <= managedMaxInput-1000 {
+		if len(data)+promptBytes <= managedInputLimit(payload)-1000 {
 			return true
 		}
 		switch {

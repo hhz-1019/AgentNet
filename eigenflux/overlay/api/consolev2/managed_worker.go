@@ -242,7 +242,7 @@ func callManagedModelWithPrompt(ctx context.Context, input any, prompt string) (
 		return result, managedFailure("configuration")
 	}
 	data, err := managedMarshalInput(input)
-	if err != nil || len(data)+len(prompt) > managedMaxInput-1000 || socialSecretPattern.Match(data) {
+	if err != nil || len(data)+len(prompt) > managedInputLimit(input)-1000 || socialSecretPattern.Match(data) {
 		return result, managedFailure("input")
 	}
 	payload := map[string]any{"model": os.Getenv("LLM_MODEL"), "messages": []map[string]string{{"role": "system", "content": prompt}, {"role": "user", "content": string(data)}}, "max_tokens": managedMaxOutput, "temperature": managedTemperature(), "response_format": map[string]string{"type": "json_object"}, "stream": false}
@@ -403,7 +403,8 @@ func (s *Service) executeManaged(ctx context.Context, job managedJob) {
 	managedApplyPresence(payload, job)
 	writerInput := managedGenerationContext(input, job.Action == "post")
 	writerInput = managedPresenceWriterContext(writerInput, job)
-	if !managedFitInput(payload, &writerInput) {
+	payload["activity_mode"] = true
+	if !managedFitActivityInput(payload, &writerInput) {
 		s.finishManagedFailure(job, managedModelResult{}, managedFailure("input"))
 		return
 	}

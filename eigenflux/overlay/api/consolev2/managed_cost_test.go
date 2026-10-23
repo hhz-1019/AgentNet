@@ -95,12 +95,12 @@ func TestManagedCostFitMatchesWire(t *testing.T) {
 		base, _ := managedMarshalInput(payload)
 		prompt := managedEffectivePrompt(payload, managedActivityPrompt())
 		// Fit at the real transport boundary, including the reference instructions.
-		payload["padding"] = strings.Repeat("x", managedMaxInput-1000-len(base)-len(prompt)-13)
+		payload["padding"] = strings.Repeat("x", managedInputLimit(payload)-1000-len(base)-len(prompt)-13)
 		if !managedFitInput(payload, &c) {
 			t.Fatal("valid boundary rejected", celebrity)
 		}
 		wire, _ := managedMarshalInput(payload)
-		if len(wire)+len(prompt) > managedMaxInput-1000 {
+		if len(wire)+len(prompt) > managedInputLimit(payload)-1000 {
 			t.Fatal("fit approved oversized request")
 		}
 		payload["padding"] = payload["padding"].(string) + strings.Repeat("x", 20)

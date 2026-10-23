@@ -177,12 +177,16 @@ func TestManagedCelebrityPublicRoundInput(t *testing.T) {
 		t.Fatal("missing admitted job")
 	}
 	check(db.Exec(`INSERT INTO managed_public_sources(sponsor_uid,source_key,kind,agent_id) VALUES('celebrity-public-input',?,'celebrity',?)`, p.Key, ids[0]).Error)
+	background := strings.Repeat("这段公开材料描述已有研究的条件与限制。", 180)
+	documents, _ := json.Marshal([]map[string]any{{"url": "https://example.com/background", "text": background, "observed_at": now.UnixMilli()}})
+	check(db.Exec("UPDATE managed_public_sources SET background=?,background_documents=?::jsonb WHERE agent_id=?", background, string(documents), ids[0]).Error)
 	t.Setenv("LLM_BASE_URL", "https://api.deepseek.com")
 	t.Setenv("LLM_MODEL", "fixture-model")
 	t.Setenv("LLM_API_KEY", "fixture-key")
 	old := http.DefaultTransport
 	defer func() { http.DefaultTransport = old }()
 	calls := 0
+	steps := 0
 	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) {
 		calls++
 		var wire struct {
@@ -190,7 +194,39 @@ func TestManagedCelebrityPublicRoundInput(t *testing.T) {
 		}
 		check(json.NewDecoder(r.Body).Decode(&wire))
 		t.Logf("public wire bytes: system=%d data=%d", len(wire.Messages[0].Content), len(wire.Messages[1].Content))
-		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"choices":[{"finish_reason":"stop","message":{"content":"{\"action\":\"skip\"}"}}],"usage":{"prompt_tokens":100,"completion_tokens":10}}`))}, nil
+		var payload map[string]json.RawMessage
+		check(json.Unmarshal([]byte(wire.Messages[1].Content), &payload))
+		value := managedOutput{Action: "skip"}
+		if payload["candidate"] != nil {
+			value = managedOutput{Action: "review", Review: managedReview{Decision: "allow", Reason: "ok"}}
+		} else {
+			var plan map[string]json.RawMessage
+			check(json.Unmarshal(payload["activity_plan"], &plan))
+			if plan["agent_profile"] != nil || plan["execution_manifest"] != nil || payload["agent_identity"] == nil {
+				t.Fatal("refreshed plan duplicated or lost identity")
+			}
+			switch steps {
+			case 0:
+				value = managedOutput{Action: "tool", Tool: "plan"}
+			case 1:
+				value = managedOutput{Action: "tool", Tool: "review", Arguments: activityRequest{Data: json.RawMessage(`{"revision":1,"intent":"讨论公开材料中的具体问题","summary":"核对已经掌握的公开资料，再分享一个明确的问题","evidence":["https://example.com/source"]}`)}}
+			case 2:
+				value = managedOutput{Action: "tool", Tool: "feed"}
+			case 3:
+				d := socialTestDocument()
+				d.Title = "产线节拍变快后，合格品成本怎么算"
+				d.Summary = "把固定成本摊销和材料损耗分开观察"
+				d.Body = "假设一条产线提高速度后返工也变多了。我的问题是：更快的节拍降低了固定成本分摊，但每件合格品的材料损耗是否反而增加？比较前后成本时，应该分别列出这两部分，而不能仅凭每小时产量判断。"
+				d.Kind = "question"
+				d.Media = socialTestImage()
+				data, _ := json.Marshal(socialWriteRequest{Document: d, OwnerAuthorized: true, Visibility: "public", IdempotencyKey: "celebrity-round"})
+				value = managedOutput{Action: "tool", Tool: "publish", Arguments: activityRequest{Data: data}}
+			}
+			steps++
+		}
+		raw, _ := json.Marshal(value)
+		response, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"finish_reason": "stop", "message": map[string]string{"content": string(raw)}}}, "usage": map[string]int{"prompt_tokens": 100, "completion_tokens": 40}})
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(string(response)))}, nil
 	})
 	// A real public round has existing posts, unlike a newly seeded empty account.
 	doc, _ := json.Marshal(map[string]any{"title": "公开材料中的一个具体问题", "summary": "核对公开资料的条件与边界", "body": strings.Repeat("公开材料需要结合具体条件理解。", 20), "kind": "question", "tags": []string{"讨论"}})
@@ -209,5 +245,10 @@ func TestManagedCelebrityPublicRoundInput(t *testing.T) {
 	check(db.Raw(`SELECT status,detail FROM managed_runs WHERE run_id=?`, job.RunID).Scan(&run).Error)
 	if calls == 0 || strings.Contains(run.Detail, "[input]") {
 		t.Fatalf("public celebrity input blocked: calls=%d status=%s detail=%s", calls, run.Status, run.Detail)
+	}
+	var published int
+	check(db.Raw("SELECT count(*) FROM agent_activity_receipts WHERE agent_id=? AND tool='publish' AND status=201", ids[0]).Scan(&published).Error)
+	if published != 1 || run.Status != "published" {
+		t.Fatalf("multi-step celebrity round did not publish: steps=%d receipts=%d status=%s detail=%s", steps, published, run.Status, run.Detail)
 	}
 }
