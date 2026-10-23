@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -118,7 +119,13 @@ INSERT INTO portrait_memories(user_id,memory_id,content,show_on_home,edited_by,c
 	h.GET("/api/v2/console/activity/stream", func(_ context.Context, c *app.RequestContext) {
 		c.Data(200, "text/event-stream", []byte(": fixture\n\n"))
 	})
+	var loseDraftResponse atomic.Bool
 	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v2/__test/drop-next-draft-response" {
+			loseDraftResponse.Store(true)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "body", 400)
@@ -131,6 +138,17 @@ INSERT INTO portrait_memories(user_id,memory_id,content,show_on_home,edited_by,c
 			}
 		}
 		response := ut.PerformRequest(h.Engine, r.Method, r.URL.RequestURI(), &ut.Body{Body: strings.NewReader(string(body)), Len: len(body)}, headers...)
+		// Commit through the real handler, then lose only this HTTP response.
+		// Browser route.abort can also stall the following read in Linux Chromium.
+		if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, root+"/drafts/") && loseDraftResponse.Swap(false) {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_ = conn.Close()
+			return
+		}
 		response.Header().VisitAll(func(k, v []byte) { w.Header().Add(string(k), string(v)) })
 		w.WriteHeader(response.Code)
 		_, _ = w.Write(response.Body.Bytes())
