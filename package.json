@@ -23,7 +23,7 @@
     "deploy:package": "node eigenflux/scripts/package-deploy.mjs",
     "server:hk": "node eigenflux/scripts/hk.mjs",
     "deploy:hk": "node eigenflux/scripts/hk.mjs deploy",
-    "test:deploy:hk": "node --test eigenflux/scripts/hk.test.mjs",
+    "test:deploy:hk": "node --test eigenflux/scripts/hk.test.mjs eigenflux/scripts/ci-release-artifacts.test.mjs eigenflux/scripts/aliyun-hk-code-compose.test.mjs",
     "test:social:core": "node eigenflux/scripts/social-core-test.mjs",
     "test:social:ui": "node eigenflux/scripts/social-ui-smoke.mjs",
     "test:messages:ui": "node eigenflux/scripts/messages-ui-smoke.mjs",

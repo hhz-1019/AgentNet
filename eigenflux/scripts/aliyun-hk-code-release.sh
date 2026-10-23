@@ -2,7 +2,7 @@
 # Run inside a clean, committed checkout on the Hong Kong deployment host.
 set -Eeuo pipefail
 umask 077
-mode="${1:?build or activate}"
+mode="${1:?import or activate}"
 revision="${2:?full Git revision}"
 [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || exit 2
 source_dir=$(git rev-parse --show-toplevel)
@@ -12,15 +12,21 @@ cd "$source_dir"
 [[ "$(git rev-parse HEAD)" == "$revision" ]]
 [[ -z "$(git status --porcelain --untracked-files=no)" ]]
 mkdir -p "$root/evidence"
-if [[ "$mode" == build ]]; then
+if [[ "$mode" == import ]]; then
   for service in core web gorse sync; do
-    case "$service" in
-      core|web) recipe="eigenflux/Dockerfile.$service" ;;
-      gorse) recipe=eigenflux/recommender/Dockerfile ;;
-      sync) recipe=eigenflux/recommender/Dockerfile.sync ;;
-    esac
-    docker build --build-arg "RELEASE_REVISION=$revision" --label "org.opencontainers.image.revision=$revision" -t "elsewhere-$service:$revision" -f "$recipe" . > "$root/evidence/$service-build.log" 2>&1
+    stage="$root/artifacts/$service"
+    mkdir -p "$stage"
+    # Extract only expected names; never trust paths from an archive.
+    for file in image.tar.gz image-id revision SHA256SUMS; do
+      unzip -p "$root/artifacts/$service.zip" "$file" > "$stage/$file"
+    done
+    (cd "$stage" && sha256sum --check SHA256SUMS)
+    [[ "$(cat "$stage/revision")" == "$revision" ]]
+    gzip -dc "$stage/image.tar.gz" | docker load > "$root/evidence/$service-import.log" 2>&1
     docker inspect --format '{{.Id}}' "elsewhere-$service:$revision" > "$root/evidence/$service-image-id"
+    cmp "$stage/image-id" "$root/evidence/$service-image-id"
+    rm -f "$stage/image.tar.gz" "$root/artifacts/$service.zip"
+    echo "IMPORTED $service"
   done
   touch "$root/BUILT"
   echo "BUILD_COMPLETE $revision"
@@ -43,7 +49,11 @@ docker run --rm --network container:elsewhere-gorse --env-file "$root/env/gorse.
 systemctl start elsewhere-pg-backup.service
 [[ "$(systemctl show elsewhere-pg-backup.service -p Result --value)" == success ]]
 printf '%s\n' "$previous" > "$root/evidence/previous-release"
-docker compose -f "$root/compose.json" run --rm --no-deps core migrate > "$root/evidence/migrate.log" 2>&1
+if [[ "$(docker inspect elsewhere-core --format '{{.Image}}')" != "$(cat "$root/evidence/core-image-id")" ]]; then
+  docker compose -f "$root/compose.json" run --rm --no-deps core migrate > "$root/evidence/migrate.log" 2>&1
+else
+  echo 'UNCHANGED_CORE_MIGRATION_SKIPPED'
+fi
 rollback() {
   docker compose -f "$previous/compose.json" up -d --no-deps --wait --wait-timeout 300 core web gorse sync > "$root/evidence/rollback.log" 2>&1 || true
 }

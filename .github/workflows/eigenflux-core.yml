@@ -41,9 +41,40 @@ jobs:
         with:
           context: .
           file: eigenflux/recommender/Dockerfile
+          load: true
           tags: elsewhere-gorse:verify
           cache-from: type=gha,scope=gorse
           cache-to: type=gha,scope=gorse,mode=max
+      - name: Export tested gorse image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: bash eigenflux/scripts/export-release-image.sh gorse "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: release-gorse-${{ github.sha }}
+          path: /tmp/release-gorse/*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: eigenflux/recommender/Dockerfile.sync
+          load: true
+          tags: elsewhere-sync:verify
+          cache-from: type=gha,scope=sync
+          cache-to: type=gha,scope=sync,mode=max
+      - name: Export tested sync image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: bash eigenflux/scripts/export-release-image.sh sync "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: release-sync-${{ github.sha }}
+          path: /tmp/release-sync/*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
   web-and-adapters:
     runs-on: ubuntu-latest
     steps:
@@ -92,6 +123,7 @@ jobs:
         with:
           context: .
           file: eigenflux/Dockerfile.web
+          build-args: RELEASE_REVISION=${{ github.sha }}
           load: true
           tags: agentnet-web:verify
           cache-from: type=gha,scope=web
@@ -111,6 +143,17 @@ jobs:
           curl -fsSI http://localhost:8080/ | grep -i 'cache-control: no-cache'
           curl -fsSI http://localhost:8080/api/v2/console/session | grep -i 'cache-control: private, no-store'
           docker rm -f web-routing
+      - name: Export tested web image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: bash eigenflux/scripts/export-release-image.sh web "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: release-web-${{ github.sha }}
+          path: /tmp/release-web/*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
   core-image:
     runs-on: ubuntu-latest
     steps:
@@ -158,3 +201,14 @@ jobs:
       - name: Stop isolated test deployment
         if: always()
         run: docker compose --env-file .env.eigenflux.verify -f eigenflux/compose.test.yaml down --volumes || true
+      - name: Export tested core image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: bash eigenflux/scripts/export-release-image.sh core "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: release-core-${{ github.sha }}
+          path: /tmp/release-core/*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error

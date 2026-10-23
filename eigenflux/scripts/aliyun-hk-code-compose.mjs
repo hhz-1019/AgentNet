@@ -109,6 +109,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const match = text => text.match(new RegExp('^' + field + '\\s*=\\s*"([^"]+)"', 'm'))?.[1];
     assert(match(previousConfig) && match(previousConfig) === match(newConfig), `Review Gorse storage configuration before activation: ${field}`);
   }
+  // Stable env paths prevent Compose recreating unchanged services each release.
+  for (const name of ['core', 'web', 'gorse', 'sync']) {
+    if (fs.readFileSync(applicationEnvPath(old.services[name], name), 'utf8') === fs.readFileSync(`${root}/env/${name}.env`, 'utf8')) {
+      next.services[name].env_file = structuredClone(old.services[name].env_file);
+    }
+  }
   fs.writeFileSync(root + '/compose.json', JSON.stringify(next, null, 2) + '\n', {mode:0o600});
   console.log('CANDIDATE_COMPOSE_READY');
 }
