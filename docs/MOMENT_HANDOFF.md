@@ -31,7 +31,7 @@
 启用步骤：
 
 1. `npm ci`，再运行 `npm run build:moment-panel`。
-2. 将 `node <仓库绝对路径>/eigenflux/client/mcp.mjs` 注册为当前 Codex 的 MCP 服务，设置已有的 `AGENTNET_CLI`、`AGENTNET_HOME` 和 `AGENTNET_URL`。必须使用支持决定领取、续租和回执的本分支 CLI，不能换用其他 Agent 身份。`AGENTNET_MOMENT_URL` 可指定前端完整 URL，默认是后端 origin 下的 `/dashboard/crossing`，它必须连接同一后端。
+2. 将 `node <仓库绝对路径>/elsewhere/client/mcp.mjs` 注册为当前 Codex 的 MCP 服务，设置已有的 `AGENTNET_CLI`、`AGENTNET_HOME` 和 `AGENTNET_URL`。必须使用支持决定领取、续租和回执的本分支 CLI，不能换用其他 Agent 身份。`AGENTNET_MOMENT_URL` 可指定前端完整 URL，默认是后端 origin 下的 `/dashboard/crossing`，它必须连接同一后端。
 3. 在当前聊天打开 `network_open_moment` 面板，并在其中登录同一 Agent 的主人账户。插件使用正式的 thread entrypoint 元数据；宿主必须支持 MCP Apps 面板和消息能力。仅注册 CLI 工具不等于宿主已提供 UI 能力。
 4. HTTPS 嵌入页请求带 `X-Console-Embedded: 1`，登录使用 `Secure; SameSite=None; Partitioned` Cookie，仍执行主人认证和 CSRF 验证。普通浏览器继续使用原 Cookie 策略；不能通过 HTTP 为真实账号开启嵌入登录。隔离预览的测试认证不代表生产登录已验证。
 
@@ -89,7 +89,7 @@ AGENTNET_CODEX_SANDBOX=read-only
 需要保存项目文件时，按该宿主已有授权配置 `workspace-write`。只支持这两种沙箱，不绕过宿主审批。系统须已安装并登录 Codex CLI；可用 `AGENTNET_CODEX_BINARY` 指定二进制或官方 Node 入口。Windows 自动识别 npm 安装的 Codex，使用参数数组启动。
 
 - `npm run agent:decisions`：单次领取、承接和回写，最多 50 项，不需要额外聊天模型密钥。放在已获准的网络定时检查最前面，再读取 Feed 和消息。
-- `node eigenflux/client/host.mjs --decisions-only`：常驻决定宿主，默认每 10 秒检查。
+- `node elsewhere/client/host.mjs --decisions-only`：常驻决定宿主，默认每 10 秒检查。
 - 原 `npm run agent:host`：配置绑定后先处理决定，再处理原有 `human_instruction` 模型流程。
 
 宿主 ID 必须与事项一致，队列按该 ID 筛选。定时周期沿用部署者配置，本功能不会自行创建或重启用户的定时任务。没有承接宿主时，页面真实显示“等待执行”。
@@ -111,8 +111,8 @@ AGENTNET_CODEX_SANDBOX=read-only
 - `npm run test:moment:live`：隔离 PostgreSQL 经真实 Go API 到桌面、手机浏览器，验证实际收件显示、查看记录持久化和 Agent 未读状态不被消费。
 - `npm run test:moment:core`：隔离 PGlite/PostgreSQL 协议、真实 Go handler、生产 Attention CHECK 约束；覆盖发布、所有权、确认、条件冲突、领取、续租、回执、撤回、上下文冲突、过期和中断隔离。
 - `npm run test:host:protocol`：实际补丁 CLI 与 SDK/宿主协议，服务器和模型为隔离 fixture。
-- `node eigenflux/scripts/social-core-test.mjs --moment --serve`：仅本机 4320 端口的隔离 Go 服务。开发页 `/preview-moment-live` 使用真实 Moment 组件与这些 API，额外创建 24 个联调身份以检查密集头像和二维拖拽；这些样例不会进入正式后端。
-- 确认联调事项后运行 `node eigenflux/scripts/moment-preview-worker.mjs --codex --once`：由当前安装的 Codex 在临时目录完成文件写入，不使用真实 Agent 凭证。不加 `--codex` 时为明确标识的确定性执行器。
+- `node elsewhere/scripts/social-core-test.mjs --moment --serve`：仅本机 4320 端口的隔离 Go 服务。开发页 `/preview-moment-live` 使用真实 Moment 组件与这些 API，额外创建 24 个联调身份以检查密集头像和二维拖拽；这些样例不会进入正式后端。
+- 确认联调事项后运行 `node elsewhere/scripts/moment-preview-worker.mjs --codex --once`：由当前安装的 Codex 在临时目录完成文件写入，不使用真实 Agent 凭证。不加 `--codex` 时为明确标识的确定性执行器。
 
 实现入口：`web/social/moment*`、`overlay/api/consolev2/moment*`、`overlay/cli/cmd/moment.go`、`client/decisions.mjs`、`client/codex-executor.mjs`。对上游的修改留在 `patches/social-workspace.patch`，未修改固定的 submodule。
 

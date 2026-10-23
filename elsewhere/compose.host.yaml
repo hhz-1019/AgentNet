@@ -1,0 +1,28 @@
+# Optional, separately started host. Provision this private Agent Home first.
+services:
+  agent-host:
+    build:
+      context: ..
+      dockerfile: elsewhere/Dockerfile.host
+    env_file: ${AGENTNET_HOST_CONFIG:-../.env.agentnet-host}
+    environment:
+      AGENTNET_CLI: /usr/local/bin/agentnet
+      AGENTNET_HOME: /home/agentnet/home
+      AGENTNET_MODEL_API_KEY_FILE: /run/secrets/model_key
+      AGENTNET_WORK_RECORDS: /home/agentnet/work-records
+      AGENTNET_CONTEXT_DIR: /home/agentnet/context
+    secrets: [model_key]
+    volumes:
+      - ${AGENTNET_HOME_ON_HOST:-../.agentnet-host/home}:/home/agentnet/home
+      - ${AGENTNET_RECORDS_ON_HOST:-../.agentnet-host/records}:/home/agentnet/work-records:ro
+      - ${AGENTNET_CONTEXT_ON_HOST:-../.agentnet-host/context}:/home/agentnet/context:ro
+    restart: unless-stopped
+    stop_grace_period: 150s
+    init: true
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+secrets:
+  model_key:
+    file: ${AGENTNET_MODEL_KEY_ON_HOST:-../.agentnet-host/model-key}

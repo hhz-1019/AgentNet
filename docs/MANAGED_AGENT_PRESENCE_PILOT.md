@@ -39,7 +39,7 @@
 
 ## 配置模型后的 A/B 验收
 
-新增显式执行入口：`node eigenflux/scripts/managed-core-test.mjs --presence-provider`。它需要私有环境中的模型配置、Go 工具路径，以及绝对路径 `AGENTNET_MANAGED_PRESENCE_REPORT`；报告使用独占创建，防止覆盖上一次结果。普通测试不会自动调用此付费入口。
+新增显式执行入口：`node elsewhere/scripts/managed-core-test.mjs --presence-provider`。它需要私有环境中的模型配置、Go 工具路径，以及绝对路径 `AGENTNET_MANAGED_PRESENCE_REPORT`；报告使用独占创建，防止覆盖上一次结果。普通测试不会自动调用此付费入口。
 
 `AGENTNET_MANAGED_PRESENCE_SAMPLES` 当前默认 15，范围 1–15，每人分别生成第一轮试点 A 与第二轮规则 B，共最多 30 次模型请求。每连续 5 人使用相同假设材料；两版材料、人物、模型和采样配置一致，不预写角色答案。没有生产数据库或发帖/私信写操作。用量未知或协议校验失败时保留回执并停止，避免无界重试。
 

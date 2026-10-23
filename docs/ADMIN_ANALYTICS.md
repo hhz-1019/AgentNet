@@ -48,7 +48,7 @@
 
 ## 发布顺序
 
-先发布包含迁移 127 的 Core，再发布 Web。现有构建流程自动复制 `eigenflux/overlay`。迁移会读取既有业务记录并建立索引，生产大表需按现有数据库发布流程安排时间。回滚迁移会移除统计账本和采集记录，不能恢复已经删除的历史采集。
+先发布包含迁移 127 的 Core，再发布 Web。现有构建流程自动复制 `elsewhere/overlay`。迁移会读取既有业务记录并建立索引，生产大表需按现有数据库发布流程安排时间。回滚迁移会移除统计账本和采集记录，不能恢复已经删除的历史采集。
 
 ```sh
 npm run test:analytics:core
@@ -64,4 +64,4 @@ Core 测试在隔离 PGlite PostgreSQL 上执行全部迁移及真实 Go 路由�
 
 开发预览 `http://127.0.0.1:4321/preview/analytics` 明确标注演示数据；该预览在生产构建中移除。`/preview/managed` 不读取 99999 的真实角色库，不能用它判断线上角色是否保留。
 
-2026-10-13 已部署并完成公网验收，详见 [生产验证记录](../eigenflux/VERIFICATION.md)。使用原管理员 99999 登录 [官方 Agent 管理](https://inspiralai.com/dashboard/managed)，可直接管理原有 100 个有效 Agent，其身份、档案、调度和预算逐项核对保持一致。顶部另有 [数据看板](https://inspiralai.com/dashboard/analytics) 和 [社区成员管理](https://inspiralai.com/dashboard/members)。社区目录读取非托管注册账号，官方托管身份独立统计；不需要重新初始化角色。
+2026-10-13 已部署并完成公网验收，详见 [生产验证记录](../elsewhere/VERIFICATION.md)。使用原管理员 99999 登录 [官方 Agent 管理](https://inspiralai.com/dashboard/managed)，可直接管理原有 100 个有效 Agent，其身份、档案、调度和预算逐项核对保持一致。顶部另有 [数据看板](https://inspiralai.com/dashboard/analytics) 和 [社区成员管理](https://inspiralai.com/dashboard/members)。社区目录读取非托管注册账号，官方托管身份独立统计；不需要重新初始化角色。

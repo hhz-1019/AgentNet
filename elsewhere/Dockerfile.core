@@ -1,0 +1,53 @@
+FROM golang:1.25-bookworm AS build
+WORKDIR /src
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOMAXPROCS=2 GOFLAGS="-p=2 -ldflags=-s"
+COPY upstream/elsewhere/go.mod upstream/elsewhere/go.sum ./
+RUN go mod download
+COPY upstream/elsewhere/ ./
+COPY elsewhere/patches/domestic-providers.patch /tmp/domestic-providers.patch
+COPY elsewhere/patches/uid-deepseek.patch /tmp/uid-deepseek.patch
+COPY elsewhere/patches/official-assistant.patch /tmp/official-assistant.patch
+COPY elsewhere/patches/community-activation.patch /tmp/community-activation.patch
+COPY elsewhere/patches/social-workspace.patch /tmp/social-workspace.patch
+COPY elsewhere/patches/account-connection.patch /tmp/account-connection.patch
+COPY elsewhere/overlay/ ./
+# Zeabur injects runtime secrets into builds. Tests get only the compiler
+# environment, never a deployment's database, credentials or model switches.
+RUN git apply --ignore-space-change /tmp/domestic-providers.patch && \
+    git apply --ignore-space-change /tmp/uid-deepseek.patch && \
+    git apply --ignore-space-change /tmp/official-assistant.patch && \
+    git apply --ignore-space-change /tmp/community-activation.patch && \
+    git apply --ignore-space-change /tmp/social-workspace.patch && \
+    git apply --ignore-space-change /tmp/account-connection.patch && \
+    env -i PATH="$PATH" HOME="$HOME" GOPROXY="$GOPROXY" GOMAXPROCS=2 GOFLAGS=-p=2 \
+    go test ./pkg/email ./pkg/sms ./pkg/db ./pkg/metrics ./pipeline/llm ./pipeline/embedding ./api/consolev2 ./rpc/auth
+RUN find scripts -name '*.sh' -exec sed -i 's/\r$//' {} +
+RUN bash scripts/common/build.sh profile item sort feed pm auth notification api ws pipeline cron
+RUN go build -o build/migration-preflight scripts/common/migration_preflight.go && \
+    go build -o build/short-id-backfill scripts/common/agent_short_id_backfill.go && \
+    go build -o build/influence-backfill scripts/common/agent_influence_backfill.go && \
+    go build -o build/official-assistant ./scripts/official_assistant && \
+    go build -o build/uid-admin ./scripts/uid_admin && \
+    go build -o build/managed-admin ./scripts/managed_admin && \
+    GOBIN=/src/build go install github.com/pressly/goose/v3/cmd/goose@v3.24.3
+WORKDIR /src/cli
+RUN go build -ldflags="-X main.Version=0.0.54-agentnet.25 -X main.Commit=02735b5b" -o /src/build/elsewhere .
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/* && useradd -m -u 10001 agentnet
+WORKDIR /app
+COPY --from=build --chown=10001:10001 /src/build /app/build
+COPY --from=build --chown=10001:10001 /src/migrations /app/migrations
+COPY --from=build --chown=10001:10001 /src/static /app/static
+COPY --from=build --chown=10001:10001 /src/configs /app/configs
+COPY --from=build --chown=10001:10001 /src/skills /app/skills
+COPY --from=build --chown=10001:10001 /src/contracts /app/contracts
+COPY --from=build --chown=10001:10001 /src/LICENSE /app/LICENSE-upstream
+COPY --chown=10001:10001 elsewhere/friend_request_limits.yaml /app/configs/pm/friend_request_limits.yaml
+COPY --chown=10001:10001 elsewhere/scripts/entrypoint.sh /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && mkdir -p /app/.log /app/data && chown agentnet:agentnet /app /app/.log /app/data
+USER agentnet
+ENV FRIEND_REQUEST_LIMITS_CONFIG=/app/configs/pm/friend_request_limits.yaml
+EXPOSE 8080 8088
+ENTRYPOINT ["bash", "/app/entrypoint.sh"]

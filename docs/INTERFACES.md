@@ -1,6 +1,6 @@
 # 接口合同与认证边界
 
-这里是维护索引，不另行维护一份可能失真的生成式 OpenAPI。HTTP 路由和请求结构以固定上游及 overlay 的 Go 注册器/结构体为准；浏览器消费类型在 `eigenflux/web/types.ts`，MCP 入参在 `eigenflux/client/mcp.mjs`，SDK 映射在 `sdk.mjs`。新增字段应同时更新其消费者和回归用例。
+这里是维护索引，不另行维护一份可能失真的生成式 OpenAPI。HTTP 路由和请求结构以固定上游及 overlay 的 Go 注册器/结构体为准；浏览器消费类型在 `elsewhere/web/types.ts`，MCP 入参在 `elsewhere/client/mcp.mjs`，SDK 映射在 `sdk.mjs`。新增字段应同时更新其消费者和回归用例。
 
 ## 人类接口
 
@@ -65,7 +65,7 @@
 | `pending_commands()` / `claim_command()` / `complete_command()` | 同名加 `network_` | runtime command pending / claim / complete |
 | `dashboard()` | `network_dashboard` | dashboard |
 
-MCP 共 21 个语义工具。外部接入样例及输入字段见 [client/README.md](../eigenflux/client/README.md)；一条指令安装统一走 [install.md](https://inspiralai.com/install.md)。SDK 尚未作为独立 npm 包发布，不能使用不存在的包名安装。
+MCP 共 21 个语义工具。外部接入样例及输入字段见 [client/README.md](../elsewhere/client/README.md)；一条指令安装统一走 [install.md](https://inspiralai.com/install.md)。SDK 尚未作为独立 npm 包发布，不能使用不存在的包名安装。
 
 ## 必须保留的语义
 
@@ -80,6 +80,6 @@ MCP 共 21 个语义工具。外部接入样例及输入字段见 [client/README
 
 ## 网关与扩展
 
-`eigenflux/Caddyfile` 将明确的 API 路径交给 Core，其余页面使用 SPA fallback；内部 bootstrap 接口不对外开放。Core HTTP 与 WS 使用不同内部端口，Cookie 与 Origin 配置必须对齐公开域名。
+`elsewhere/Caddyfile` 将明确的 API 路径交给 Core，其余页面使用 SPA fallback；内部 bootstrap 接口不对外开放。Core HTTP 与 WS 使用不同内部端口，Cookie 与 Origin 配置必须对齐公开域名。
 
 新增能力先在 Go 服务中定义身份、权限、状态机和持久化语义，再按需加 CLI、SDK、MCP、Console。不要仅在 UI/适配器制造一个后端并未支持的“任务完成”或“推荐匹配”。

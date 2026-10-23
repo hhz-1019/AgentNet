@@ -1,0 +1,175 @@
+import assert from 'node:assert/strict';
+import { PGlite } from '@electric-sql/pglite';
+import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
+import { cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { spawn, execFileSync } from 'node:child_process';
+import { resolve, basename } from 'node:path';
+await mkdir('.agentnet-audit', { recursive: true });
+const dir = await mkdtemp(resolve('.agentnet-audit/social-core-'));
+await cp('upstream/elsewhere', dir, {
+  recursive: true,
+  filter: (s) => basename(s) !== '.git',
+});
+// Apply patches relative to this isolated checkout, not the parent repository.
+execFileSync('git', ['init', '--quiet'], { cwd: dir });
+for (const patch of [
+  'domestic-providers',
+  'uid-deepseek',
+  'official-assistant',
+  'community-activation',
+  'social-workspace',
+  'account-connection',
+])
+  execFileSync(
+    'git',
+    [
+      'apply',
+      '--ignore-space-change',
+      resolve(`elsewhere/patches/${patch}.patch`),
+    ],
+    { cwd: dir },
+  );
+await cp('elsewhere/overlay', dir, { recursive: true });
+const db = await PGlite.create({ extensions: { pg_trgm } });
+await db.exec(
+  `CREATE TABLE agents (agent_id BIGINT PRIMARY KEY,agent_name TEXT); INSERT INTO agents VALUES (1,'我的 Agent'),(2,'伙伴 Agent'),(3,'第三位 Agent'); ALTER TABLE agents ADD COLUMN is_official BOOLEAN NOT NULL DEFAULT false; CREATE TABLE user_relations (from_uid BIGINT,to_uid BIGINT,rel_type INTEGER); CREATE TABLE agent_commands(command_id BIGINT PRIMARY KEY,agent_id BIGINT,command_type TEXT,payload JSONB,status TEXT,result JSONB,created_at BIGINT); ALTER TABLE agent_commands ADD claim_epoch BIGINT, ADD claim_token_hash TEXT, ADD claim_until BIGINT; INSERT INTO agent_commands(command_id,agent_id,command_type,payload,status,result,created_at) VALUES (3,1,'human_instruction','{"instruction":"测试指令"}','completed','{"reply":"真实执行回执"}',1);`,
+);
+const migrations = await Promise.all(
+  [
+    '000108_social_workspace.sql',
+    '000109_social_preferences_media.sql',
+    '000110_social_organizations.sql',
+    '000111_project_handoffs.sql',
+    '000112_digital_twin.sql',
+    '000119_elsewhere_social.sql',
+    '000130_agent_companions.sql',
+    '000131_agent_avatars.sql',
+    '000137_moment_inbox.sql',
+    '000138_moment_interactions.sql',
+    '000139_host_memory_archive.sql',
+    '000143_active_social_defaults.sql',
+    '000144_media_preparation.sql',
+    '000145_social_read_counters.sql',
+    '000152_owner_activity.sql',
+    '000153_agent_account_deletion.sql',
+  ].map((name) => readFile(`elsewhere/overlay/migrations/${name}`, 'utf8')),
+);
+await db.exec(
+  `CREATE TABLE human_accounts(uid VARCHAR(64) PRIMARY KEY,password_hash TEXT,recovery_hash TEXT,created_at BIGINT); CREATE TABLE agent_owners(agent_id BIGINT PRIMARY KEY REFERENCES agents(agent_id),owner_uid VARCHAR(64) REFERENCES human_accounts(uid),created_at BIGINT); CREATE TABLE console_v2_sessions(session_id TEXT PRIMARY KEY,owner_uid VARCHAR(64),auth_method TEXT,status TEXT);`,
+);
+await db.exec(
+  (
+    await readFile(
+      'upstream/elsewhere/migrations/000003_add_pm_tables.sql',
+      'utf8',
+    )
+  ).split('-- +goose Down')[0],
+);
+await db.exec(
+  "ALTER TABLE agents ADD COLUMN agent_name_en TEXT DEFAULT ''; ALTER TABLE agents ADD COLUMN updated_at BIGINT DEFAULT 0; ALTER TABLE agents ADD COLUMN bio TEXT NOT NULL DEFAULT ''; ALTER TABLE agents ADD COLUMN identity_state TEXT NOT NULL DEFAULT 'active'; ALTER TABLE conversations ADD COLUMN topic_status SMALLINT NOT NULL DEFAULT 1;",
+);
+for (const migration of migrations)
+  await db.exec(migration.split('-- +goose Down')[0]);
+// Shared comment handler now supports the parent field introduced by managed
+// social quality; this lightweight fixture deliberately omits managed tables.
+await db.exec(
+  'ALTER TABLE social_work_comments ADD COLUMN reply_to_comment_id BIGINT',
+);
+await db.exec(
+  'CREATE TABLE managed_members(agent_id BIGINT PRIMARY KEY,deleted_at BIGINT NOT NULL DEFAULT 0); CREATE TABLE social_follow_friendships(from_uid BIGINT,to_uid BIGINT,PRIMARY KEY(from_uid,to_uid))',
+);
+await db.exec(
+  `CREATE TABLE agent_onboarding_drafts(agent_id BIGINT,revision BIGINT,draft_data JSONB); CREATE TABLE agent_network_goals(goal_id BIGSERIAL PRIMARY KEY,agent_id BIGINT,goal_text TEXT,source TEXT,status TEXT,version BIGINT,created_at BIGINT,updated_at BIGINT); CREATE TABLE agent_context_heads(agent_id BIGINT PRIMARY KEY,active_revision BIGINT);`,
+);
+await db.exec(`
+ CREATE TABLE friend_requests(id BIGINT PRIMARY KEY,from_uid BIGINT,to_uid BIGINT,status SMALLINT DEFAULT 0,greeting TEXT,created_at BIGINT,updated_at BIGINT);
+ CREATE TABLE raw_items(item_id BIGINT PRIMARY KEY,author_agent_id BIGINT,raw_content TEXT,created_at BIGINT);
+ CREATE TABLE processed_items(item_id BIGINT PRIMARY KEY,status SMALLINT);
+ CREATE TABLE agent_feed_exposures(exposure_id BIGSERIAL PRIMARY KEY,agent_id BIGINT,source_type TEXT,source_id BIGINT,content_class TEXT,author_agent_id BIGINT,context_revision BIGINT,first_seen_at BIGINT,last_seen_at BIGINT,seen_count BIGINT DEFAULT 1,UNIQUE(agent_id,source_type,source_id));
+`);
+const port = Number(process.env.AGENTNET_SOCIAL_TEST_PORT || 15439),
+  socket = new PGLiteSocketServer({ db, port, host: '127.0.0.1' });
+await socket.start();
+let code = 1;
+try {
+  code = await new Promise((resolveRun, reject) => {
+    const child = spawn(
+      process.env.AGENTNET_GO_BINARY || 'go',
+      [
+        'test',
+        './api/consolev2',
+        './pkg/db',
+        './pkg/metrics',
+        ...(process.argv.includes('--regression')
+          ? [
+              './rpc/auth',
+              './pkg/email',
+              './pipeline/llm',
+              './pipeline/embedding',
+            ]
+          : []),
+        '-run',
+        process.argv.includes('--regression')
+          ? '.'
+          : process.argv.includes('--moment')
+            ? 'TestMoment'
+            : 'TestSocial|TestTwin|TestElsewhere|TestPool|TestHTTPApplicationTiming',
+        '-count=1',
+        ...(process.argv.includes('--serve') ? ['-timeout=0'] : []),
+        '-v',
+      ],
+      {
+        cwd: dir,
+        env: {
+          ...process.env,
+          AGENTNET_MEDIA_PREPARATION: 'false',
+          AGENTNET_MOMENT_PREVIEW_PORT: process.argv.includes('--serve')
+            ? '4320'
+            : '',
+          AGENTNET_MOMENT_BROWSER_SCRIPT:
+            process.argv.includes('--browser') &&
+            process.argv.includes('--moment')
+              ? resolve('elsewhere/scripts/moment-live-ui.mjs')
+              : '',
+          AGENTNET_SOCIAL_BROWSER_SCRIPT:
+            process.argv.includes('--browser') &&
+            !process.argv.includes('--moment')
+              ? resolve('elsewhere/scripts/social-live-ui.mjs')
+              : '',
+          AGENTNET_SOCIAL_TEST_DSN: `host=127.0.0.1 port=${port} user=postgres dbname=postgres sslmode=disable`,
+        },
+        stdio: 'inherit',
+      },
+    );
+    child.once('error', reject);
+    child.once('exit', (c) => resolveRun(c ?? 1));
+  });
+  if (code === 0) {
+    // The isolated video fixture proves production rollback refuses data loss.
+    const videoCount = await db.query(
+      "SELECT count(*)::int AS n FROM social_media WHERE content_type LIKE 'video/%'",
+    );
+    if (videoCount.rows[0].n) {
+      await assert.rejects(
+        db.exec(
+          migrations
+            .find((m) => m.includes('social_media_content_type_check'))
+            .split('-- +goose Down')[1],
+        ),
+        /social_media_content_type_check/,
+      );
+      await db.exec(
+        "DELETE FROM social_media WHERE content_type LIKE 'video/%'",
+      );
+    }
+    for (const migration of [...migrations].reverse())
+      await db.exec(migration.split('-- +goose Down')[1]);
+    console.log('Social migration rollback passed.');
+  }
+} finally {
+  await socket.stop();
+  await db.close();
+  await rm(dir, { recursive: true, force: true });
+}
+process.exitCode = code;

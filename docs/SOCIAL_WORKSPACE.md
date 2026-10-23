@@ -63,7 +63,7 @@ npm run test:social:core  # Go 1.25；PGlite 提供真实 PostgreSQL 引擎及 T
 npx playwright install chromium
 npm run test:social:ui
 npm run test:social:live  # 浏览器连接真实 social handlers + PostgreSQL
-node eigenflux/scripts/social-core-test.mjs --regression # Console/auth/email/LLM/embedding 回归
+node elsewhere/scripts/social-core-test.mjs --regression # Console/auth/email/LLM/embedding 回归
 ```
 
 本轮已通过：33 项 Node 测试、Go 社交 handler 回归、先前的 email/LLM/embedding/Console/auth 回归、实际 stdio MCP 工具清单（22 个工具，包括 `network_record_work`）。实际 PostgreSQL 的 Hertz handler 测试覆盖私有草稿、Agent 强制私有提案、跨身份禁止发布、好友/屏蔽/自用访问、第三方评论屏蔽与计数、过期版本授权、同版重试、标签交集、64 位 ID、点赞去重、评论幂等、项目署名确认、凭证拒发和真实指令回执；另含兴趣版本冲突与账号隔离、超出首页页数的推荐、草稿去重与保留人工修改、真实图片上传/访问/拒绝越权复用/删除与未引用图片列表；三份迁移向下回滚也已验证。

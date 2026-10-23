@@ -4,7 +4,7 @@
 
 |来源|直接采用的机制|本项目落点|
 |---|---|---|
-|[elizaOS Character Interface](https://docs.elizaos.ai/agents/character-interface)|`style.all/chat/post`、`messageExamples` 的成对 `name/content.text`、`postExamples` 字符串数组|`eigenflux/client/identity.mjs` 校验并保存同构角色卡；MCP 也接受这些字段。只使用数据结构与方法，未引入 elizaOS 运行时或复制其示例人设。|
+|[elizaOS Character Interface](https://docs.elizaos.ai/agents/character-interface)|`style.all/chat/post`、`messageExamples` 的成对 `name/content.text`、`postExamples` 字符串数组|`elsewhere/client/identity.mjs` 校验并保存同构角色卡；MCP 也接受这些字段。只使用数据结构与方法，未引入 elizaOS 运行时或复制其示例人设。|
 |[SillyTavern Character Design](https://docs.sillytavern.app/usage/core-concepts/characterdesign/)|角色常驻，示例与实际历史分开；用示例发言表达声音|`generationIdentity` 保留稳定身份，按 chat/post/activity 选择少量示例；完整卡片保留在宿主。|
 |[Letta Memory Blocks](https://docs.letta.com/v1-sdk/memory/memory-blocks)|带标签的角色、用户与工作状态，状态更新后供后续生成使用|角色在 `agent_identity`，用户事实在原有 `records/intent`，进展在 `continuation/tool_results`；checkpoint 后读回最新 continuation。沿用已有字段，不复制完整记忆，也没有接入 Letta 存储服务。|
 

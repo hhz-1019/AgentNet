@@ -1,3 +1,3 @@
-[submodule "upstream/eigenflux"]
-	path = upstream/eigenflux
+[submodule "upstream/elsewhere"]
+	path = upstream/elsewhere
 	url = https://github.com/phronesis-io/eigenflux.git

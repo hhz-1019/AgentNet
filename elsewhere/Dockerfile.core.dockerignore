@@ -1,0 +1,18 @@
+**
+!upstream/
+!upstream/elsewhere/
+!upstream/elsewhere/**
+!elsewhere/
+!elsewhere/friend_request_limits.yaml
+!elsewhere/scripts/
+!elsewhere/scripts/entrypoint.sh
+!elsewhere/patches/
+!elsewhere/patches/**
+!elsewhere/overlay/
+!elsewhere/overlay/**
+
+# Never include local credentials or build caches from the submodule.
+**/.git
+**/.env*
+**/node_modules
+upstream/elsewhere/cron

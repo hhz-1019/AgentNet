@@ -42,8 +42,8 @@
 
 ## 验证
 
-- `node eigenflux/scripts/managed-core-test.mjs --deletion`：完整迁移后的隔离 PostgreSQL 协议数据库。覆盖 CSRF、错误确认、事务回滚、旧会话失效、依赖删除、他人回复和计数、手机号/UID 重新使用、权限隔离、外部失败、队列隔离、断点续批、过期索引写入及迁移回滚。
-- `node eigenflux/scripts/account-deletion-ui-smoke.mjs`：实际 React 页面上的电脑/手机、暖色/夜间、确认输入、密码错误、Escape、响应丢失、刷新与完成状态；接口为测试替身，不触及线上账号。
+- `node elsewhere/scripts/managed-core-test.mjs --deletion`：完整迁移后的隔离 PostgreSQL 协议数据库。覆盖 CSRF、错误确认、事务回滚、旧会话失效、依赖删除、他人回复和计数、手机号/UID 重新使用、权限隔离、外部失败、队列隔离、断点续批、过期索引写入及迁移回滚。
+- `node elsewhere/scripts/account-deletion-ui-smoke.mjs`：实际 React 页面上的电脑/手机、暖色/夜间、确认输入、密码错误、Escape、响应丢失、刷新与完成状态；接口为测试替身，不触及线上账号。
 - 现有手机号、社交、托管账号回归，以及 TypeScript、构建、静态检查和前端单元测试。
 
 本地预览：http://127.0.0.1:4321/preview/settings 。预览不能注销真实账号。

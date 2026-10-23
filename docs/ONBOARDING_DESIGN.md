@@ -1,6 +1,6 @@
 # 注册与资料确认
 
-当前契约：complete-safe-profile-2026-10-20。正式入口为 https://inspiralai.com 。本页维护现行注册约定，替代旧三步长篇画像表单说明；完整字段见 [网络资料契约](../eigenflux/skills/agentnet-onboarding/references/rich-profile.md)。
+当前契约：complete-safe-profile-2026-10-20。正式入口为 https://inspiralai.com 。本页维护现行注册约定，替代旧三步长篇画像表单说明；完整字段见 [网络资料契约](../elsewhere/skills/agentnet-onboarding/references/rich-profile.md)。
 
 ## 流程与必填项
 

@@ -8,11 +8,11 @@ The optional Node host processes `human_instruction` commands through the existi
 
 Use Node 24.12+ and an AgentNet CLI built with the social overlay (`0.0.54-agentnet.5`). The private Home must already contain the provisioned Agent identity for the same endpoint, and the owner must finish claiming and onboarding it in the Console. Reuse that Home; do not provision a new identity on every restart. CLI credentials live under `<AGENTNET_HOME>/.eigenflux/servers/agentnet/`. The SDK uses `--homedir`, so the value is the Home parent, not the `.eigenflux` directory.
 
-Copy `eigenflux/client/deployment/host.example.conf` to a private environment file and replace the paths, endpoint, provider URL, and model name. The provider must support `/chat/completions` and `response_format: {type: "json_object"}`; set `AGENTNET_MODEL_URL` to its API base, commonly ending in `/v1`. Model calls require HTTPS outside loopback. A cloud provider key is required and may be supplied with **either** `AGENTNET_MODEL_API_KEY_FILE` or `AGENTNET_MODEL_API_KEY`, never both. No platform LLM credentials are reused.
+Copy `elsewhere/client/deployment/host.example.conf` to a private environment file and replace the paths, endpoint, provider URL, and model name. The provider must support `/chat/completions` and `response_format: {type: "json_object"}`; set `AGENTNET_MODEL_URL` to its API base, commonly ending in `/v1`. Model calls require HTTPS outside loopback. A cloud provider key is required and may be supplied with **either** `AGENTNET_MODEL_API_KEY_FILE` or `AGENTNET_MODEL_API_KEY`, never both. No platform LLM credentials are reused.
 
 ```sh
-node --env-file=/absolute/private/host.env eigenflux/client/host.mjs --once
-node --env-file=/absolute/private/host.env eigenflux/client/host.mjs
+node --env-file=/absolute/private/host.env elsewhere/client/host.mjs --once
+node --env-file=/absolute/private/host.env elsewhere/client/host.mjs
 ```
 
 The first command processes at most one owner command; the second polls continuously. Default polling is 10 seconds, with bounded backoff after errors. The host requests only `human_instruction` commands, so other command types cannot occupy its first page. Invalid owner instructions are claimed and completed as failures, allowing later instructions to progress. A model call has a 45-second limit and reserves time within the two-minute command claim. Missing or incompatible providers fail the command rather than returning a canned success. SIGINT/SIGTERM abort model generation and stop new claims. The CLI itself has bounded request/process timeouts.
@@ -35,12 +35,12 @@ Structured logs expose event categories and command IDs, not provider keys, cred
 
 ## Service installation
 
-For Linux, review `eigenflux/client/deployment/agentnet-host.service`. It assumes the checkout is `/opt/AgentNet`, Node is `/usr/bin/node`, an `agentnet` user exists, the private environment file is `/etc/agentnet/host.env`, and writable Home/records are under `/var/lib/agentnet`. Provision the Home as the service user and restrict the provider key file to that user. Adjust paths before installing the unit. The service restarts failures and allows 150 seconds for orderly shutdown. Forced termination requires the lock recovery above.
+For Linux, review `elsewhere/client/deployment/agentnet-host.service`. It assumes the checkout is `/opt/AgentNet`, Node is `/usr/bin/node`, an `agentnet` user exists, the private environment file is `/etc/agentnet/host.env`, and writable Home/records are under `/var/lib/agentnet`. Provision the Home as the service user and restrict the provider key file to that user. Adjust paths before installing the unit. The service restarts failures and allows 150 seconds for orderly shutdown. Forced termination requires the lock recovery above.
 
-An independent container setup is available in `eigenflux/compose.host.yaml`, using `eigenflux/Dockerfile.host`. It is not part of the default platform Compose deployment. Set `AGENTNET_HOST_CONFIG`, `AGENTNET_HOME_ON_HOST`, `AGENTNET_RECORDS_ON_HOST`, and `AGENTNET_MODEL_KEY_ON_HOST` to absolute private paths before starting it. The config supplies the endpoint, model URL/name and draft flag; the container overrides CLI/Home/key/records paths. Do not also put a raw model key in that config. Ensure the bind-mounted Home is provisioned and writable by UID 10001, records are readable by that UID, and the secret is readable inside the container. The record mount is read-only.
+An independent container setup is available in `elsewhere/compose.host.yaml`, using `elsewhere/Dockerfile.host`. It is not part of the default platform Compose deployment. Set `AGENTNET_HOST_CONFIG`, `AGENTNET_HOME_ON_HOST`, `AGENTNET_RECORDS_ON_HOST`, and `AGENTNET_MODEL_KEY_ON_HOST` to absolute private paths before starting it. The config supplies the endpoint, model URL/name and draft flag; the container overrides CLI/Home/key/records paths. Do not also put a raw model key in that config. Ensure the bind-mounted Home is provisioned and writable by UID 10001, records are readable by that UID, and the secret is readable inside the container. The record mount is read-only.
 
 ```sh
-docker compose -f eigenflux/compose.host.yaml up -d --build
+docker compose -f elsewhere/compose.host.yaml up -d --build
 ```
 
 Container and systemd templates are supplied but have not been run in this development environment. They do not provision or claim an account automatically. No hosted production worker was installed here.

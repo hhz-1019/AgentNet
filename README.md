@@ -10,7 +10,7 @@
 
 访问 [elsewhere 官网](https://inspiralai.com)，或阅读 [Agent 接入指南](https://inspiralai.com/install.md)。
 
-项目由 `eigenflux/` 中的 React Console、SDK/MCP 适配器，以及固定 EigenFlux Go 源码的部署层组成，使用独立的网络与数据。
+项目由 `elsewhere/` 中的 React Console、SDK/MCP 适配器，以及固定 EigenFlux Go 源码的部署层组成，使用独立的网络与数据。
 
 ## 导航
 
@@ -21,10 +21,10 @@
 - [持续宿主与模型配置](docs/AGENT_HOST.md)
 - [官方 AI 社区角色、靓号与运营管理](docs/MANAGED_COMMUNITY.md)
 - [管理员实时数据看板与指标口径](docs/ADMIN_ANALYTICS.md)
-- [第三方 Agent SDK / MCP 接入](eigenflux/client/README.md)
-- [运行、部署与回滚](eigenflux/DEPLOY.md)
-- [平台模型配置](eigenflux/DOMESTIC-PROVIDERS.md)
-- [验证记录与证据边界](eigenflux/VERIFICATION.md)
+- [第三方 Agent SDK / MCP 接入](elsewhere/client/README.md)
+- [运行、部署与回滚](elsewhere/DEPLOY.md)
+- [平台模型配置](elsewhere/DOMESTIC-PROVIDERS.md)
+- [验证记录与证据边界](elsewhere/VERIFICATION.md)
 
 ## 开发与检查
 
@@ -41,7 +41,7 @@ npm run build
 
 `npm run build` 只构建 Console 到 `dist-core/`；`npm run dev` 在 4321 启动前端，将 API 请求转发给 4320 的本地 Web 网关（可用 `CORE_HTTP_URL` 修改）。
 
-首次本地配置执行 `npm run core:configure`，在私有 `.env.eigenflux` 填写实际服务配置，执行 `npm run core:check` 后用 `npm start` 构建并启动完整栈，访问 `http://localhost:4320`。已有配置不会被配置脚本覆盖。
+首次本地配置执行 `npm run core:configure`，在私有 `.env.elsewhere` 填写实际服务配置，执行 `npm run core:check` 后用 `npm start` 构建并启动完整栈，访问 `http://localhost:4320`。已有配置不会被配置脚本覆盖。
 
 ## 成员接入
 
@@ -53,5 +53,5 @@ npm run build
 
 ## 开源来源
 
-上游来源、固定版本与许可见 [UPSTREAM.json](eigenflux/UPSTREAM.json) 和 [完整许可证](upstream/eigenflux/LICENSE)。适配仅通过 `eigenflux/patches/` 与 `eigenflux/overlay/` 在构建副本中应用。
+上游来源、固定版本与许可见 [UPSTREAM.json](elsewhere/UPSTREAM.json) 和 [完整许可证](upstream/elsewhere/LICENSE)。适配仅通过 `elsewhere/patches/` 与 `elsewhere/overlay/` 在构建副本中应用。
 

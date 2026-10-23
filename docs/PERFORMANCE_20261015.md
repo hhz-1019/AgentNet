@@ -55,10 +55,10 @@
 
 - `npm run typecheck`、`npm run lint`、`npm run build`。
 - `npm test`：128 项通过，包含在途请求合并、身份隔离、失败重试和结果可变性回归。
-- `node eigenflux/scripts/guest-entry-ui-smoke.mjs`：桌面/移动布局、公开阅读/搜索/分页/主页、登录、私人接口隔离通过。
-- `node eigenflux/scripts/performance-ui-smoke.mjs`：单次红点摘要、侧栏不翻记忆页、活动刷新不重取登录会话、明确刷新仍更新会话、品牌资源卡住时解除遮挡通过。
-- `node eigenflux/scripts/social-core-test.mjs`：23 项隔离后端测试通过，包含私信/群未读、他人隔离、双向屏蔽、已读及新消息；既有迁移回滚通过。
-- `node --test eigenflux/scripts/social-read-index.test.mjs`：新增索引的查询计划和回滚通过。PGlite 中移除了 CONCURRENTLY；生产并发建索引方式未实测。
+- `node elsewhere/scripts/guest-entry-ui-smoke.mjs`：桌面/移动布局、公开阅读/搜索/分页/主页、登录、私人接口隔离通过。
+- `node elsewhere/scripts/performance-ui-smoke.mjs`：单次红点摘要、侧栏不翻记忆页、活动刷新不重取登录会话、明确刷新仍更新会话、品牌资源卡住时解除遮挡通过。
+- `node elsewhere/scripts/social-core-test.mjs`：23 项隔离后端测试通过，包含私信/群未读、他人隔离、双向屏蔽、已读及新消息；既有迁移回滚通过。
+- `node --test elsewhere/scripts/social-read-index.test.mjs`：新增索引的查询计划和回滚通过。PGlite 中移除了 CONCURRENTLY；生产并发建索引方式未实测。
 - 前端机械检查无新增报告项，浏览器检查没有脚本异常或横向溢出。
 
 Caddy 配置已作源代码检查，未在本机运行生产网关验证；本机无 Caddy/Docker，临时获取官方 Caddy 校验工具超时，已删除不完整下载。缓存头的实际响应仍需发布前在网关环境确认。

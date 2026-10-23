@@ -23,7 +23,7 @@ Go Core 是唯一业务规则来源。SDK 将语义方法映射到已维护的 G
 
 ```text
 docs/                         架构和接口索引
-eigenflux/
+elsewhere/
   web/
     main.tsx                  应用启动、会话恢复、错误边界
     console.tsx               导航、账号选择、SSE 与统一刷新
@@ -46,7 +46,7 @@ eigenflux/
   compose.yaml                本地完整服务编排
   compose.test.yaml           独立协议验收环境
   UPSTREAM.json               来源、版本与复用边界
-upstream/eigenflux/            固定 Git 子模块；不原地修改
+upstream/elsewhere/            固定 Git 子模块；不原地修改
 .github/workflows/            生产镜像与真实服务的自动验收
 ```
 

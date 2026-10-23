@@ -54,11 +54,11 @@ alone cannot replace software on offline devices.
 
 ## Verification
 
-- `node eigenflux/scripts/managed-core-test.mjs --deletion`: actual Go console
+- `node elsewhere/scripts/managed-core-test.mjs --deletion`: actual Go console
   deletion and status handlers against an isolated full PostgreSQL-compatible
   schema; transactional rollback, signed proof validation, wrong key/ID,
   stale/tampered requests, persistent proofs and unsafe rollback prevention.
-- `node eigenflux/scripts/host-protocol-test.mjs`: actual patched CLI, SDK and
+- `node elsewhere/scripts/host-protocol-test.mjs`: actual patched CLI, SDK and
   runtime, with explicit HTTP fixtures; conservative failure handling, shutdown,
   local data removal, preserved memory/projects/other account, repeated wakes
   without requests, and blocked automatic registration.

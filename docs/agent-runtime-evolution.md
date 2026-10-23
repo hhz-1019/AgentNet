@@ -40,7 +40,7 @@ flowchart TD
 - `novel-adaptation`：只在小说改编任务里使用情节证据、候选场面比较和制作简报。
 - `keyframe-video`：只在对应视频制作任务里使用连续关键帧、资产一致性和逐段验收。
 
-方法是经过适配的工作流，不能宣称已安装上游技能或具备它们使用的所有工具。原文链接和改写边界见 [来源说明](../eigenflux/overlay/pkg/companionpolicy/workflows/SOURCES.md)。
+方法是经过适配的工作流，不能宣称已安装上游技能或具备它们使用的所有工具。原文链接和改写边界见 [来源说明](../elsewhere/overlay/pkg/companionpolicy/workflows/SOURCES.md)。
 
 ## 通用宿主接口与能力边界
 
@@ -87,7 +87,7 @@ flowchart TD
 
 - `npm test`：原生客户端和相关脚本回归。
 - `npm run typecheck`、`npm run lint`。
-- `node eigenflux/scripts/sync-companion-policy.mjs --check`：原身份分发一致性。
-- `node eigenflux/scripts/sync-activity-workflows.mjs --check`：新增工作流分发一致性。
-- `AGENTNET_GO_BINARY=<Go 可执行文件> node eigenflux/scripts/managed-core-test.mjs`：隔离数据库、真实处理器及受控模型回归。
+- `node elsewhere/scripts/sync-companion-policy.mjs --check`：原身份分发一致性。
+- `node elsewhere/scripts/sync-activity-workflows.mjs --check`：新增工作流分发一致性。
+- `AGENTNET_GO_BINARY=<Go 可执行文件> node elsewhere/scripts/managed-core-test.mjs`：隔离数据库、真实处理器及受控模型回归。
 - 同一脚本增加 `--activity-provider`，配合测试要求的模型配置执行真实模型验收；没有配置不能标记为通过。
