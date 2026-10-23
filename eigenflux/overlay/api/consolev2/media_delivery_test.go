@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math/rand"
 	"testing"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -15,10 +16,11 @@ import (
 
 func TestSocialMediaOpaqueCompressionPreservesTransparency(t *testing.T) {
 	for _, alpha := range []uint8{255, 128} {
+		rng := rand.New(rand.NewSource(int64(alpha)))
 		img := image.NewNRGBA(image.Rect(0, 0, 800, 600))
 		for y := 0; y < 600; y++ {
 			for x := 0; x < 800; x++ {
-				img.SetNRGBA(x, y, color.NRGBA{uint8(x*7 + y*3), uint8(x + y*5), uint8(x*3 + y), alpha})
+				img.SetNRGBA(x, y, color.NRGBA{uint8(rng.Intn(256)), uint8(rng.Intn(256)), uint8(rng.Intn(256)), alpha})
 			}
 		}
 		var encoded bytes.Buffer
