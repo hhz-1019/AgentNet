@@ -1,5 +1,5 @@
 {
-  "scannedFiles": 2428,
+  "scannedFiles": 2433,
   "binaryFiles": 160,
   "staleProjectPaths": [],
   "remaining": [
@@ -24,6 +24,17 @@
       "occurrences": 2,
       "lines": [
         9
+      ],
+      "category": "source-attribution-or-identity-compatibility"
+    },
+    {
+      "path": "docs/brand-renaming.md",
+      "occurrences": 5,
+      "lines": [
+        10,
+        23,
+        24,
+        25
       ],
       "category": "source-attribution-or-identity-compatibility"
     },
@@ -700,6 +711,19 @@
       "category": "source-attribution-or-identity-compatibility"
     },
     {
+      "path": "elsewhere/scripts/brand-audit.mjs",
+      "occurrences": 9,
+      "lines": [
+        18,
+        19,
+        24,
+        25,
+        26,
+        27
+      ],
+      "category": "audit-rule"
+    },
+    {
       "path": "elsewhere/scripts/check.test.mjs",
       "occurrences": 1,
       "lines": [
@@ -733,6 +757,23 @@
         95,
         96,
         176
+      ],
+      "category": "source-attribution-or-identity-compatibility"
+    },
+    {
+      "path": "elsewhere/scripts/runtime-env.mjs",
+      "occurrences": 1,
+      "lines": [
+        10
+      ],
+      "category": "source-attribution-or-identity-compatibility"
+    },
+    {
+      "path": "elsewhere/scripts/runtime-env.test.mjs",
+      "occurrences": 2,
+      "lines": [
+        14,
+        18
       ],
       "category": "source-attribution-or-identity-compatibility"
     },
@@ -9368,47 +9409,6 @@
         19
       ],
       "category": "pinned-upstream"
-    },
-    {
-      "path": "docs/brand-renaming.md",
-      "occurrences": 5,
-      "lines": [
-        10,
-        23,
-        24,
-        25
-      ],
-      "category": "source-attribution-or-identity-compatibility"
-    },
-    {
-      "path": "elsewhere/scripts/brand-audit.mjs",
-      "occurrences": 9,
-      "lines": [
-        18,
-        19,
-        24,
-        25,
-        26,
-        27
-      ],
-      "category": "audit-rule"
-    },
-    {
-      "path": "elsewhere/scripts/runtime-env.mjs",
-      "occurrences": 1,
-      "lines": [
-        10
-      ],
-      "category": "source-attribution-or-identity-compatibility"
-    },
-    {
-      "path": "elsewhere/scripts/runtime-env.test.mjs",
-      "occurrences": 2,
-      "lines": [
-        14,
-        18
-      ],
-      "category": "source-attribution-or-identity-compatibility"
     }
   ]
 }
