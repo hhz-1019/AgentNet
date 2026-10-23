@@ -11,7 +11,7 @@ target="elsewhere-$service:$revision"
 root="/tmp/release-$service"
 mkdir -p "$root"
 docker tag "$source" "$target"
-docker image inspect --format '{{.Id}}' "$target" > "$root/image-id"
 printf '%s\n' "$revision" > "$root/revision"
 docker save "$target" | gzip -1 > "$root/image.tar.gz"
+bash "$(dirname "$0")/image-config-digest.sh" "$root/image.tar.gz" > "$root/image-id"
 (cd "$root" && sha256sum image.tar.gz image-id revision > SHA256SUMS)

@@ -24,7 +24,8 @@ if [[ "$mode" == import ]]; then
     [[ "$(cat "$stage/revision")" == "$revision" ]]
     gzip -dc "$stage/image.tar.gz" | docker load > "$root/evidence/$service-import.log" 2>&1
     docker inspect --format '{{.Id}}' "elsewhere-$service:$revision" > "$root/evidence/$service-image-id"
-    cmp "$stage/image-id" "$root/evidence/$service-image-id"
+    docker save "elsewhere-$service:$revision" | bash "$source_dir/eigenflux/scripts/image-config-digest.sh" > "$root/evidence/$service-config-id"
+    cmp "$stage/image-id" "$root/evidence/$service-config-id"
     rm -f "$stage/image.tar.gz" "$root/artifacts/$service.zip"
     echo "IMPORTED $service"
   done

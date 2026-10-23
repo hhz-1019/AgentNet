@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {selectArtifacts, services} from './ci-release-artifacts.mjs';
 import {releaseJob} from './hk.mjs';
+import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 const revision = 'a'.repeat(40);
 const artifacts = services.map((service,i) => ({id:i+1,name:`release-${service}-${revision}`,expired:false,digest:'sha256:'+'b'.repeat(64)}));
 void test('only complete digest-verified artifacts from the requested commit are accepted', () => {
@@ -19,4 +24,25 @@ void test('production imports CI artifacts without compiling and retains exclusi
   assert.match(script,/code-release.sh import/);
   assert.doesNotMatch(script,/docker build|code-release.sh build/);
   assert.match(script,/available >= 8589934592/);
+});
+void test('Docker classic and containerd archives share a canonical config digest', () => {
+  const root=mkdtempSync(join(tmpdir(),'image-config-'));
+  const helper=fileURLToPath(new URL('./image-config-digest.sh',import.meta.url));
+  const digest='c'.repeat(64);
+  try {
+    for (const config of [`${digest}.json`,`blobs/sha256/${digest}`]) {
+      writeFileSync(join(root,'manifest.json'),JSON.stringify([{Config:config}]));
+      const archive=spawnSync('tar',['-c','-f','-','-C',root,'manifest.json']);
+      assert.equal(archive.status,0);
+      const result=spawnSync('bash',[helper],{input:archive.stdout,encoding:'utf8'});
+      assert.equal(result.status,0,result.stderr);
+      assert.equal(result.stdout.trim(),`sha256:${digest}`);
+    }
+    for(const manifest of [[],[{Config:'../unsafe'}],[{Config:`${digest}.json`},{Config:`${digest}.json`}]]) {
+      writeFileSync(join(root,'manifest.json'),JSON.stringify(manifest));
+      const archive=spawnSync('tar',['-c','-f','-','-C',root,'manifest.json']);
+      const result=spawnSync('bash',[helper],{input:archive.stdout});
+      assert.notEqual(result.status,0);
+    }
+  } finally {rmSync(root,{recursive:true,force:true});}
 });
