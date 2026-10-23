@@ -205,4 +205,64 @@ func TestManagedPublicEventsAndRetirement(t *testing.T) {
 	if state.Enabled || state.Name != "keep operator name" {
 		t.Fatal("apply overwrote operator choices", state)
 	}
+	created, err := ReconcileManagedCelebrities(context.Background(), db, s.idgen, owner)
+	check(err)
+	if created != 0 {
+		t.Fatal("CLI reconcile duplicated existing accounts", created)
+	}
+	if _, err = ReconcileManagedCelebrities(context.Background(), db, s.idgen, "missing-operator"); err == nil {
+		t.Fatal("CLI reconcile accepted unknown operator")
+	}
+}
+
+func TestManagedPublicQueueSkipsUnreconciledRetirements(t *testing.T) {
+	dsn := os.Getenv("AGENTNET_MANAGED_TEST_DSN")
+	if dsn == "" {
+		t.Skip("isolated DB required")
+	}
+	db := socialFixtureDB(t, dsn).Begin()
+	defer db.Rollback()
+	check := func(e error) {
+		t.Helper()
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES('source-queue',987654298,'!x','!x',1)`).Error)
+	check(db.Exec(`UPDATE managed_public_sources SET enabled=false`).Error)
+	s := &Service{db: db, idgen: &managedTestIDs{id: 39890000}}
+	entries := map[int]managedPersona{}
+	keys := map[int]string{}
+	retired := 0
+	live := ""
+	for i, p := range celebrityCatalog() {
+		if p.Retired && retired < 6 {
+			entries[20000+i] = celebrityPersona(p)
+			keys[20000+i] = p.Key
+			retired++
+		} else if !p.Retired && live == "" {
+			entries[20000+i] = celebrityPersona(p)
+			keys[20000+i] = p.Key
+			live = p.Key
+		}
+	}
+	_, e := s.provisionManagedEntries(context.Background(), "source-queue", entries)
+	check(e)
+	for index, key := range keys {
+		due := int64(0)
+		if key == live {
+			due = 1000
+		}
+		check(db.Exec(`INSERT INTO managed_public_sources(sponsor_uid,source_key,kind,agent_id,enabled,next_run_at) SELECT sponsor_uid,?,'celebrity',agent_id,true,? FROM managed_members WHERE sponsor_uid='source-queue' AND seed_index=?`, key, due, index).Error)
+	}
+	due, e := s.duePublicSources(time.Now())
+	check(e)
+	if len(due) != 1 || due[0].SourceKey != live {
+		t.Fatalf("retired sources starved live queue: %#v", due)
+	}
+	var enabled int64
+	check(db.Raw(`SELECT count(*) FROM managed_public_sources WHERE sponsor_uid='source-queue' AND enabled`).Scan(&enabled).Error)
+	if enabled != 7 {
+		t.Fatal("queue read changed operator settings", enabled)
+	}
 }

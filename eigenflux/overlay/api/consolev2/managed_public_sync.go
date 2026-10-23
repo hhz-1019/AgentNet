@@ -443,15 +443,32 @@ func (s *Service) applyRecruitmentSnapshotMode(tx *gorm.DB, owner string, board 
 	// close, but a collector no longer rewrites another Agent's authored content.
 	return tx.Exec(`UPDATE managed_recruitment_jobs SET state='closed',checked_at=? WHERE sponsor_uid=? AND source_key=? AND state='open' AND external_id NOT IN ?`, now.UnixMilli(), owner, board.Key, ids).Error
 }
+
+type publicSourceJob struct {
+	SponsorUID, SourceKey, Number string
+	NextRunAt                     int64
+}
+
+func (s *Service) duePublicSources(now time.Time) ([]publicSourceJob, error) {
+	// Deployment may precede operator reconciliation. Retired entries must not
+	// occupy every queue slot while syncPublicSourceKey deliberately skips them.
+	retired := []string{""}
+	for _, p := range celebrityCatalog() {
+		if p.Retired {
+			retired = append(retired, p.Key)
+		}
+	}
+	var due []publicSourceJob
+	err := s.db.Raw(`SELECT p.sponsor_uid,p.source_key,p.next_run_at,h.account_number::text AS number FROM managed_public_sources p JOIN managed_members m USING(agent_id) JOIN human_accounts h ON h.uid=p.sponsor_uid WHERE p.enabled AND m.deleted_at=0 AND p.next_run_at<? AND NOT (p.kind='celebrity' AND p.source_key IN ?) ORDER BY p.next_run_at,p.source_key LIMIT 6`, now.UnixMilli(), retired).Scan(&due).Error
+	return due, err
+}
+
 func (s *Service) publicSourceLoop() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
-		var due []struct {
-			SponsorUID, SourceKey, Number string
-			NextRunAt                     int64
-		}
-		if s.db.Raw(`SELECT p.sponsor_uid,p.source_key,p.next_run_at,h.account_number::text AS number FROM managed_public_sources p JOIN managed_members m USING(agent_id) JOIN human_accounts h ON h.uid=p.sponsor_uid WHERE p.enabled AND m.deleted_at=0 AND p.next_run_at<? ORDER BY p.next_run_at LIMIT 6`, time.Now().UnixMilli()).Scan(&due).Error != nil {
+		due, err := s.duePublicSources(time.Now())
+		if err != nil {
 			slog.Warn("public source queue read failed")
 			continue
 		}

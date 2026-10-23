@@ -107,9 +107,31 @@ func (s *Service) seedPublicAgents(ctx context.Context, c *app.RequestContext) {
 		fail(c, 400, "INVALID_KIND", "请选择名人或招聘", nil)
 		return
 	}
+	created, err := s.seedPublicEntries(ctx, owner, req.Kind, req.ActivateNew)
+	if err != nil {
+		s.managedError(c, err)
+		return
+	}
+	reply(c, 200, map[string]any{"created": created})
+}
+
+// Reconcile through exactly the same transaction as the operator endpoint.
+// This administrative entry point returns counts, never login credentials.
+func ReconcileManagedCelebrities(ctx context.Context, db *gorm.DB, gen IDGenerator, owner string) (int, error) {
+	var number string
+	if err := db.WithContext(ctx).Raw("SELECT account_number::text FROM human_accounts WHERE uid=?", owner).Scan(&number).Error; err != nil {
+		return 0, err
+	}
+	if !managedAdminOwner(db, owner, number) {
+		return 0, errors.New("managed operator required")
+	}
+	return (&Service{db: db, idgen: gen}).seedPublicEntries(ctx, owner, "celebrity", true)
+}
+
+func (s *Service) seedPublicEntries(ctx context.Context, owner, kind string, activateNew bool) (int, error) {
 	entries := map[int]managedPersona{}
 	keys := map[int]string{}
-	if req.Kind == "celebrity" {
+	if kind == "celebrity" {
 		for i, p := range celebrityCatalog() {
 			if p.Retired {
 				continue
@@ -132,11 +154,11 @@ func (s *Service) seedPublicAgents(ctx context.Context, c *app.RequestContext) {
 			return e
 		}
 		for index, key := range keys {
-			if e = tx.Exec(`INSERT INTO managed_public_sources(sponsor_uid,source_key,kind,agent_id) SELECT sponsor_uid,?, ?,agent_id FROM managed_members WHERE sponsor_uid=? AND seed_index=? AND deleted_at=0 ON CONFLICT DO NOTHING`, key, req.Kind, owner, index).Error; e != nil {
+			if e = tx.Exec(`INSERT INTO managed_public_sources(sponsor_uid,source_key,kind,agent_id) SELECT sponsor_uid,?, ?,agent_id FROM managed_members WHERE sponsor_uid=? AND seed_index=? AND deleted_at=0 ON CONFLICT DO NOTHING`, key, kind, owner, index).Error; e != nil {
 				return e
 			}
 		}
-		if req.Kind == "celebrity" {
+		if kind == "celebrity" {
 			if e = seedNewCelebrityAvatars(tx, owner, ids); e != nil {
 				return e
 			}
@@ -151,7 +173,7 @@ func (s *Service) seedPublicAgents(ctx context.Context, c *app.RequestContext) {
 				}
 			}
 		}
-		if req.ActivateNew && len(ids) > 0 {
+		if activateNew && len(ids) > 0 {
 			if e = tx.Exec("UPDATE managed_members SET enabled=true WHERE sponsor_uid=? AND agent_id IN ?", owner, ids).Error; e != nil {
 				return e
 			}
@@ -159,13 +181,9 @@ func (s *Service) seedPublicAgents(ctx context.Context, c *app.RequestContext) {
 				return e
 			}
 		}
-		return managedAudit(tx, owner, "public_agents_seed_"+req.Kind, nil)
+		return managedAudit(tx, owner, "public_agents_seed_"+kind, nil)
 	})
-	if err != nil {
-		s.managedError(c, err)
-		return
-	}
-	reply(c, 200, map[string]any{"created": len(ids)})
+	return len(ids), err
 }
 func (s *Service) getPublicAgents(_ context.Context, c *app.RequestContext) {
 	owner, ok := s.requireManaged(c)

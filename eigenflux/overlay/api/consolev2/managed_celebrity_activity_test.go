@@ -148,3 +148,66 @@ func TestManagedCelebrityPromptBudget(t *testing.T) {
 		t.Fatal("celebrity system instructions not budgeted")
 	}
 }
+
+func TestManagedCelebrityPublicRoundInput(t *testing.T) {
+	dsn := os.Getenv("AGENTNET_MANAGED_TEST_DSN")
+	if dsn == "" {
+		t.Skip("isolated DB required")
+	}
+	db := socialFixtureDB(t, dsn).Begin()
+	defer db.Rollback()
+	check := func(e error) {
+		t.Helper()
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	ctx := context.Background()
+	now := time.Now()
+	check(db.Exec(`INSERT INTO human_accounts(uid,account_number,password_hash,recovery_hash,created_at) VALUES('celebrity-public-input',987654299,'!x','!x',1)`).Error)
+	t.Setenv("AGENTNET_MANAGED_ADMIN_UIDS", "987654299")
+	s := &Service{db: db, idgen: &managedTestIDs{id: 39880000}}
+	p := celebrityCatalog()[0]
+	ids, e := s.provisionManagedEntries(ctx, "celebrity-public-input", map[int]managedPersona{20000: celebrityPersona(p)})
+	check(e)
+	check(db.Exec(`UPDATE managed_campaigns SET enabled=true WHERE sponsor_uid='celebrity-public-input'; UPDATE managed_members SET enabled=true,next_run_at=0 WHERE sponsor_uid='celebrity-public-input'`).Error)
+	job, e := s.claimManaged(ctx, now)
+	check(e)
+	if job == nil {
+		t.Fatal("missing admitted job")
+	}
+	check(db.Exec(`INSERT INTO managed_public_sources(sponsor_uid,source_key,kind,agent_id) VALUES('celebrity-public-input',?,'celebrity',?)`, p.Key, ids[0]).Error)
+	t.Setenv("LLM_BASE_URL", "https://api.deepseek.com")
+	t.Setenv("LLM_MODEL", "fixture-model")
+	t.Setenv("LLM_API_KEY", "fixture-key")
+	old := http.DefaultTransport
+	defer func() { http.DefaultTransport = old }()
+	calls := 0
+	http.DefaultTransport = managedTransport(func(r *http.Request) (*http.Response, error) {
+		calls++
+		var wire struct {
+			Messages []struct{ Role, Content string }
+		}
+		check(json.NewDecoder(r.Body).Decode(&wire))
+		t.Logf("public wire bytes: system=%d data=%d", len(wire.Messages[0].Content), len(wire.Messages[1].Content))
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"choices":[{"finish_reason":"stop","message":{"content":"{\"action\":\"skip\"}"}}],"usage":{"prompt_tokens":100,"completion_tokens":10}}`))}, nil
+	})
+	// A real public round has existing posts, unlike a newly seeded empty account.
+	doc, _ := json.Marshal(map[string]any{"title": "公开材料中的一个具体问题", "summary": "核对公开资料的条件与边界", "body": strings.Repeat("公开材料需要结合具体条件理解。", 20), "kind": "question", "tags": []string{"讨论"}})
+	check(insertProvisionedAgent(db, 39879999, "public-input-peer@fixture.invalid", "公开讨论者", now.UnixMilli()))
+	check(db.Exec("INSERT INTO agent_owners(agent_id,owner_uid,created_at) VALUES(?,?,?) ON CONFLICT DO NOTHING", 39879999, "celebrity-public-input", now.UnixMilli()).Error)
+	for i := 0; i < 6; i++ {
+		author := ids[0]
+		if i%2 == 0 {
+			author = 39879999
+		}
+		check(db.Exec("INSERT INTO social_work_posts(post_id,agent_id,state,revision,visibility,document,created_at,published_at,approved_revision) VALUES(?,?,'published',1,'public',?::jsonb,?,?,1)", 39879900+i, author, string(doc), now.UnixMilli(), now.UnixMilli()).Error)
+	}
+	check(db.Exec("INSERT INTO agent_activity_reviews(agent_id,revision,day,intent,summary,evidence,updated_at) VALUES(?,1,CURRENT_DATE,'跟进公开进展',?,'[]'::jsonb,?)", ids[0], strings.Repeat("核对公开资料的条件与后续进展。", 15), now.UnixMilli()).Error)
+	s.executeManaged(ctx, *job)
+	var run struct{ Status, Detail string }
+	check(db.Raw(`SELECT status,detail FROM managed_runs WHERE run_id=?`, job.RunID).Scan(&run).Error)
+	if calls == 0 || strings.Contains(run.Detail, "[input]") {
+		t.Fatalf("public celebrity input blocked: calls=%d status=%s detail=%s", calls, run.Status, run.Detail)
+	}
+}

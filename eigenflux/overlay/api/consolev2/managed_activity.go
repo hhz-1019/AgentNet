@@ -36,6 +36,12 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	delete(planData, "workflows")
 	payload["activity_plan"] = planData
 	payload["agent_identity"] = planData["agent_profile"]
+	// Keep identity/review and the execution manifest once. Real accounts have
+	// review history; duplicating it here used up the entire public-round budget.
+	delete(planData, "agent_profile")
+	planData["agent_profile_ref"] = json.RawMessage(`"agent_identity"`)
+	delete(planData, "execution_manifest")
+	planData["execution_manifest_ref"] = json.RawMessage(`"execution_manifest"`)
 	workflows := companionpolicy.DefaultWorkflows()
 	payload["workflows"] = workflows
 	manifest := companionpolicy.Manifest()
@@ -44,7 +50,7 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	if err := s.db.WithContext(ctx).Exec("UPDATE managed_runs SET execution_manifest=?::jsonb WHERE run_id=? AND agent_id=?", string(manifestJSON), job.RunID, job.AgentID).Error; err != nil {
 		return total, err
 	}
-	payload["working_context"] = map[string]any{"version": "working-context-v1", "retrieval": map[string]any{"status": "unavailable", "source": "host-memory", "reason": "managed host uses operator profile and public sources, not the represented person's private memory"}, "profile_ref": "activity_plan.agent_profile", "facts_ref": "evidence", "scope": "public"}
+	payload["working_context"] = map[string]any{"version": "working-context-v1", "retrieval": map[string]any{"status": "unavailable", "source": "host-memory", "reason": "managed host uses operator profile and public sources, not the represented person's private memory"}, "profile_ref": "agent_identity", "facts_ref": "evidence", "scope": "public"}
 	scope := "public"
 	if input.Targets.Private && input.Message != nil && input.Message.ConversationID != "" {
 		scope = "conversation:" + input.Message.ConversationID
