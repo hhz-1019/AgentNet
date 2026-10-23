@@ -141,6 +141,15 @@ export function validateUnit(unit) {
   return unit;
 }
 
+// systemd expands ${...} in ExecStart arguments before Bash sees them.
+// Execute a private file instead; also keep signed URLs out of unit descriptions.
+export function backgroundJob(unit, script) {
+  validateUnit(unit);
+  const path = `/srv/elsewhere/staging/${unit}.sh`;
+  const payload = Buffer.from(`trap 'rm -f -- "$0"' EXIT\n${script}`).toString('base64');
+  return `set -e; umask 077; mkdir -p /srv/elsewhere/staging; printf %s ${quote(payload)} | base64 -d > ${quote(path)}; systemd-run --unit=${quote(unit)} --description=${quote(`Elsewhere release ${unit}`)} --property=Type=exec --property=RemainAfterExit=yes /bin/bash ${quote(path)}`;
+}
+
 async function watch(unit, revision) {
   validateUnit(unit);
   if (!/^[a-f0-9]{40}$/.test(revision))
@@ -271,7 +280,7 @@ async function main(args) {
     );
     console.log(
       remote(
-        `systemd-run --unit=${quote(unit)} --property=Type=exec --property=RemainAfterExit=yes /bin/bash -lc ${quote(releaseJob(revision, artifacts))}`,
+        backgroundJob(unit, releaseJob(revision, artifacts)),
       ),
     );
     await watch(unit, revision);

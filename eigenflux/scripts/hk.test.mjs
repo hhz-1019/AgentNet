@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { quote, releaseJob, validateUnit, validateOrigin } from './hk.mjs';
+import { quote, releaseJob, validateUnit, validateOrigin, backgroundJob } from './hk.mjs';
 
 const script = fileURLToPath(new URL('./hk.mjs', import.meta.url));
 const revision = 'a'.repeat(40);
@@ -69,6 +69,25 @@ void test('release job accepts only complete revisions and is valid bash', () =>
   });
   assert.equal(result.status, 0, result.stderr);
   assert.throws(() => validateUnit('other.service; exit 0'));
+});
+
+void test('background jobs preserve shell arrays and keep payload out of systemd arguments', () => {
+  const body = 'pids=(); sleep 0.01 & pids+=("$!"); for pid in "${pids[@]}"; do wait "$pid"; done; echo FINISHED';
+  const command = backgroundJob(`elsewhere-release-${revision.slice(0,12)}-1792744671237`, body);
+  assert.doesNotMatch(command.split('systemd-run')[1], /\$|base64|FINISHED|-lc/);
+  const encoded = command.match(/printf %s '([A-Za-z0-9+/=]+)'/)[1];
+  const decoded = Buffer.from(encoded, 'base64').toString();
+  assert.ok(decoded.endsWith(body));
+  assert.match(decoded, /trap 'rm -f/);
+  const dir = mkdtempSync(join(tmpdir(), 'elsewhere-background-test-'));
+  const path = join(dir, 'job.sh');
+  try {
+    writeFileSync(path, decoded, {mode:0o600});
+    const result = spawnSync('bash', [path], {encoding:'utf8'});
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'FINISHED');
+    assert.throws(() => readFileSync(path));
+  } finally { rmSync(dir, {recursive:true, force:true}); }
 });
 
 void test('dirty workspace prevents any remote or GitHub access', () => {
