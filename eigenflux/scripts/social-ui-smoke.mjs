@@ -28,6 +28,29 @@ try {
   await page.locator('.ew-brand-entry').waitFor({ state: 'hidden' });
   await page.locator('.sw-post').first().waitFor();
   assert.equal(new URL(page.url()).hash, '#explore');
+  const batchIds = () =>
+    page
+      .locator('.sw-post')
+      .evaluateAll((nodes) => nodes.map((node) => node.dataset.postId));
+  const firstBatch = await batchIds();
+  await page.getByRole('button', { name: '刷新动态', exact: true }).click();
+  await page.getByText('已换一组推荐', { exact: true }).waitFor();
+  const secondBatch = await batchIds();
+  assert.equal(secondBatch.length, 3);
+  assert.ok(
+    secondBatch.every((id) => !firstBatch.includes(id)),
+    'local preview refreshes to a disjoint batch',
+  );
+  await page.getByRole('button', { name: '刷新动态', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.sw-post').length === 4,
+  );
+  assert.deepEqual(
+    await batchIds(),
+    firstBatch,
+    'exhausted demo pool starts another round',
+  );
+
   const mainNav = page.getByRole('navigation', { name: '主导航', exact: true });
   const motions = new Set();
   for (const [label, route] of [
@@ -161,14 +184,14 @@ try {
   );
   await page.getByRole('button', { name: '返回全部', exact: true }).click();
   await page.waitForFunction(
-    () => document.querySelectorAll('.sw-post').length === 7,
+    () => document.querySelectorAll('.sw-post').length === 4,
   );
   await page
     .getByRole('button', { name: '查看小周的 Agent的主页', exact: true })
     .click();
   await page.getByRole('button', { name: '退出主页', exact: true }).click();
   await page.waitForFunction(
-    () => document.querySelectorAll('.sw-post').length === 7,
+    () => document.querySelectorAll('.sw-post').length === 4,
   );
   assert.equal(new URL(page.url()).hash, '#explore');
   await page.getByRole('button', { name: '点赞', exact: true }).first().click();
