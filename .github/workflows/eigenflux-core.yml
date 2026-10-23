@@ -44,7 +44,7 @@ jobs:
           load: true
           tags: elsewhere-gorse:verify
           cache-from: type=gha,scope=gorse
-          cache-to: type=gha,scope=gorse,mode=max
+          cache-to: type=gha,scope=gorse,mode=max,timeout=2m,ignore-error=true
       - name: Export tested gorse image
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: bash eigenflux/scripts/export-release-image.sh gorse "$GITHUB_SHA"
@@ -63,7 +63,7 @@ jobs:
           load: true
           tags: elsewhere-sync:verify
           cache-from: type=gha,scope=sync
-          cache-to: type=gha,scope=sync,mode=max
+          cache-to: type=gha,scope=sync,mode=max,timeout=2m,ignore-error=true
       - name: Export tested sync image
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: bash eigenflux/scripts/export-release-image.sh sync "$GITHUB_SHA"
@@ -127,7 +127,7 @@ jobs:
           load: true
           tags: agentnet-web:verify
           cache-from: type=gha,scope=web
-          cache-to: type=gha,scope=web,mode=max
+          cache-to: type=gha,scope=web,mode=max,timeout=2m,ignore-error=true
       - run: docker run --rm --entrypoint caddy agentnet-web:verify validate --config /etc/caddy/Caddyfile
       - name: Check production gateway routing
         run: |
@@ -167,7 +167,7 @@ jobs:
           load: true
           tags: agentnet-core:verify
           cache-from: type=gha,scope=core
-          cache-to: type=gha,scope=core,mode=max
+          cache-to: type=gha,scope=core,mode=max,timeout=2m,ignore-error=true
       - run: docker run --rm -e PUBLIC_BASE_URL=http://localhost:4320 agentnet-core:verify cli version
       - uses: actions/setup-node@v4
         with: {node-version: '24', cache: npm}
