@@ -91,6 +91,7 @@ export interface Query {
   tags: string[];
   cursor?: string;
   interests?: string[];
+  excludeIds?: string[];
 }
 export interface Page {
   items: WorkPost[];

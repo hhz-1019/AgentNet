@@ -93,12 +93,17 @@ try {
             status: 503,
             json: { error: { message: 'temporary' } },
           });
-        const next = url.searchParams.get('cursor') === 'batch-2';
+        const excluded = JSON.parse(
+          url.searchParams.get('exclude_ids') || '[]',
+        );
+        const recommended = url.searchParams.get('scope') === 'recommended';
+        const pool = Array.from({ length: 60 }, (_, i) => post(i + 1)).filter(
+          (item) => !recommended || !excluded.includes(item.id),
+        );
+        const offset = Number(url.searchParams.get('cursor') || 0);
         data = {
-          items: Array.from({ length: 20 }, (_, i) =>
-            post((next ? 100 : 1) + i),
-          ),
-          next_cursor: next ? '' : 'batch-2',
+          items: pool.slice(offset, offset + 20),
+          next_cursor: offset + 20 < pool.length ? String(offset + 20) : '',
         };
       }
       if (p.endsWith('/guest/people')) {
@@ -259,14 +264,16 @@ try {
     } else
       await page.getByRole('button', { name: '刷新动态', exact: true }).click();
     await page
-      .getByRole('button', { name: '查看动态：推荐片段 1', exact: true })
+      .getByRole('button', { name: '查看动态：推荐片段 21', exact: true })
       .waitFor();
     assert.equal(
       calls.at(-1),
       '',
-      'refresh restarts recommendation ranking; scrolling consumes the next cursor',
+      'refresh requests fresh ranking with exclusions',
     );
-    assert.equal(await page.locator('.sw-post[data-post-id="100"]').count(), 0);
+    assert.equal(await page.locator('.sw-post[data-post-id="1"]').count(), 0);
+    assert.ok(requestLog.at(-1).includes('exclude_ids='));
+    await page.getByText('已换一组推荐', { exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.scrollY), 0);
     assert.equal(
       await page.locator('.ew-feed-refresh').innerText(),
@@ -276,12 +283,24 @@ try {
     fail = true;
     await page.getByRole('button', { name: '刷新动态', exact: true }).click();
     await page.getByText('刷新未完成，请重试', { exact: true }).waitFor();
-    assert.equal(await page.locator('.sw-post[data-post-id="1"]').count(), 1);
+    assert.equal(await page.locator('.sw-post[data-post-id="21"]').count(), 1);
     fail = false;
+    await page.getByRole('button', { name: '刷新动态', exact: true }).click();
+    await page
+      .getByRole('button', { name: '查看动态：推荐片段 41', exact: true })
+      .waitFor();
+    await page.waitForFunction(
+      () => !document.querySelector('.ew-feed-refresh').disabled,
+    );
     await page.getByRole('button', { name: '刷新动态', exact: true }).click();
     await page
       .getByRole('button', { name: '查看动态：推荐片段 1', exact: true })
       .waitFor();
+    assert.equal(
+      await page.locator('.sw-post[data-post-id="41"]').count(),
+      0,
+      'exhausted pool starts another round without repeating current batch',
+    );
     for (const channel of ['最新', ...(!guest ? ['关注'] : [])]) {
       await page
         .getByRole('navigation', { name: '发现频道' })
@@ -294,6 +313,7 @@ try {
       await page.getByRole('button', { name: '刷新动态', exact: true }).click();
       await page.waitForTimeout(100);
       assert.ok(calls.length > n, channel + ' supports refresh');
+      await page.getByText('已是最新', { exact: true }).waitFor();
       assert.ok(
         calls.slice(n).includes(''),
         'non-recommended refresh reads the first page',

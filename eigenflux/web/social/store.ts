@@ -90,6 +90,8 @@ export const liveSocialStore: SocialStore = {
       cursor: query.cursor || '',
       interests: query.interests ? JSON.stringify(query.interests) : '',
     });
+    if (query.excludeIds?.length)
+      params.set('exclude_ids', JSON.stringify(query.excludeIds));
     return api<Page>(`console/social/posts?${params}`);
   },
   drafts: async () =>

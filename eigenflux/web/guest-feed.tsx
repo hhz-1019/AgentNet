@@ -23,6 +23,8 @@ export const guestSocialStore: SocialStore = {
       tag: query.tags[0] || '',
       cursor: query.cursor || '',
     });
+    if (query.excludeIds?.length)
+      params.set('exclude_ids', JSON.stringify(query.excludeIds));
     if (query.scope.startsWith('author:'))
       params.set('author', query.scope.slice(7));
     return readGuestPage(await api<unknown>('guest/feed?' + params));

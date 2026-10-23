@@ -38,7 +38,7 @@ npm run server:hk -- status
 ```sh
 npm run server:hk -- status   # 查看线上版本、容器状态
 npm run server:hk -- shell    # 本机交互式服务器终端
-npm run deploy:hk            # 用户明确要求部署后执行
+npm run deploy:hk            # 按 AGENTS.md 的长期发布授权执行；用户要求暂缓时不执行
 ```
 
 发布入口先核验干净的本地 `main` 与远端相同、目标提交完整 CI 已成功，再提交一个服务器后台任务。任务持有独占发布锁，核对远端 main，复用现有构建缓存，并调用下文代码发布脚本完成备份、迁移、更新、健康检查和失败回退。最后从本机核对公网提交。不会自动提交、推送或合并代码；GitHub 推送也不会自动触发生产部署。

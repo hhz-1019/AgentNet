@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -200,6 +201,26 @@ func TestElsewhereGuestPreviewAccess(t *testing.T) {
 				t.Fatal("duplicate post across pages")
 			}
 		}
+	}
+	check(json.Unmarshal(get("/feed?q=guest-pagination&scope=recommended", 200), &page))
+	excluded := []string{}
+	for _, item := range page.Data.Items {
+		excluded = append(excluded, item["id"].(string))
+	}
+	rawExcluded, _ := json.Marshal(excluded)
+	check(json.Unmarshal(get("/feed?q=guest-pagination&scope=recommended&exclude_ids="+url.QueryEscape(string(rawExcluded)), 200), &page))
+	if len(page.Data.Items) != 4 {
+		t.Fatal("recommendation refresh did not replace the batch", page)
+	}
+	for _, item := range page.Data.Items {
+		for _, id := range excluded {
+			if item["id"] == id {
+				t.Fatal("refresh repeated excluded post", id)
+			}
+		}
+	}
+	for _, raw := range []string{`[42]`, `["bad"]`, `["0"]`} {
+		get("/feed?scope=recommended&exclude_ids="+url.QueryEscape(raw), 400)
 	}
 	for _, path := range []string{"/feed?cursor=bad", "/feed?author=bad", "/feed?scope=friends", "/people?cursor=bad", "/posts/88201/comments?cursor=bad"} {
 		get(path, 400)

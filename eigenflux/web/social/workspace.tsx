@@ -66,6 +66,11 @@ import { JournalAtmosphere, useJournalAtmosphere } from './journal-atmosphere';
 import { DemoSettings } from './social-settings';
 import type { WorkPost, SocialStore, Page } from './model';
 import { mergeFeedPage } from './feed-pages';
+import {
+  recentRecommendations,
+  refreshRecommendations,
+  sameRecommendationBatch,
+} from './recommendation-refresh';
 import { liveSocialStore, uploadAttachment } from './store';
 import { blankPortrait } from './portrait-api';
 import { loadPortrait } from './portrait-api';
@@ -213,8 +218,14 @@ export function SocialWorkspace({
   const manualFeedRefresh = useRef<{
     cursor: string;
     key: string;
-    ids: string;
+    ids: string[];
+    page: Page | undefined;
   } | null>(null);
+  const recommendationRound = useRef({
+    key: '',
+    seen: [] as string[],
+    excluded: [] as string[],
+  });
   const [topic, setTopic] = useState('');
   const [feed, setFeed] = useState(demo || guest ? 'recommended' : 'latest');
   const [page, setPage] = useState<Page>();
@@ -373,7 +384,8 @@ export function SocialWorkspace({
     manualFeedRefresh.current = {
       cursor: '',
       key: JSON.stringify([route, search, topic, feed]),
-      ids: page?.items.map((item) => item.id).join(',') || '',
+      ids: page?.items.map((item) => item.id) || [],
+      page,
     };
     setRefreshingFeed(true);
     setRefreshMessage('');
@@ -633,28 +645,48 @@ export function SocialWorkspace({
     const id = ++generation.current;
     setLoading(true);
     setError('');
-    void store
-      .list({
-        scope:
-          route === 'me'
-            ? 'mine'
-            : route === 'liked'
-              ? 'liked'
-              : route === 'saved'
-                ? 'saved'
-                : route === 'drafts'
-                  ? 'drafts'
-                  : !demo && route === 'explore'
-                    ? feed === 'latest'
-                      ? 'all'
-                      : feed
-                    : 'all',
-        q: search,
-        kind: 'all',
-        tags: topic ? [topic] : [],
-        cursor: requestCursor,
-      })
-      .then((p) => {
+    const recommended = route === 'explore' && feed === 'recommended';
+    if (recommendationRound.current.key !== key)
+      recommendationRound.current = { key, seen: [], excluded: [] };
+    const request = {
+      scope:
+        route === 'me'
+          ? 'mine'
+          : route === 'liked'
+            ? 'liked'
+            : route === 'saved'
+              ? 'saved'
+              : route === 'drafts'
+                ? 'drafts'
+                : route === 'explore'
+                  ? feed === 'latest'
+                    ? 'all'
+                    : feed
+                  : 'all',
+      q: search,
+      kind: 'all',
+      tags: topic ? [topic] : [],
+      cursor: requestCursor,
+      excludeIds: recommended
+        ? recommendationRound.current.excluded
+        : undefined,
+    };
+    const isActive = () => active && generation.current === id;
+    const result =
+      manual && recommended
+        ? refreshRecommendations(
+            (query) => store.list(query),
+            request,
+            manual.page,
+            recommendationRound.current.seen,
+            isActive,
+          )
+        : store
+            .list(request)
+            .then((page) => ({ page, excluded: request.excludeIds || [] }));
+    void result
+      .then(({ page: incomingPage, excluded }) => {
+        let p = incomingPage;
         if (active && generation.current === id) {
           if (demo && route === 'explore') {
             // Explicit local fixtures; this is not the live following graph.
@@ -676,13 +708,28 @@ export function SocialWorkspace({
                     ),
             };
           }
+          if (recommended) {
+            recommendationRound.current = {
+              key,
+              excluded,
+              seen: recentRecommendations(
+                manual ? excluded : recommendationRound.current.seen,
+                p.items,
+              ),
+            };
+          }
           if (manual) {
             setRefreshMessage(
-              !p.items.length
-                ? '已刷新'
-                : p.items.map((item) => item.id).join(',') === manual.ids
-                  ? '已是最新'
-                  : '已刷新',
+              recommended
+                ? sameRecommendationBatch(manual.ids, p)
+                  ? '暂时没有更多推荐'
+                  : '已换一组推荐'
+                : !p.items.length
+                  ? '已刷新'
+                  : p.items.map((item) => item.id).join(',') ===
+                      manual.ids.join(',')
+                    ? '已是最新'
+                    : '已刷新',
             );
             window.scrollTo({ top: 0, behavior: 'auto' });
           }
@@ -697,14 +744,6 @@ export function SocialWorkspace({
                     ),
                   }
                 : p;
-            if (
-              manual &&
-              route === 'explore' &&
-              feed === 'recommended' &&
-              !p.items.length &&
-              previous?.items.length
-            )
-              return { ...previous, next_cursor: '' };
             return mergeFeedPage(previous, incoming, mode, requestCursor);
           });
         }

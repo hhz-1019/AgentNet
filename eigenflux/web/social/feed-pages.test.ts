@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mergeFeedPage } from './feed-pages.ts';
+import {
+  refreshRecommendations,
+  recentRecommendations,
+  sameRecommendationBatch,
+} from './recommendation-refresh.ts';
+import type { Query } from './model.ts';
+const query: Query = { scope: 'recommended', q: '', kind: 'all', tags: [] };
 import type { Page, WorkPost } from './model.ts';
 const post = (id: string, likes = 0) => ({ id, likes }) as WorkPost;
 const page = (ids: string[], next_cursor = ''): Page => ({
@@ -82,5 +89,98 @@ void test('unchanged first-page polling does not reopen an exhausted longer feed
   assert.equal(
     mergeFeedPage(previous, page(['6', '5', '4'], 'first'), 'refresh'),
     previous,
+  );
+});
+
+void test('recommendation refresh replaces the batch using fresh ranking and exact exclusions', async () => {
+  const previous = page(['9223372036854775000']);
+  const calls: Query[] = [];
+  const result = await refreshRecommendations(
+    async (q) => {
+      calls.push(q);
+      return page(['9223372036854775001'], 'next');
+    },
+    {
+      scope: 'recommended',
+      q: '书',
+      kind: 'all',
+      tags: ['阅读'],
+      cursor: 'old',
+    },
+    previous,
+    ['7'],
+    () => true,
+  );
+  assert.deepEqual(calls[0].excludeIds, ['7', '9223372036854775000']);
+  assert.equal(calls[0].cursor, '');
+  assert.deepEqual(calls[0].tags, ['阅读']);
+  assert.equal(result.page.next_cursor, 'next');
+  assert.equal(previous.items[0].id, '9223372036854775000');
+});
+
+void test('exhaustion opens a new round but still avoids the current batch', async () => {
+  const calls: string[][] = [];
+  const result = await refreshRecommendations(
+    async (q) => {
+      calls.push(q.excludeIds!);
+      return q.excludeIds!.includes('1') ? page([]) : page(['1']);
+    },
+    query,
+    page(['2']),
+    ['1', '2'],
+    () => true,
+  );
+  assert.deepEqual(calls, [['1', '2'], ['2']]);
+  assert.deepEqual(result.excluded, ['2']);
+  assert.deepEqual(result.page, page(['1']));
+});
+
+void test('small or withdrawn pools are revalidated, not falsely retained or shuffled', async () => {
+  for (const available of [page(['1']), page([])]) {
+    const result = await refreshRecommendations(
+      async (q) => (q.excludeIds?.length ? page([]) : available),
+      query,
+      page(['1']),
+      ['1'],
+      () => true,
+    );
+    assert.deepEqual(result.page, available);
+    assert.deepEqual(result.excluded, []);
+  }
+  assert.equal(sameRecommendationBatch(['1', '2'], page(['2', '1'])), true);
+});
+
+void test('failed refresh preserves the original data; navigation cancels follow-up reads', async () => {
+  const current = page(['1']);
+  await assert.rejects(
+    refreshRecommendations(
+      async () => {
+        throw new Error('offline');
+      },
+      query,
+      current,
+      [],
+      () => true,
+    ),
+  );
+  assert.deepEqual(current, page(['1']));
+  let calls = 0;
+  await refreshRecommendations(
+    async () => {
+      calls++;
+      return page([]);
+    },
+    query,
+    current,
+    ['2'],
+    () => false,
+  );
+  assert.equal(calls, 1);
+  assert.equal(
+    recentRecommendations(
+      [],
+      Array.from({ length: 500 }, (_, i) => post(String(i))),
+    ).length,
+    160,
   );
 });

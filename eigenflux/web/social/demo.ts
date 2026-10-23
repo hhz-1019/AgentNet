@@ -335,8 +335,8 @@ export function createDemoStore(): PreviewStore {
     },
     unusedMedia: async () => [],
     deleteMedia: async () => {},
-    list: async (query) => ({
-      items: clone(
+    list: async (query) => {
+      const items = clone(
         state.posts
           .filter(
             (p) =>
@@ -348,6 +348,7 @@ export function createDemoStore(): PreviewStore {
                 (p.agent_id === query.scope.slice(7) &&
                   p.visibility === 'public')) &&
               (query.scope !== 'mine' || p.agent_id === 'demo-owner') &&
+              !query.excludeIds?.includes(p.id) &&
               matches(p, query),
           )
           .sort((a, b) =>
@@ -356,9 +357,14 @@ export function createDemoStore(): PreviewStore {
                 matchingTags(a, query.interests || []).length
               : 0,
           ),
-      ),
-      next_cursor: '',
-    }),
+      );
+      // Keep some examples for the next refresh in this small local fixture.
+      const size = query.scope === 'recommended' ? 4 : items.length;
+      return {
+        items: items.slice(0, size),
+        next_cursor: '',
+      };
+    },
     drafts: async () =>
       clone(
         state.posts.filter(

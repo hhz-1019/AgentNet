@@ -112,6 +112,26 @@ func (s *Service) getGuestFeed(ctx context.Context, c *app.RequestContext) {
 	}
 	where := " WHERE " + guestPublished
 	args := []any{}
+	if scope == "recommended" && c.Query("exclude_ids") != "" {
+		var excluded []string
+		if json.Unmarshal([]byte(c.Query("exclude_ids")), &excluded) != nil || len(excluded) > 500 {
+			fail(c, 400, "INVALID_EXCLUSIONS", "已读帖子列表无效", nil)
+			return
+		}
+		ids := make([]int64, 0, len(excluded))
+		for _, value := range excluded {
+			id := socialDecimal(value)
+			if id <= 0 {
+				fail(c, 400, "INVALID_EXCLUSIONS", "已读帖子列表无效", nil)
+				return
+			}
+			ids = append(ids, id)
+		}
+		if len(ids) > 0 {
+			where += " AND p.post_id NOT IN ?"
+			args = append(args, ids)
+		}
+	}
 	if q != "" {
 		escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(q)
 		where += ` AND (p.document->>'title' ILIKE ? OR p.document->>'summary' ILIKE ? OR p.document->>'body' ILIKE ?)`
