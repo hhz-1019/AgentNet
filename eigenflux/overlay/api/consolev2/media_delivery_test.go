@@ -4,12 +4,45 @@ import (
 	"bytes"
 	"context"
 	"image"
+	"image/color"
+	"image/png"
 	"testing"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/ut"
 )
+
+func TestSocialMediaOpaqueCompressionPreservesTransparency(t *testing.T) {
+	for _, alpha := range []uint8{255, 128} {
+		img := image.NewNRGBA(image.Rect(0, 0, 800, 600))
+		for y := 0; y < 600; y++ {
+			for x := 0; x < 800; x++ {
+				img.SetNRGBA(x, y, color.NRGBA{uint8(x*7 + y*3), uint8(x + y*5), uint8(x*3 + y), alpha})
+			}
+		}
+		var encoded bytes.Buffer
+		if err := png.Encode(&encoded, img); err != nil {
+			t.Fatal(err)
+		}
+		variant := resizedMedia(encoded.Bytes(), "image/png", 320)
+		expected := "image/jpeg"
+		if alpha != 255 {
+			expected = "image/png"
+		}
+		if variant.mime != expected {
+			t.Fatalf("alpha=%d format=%s", alpha, variant.mime)
+		}
+		decoded, _, err := image.Decode(bytes.NewReader(variant.data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, _, a := decoded.At(0, 0).RGBA()
+		if alpha != 255 && a == 65535 {
+			t.Fatal("transparent image flattened")
+		}
+	}
+}
 
 func TestSocialMediaResponsiveDelivery(t *testing.T) {
 	source := previewTestImage(t, 1280, 854)

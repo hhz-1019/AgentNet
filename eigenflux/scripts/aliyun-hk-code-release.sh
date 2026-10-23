@@ -41,9 +41,10 @@ previous=$(readlink -f /srv/elsewhere/current)
 public_origin=$(docker inspect elsewhere-core --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^PUBLIC_BASE_URL=//p')
 [[ "$public_origin" =~ ^https://[a-zA-Z0-9.-]+$ ]]
 public_host=${public_origin#https://}
+edge_ip=$(docker inspect elsewhere-edge --format '{{json .NetworkSettings.Networks}}' | jq -er '.["elsewhere-edge-app"].IPAddress')
 cp -a "$previous/env" "$previous/configs" "$root/"
 # Fail before changing live services if model configuration or mounts are invalid.
-docker run --rm --network none --mount type=bind,src=/srv/elsewhere,dst=/srv/elsewhere --mount "type=bind,src=$source_dir/eigenflux/scripts,dst=/scripts,readonly" --mount "type=bind,src=$source_dir/eigenflux/recommender,dst=/recommender,readonly" node:24-alpine node /scripts/aliyun-hk-code-compose.mjs "$previous" "$root"
+docker run --rm --network none --env "ELSEWHERE_EDGE_IP=$edge_ip" --mount type=bind,src=/srv/elsewhere,dst=/srv/elsewhere --mount "type=bind,src=$source_dir/eigenflux/scripts,dst=/scripts,readonly" --mount "type=bind,src=$source_dir/eigenflux/recommender,dst=/recommender,readonly" node:24-alpine node /scripts/aliyun-hk-code-compose.mjs "$previous" "$root"
 docker compose -f "$root/compose.json" config --quiet
 docker run --rm --network container:elsewhere-gorse --env-file "$root/env/gorse.env" --mount "type=bind,src=$source_dir/eigenflux/scripts,dst=/scripts,readonly" node:24-alpine node /scripts/recommender-provider-preflight.mjs > "$root/evidence/reranker-preflight.log" 2>&1
 systemctl start elsewhere-pg-backup.service

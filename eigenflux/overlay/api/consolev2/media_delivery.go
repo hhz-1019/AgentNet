@@ -105,6 +105,11 @@ func resizedMedia(data []byte, mime string, width int) mediaVariant {
 		}
 	}
 	var encoded bytes.Buffer
+	// Opaque photo/illustration previews do not need lossless PNG. Original
+	// downloads and transparent images retain their format and alpha channel.
+	if mime == "image/png" && target.Opaque() {
+		mime = "image/jpeg"
+	}
 	if mime == "image/png" {
 		err = png.Encode(&encoded, target)
 	} else {

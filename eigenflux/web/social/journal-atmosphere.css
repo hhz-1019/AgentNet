@@ -16,7 +16,7 @@
 .ew-journal-atmosphere .ew-paper-grain {
   position: absolute;
   inset: 0;
-  background: url('/textures/journal-paper.png') repeat;
+  background: url('/textures/journal-paper-v2.webp') repeat;
   background-size: 680px 680px;
   opacity: var(--ew-grain-opacity);
   mix-blend-mode: multiply;

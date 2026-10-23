@@ -11,6 +11,9 @@ trap 'rm -rf "$work"' EXIT
 current=$(readlink -f /srv/elsewhere/current)
 [[ "$current" == /srv/elsewhere/releases/* ]]
 test -f "$current/compose.json"
+# Raise the live edge process limit without interrupting existing connections.
+edge_pid=$(docker inspect elsewhere-edge --format '{{.State.Pid}}')
+if [[ "$edge_pid" =~ ^[1-9][0-9]*$ ]]; then prlimit --pid "$edge_pid" --nofile=65536:65536; fi
 printf '%s\n' "$current" > "$work/releases"
 find /srv/elsewhere/releases -maxdepth 2 -name ACTIVATED -printf '%T@ %h\n' | sort -nr | head -3 | cut -d' ' -f2- >> "$work/releases"
 while read -r release; do

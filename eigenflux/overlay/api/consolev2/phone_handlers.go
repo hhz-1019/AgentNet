@@ -30,6 +30,12 @@ func configurePhoneAuth(s *Service) error {
 		return err
 	}
 	s.phoneDailyLimit = 1000
+	if raw := os.Getenv("SMS_IP_TEN_MINUTE_LIMIT"); raw != "" {
+		n, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || n < 10 || n > 1000 {
+			return errors.New("SMS_IP_TEN_MINUTE_LIMIT must be between 10 and 1000")
+		}
+	}
 	if raw := os.Getenv("SMS_DAILY_LIMIT"); raw != "" {
 		s.phoneDailyLimit, err = strconv.Atoi(raw)
 		if err != nil || s.phoneDailyLimit < 1 || s.phoneDailyLimit > 1000000 {
@@ -90,11 +96,20 @@ func (s *Service) allowPhoneSend(ctx context.Context, c *app.RequestContext, pho
 	if limit < 1 {
 		limit = 1000
 	}
-	keys := []string{"sms:cooldown:" + hash, "sms:hour:" + hash, "sms:day:" + hash, "sms:ip:" + s.clientIPHash(c), "sms:global:day"}
+	keys := []string{"sms:cooldown:" + hash, "sms:hour:" + hash, "sms:day:" + hash, "sms:ip:" + s.clientIPHash(c), "sms:global:day", "sms:session:" + keyedHash(s.otpPepper, phoneSession(c))}
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	value, err := phoneRateScript.Run(ctx, s.redisClient, keys, 1, 60000, 5, 3600000, 10, 86400000, 10, 600000, limit, 86400000).Int()
+	value, err := phoneRateScript.Run(ctx, s.redisClient, keys, 1, 60000, 5, 3600000, 10, 86400000, authQuota("SMS_IP_TEN_MINUTE_LIMIT", 10, 1000), 600000, limit, 86400000, 5, 600000).Int()
 	return value == 1, err
+}
+
+// Configurable shared-network ceilings never replace per-identity or global caps.
+func authQuota(name string, fallback, maximum int) int {
+	n, err := strconv.Atoi(os.Getenv(name))
+	if err != nil || n < fallback || n > maximum {
+		return fallback
+	}
+	return n
 }
 
 type phoneRequest struct {

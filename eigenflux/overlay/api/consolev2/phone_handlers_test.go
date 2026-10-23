@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"sync"
@@ -78,6 +79,34 @@ func TestPhoneQuotas(t *testing.T) {
 	s.redisClient = nil
 	if ok, err := s.allowPhoneSend(context.Background(), c, "13800138003"); ok || err == nil {
 		t.Fatal("Redis failure permitted paid send")
+	}
+}
+
+func TestPhoneSharedNetworkKeepsIdentityAndSpendingCaps(t *testing.T) {
+	t.Setenv("SMS_IP_TEN_MINUTE_LIMIT", "600")
+	r := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: r.Addr()})
+	defer client.Close()
+	s := &Service{redisClient: client, otpPepper: "shared-network-test", phoneDailyLimit: 1000}
+	for i := 0; i < 500; i++ {
+		c := app.NewContext(0)
+		c.Set("console_session_id", fmt.Sprintf("session-%d", i))
+		if ok, err := s.allowPhoneSend(context.Background(), c, fmt.Sprintf("138%08d", i)); !ok || err != nil {
+			t.Fatalf("distinct user %d blocked: %v", i, err)
+		}
+	}
+	c := app.NewContext(0)
+	c.Set("console_session_id", "same-session")
+	for i := 0; i < 6; i++ {
+		ok, err := s.allowPhoneSend(context.Background(), c, fmt.Sprintf("139%08d", i))
+		if err != nil || ok != (i < 5) {
+			t.Fatalf("session/global budget bypass at %d: %v", i, err)
+		}
+	}
+	s.phoneDailyLimit = 505
+	c.Set("console_session_id", "fresh-session")
+	if ok, err := s.allowPhoneSend(context.Background(), c, "13700138000"); ok || err != nil {
+		t.Fatal("global spending ceiling bypass")
 	}
 }
 func TestPhonePostgresRegistration(t *testing.T) {

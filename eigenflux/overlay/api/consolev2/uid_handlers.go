@@ -45,7 +45,9 @@ var errOwnerHasAgent = errors.New("owner already has an agent")
 
 // UID is an identifier, never proof of ownership. Browser sessions and runtime
 // signing keys remain separate. New phone credentials can bind to this same UID.
-func validOwnerPassword(value string) bool { return utf8.RuneCountInString(value) >= 8 && len(value) <= 72 }
+func validOwnerPassword(value string) bool {
+	return utf8.RuneCountInString(value) >= 8 && len(value) <= 72
+}
 
 func (s *Service) uidRate(ctx context.Context, c *app.RequestContext, uid string) bool {
 	if uid == "" {
@@ -59,7 +61,7 @@ func (s *Service) uidRate(ctx context.Context, c *app.RequestContext, uid string
 	defer cancel()
 	keys := []string{"owner:uid:" + keyedHash(s.otpPepper, uid), "owner:ip:" + s.clientIPHash(c), "owner:global"}
 	allowed, err := emailChallengeRateScript.Run(ctx, s.redisClient, keys,
-		int64(10*time.Minute/time.Millisecond), 30, 150, 1500).Int()
+		int64(10*time.Minute/time.Millisecond), 30, authQuota("OWNER_IP_TEN_MINUTE_LIMIT", 150, 1000), 1500).Int()
 	if err != nil {
 		fail(c, 503, "AUTH_UNAVAILABLE", "账号服务暂不可用，请稍后重试", nil)
 		return false

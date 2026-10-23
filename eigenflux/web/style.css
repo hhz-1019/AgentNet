@@ -9,7 +9,7 @@
   --ew-tint: #e8ddc9;
   --ew-paper-image:
     linear-gradient(rgb(244 237 223 / 62%), rgb(244 237 223 / 62%)),
-    url('/textures/journal-paper.png');
+    url('/textures/journal-paper-v2.webp');
   --ew-paper-size: auto, 680px 680px;
   --ew-control-bg: #faf4e8;
   --ew-control-hover: #f4e9d7;

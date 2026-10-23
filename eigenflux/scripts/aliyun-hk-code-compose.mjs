@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
+import { isIP } from 'node:net';
 import { sharedModelConfig } from './shared-model-config.mjs';
 import { registrationOriginErrors } from './registration-origin.mjs';
 
@@ -25,6 +26,9 @@ export function releaseCompose(old, { previous, root, images }) {
     assert.match(images[name], /^sha256:[a-f0-9]{64}$/);
     service.image = images[name];
     service.pull_policy = 'never';
+    if (name === 'core' || name === 'web') {
+      service.ulimits = {...service.ulimits, nofile: {soft: 65536, hard: 65536}};
+    }
     // Model configuration comes from the newly generated private env file.
     // Compose environment entries otherwise override it and can revive old keys.
     if (['core', 'gorse'].includes(name) && service.environment) {
@@ -92,6 +96,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     return `${k}=${v}`;
   }).join('\n') + '\n', {mode:0o600});
   const core = readEnv(fs.readFileSync(root + '/env/core.env', 'utf8'));
+  assert.equal(isIP(process.env.ELSEWHERE_EDGE_IP ?? ''), 4, 'A verified gateway IPv4 is required');
+  next.services.core.environment ??= {};
+  // Trust only the actual gateway container, never client-supplied forwarding
+  // headers from arbitrary hosts. Caddy overwrites these at the public edge.
+  next.services.core.environment.CONSOLE_V2_TRUSTED_PROXY_CIDRS = `${process.env.ELSEWHERE_EDGE_IP}/32`;
+  next.services.core.environment.SMS_IP_TEN_MINUTE_LIMIT = '600';
+  next.services.core.environment.OWNER_IP_TEN_MINUTE_LIMIT = '600';
   // Preserve the live domain configuration, including collaborators' updates.
   for (const [key, value] of Object.entries(old.services.core.environment ?? {})) {
     if (key.startsWith('LLM_')) core[key] = value;

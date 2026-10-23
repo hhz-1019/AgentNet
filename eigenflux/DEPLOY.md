@@ -182,3 +182,11 @@ bash eigenflux/scripts/aliyun-hk-code-release.sh activate "$revision"
 - 发布前至少需要 8 GiB 可用空间。维护脚本为 eigenflux/scripts/aliyun-hk-maintenance.sh，持有同一发布锁；只清理可重建的旧应用镜像和未使用构建缓存，保留当前、最近三个成功版本及所有容器使用的镜像。不删除数据库、媒体、版本目录或备份。
 - 服务器维护定时任务每日运行；CI 制品镜像使用内容 ID 部署，未变化服务沿用原环境文件路径，避免无意义重启。
 - 发布状态读取临时失败自动重连，不重复提交发布任务。
+
+### 内测容量配置
+
+当前 ECS 为 2 核 / 8GB，公网出口 30Mbps。发布时从实际 elsewhere-edge 容器读取 IPv4，仅以该 /32 为可信代理，避免所有用户共享网关 IP 限流，也不信任任意客户端的转发头。
+
+短信维持每手机号 60 秒冷却、每小时 5 次、每天 10 次及线上每日总额 1000；新增每会话每 10 分钟 5 次限制，共享 IP 每 10 分钟上限配置为 600。账号认证保留每账号 30 次及全局 1500 次限制，共享 IP 上限配置为 600。不要通过关闭限流或增加短信总预算处理网络问题。Core/Web 文件描述符上限为 65536。
+
+维护脚本还会将当前入口网关进程文件描述符上限提高到 65536（无需断开连接）；日后重建入口容器时必须显式设置 --ulimit nofile=65536:65536。安装定时维护：将 elsewhere-maintenance.service / .timer 放入 /etc/systemd/system，将维护脚本放入 /usr/local/sbin/elsewhere-maintenance，daemon-reload 后 enable --now elsewhere-maintenance.timer。

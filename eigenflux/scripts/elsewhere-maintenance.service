@@ -1,0 +1,10 @@
+[Unit]
+Description=Elsewhere bounded image/cache maintenance
+After=docker.service
+RequiresMountsFor=/srv/elsewhere
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/local/sbin/elsewhere-maintenance
+Nice=15
+IOSchedulingClass=idle
