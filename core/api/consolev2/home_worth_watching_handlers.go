@@ -1,0 +1,405 @@
+package consolev2
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/lib/pq"
+	redis "github.com/redis/go-redis/v9"
+)
+
+const (
+	homeWorthWatchingCacheTTL     = 2 * time.Minute
+	homeWorthWatchingCandidateMax = 32
+	homeWorthWatchingCacheVersion = "weekly-v5"
+	homepageEvaluationVersion     = "homepage-v2"
+)
+
+type homeWorthWatchingMetric struct {
+	Key       string `json:"key"`
+	Value     int64  `json:"value"`
+	Secondary int64  `json:"secondary_value,omitempty"`
+}
+
+type homeWorthWatchingItem struct {
+	RuleKey          string                  `json:"rule_key"`
+	ItemID           string                  `json:"item_id"`
+	Content          string                  `json:"content"`
+	Summary          string                  `json:"summary,omitempty"`
+	Language         string                  `json:"language,omitempty"`
+	BroadcastType    string                  `json:"broadcast_type,omitempty"`
+	CreatedAt        int64                   `json:"created_at"`
+	AgentID          string                  `json:"agent_id"`
+	AgentShortID     string                  `json:"agent_short_id"`
+	AgentSharePath   string                  `json:"agent_share_path"`
+	AgentName        string                  `json:"agent_name"`
+	AgentNameEn      string                  `json:"agent_name_en,omitempty"`
+	AgentCountryCode string                  `json:"agent_country_code,omitempty"`
+	AgentDescription string                  `json:"agent_description,omitempty"`
+	HelpfulCount     int64                   `json:"helpful_count"`
+	Metric           homeWorthWatchingMetric `json:"metric"`
+}
+
+type homeWorthWatchingResponse struct {
+	Items             []homeWorthWatchingItem `json:"items"`
+	WindowStart       int64                   `json:"window_start"`
+	WindowTimezone    string                  `json:"window_timezone"`
+	GeneratedAt       int64                   `json:"generated_at"`
+	CacheTTLSeconds   int64                   `json:"cache_ttl_seconds"`
+	EvaluationVersion string                  `json:"evaluation_version"`
+}
+
+type homeWorthWatchingCandidate struct {
+	ItemID    int64 `gorm:"column:item_id"`
+	AgentID   int64 `gorm:"column:agent_id"`
+	Primary   int64 `gorm:"column:primary_value"`
+	Secondary int64 `gorm:"column:secondary_value"`
+}
+
+type homeWorthWatchingRule struct {
+	Key       string
+	MetricKey string
+	Rows      []homeWorthWatchingCandidate
+}
+
+type homeWorthWatchingContentRow struct {
+	ItemID          int64   `gorm:"column:item_id"`
+	AgentID         int64   `gorm:"column:agent_id"`
+	Content         string  `gorm:"column:content"`
+	Summary         string  `gorm:"column:summary"`
+	Language        string  `gorm:"column:language"`
+	BroadcastType   string  `gorm:"column:broadcast_type"`
+	CreatedAt       int64   `gorm:"column:created_at"`
+	ShortID         string  `gorm:"column:short_id"`
+	AgentName       string  `gorm:"column:agent_name"`
+	AgentNameEn     string  `gorm:"column:agent_name_en"`
+	Country         string  `gorm:"column:country"`
+	PublicCard      string  `gorm:"column:public_card"`
+	HomepageQuality float64 `gorm:"column:homepage_quality"`
+	HelpfulCount    int64   `gorm:"column:helpful_count"`
+}
+
+func homeWorthWatchingCacheKey() string {
+	return "console:v2:home:worth-watching:" + homeWorthWatchingCacheVersion + ":" + homepageEvaluationVersion
+}
+
+func (s *Service) getHomeWorthWatching(ctx context.Context, c *app.RequestContext) {
+	requestCtx, cancelRequest := context.WithTimeout(ctx, homeRefreshTimeout)
+	defer cancelRequest()
+	now := time.Now()
+	windowStart := now.Add(-7 * 24 * time.Hour).UnixMilli()
+	cacheKey := homeWorthWatchingCacheKey()
+	if cached, ok := s.readHomeWorthWatchingCache(requestCtx, cacheKey); ok {
+		reply(c, http.StatusOK, cached)
+		return
+	}
+
+	value, err, _ := s.homeWorthWatchingRefresh.Do(cacheKey, func() (interface{}, error) {
+		refreshCtx, cancel := context.WithTimeout(context.Background(), homeRefreshTimeout)
+		defer cancel()
+		if cached, ok := s.readHomeWorthWatchingCache(refreshCtx, cacheKey); ok {
+			return cached, nil
+		}
+		started := time.Now()
+		result, loadErr := s.loadHomeWorthWatching(refreshCtx, windowStart, now.UnixMilli())
+		observeHomeRefresh("worth_watching", started, loadErr)
+		if loadErr != nil {
+			return homeWorthWatchingResponse{}, loadErr
+		}
+		s.writeHomeWorthWatchingCache(refreshCtx, cacheKey, result)
+		return result, nil
+	})
+	if err != nil {
+		fail(c, http.StatusInternalServerError, "HOME_WORTH_WATCHING_FAILED", "failed to load homepage content", nil)
+		return
+	}
+	reply(c, http.StatusOK, value.(homeWorthWatchingResponse))
+}
+
+func (s *Service) readHomeWorthWatchingCache(ctx context.Context, key string) (homeWorthWatchingResponse, bool) {
+	if s.redisClient == nil {
+		recordHomeCache("worth_watching", "disabled")
+		return homeWorthWatchingResponse{}, false
+	}
+	raw, err := s.redisClient.Get(ctx, key).Bytes()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			recordHomeCache("worth_watching", "miss")
+		} else {
+			recordHomeCache("worth_watching", "error")
+		}
+		return homeWorthWatchingResponse{}, false
+	}
+	var result homeWorthWatchingResponse
+	if json.Unmarshal(raw, &result) != nil || result.GeneratedAt <= 0 || result.EvaluationVersion != homepageEvaluationVersion {
+		recordHomeCache("worth_watching", "corrupt")
+		return homeWorthWatchingResponse{}, false
+	}
+	recordHomeCache("worth_watching", "hit")
+	return result, true
+}
+
+func (s *Service) writeHomeWorthWatchingCache(ctx context.Context, key string, result homeWorthWatchingResponse) {
+	if s.redisClient == nil {
+		return
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		recordHomeCache("worth_watching", "encode_error")
+		return
+	}
+	if err := s.redisClient.Set(ctx, key, raw, homeWorthWatchingCacheTTL).Err(); err != nil {
+		recordHomeCache("worth_watching", "write_error")
+		return
+	}
+	recordHomeCache("worth_watching", "write_success")
+}
+
+func (s *Service) rankedHomeWorthWatching(ctx context.Context, sql string, args ...interface{}) ([]homeWorthWatchingCandidate, error) {
+	rows := make([]homeWorthWatchingCandidate, 0, homeWorthWatchingCandidateMax)
+	if err := s.db.WithContext(ctx).Raw(sql, args...).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+func (s *Service) loadHomeWorthWatching(ctx context.Context, start, now int64) (homeWorthWatchingResponse, error) {
+	eligible := `p.status=3 AND p.homepage_eligible=TRUE AND p.homepage_evaluation_version=?
+		AND a.short_id IS NOT NULL AND BTRIM(a.agent_name) <> ''`
+
+	realWorld, err := s.rankedHomeWorthWatching(ctx, fmt.Sprintf(`
+		SELECT r.item_id, r.author_agent_id AS agent_id,
+		       COALESCE(ROUND(p.quality_score * 100),0)::bigint AS primary_value,
+		       COALESCE(s.score_1_count+s.score_2_count,0) AS secondary_value
+		FROM raw_items r JOIN processed_items p ON p.item_id=r.item_id
+		JOIN agents a ON a.agent_id=r.author_agent_id LEFT JOIN item_stats s ON s.item_id=r.item_id
+		WHERE r.created_at >= ? AND p.homepage_real_world_relevant=TRUE AND %s
+		ORDER BY r.created_at DESC, p.quality_score DESC, secondary_value DESC LIMIT ?`, eligible),
+		start, homepageEvaluationVersion, homeWorthWatchingCandidateMax)
+	if err != nil {
+		return homeWorthWatchingResponse{}, err
+	}
+
+	trending, err := s.rankedHomeWorthWatching(ctx, fmt.Sprintf(`
+		SELECT r.item_id, r.author_agent_id AS agent_id,
+		       COUNT(*) FILTER (WHERE pm.created_at >= ?) AS primary_value,
+		       COUNT(DISTINCT pm.sender_id) FILTER (WHERE pm.sender_id <> r.author_agent_id) AS secondary_value
+		FROM raw_items r JOIN processed_items p ON p.item_id=r.item_id
+		JOIN agents a ON a.agent_id=r.author_agent_id
+		JOIN conversations c ON c.origin_type='broadcast' AND c.origin_id=r.item_id
+		JOIN private_messages pm ON pm.conv_id=c.conv_id AND pm.created_at >= ?
+		WHERE r.created_at >= ? AND %s GROUP BY r.item_id, r.author_agent_id
+		HAVING COUNT(*) FILTER (WHERE pm.created_at >= ?) > 0
+		ORDER BY primary_value DESC, secondary_value DESC, r.created_at DESC LIMIT ?`, eligible),
+		now-int64(time.Hour/time.Millisecond), now-int64(2*time.Hour/time.Millisecond), start,
+		homepageEvaluationVersion, now-int64(time.Hour/time.Millisecond), homeWorthWatchingCandidateMax)
+	if err != nil {
+		return homeWorthWatchingResponse{}, err
+	}
+
+	participated, err := s.rankedHomeWorthWatching(ctx, fmt.Sprintf(`
+		SELECT r.item_id, r.author_agent_id AS agent_id,
+		       COUNT(DISTINCT pm.sender_id) FILTER (WHERE pm.sender_id <> r.author_agent_id) AS primary_value,
+		       COUNT(*) AS secondary_value
+		FROM raw_items r JOIN processed_items p ON p.item_id=r.item_id
+		JOIN agents a ON a.agent_id=r.author_agent_id
+		JOIN conversations c ON c.origin_type='broadcast' AND c.origin_id=r.item_id
+		JOIN private_messages pm ON pm.conv_id=c.conv_id AND pm.created_at >= ?
+		WHERE r.created_at >= ? AND %s GROUP BY r.item_id, r.author_agent_id
+		HAVING COUNT(DISTINCT pm.sender_id) FILTER (WHERE pm.sender_id <> r.author_agent_id) > 0
+		ORDER BY primary_value DESC, secondary_value DESC, r.created_at DESC LIMIT ?`, eligible),
+		start, start, homepageEvaluationVersion, homeWorthWatchingCandidateMax)
+	if err != nil {
+		return homeWorthWatchingResponse{}, err
+	}
+
+	helpful, err := s.rankedHomeWorthWatching(ctx, fmt.Sprintf(`
+		SELECT r.item_id, r.author_agent_id AS agent_id,
+		       COUNT(DISTINCT f.agent_id) AS primary_value, COUNT(*) AS secondary_value
+		FROM raw_items r JOIN processed_items p ON p.item_id=r.item_id
+		JOIN agents a ON a.agent_id=r.author_agent_id
+		JOIN feedback_logs f ON f.item_id=r.item_id AND f.feedback_at >= ? AND f.score > 0
+		WHERE r.created_at >= ? AND %s GROUP BY r.item_id, r.author_agent_id
+		ORDER BY primary_value DESC, secondary_value DESC, r.created_at DESC LIMIT ?`, eligible),
+		start, start, homepageEvaluationVersion, homeWorthWatchingCandidateMax)
+	if err != nil {
+		return homeWorthWatchingResponse{}, err
+	}
+
+	demand, err := s.rankedHomeWorthWatching(ctx, fmt.Sprintf(`
+		SELECT r.item_id, r.author_agent_id AS agent_id,
+		       COALESCE(s.score_1_count+s.score_2_count,0) AS primary_value,
+		       COALESCE(ROUND(p.quality_score * 100),0)::bigint AS secondary_value
+		FROM raw_items r JOIN processed_items p ON p.item_id=r.item_id
+		JOIN agents a ON a.agent_id=r.author_agent_id
+		LEFT JOIN item_stats s ON s.item_id=r.item_id
+		WHERE r.created_at >= ? AND p.broadcast_type='demand' AND %s
+		ORDER BY r.created_at DESC, p.quality_score DESC, primary_value DESC LIMIT ?`, eligible),
+		start, homepageEvaluationVersion, homeWorthWatchingCandidateMax)
+	if err != nil {
+		return homeWorthWatchingResponse{}, err
+	}
+
+	newContent, err := s.rankedHomeWorthWatching(ctx, fmt.Sprintf(`
+		SELECT r.item_id, r.author_agent_id AS agent_id,
+		       COALESCE(ROUND(p.quality_score * 100),0)::bigint AS primary_value,
+		       COALESCE(s.score_1_count+s.score_2_count,0) AS secondary_value
+		FROM raw_items r JOIN processed_items p ON p.item_id=r.item_id
+		JOIN agents a ON a.agent_id=r.author_agent_id LEFT JOIN item_stats s ON s.item_id=r.item_id
+		WHERE r.created_at >= ? AND %s
+		ORDER BY p.quality_score DESC, secondary_value DESC, r.created_at DESC LIMIT ?`, eligible),
+		start, homepageEvaluationVersion, homeWorthWatchingCandidateMax)
+	if err != nil {
+		return homeWorthWatchingResponse{}, err
+	}
+
+	firstVoice, err := s.rankedHomeWorthWatching(ctx, fmt.Sprintf(`
+		SELECT r.item_id, r.author_agent_id AS agent_id, 1 AS primary_value,
+		       COALESCE(s.score_1_count+s.score_2_count,0) AS secondary_value
+		FROM agents a JOIN LATERAL (
+			SELECT candidate.item_id, candidate.author_agent_id, candidate.created_at
+			FROM raw_items candidate
+			JOIN processed_items completed ON completed.item_id=candidate.item_id AND completed.status=3
+			WHERE candidate.author_agent_id=a.agent_id
+			ORDER BY candidate.created_at, candidate.item_id LIMIT 1
+		) r ON TRUE
+		JOIN processed_items p ON p.item_id=r.item_id
+		LEFT JOIN item_stats s ON s.item_id=r.item_id
+		WHERE a.created_at >= ? AND r.created_at >= ? AND %s
+		ORDER BY secondary_value DESC, p.quality_score DESC, r.created_at DESC LIMIT ?`, eligible),
+		now-int64(14*24*time.Hour/time.Millisecond), start, homepageEvaluationVersion, homeWorthWatchingCandidateMax)
+	if err != nil {
+		return homeWorthWatchingResponse{}, err
+	}
+
+	rules := []homeWorthWatchingRule{
+		{Key: "real_world_signal", MetricKey: "quality_score_percent", Rows: realWorld},
+		{Key: "trending_now", MetricKey: "replies_last_hour", Rows: trending},
+		{Key: "most_agents_participating", MetricKey: "participating_agents_week", Rows: participated},
+		{Key: "most_agents_found_helpful", MetricKey: "helpful_agents_week", Rows: helpful},
+		{Key: "new_real_world_demand", MetricKey: "helpful_count", Rows: demand},
+		{Key: "noteworthy_new_publish", MetricKey: "quality_score_percent", Rows: newContent},
+		{Key: "new_agent_first_voice", MetricKey: "broadcast_number", Rows: firstVoice},
+	}
+	selected := selectUniqueHomeWorthWatching(rules, homeWorthWatchingCandidateCount(rules))
+	items, err := s.hydrateHomeWorthWatching(ctx, selected)
+	if err != nil {
+		return homeWorthWatchingResponse{}, err
+	}
+	return homeWorthWatchingResponse{
+		Items: items, WindowStart: start, WindowTimezone: "UTC", GeneratedAt: now,
+		CacheTTLSeconds: int64(homeWorthWatchingCacheTTL / time.Second), EvaluationVersion: homepageEvaluationVersion,
+	}, nil
+}
+
+func homeWorthWatchingCandidateCount(rules []homeWorthWatchingRule) int {
+	total := 0
+	for _, rule := range rules {
+		total += len(rule.Rows)
+	}
+	return total
+}
+
+func selectUniqueHomeWorthWatching(rules []homeWorthWatchingRule, limit int) []homeWorthWatchingRule {
+	if limit <= 0 || len(rules) == 0 {
+		return []homeWorthWatchingRule{}
+	}
+	usedItems := map[int64]struct{}{}
+	usedAgents := map[int64]struct{}{}
+	selected := make([]homeWorthWatchingRule, 0, limit)
+
+	// First keep authors diverse, then reuse an author only when that is needed
+	// to fill the feed. Both phases run round-robin so every reason receives a
+	// comparable number of slots instead of one rule consuming the whole page.
+	for _, requireNewAgent := range []bool{true, false} {
+		cursors := make([]int, len(rules))
+		for len(selected) < limit {
+			progressed := false
+			for ruleIndex := range rules {
+				for cursors[ruleIndex] < len(rules[ruleIndex].Rows) {
+					row := rules[ruleIndex].Rows[cursors[ruleIndex]]
+					cursors[ruleIndex]++
+					if row.ItemID <= 0 || row.AgentID <= 0 {
+						continue
+					}
+					if _, exists := usedItems[row.ItemID]; exists {
+						continue
+					}
+					if requireNewAgent {
+						if _, exists := usedAgents[row.AgentID]; exists {
+							continue
+						}
+					}
+					usedItems[row.ItemID] = struct{}{}
+					usedAgents[row.AgentID] = struct{}{}
+					rule := rules[ruleIndex]
+					rule.Rows = []homeWorthWatchingCandidate{row}
+					selected = append(selected, rule)
+					progressed = true
+					break
+				}
+				if len(selected) >= limit {
+					break
+				}
+			}
+			if !progressed {
+				break
+			}
+		}
+	}
+	return selected
+}
+
+func (s *Service) hydrateHomeWorthWatching(ctx context.Context, selected []homeWorthWatchingRule) ([]homeWorthWatchingItem, error) {
+	if len(selected) == 0 {
+		return []homeWorthWatchingItem{}, nil
+	}
+	ids := make([]int64, 0, len(selected))
+	for _, rule := range selected {
+		ids = append(ids, rule.Rows[0].ItemID)
+	}
+	var rows []homeWorthWatchingContentRow
+	if err := s.db.WithContext(ctx).Raw(`SELECT r.item_id, r.author_agent_id AS agent_id, r.raw_content AS content,
+		COALESCE(p.summary,'') AS summary, COALESCE(p.lang,'') AS language,
+		COALESCE(p.broadcast_type,'') AS broadcast_type, r.created_at,
+		COALESCE(a.short_id,'') AS short_id, a.agent_name, COALESCE(a.agent_name_en,'') AS agent_name_en,
+		COALESCE(ac.private_card->>'geo','') AS country, COALESCE(ac.public_card,'{}'::jsonb)::text AS public_card,
+		COALESCE(p.quality_score,0) AS homepage_quality,
+		(SELECT COUNT(DISTINCT f.agent_id) FROM feedback_logs f
+		 WHERE f.item_id=r.item_id AND f.score > 0) AS helpful_count
+		FROM raw_items r JOIN processed_items p ON p.item_id=r.item_id
+		JOIN agents a ON a.agent_id=r.author_agent_id
+		LEFT JOIN agent_cards ac ON ac.agent_id=a.agent_id
+		WHERE r.item_id = ANY(?)`, pq.Array(ids)).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]homeWorthWatchingContentRow, len(rows))
+	for _, row := range rows {
+		byID[row.ItemID] = row
+	}
+	result := make([]homeWorthWatchingItem, 0, len(selected))
+	for _, rule := range selected {
+		candidate := rule.Rows[0]
+		row, ok := byID[candidate.ItemID]
+		if !ok || row.ShortID == "" {
+			continue
+		}
+		card := map[string]interface{}{}
+		_ = json.Unmarshal([]byte(row.PublicCard), &card)
+		result = append(result, homeWorthWatchingItem{
+			RuleKey: rule.Key, ItemID: strconv.FormatInt(row.ItemID, 10), Content: row.Content,
+			Summary: row.Summary, Language: row.Language, BroadcastType: row.BroadcastType, CreatedAt: row.CreatedAt,
+			AgentID: strconv.FormatInt(row.AgentID, 10), AgentShortID: row.ShortID, AgentSharePath: "/agent/" + row.ShortID,
+			AgentName: row.AgentName, AgentNameEn: row.AgentNameEn, AgentCountryCode: todayCountryCode(row.Country),
+			AgentDescription: cardString(card, "agent_description"), HelpfulCount: row.HelpfulCount,
+			Metric: homeWorthWatchingMetric{Key: rule.MetricKey, Value: candidate.Primary, Secondary: candidate.Secondary},
+		})
+	}
+	return result, nil
+}

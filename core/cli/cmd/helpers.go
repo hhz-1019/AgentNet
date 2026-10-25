@@ -1,0 +1,129 @@
+package cmd
+
+import (
+	"strings"
+	"sync"
+
+	"elsewhere.local/cli/internal/auth"
+	"elsewhere.local/cli/internal/client"
+	"elsewhere.local/cli/internal/config"
+	"elsewhere.local/cli/internal/output"
+)
+
+func newClient() *client.Client {
+	return newClientOptionalAuth(true)
+}
+
+func newClientNoAuth() *client.Client {
+	return newClientOptionalAuth(false)
+}
+
+func newClientOptionalAuth(requireAuth bool) *client.Client {
+	return newClientForServerOptionalAuth(serverFlag, requireAuth)
+}
+
+func newClientForServer(serverName string) *client.Client {
+	return newClientForServerOptionalAuth(serverName, true)
+}
+
+func newClientForServerOptionalAuth(serverName string, requireAuth bool) *client.Client {
+	cfg, err := config.Load()
+	if err != nil {
+		output.Die(output.ExitUsageError, "load config: %v", err)
+	}
+	srv, err := cfg.GetActive(serverName)
+	if err != nil {
+		output.Die(output.ExitUsageError, "%v", err)
+	}
+	if requireAuth {
+		if err := guardDeletedServer(srv.Name); err != nil {
+			output.Die(output.ExitAuthRequired, "%v", err)
+		}
+		hasV2, v2Err := auth.HasV2Credentials(srv.Name)
+		if v2Err != nil {
+			output.Die(output.ExitAuthRequired, "inspect Agent V2 credentials for server %q: %v", srv.Name, v2Err)
+		}
+		if hasV2 {
+			credentials, credentialErr := ensureV2Credentials(srv.Name, srv.Endpoint)
+			if credentialErr != nil {
+				output.Die(output.ExitAuthRequired, "Agent V2 authentication failed for server %q: %v", srv.Name, credentialErr)
+			}
+			result := client.New(strings.TrimRight(srv.Endpoint, "/")+"/api/v2", credentials.AccessToken, version, clientMetaForServer(srv))
+			result.OnUnauthorized = func() (string, error) {
+				refreshed, refreshErr := refreshV2Credentials(srv.Name, srv.Endpoint, true)
+				if refreshErr != nil {
+					return "", refreshErr
+				}
+				return refreshed.AccessToken, nil
+			}
+			return result
+		}
+	}
+	return newLegacyClientForResolvedServer(srv, requireAuth)
+}
+
+func newLegacyClientForServer(serverName string) *client.Client {
+	cfg, err := config.Load()
+	if err != nil {
+		output.Die(output.ExitUsageError, "load config: %v", err)
+	}
+	srv, err := cfg.GetActive(serverName)
+	if err != nil {
+		output.Die(output.ExitUsageError, "%v", err)
+	}
+	return newLegacyClientForResolvedServer(srv, true)
+}
+
+func newLegacyClientForResolvedServer(srv *config.Server, requireAuth bool) *client.Client {
+	token := ""
+	if requireAuth {
+		creds, err := auth.LoadCredentials(srv.Name)
+		if err != nil {
+			output.Die(output.ExitAuthRequired, "not logged in to server %q — run 'elsewhere auth login --email <email>' first", srv.Name)
+		}
+		if creds.IsExpired() {
+			output.Die(output.ExitAuthRequired, "token expired for server %q — run 'elsewhere auth login --email <email>'", srv.Name)
+		}
+		token = creds.AccessToken
+	}
+	baseURL := strings.TrimRight(srv.Endpoint, "/") + "/api/v1"
+	c := client.New(baseURL, token, version, clientMetaForServer(srv))
+	if requireAuth {
+		serverName := srv.Name
+		c.OnSuccess = sync.OnceFunc(func() {
+			auth.RefreshExpiry(serverName)
+		})
+	}
+	return c
+}
+
+func activeServerName() string {
+	cfg, err := config.Load()
+	if err != nil {
+		return ""
+	}
+	srv, err := cfg.GetActive(serverFlag)
+	if err != nil {
+		return ""
+	}
+	return srv.Name
+}
+
+// activeAgentScope returns a stable per-agent salt used to scope locally
+// generated idempotency tokens (e.g. feed event dedup_key). It prefers the
+// authenticated agent_id from saved credentials and falls back to the server
+// name so the token never collides across agents on different servers.
+func activeAgentScope() string {
+	srv := activeServerName()
+	if creds, err := auth.LoadV2Credentials(srv); err == nil && creds.AgentID != "" {
+		return creds.AgentID
+	}
+	if creds, err := auth.LoadCredentials(srv); err == nil && creds.AgentID != "" {
+		return creds.AgentID
+	}
+	return srv
+}
+
+func resolveFormat() string {
+	return output.ResolveFormat(formatFlag)
+}

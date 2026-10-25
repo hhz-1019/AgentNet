@@ -1,0 +1,205 @@
+package client
+
+import (
+	"net/http"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestResolveMeta(t *testing.T) {
+	clearRuntimeEnv(t)
+	m := ResolveMeta()
+	if m.OS == "" {
+		t.Error("OS should not be empty")
+	}
+	if m.TZ == "" {
+		t.Error("TZ should not be empty")
+	}
+	if m.Host != "terminal" {
+		t.Errorf("Host = %q, want %q (default)", m.Host, "terminal")
+	}
+	if m.DeviceName == "" {
+		t.Error("DeviceName should be reported by the local CLI")
+	}
+	if m.Channel != "cli" {
+		t.Errorf("Channel = %q, want %q (default)", m.Channel, "cli")
+	}
+	if m.Model != "" {
+		t.Errorf("Model = %q, want empty (no default)", m.Model)
+	}
+}
+
+func TestResolveMetaWithEnv(t *testing.T) {
+	clearRuntimeEnv(t)
+	t.Setenv("ELSEWHERE_HOST", "openclaw/0.0.10")
+	t.Setenv("ELSEWHERE_DEVICE_NAME", "Lynn-MacBook-Pro.local")
+	t.Setenv("ELSEWHERE_CHANNEL", "feishu")
+	t.Setenv("ELSEWHERE_MODEL", "claude-opus-4-8")
+	t.Setenv("ELSEWHERE_MODE", "skill")
+	t.Setenv("ELSEWHERE_PLUGIN_VERSION", "0.0.99")
+	m := ResolveMeta()
+	headers := http.Header{}
+	m.SetHeaders(headers)
+	if headers.Get("X-Client-Mode") != "skill" || headers.Get("X-Client-Plugin-Version") != "0.0.99" {
+		t.Fatalf("independent mode/plugin metadata missing: %v", headers)
+	}
+	if m.Host != "openclaw/0.0.10" {
+		t.Errorf("Host = %q, want %q", m.Host, "openclaw/0.0.10")
+	}
+	if m.Channel != "feishu" {
+		t.Errorf("Channel = %q, want %q", m.Channel, "feishu")
+	}
+	if m.Model != "claude-opus-4-8" {
+		t.Errorf("Model = %q, want %q", m.Model, "claude-opus-4-8")
+	}
+	if m.DeviceName != "Lynn-MacBook-Pro" {
+		t.Errorf("DeviceName = %q, want %q", m.DeviceName, "Lynn-MacBook-Pro")
+	}
+}
+
+func TestResolveMetaDetectsWorkBuddy(t *testing.T) {
+	clearRuntimeEnv(t)
+	t.Setenv("WORKBUDDY_APP_NAME", "WorkBuddy")
+	t.Setenv("WORKBUDDY_APP_VERSION", "5.3.8")
+	if got := ResolveMeta().Host; got != "workbuddy/5.3.8" {
+		t.Fatalf("Host = %q, want workbuddy/5.3.8", got)
+	}
+}
+
+func TestResolveMetaDetectsCodex(t *testing.T) {
+	clearRuntimeEnv(t)
+	t.Setenv("CODEX_THREAD_ID", "thread-test")
+	if got := ResolveMeta().Host; got != "codex" {
+		t.Fatalf("Host = %q, want codex", got)
+	}
+}
+
+func TestResolveMetaCodexWinsOverInheritedWorkBuddyMetadata(t *testing.T) {
+	clearRuntimeEnv(t)
+	t.Setenv("CODEX_SANDBOX", "seatbelt")
+	t.Setenv("WORKBUDDY_APP_NAME", "WorkBuddy")
+	t.Setenv("WORKBUDDY_APP_VERSION", "5.3.14")
+	if got := ResolveMeta().Host; got != "codex" {
+		t.Fatalf("Host = %q, want codex", got)
+	}
+}
+
+func TestResolveMetaWorkBuddyHomeWinsOverCodexProcessMarkers(t *testing.T) {
+	clearRuntimeEnv(t)
+	t.Setenv("ELSEWHERE_HOME", filepath.Join(t.TempDir(), ".workbuddy", "elsewhere"))
+	t.Setenv("CODEX_SANDBOX", "seatbelt")
+	t.Setenv("WORKBUDDY_APP_VERSION", "5.3.14")
+	if got := ResolveMeta().Host; got != "workbuddy/5.3.14" {
+		t.Fatalf("Host = %q, want workbuddy/5.3.14 for the WorkBuddy-owned Elsewhere home", got)
+	}
+}
+
+func TestResolveMetaExplicitHostWinsOverWorkBuddy(t *testing.T) {
+	clearRuntimeEnv(t)
+	t.Setenv("WORKBUDDY_PRODUCT_NAME", "WorkBuddy")
+	t.Setenv("WORKBUDDY_APP_VERSION", "5.3.8")
+	t.Setenv("ELSEWHERE_HOST", "hermes/0.20.0")
+	if got := ResolveMeta().Host; got != "hermes/0.20.0" {
+		t.Fatalf("Host = %q, want explicit hermes identity", got)
+	}
+}
+
+func TestResolveMetaWorkBuddyRejectsUnsafeVersion(t *testing.T) {
+	clearRuntimeEnv(t)
+	t.Setenv("CODEBUDDY_HOST", "workbuddy-desktop")
+	t.Setenv("CLIENT_INFO_PRODUCT_VERSION", "5.3.8\nforged")
+	if got := ResolveMeta().Host; got != "workbuddy" {
+		t.Fatalf("Host = %q, want name-only workbuddy", got)
+	}
+}
+
+func TestResolveMetaDoesNotMixWorkBuddyVersionSources(t *testing.T) {
+	clearRuntimeEnv(t)
+	t.Setenv("CODEBUDDY_HOST", "workbuddy-desktop")
+	t.Setenv("CLIENT_INFO_PRODUCT_NAME", "AnotherProduct")
+	t.Setenv("CLIENT_INFO_PRODUCT_VERSION", "9.9.9")
+	if got := ResolveMeta().Host; got != "workbuddy" {
+		t.Fatalf("Host = %q, want name-only workbuddy", got)
+	}
+}
+
+func clearRuntimeEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"ELSEWHERE_HOST",
+		"ELSEWHERE_HOME",
+		"ELSEWHERE_DEVICE_NAME",
+		"CODEX_THREAD_ID",
+		"CODEX_SANDBOX",
+		"CODEX_SHELL",
+		"CODEX_INTERNAL_ORIGINATOR_OVERRIDE",
+		"WORKBUDDY_APP_NAME",
+		"WORKBUDDY_APP_VERSION",
+		"WORKBUDDY_PRODUCT_NAME",
+		"CLIENT_INFO_PRODUCT_NAME",
+		"CLIENT_INFO_PRODUCT_VERSION",
+		"CODEBUDDY_HOST",
+	} {
+		t.Setenv(key, "")
+	}
+}
+
+func TestMetaSetHeadersModel(t *testing.T) {
+	h := http.Header{}
+	Meta{Model: "claude-opus-4-8", DeviceName: "Lynn-MacBook-Pro"}.SetHeaders(h)
+	if got := h.Get("X-Client-Model"); got != "claude-opus-4-8" {
+		t.Errorf("X-Client-Model = %q, want %q", got, "claude-opus-4-8")
+	}
+	if got := h.Get("X-Client-Device-Name"); got != "Lynn-MacBook-Pro" {
+		t.Errorf("X-Client-Device-Name = %q", got)
+	}
+	// Empty model must not emit the header.
+	h2 := http.Header{}
+	Meta{}.SetHeaders(h2)
+	if _, ok := h2["X-Client-Model"]; ok {
+		t.Error("X-Client-Model should be absent when Model is empty")
+	}
+}
+
+func TestMetaSetHeadersDeviceName(t *testing.T) {
+	h := http.Header{}
+	Meta{DeviceName: "Lynn-MacBook-Pro"}.SetHeaders(h)
+	if got := h.Get("X-Client-Device-Name"); got != "Lynn-MacBook-Pro" {
+		t.Fatalf("X-Client-Device-Name = %q", got)
+	}
+}
+
+func TestLoadOrCreateClientID(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+
+	id1 := loadOrCreateClientID()
+	if len(id1) != 8 {
+		t.Errorf("client_id length = %d, want 8", len(id1))
+	}
+
+	// Second call should return the same ID
+	id2 := loadOrCreateClientID()
+	if id1 != id2 {
+		t.Errorf("client_id changed: %q → %q", id1, id2)
+	}
+
+	// Verify file was written
+	data, err := os.ReadFile(filepath.Join(dir, ".elsewhere", "client_id"))
+	if err != nil {
+		t.Fatalf("read client_id file: %v", err)
+	}
+	if got := string(data[:8]); got != id1 {
+		t.Errorf("file content = %q, want %q", got, id1)
+	}
+}
+
+func TestResolveLanguage(t *testing.T) {
+	t.Setenv("LANG", "zh_CN.UTF-8")
+	t.Setenv("LC_ALL", "")
+	got := resolveLanguage()
+	if got != "zh-CN" {
+		t.Errorf("resolveLanguage() = %q, want %q", got, "zh-CN")
+	}
+}

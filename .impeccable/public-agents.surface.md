@@ -2,7 +2,7 @@
 
 - Mode: **Operate**。官方 Agent 管理第五栏「名人管理」的局部扩展。
 - 方向：克制的管理操作界面，沿用纸色、宋体与分隔线列表；没有新品牌或获批设计图，不改既有 `DESIGN.md` 主视觉。
-- 产品依据：`eigenflux/PRODUCT.md` 的人类控制台定位；区分授权、执行与已完成结果，未知事实保持未知，演示预览明确标注。
+- 产品依据：`elsewhere/PRODUCT.md` 的人类控制台定位；区分授权、执行与已完成结果，未知事实保持未知，演示预览明确标注。
 
 ## 界面与状态
 
@@ -16,11 +16,11 @@
 
 ## 实现路径
 
-- `eigenflux/web/managed.tsx`：第五栏入口与管理页面集成。
-- `eigenflux/web/public-agents.tsx`：双视图、人物和企业范围筛选、原文与报道分区、来源和独立操作及状态。
-- `eigenflux/web/public-agents.css`：列表、详情、来源链接换行、企业范围选择、招聘行与手机单栏布局。
-- `eigenflux/web/public-agents-preview.tsx`：使用真实人物目录和 13 家企业的本地演示，操作不写入账号；当前 fixture 为待注册、未启动定时同步状态。
-- `eigenflux/web/recruitment-jobs.tsx`：公开招聘动态、读取恢复与成功读取后的空态。
+- `elsewhere/web/managed.tsx`：第五栏入口与管理页面集成。
+- `elsewhere/web/public-agents.tsx`：双视图、人物和企业范围筛选、原文与报道分区、来源和独立操作及状态。
+- `elsewhere/web/public-agents.css`：列表、详情、来源链接换行、企业范围选择、招聘行与手机单栏布局。
+- `elsewhere/web/public-agents-preview.tsx`：使用真实人物目录和 13 家企业的本地演示，操作不写入账号；当前 fixture 为待注册、未启动定时同步状态。
+- `elsewhere/web/recruitment-jobs.tsx`：公开招聘动态、读取恢复与成功读取后的空态。
 
 ## 评审证据与结论
 

@@ -1,0 +1,548 @@
+package cmd
+
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"elsewhere.local/cli/internal/auth"
+	"elsewhere.local/cli/internal/client"
+	"elsewhere.local/cli/internal/config"
+	"elsewhere.local/cli/internal/output"
+	"elsewhere.local/cli/internal/profilestate"
+
+	"github.com/spf13/cobra"
+)
+
+// Legacy config cache keys remain reserved. Runtime identity and report stamps
+// now live in the locked runtime sidecar, independently of config.json writers.
+const settingsReportedKey = "_settings_reported"
+const settingsReportedAtKey = "_settings_reported_at"
+const settingsReportedClientKey = "_settings_reported_client"
+const settingsReportInterval = 24 * time.Hour
+
+type runtimeReportResult struct {
+	Status  string   `json:"status"`
+	Missing []string `json:"missing,omitempty"`
+	Error   string   `json:"error,omitempty"`
+}
+
+// settingsSyncedKey marks that at least one reconcile with the backend has
+// happened. Before that, existing local values initialize the backend instead
+// of being overwritten by its defaults.
+const settingsSyncedKey = "_settings_synced"
+
+// settingsDirtyKey marks a local write-through that failed to reach the
+// backend (e.g. an offline `config set`); the next sync retries the push.
+const settingsDirtyKey = "_settings_dirty"
+
+// feedPollIntentKey records the value the user explicitly set for
+// feed_poll_interval via `config set`. Only an intent stored here is pushed up
+// as a user override; the value pulled down from the backend onboarding ramp
+// also lives in the KV (so pollers can read it) but must never be echoed back
+// up, or the ramp would freeze the moment any other synced setting changes.
+// Cleared after a successful push.
+const feedPollIntentKey = "_feed_poll_interval_intent"
+
+// syncedBoolKeys / syncedIntKeys / syncedStringKeys are the config KV entries
+// mirrored to the backend agent_settings row (PUT /agents/me/settings).
+var (
+	syncedBoolKeys   = []string{"official_pm_optout"}
+	syncedIntKeys    = []string{"feed_poll_interval"}
+	syncedStringKeys = []string{"feed_delivery_preference", "lang"}
+)
+
+func normalizeAccountLanguage(value string) (string, bool) {
+	switch strings.ToLower(strings.ReplaceAll(strings.TrimSpace(value), "_", "-")) {
+	case "zh", "zh-cn":
+		return "zh", true
+	case "en", "en-us", "en-gb":
+		return "en", true
+	default:
+		return "", false
+	}
+}
+
+func isSecurityBoundarySettingsKey(key string) bool {
+	switch key {
+	case "recurring_publish", "auto_reply_pm", "auto_comment", "show_add_friend":
+		return true
+	default:
+		return false
+	}
+}
+
+func setConfigKVInMemory(cfg *config.Config, key, value string) bool {
+	if cfg.KV == nil {
+		cfg.KV = map[string]string{}
+	}
+	if value == "" {
+		if _, exists := cfg.KV[key]; !exists {
+			return false
+		}
+		delete(cfg.KV, key)
+		return true
+	}
+	if cfg.KV[key] == value {
+		return false
+	}
+	cfg.KV[key] = value
+	return true
+}
+
+// isSyncedSettingsKey reports whether a config KV key is mirrored to the
+// backend agent_settings row.
+func isSyncedSettingsKey(key string) bool {
+	for _, k := range append(append(append([]string{}, syncedBoolKeys...), syncedIntKeys...), syncedStringKeys...) {
+		if key == k {
+			return true
+		}
+	}
+	return false
+}
+
+// syncedSettingsBody builds the PUT body from the local config KV. Only keys
+// with a usable value are included, so absent keys never clobber the backend.
+func syncedSettingsBody(cfg *config.Config) map[string]interface{} {
+	body := map[string]interface{}{}
+	for _, k := range syncedBoolKeys {
+		if v := cfg.GetKV(k); v == "true" || v == "false" {
+			body[k] = v == "true"
+		}
+	}
+	for _, k := range syncedIntKeys {
+		v := cfg.GetKV(k)
+		if k == "feed_poll_interval" {
+			// Push only an explicit user intent, never a ramp value pulled down
+			// from the backend (which sits in the KV under the same key).
+			v = cfg.GetKV(feedPollIntentKey)
+		}
+		if v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				body[k] = n
+				if k == "feed_poll_interval" {
+					// Pair the value with an explicit override claim so the
+					// backend pins it; without this flag the server keeps the
+					// onboarding ramp in effect.
+					body["feed_poll_interval_user_set"] = true
+				}
+			}
+		}
+	}
+	for _, k := range syncedStringKeys {
+		if v := cfg.GetKV(k); v != "" {
+			if k == "lang" {
+				normalized, ok := normalizeAccountLanguage(v)
+				if !ok {
+					continue
+				}
+				v = normalized
+			}
+			body[k] = v
+		}
+	}
+	return body
+}
+
+// SyncSettings reconciles the local config KV with the backend settings row.
+// Last writer wins through the backend: a pending local change (dirty marker,
+// or local values that predate the first sync) is pushed up; otherwise the
+// backend values (e.g. console edits) are pulled down. Runs automatically
+// after every `feed poll`, so console edits reach the agent within one poll
+// interval.
+func SyncSettings(cfg *config.Config) error {
+	c, err := newSettingsClient(cfg, activeServerName())
+	if err != nil {
+		return err
+	}
+	pendingLocal := cfg.GetKV(settingsDirtyKey) != "" ||
+		(cfg.GetKV(settingsSyncedKey) == "" && len(syncedSettingsBody(cfg)) > 0)
+	if pendingLocal {
+		if body := syncedSettingsBody(cfg); len(body) > 0 {
+			resp, err := c.Put("/agents/me/settings", body)
+			if err != nil {
+				return err
+			}
+			if resp.Code != 0 {
+				return fmt.Errorf("%s", resp.Msg)
+			}
+		}
+		changed := setConfigKVInMemory(cfg, settingsDirtyKey, "")
+		// The intent has been pushed (or there was none); clear it so a later
+		// push triggered by a different setting doesn't resend a stale value.
+		changed = setConfigKVInMemory(cfg, feedPollIntentKey, "") || changed
+		changed = setConfigKVInMemory(cfg, settingsSyncedKey, "1") || changed
+		if changed {
+			return cfg.Save()
+		}
+		return nil
+	}
+
+	resp, err := c.Get("/agents/me/settings", nil)
+	if err != nil {
+		return err
+	}
+	if resp.Code != 0 {
+		return fmt.Errorf("%s", resp.Msg)
+	}
+	// Generic pull: every scalar setting the backend returns is written to the
+	// local config KV, so new backend settings need no CLI changes. mode and
+	// updated_at are meta, and empty strings never erase a local value that
+	// simply has not been pushed yet (e.g. feed_delivery_preference).
+	var remote map[string]interface{}
+	if err := json.Unmarshal(resp.Data, &remote); err != nil {
+		return err
+	}
+	// mode/updated_at are meta. auto_skill_sync / skill_sync_interval_hours are
+	// client-local safety controls (throttle + kill switch for the background
+	// skill refresh) and must NOT be settable by the backend — otherwise a
+	// compromised backend could disable updates or overflow the throttle.
+	skip := map[string]bool{
+		"mode": true, "updated_at": true,
+		runtimeHostKey: true, runtimeModeKey: true,
+		"runtime_name": true, "runtime_version": true, "runtime_reported_at": true,
+		autoSkillSyncKey: true, skillSyncIntervalKey: true,
+		// Profile-refresh bookkeeping is client-local for the same reason: a
+		// backend-supplied stamp could silence the prompt forever (future
+		// value) or force it every day (zero).
+		kvProfileRefreshAt: true, kvProfileRefreshCheckedAt: true, kvProfileRefreshPromptedAt: true,
+	}
+	changed := false
+	for k, v := range remote {
+		if skip[k] || strings.HasPrefix(k, "_") {
+			continue
+		}
+		switch val := v.(type) {
+		case bool:
+			changed = setConfigKVInMemory(cfg, k, strconv.FormatBool(val)) || changed
+		case float64:
+			changed = setConfigKVInMemory(cfg, k, strconv.FormatInt(int64(val), 10)) || changed
+		case string:
+			if val != "" {
+				changed = setConfigKVInMemory(cfg, k, val) || changed
+			}
+		}
+	}
+	changed = setConfigKVInMemory(cfg, settingsSyncedKey, "1") || changed
+	if changed {
+		return cfg.Save()
+	}
+	return nil
+}
+
+func newSettingsClient(cfg *config.Config, serverName string) (*client.Client, error) {
+	server, err := cfg.GetActive(serverName)
+	if err != nil {
+		return nil, err
+	}
+	hasV2, err := auth.HasV2Credentials(serverName)
+	if err != nil {
+		return nil, err
+	}
+	if hasV2 {
+		c, _, err := newV2ClientForServer(serverName, true)
+		return c, err
+	}
+	credentials, err := auth.LoadCredentials(serverName)
+	if err != nil {
+		return nil, err
+	}
+	if credentials.IsExpired() {
+		return nil, fmt.Errorf("credentials expired for server %q", serverName)
+	}
+	c := client.New(strings.TrimRight(server.Endpoint, "/")+"/api/v1", credentials.AccessToken, version, clientMetaForServer(server))
+	c.OnSuccess = sync.OnceFunc(func() { auth.RefreshExpiry(serverName) })
+	return c, nil
+}
+
+// pushReported sends agent-reported fields to the backend, skipping the
+// request when nothing changed since the last successful push. Product
+// identity is independent from mode and travels through X-Client-Host, the
+// existing server-side runtime identity contract.
+func pushReported(cfg *config.Config, mode, model, runtimeName, runtimeVersion string, force bool) error {
+	result, err := reportRuntimeSettings(cfg, mode, model, runtimeName, runtimeVersion, force)
+	if err != nil {
+		output.PrintMessage("settings failed")
+		return err
+	}
+	output.PrintMessage("settings %s", result.Status)
+	if len(result.Missing) > 0 {
+		output.PrintMessage("runtime identity missing: %s", strings.Join(result.Missing, ", "))
+	}
+	return nil
+}
+
+func reportRuntimeSettings(cfg *config.Config, mode, model, runtimeName, runtimeVersion string, force bool) (result runtimeReportResult, err error) {
+	result.Status = "failed"
+	defer func() {
+		if err != nil {
+			result.Error = err.Error()
+		}
+	}()
+	serverName := activeServerName()
+	if serverName == "" {
+		return result, fmt.Errorf("no active server")
+	}
+	meta, state, err := configureRuntimeReportIdentity(cfg, serverName, mode, runtimeName, runtimeVersion)
+	if err != nil {
+		return result, err
+	}
+	if model != "" {
+		meta.Model = model
+	}
+	if meta.Host == "" {
+		result.Missing = append(result.Missing, "runtime_name")
+	}
+	if meta.Mode == "" {
+		result.Missing = append(result.Missing, "mode")
+	}
+	if strings.TrimSpace(meta.Model) == "" {
+		result.Missing = append(result.Missing, "model")
+	}
+	agentID := settingsAgentID(serverName)
+	if agentID == "" {
+		result.Status = "missing"
+		result.Missing = append(result.Missing, "authenticated_account")
+		return result, nil
+	}
+	if meta.Host == "" && meta.Mode == "" && meta.Model == "" {
+		result.Status = "missing"
+		return result, nil
+	}
+	server, err := cfg.GetActive(serverName)
+	if err != nil {
+		return result, err
+	}
+	hasV2, err := auth.HasV2Credentials(serverName)
+	if err != nil {
+		return result, err
+	}
+	apiFamily := "/api/v1"
+	if hasV2 {
+		apiFamily = "/api/v2"
+	}
+	clientSnapshot := strings.Join([]string{version, strings.TrimRight(server.Endpoint, "/") + apiFamily, meta.PluginVersion}, "\x1f")
+	snapshot := reportedSettingsSnapshot(agentID, meta.Mode, "", meta.Model, meta.Host)
+	lastSnapshot, lastClient, reportedAt := state.ReportedSnapshot, state.ReportedClient, state.ReportedAtMillis
+	ago := time.Now().UnixMilli() - reportedAt
+	if !force && snapshot == lastSnapshot && clientSnapshot == lastClient && reportedAt > 0 && ago >= 0 && ago < settingsReportInterval.Milliseconds() {
+		result.Status = "unchanged"
+		return result, nil
+	}
+
+	// Runtime observations must not write cached shared settings before SyncSettings
+	// reconciles remote changes. Preferences remain on the existing sync path.
+	body := map[string]interface{}{}
+	if meta.Mode != "" {
+		body["mode"] = meta.Mode
+	}
+
+	// This path must return errors, never output.Die: automatic metadata
+	// reporting cannot terminate a successful Feed or heartbeat operation.
+	c, err := newSettingsClient(cfg, serverName)
+	if err != nil {
+		return result, err
+	}
+	c.Meta = meta
+	headers := map[string]string{"X-Client-Host": meta.Host, "X-Client-Mode": meta.Mode, "X-Client-Model": meta.Model}
+	resp, err := c.PutWithHeaders("/agents/me/settings", body, headers)
+	if err != nil {
+		return result, err
+	}
+	if resp.Code != 0 {
+		return result, fmt.Errorf("%s", resp.Msg)
+	}
+
+	// Persist the snapshot only after a successful push, so a failed attempt
+	// is retried on the next call.
+	_, err = profilestate.UpdateRuntime(config.HomeDir(), serverName, func(current *profilestate.RuntimeState) (bool, error) {
+		// An older in-flight report cannot replace a newer installation intent
+		// or its successful report cache, including a change away and back.
+		if current.Revision != state.Revision {
+			return false, nil
+		}
+		current.ReportedSnapshot = snapshot
+		current.ReportedClient = clientSnapshot
+		current.ReportedAtMillis = time.Now().UnixMilli()
+		return true, nil
+	})
+	if err != nil {
+		return result, err
+	}
+	result.Status = "reported"
+	return result, nil
+}
+
+func settingsAgentID(serverName string) string {
+	if credentials, err := auth.LoadV2Credentials(serverName); err == nil && credentials.AgentID != "" {
+		return credentials.AgentID
+	}
+	if credentials, err := auth.LoadCredentials(serverName); err == nil && credentials.AgentID != "" {
+		return credentials.AgentID
+	}
+	return ""
+}
+
+func pushHeartbeatCompatibility(_ *config.Config, contractVersion, skillRevision string) error {
+	if contractVersion != heartbeatContractVersion || strings.TrimSpace(skillRevision) == "" {
+		return fmt.Errorf("invalid heartbeat compatibility report")
+	}
+	serverName := activeServerName()
+	if serverName == "" {
+		return fmt.Errorf("no active server")
+	}
+	c, _, err := newV2ClientForServer(serverName, true)
+	if err != nil {
+		return err
+	}
+	body := map[string]interface{}{
+		"heartbeat_contract_version": contractVersion,
+		"skill_revision":             skillRevision,
+	}
+	resp, err := c.Put("/agent-settings/heartbeat-compatibility", body)
+	if err != nil {
+		return err
+	}
+	if resp.Code != 0 {
+		return fmt.Errorf("%s", resp.Msg)
+	}
+	// Report every completed plan. This is deliberately not cached locally: the
+	// server-side record is the Console gate's evidence and must self-heal after
+	// a database restore or a revoked/re-provisioned credential.
+	return nil
+}
+
+func reportedSettingsSnapshot(agentID, mode, feedPreference, model, runtimeHost string) string {
+	return strings.Join([]string{agentID, mode, feedPreference, model, runtimeHost}, "\x1f")
+}
+
+func reportedRuntimeHost(name, version string) (string, error) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	version = strings.ToLower(strings.TrimSpace(version))
+	if name == "" {
+		if version != "" {
+			return "", fmt.Errorf("--runtime-version requires --runtime-name")
+		}
+		return "", nil
+	}
+	switch name {
+	case "terminal", "plugin", "skill", "skills", "cli", "cli-direct", "unknown":
+		return "", fmt.Errorf("--runtime-name must identify the Agent product, not an installation mode or unknown sentinel")
+	}
+	if !validRuntimeIdentityPart(name) {
+		return "", fmt.Errorf("--runtime-name must be 1-64 letters, digits, '.', '-' or '_'")
+	}
+	if version == "" {
+		return name, nil
+	}
+	if !validRuntimeIdentityPart(version) {
+		return "", fmt.Errorf("--runtime-version must be 1-64 letters, digits, '.', '-' or '_'")
+	}
+	return name + "/" + version, nil
+}
+
+func validRuntimeIdentityPart(value string) bool {
+	if value == "" || len(value) > 64 {
+		return false
+	}
+	return strings.IndexFunc(value, func(r rune) bool {
+		return !(r == '.' || r == '-' || r == '_' || r >= '0' && r <= '9' || r >= 'a' && r <= 'z')
+	}) < 0
+}
+
+var settingsCmd = &cobra.Command{
+	Use:   "settings",
+	Short: "Sync agent-side settings with the backend",
+}
+
+var settingsPushCmd = &cobra.Command{
+	Use:   "push",
+	Short: "Persist runtime identity and report settings when changed or due daily",
+	Long: `Push agent-reported identity (mode, runtime product, model) to the backend
+via PUT /agents/me/settings.
+
+Mode and runtime identity come from explicit flags, process metadata, or this
+Home's per-server runtime sidecar.
+Flags persist product and mode for later commands. Plugin versions belong in
+ELSEWHERE_PLUGIN_VERSION, installation mode in ELSEWHERE_MODE, and delivery
+channels in ELSEWHERE_CHANNEL.
+The current model comes from --model or ELSEWHERE_MODEL. A model synchronized
+from the backend is never reused as current process metadata.
+The combined snapshot is compared against the last successfully reported one
+(stored in the runtime sidecar) and a request is sent only
+when something changed, the CLI or endpoint changed, or 24 hours have elapsed.
+Only successful requests update the snapshot. Safe to call on every heartbeat.
+
+Examples:
+  elsewhere settings push --mode plugin --model gpt-5.6
+  elsewhere settings push --mode skill --runtime-name hermes --runtime-version 0.20.0`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		mode, _ := cmd.Flags().GetString("mode")
+		if mode != "" && mode != "plugin" && mode != "skill" {
+			return fmt.Errorf("--mode must be plugin or skill")
+		}
+		model, _ := cmd.Flags().GetString("model")
+		runtimeName, _ := cmd.Flags().GetString("runtime-name")
+		runtimeVersion, _ := cmd.Flags().GetString("runtime-version")
+		force, _ := cmd.Flags().GetBool("force")
+
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		return pushReported(cfg, mode, model, runtimeName, runtimeVersion, force)
+	},
+}
+
+var settingsSyncCmd = &cobra.Command{
+	Use:   "sync",
+	Short: "Reconcile local settings with the backend (last writer wins)",
+	Long: `Reconcile ordinary config KV settings (feed_poll_interval,
+feed_delivery_preference, official_pm_optout, lang) with the backend settings row.
+
+Security-boundary values are pulled for local runtime decisions but can only be
+changed with "elsewhere context security set".
+
+A pending local change is pushed up; otherwise the backend values (e.g.
+console edits) are pulled down to the local config. This also runs
+automatically after every "feed poll", so calling it by hand is only needed
+to apply console edits immediately.
+
+Pass --mode to additionally report the runtime mode (see "settings push").
+
+Examples:
+  elsewhere settings sync
+  elsewhere settings sync --mode skill`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		if err := SyncSettings(cfg); err != nil {
+			return err
+		}
+		output.PrintMessage("settings synced")
+		mode, _ := cmd.Flags().GetString("mode")
+		model, _ := cmd.Flags().GetString("model")
+		if mode != "" || model != "" {
+			return pushReported(cfg, mode, model, "", "", false)
+		}
+		return nil
+	},
+}
+
+func init() {
+	settingsPushCmd.Flags().String("mode", "", "runtime mode reported to the backend (plugin|skill)")
+	settingsPushCmd.Flags().String("model", "", "runtime model reported to the backend, e.g. \"claude-opus-4-8\"")
+	settingsPushCmd.Flags().String("runtime-name", "", "Agent product identity reported to the backend, e.g. hermes or workbuddy")
+	settingsPushCmd.Flags().String("runtime-version", "", "Agent product version reported with --runtime-name")
+	settingsPushCmd.Flags().Bool("force", false, "report even if unchanged")
+	settingsSyncCmd.Flags().String("mode", "", "runtime mode reported to the backend (plugin|skill)")
+	settingsSyncCmd.Flags().String("model", "", "runtime model reported to the backend, e.g. \"claude-opus-4-8\"")
+	settingsCmd.AddCommand(settingsPushCmd)
+	settingsCmd.AddCommand(settingsSyncCmd)
+	rootCmd.AddCommand(settingsCmd)
+}

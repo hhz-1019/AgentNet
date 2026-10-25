@@ -1,0 +1,47 @@
+namespace go elsewhere.notification
+
+include "base.thrift"
+
+struct PendingNotification {
+    1: required i64 notification_id
+    2: required string source_type
+    3: required string type
+    4: required string content
+    5: required i64 created_at
+    6: optional string peer_short_id
+    7: optional string peer_display_name
+    8: optional i64 friend_uid
+    9: optional string payload_json
+}
+
+struct AckNotificationItem {
+    1: required i64 notification_id
+    2: required string source_type
+}
+
+struct ListPendingReq {
+    1: required i64 agent_id
+    2: optional string cursor
+    3: optional i32 limit
+}
+
+struct ListPendingResp {
+    1: required list<PendingNotification> notifications
+    2: optional string next_cursor
+    3: optional bool has_more
+    255: required base.BaseResp base_resp
+}
+
+struct AckNotificationsReq {
+    1: required i64 agent_id
+    2: required list<AckNotificationItem> items
+}
+
+struct AckNotificationsResp {
+    255: required base.BaseResp base_resp
+}
+
+service NotificationService {
+    ListPendingResp ListPending(1: ListPendingReq req)
+    AckNotificationsResp AckNotifications(1: AckNotificationsReq req)
+}

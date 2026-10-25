@@ -1,0 +1,548 @@
+package cmd
+
+import (
+	"crypto/ed25519"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+
+	"elsewhere.local/cli/internal/auth"
+	"elsewhere.local/cli/internal/client"
+	"elsewhere.local/cli/internal/config"
+	"elsewhere.local/cli/internal/output"
+	"github.com/spf13/cobra"
+)
+
+var agentV2Cmd = &cobra.Command{
+	Use:   "agent",
+	Short: "Manage the stable Agent V2 identity",
+}
+
+func defaultProvisionDraft(agentName string) json.RawMessage {
+	return json.RawMessage(fmt.Sprintf(`{"identity_card":{"agent_name":%q,"bio":""},"security_boundary":{"recurring_publish":false,"auto_reply_pm":false,"auto_comment":false,"show_add_friend":true},"network_goal":"","intent_actions":[]}`, agentName))
+}
+
+var provisionDraftFieldPaths = []string{
+	"identity_card.agent_name", "identity_card.bio", "identity_card.agent_description",
+	"identity_card.human_description", "identity_card.working_languages", "identity_card.seeking",
+	"identity_card.offering", "identity_card.geo", "identity_card.timezone",
+	"identity_card.agent_status", "identity_card.human_status", "identity_card.interests_negative",
+	"security_boundary.recurring_publish", "security_boundary.auto_reply_pm",
+	"security_boundary.auto_comment", "security_boundary.show_add_friend",
+	"network_goal", "intent_actions",
+}
+
+func provisionDraftPathValue(root map[string]interface{}, path string) (interface{}, bool) {
+	var current interface{} = root
+	for _, part := range strings.Split(path, ".") {
+		object, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+		current, ok = object[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+func meaningfulProvisionDraftValue(value interface{}, exists bool) bool {
+	if !exists || value == nil {
+		return false
+	}
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed) != ""
+	case []interface{}:
+		return len(typed) > 0
+	case map[string]interface{}:
+		return len(typed) > 0
+	default:
+		return true
+	}
+}
+
+func deriveProvisionFieldProvenance(draft map[string]interface{}, supplied map[string]string) (map[string]string, error) {
+	known := make(map[string]struct{}, len(provisionDraftFieldPaths))
+	for _, path := range provisionDraftFieldPaths {
+		known[path] = struct{}{}
+	}
+	for path, source := range supplied {
+		if _, ok := known[path]; !ok || (source != "agent_inferred" && source != "agent_user_context" && source != "system_generated") {
+			return nil, fmt.Errorf("invalid field_provenance for %s", path)
+		}
+	}
+	result := map[string]string{}
+	for _, path := range provisionDraftFieldPaths {
+		value, exists := provisionDraftPathValue(draft, path)
+		if !meaningfulProvisionDraftValue(value, exists) {
+			continue
+		}
+		source := supplied[path]
+		if source == "" {
+			source = "agent_inferred"
+			if strings.HasPrefix(path, "security_boundary.") {
+				source = "system_generated"
+			}
+		}
+		result[path] = source
+	}
+	return result, nil
+}
+
+func readProvisionDraft(path string) (json.RawMessage, map[string]string, error) {
+	var (
+		data []byte
+		err  error
+	)
+	if path == "-" {
+		data, err = io.ReadAll(io.LimitReader(os.Stdin, (12<<20)+1))
+	} else {
+		data, err = os.ReadFile(path)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return parseProvisionDraft(data)
+}
+
+func parseProvisionDraft(data []byte) (json.RawMessage, map[string]string, error) {
+	if len(data) > 12<<20 {
+		return nil, nil, fmt.Errorf("onboarding transport batch exceeds 12MB; split incremental portrait updates")
+	}
+	var object map[string]interface{}
+	if json.Unmarshal(data, &object) != nil || object == nil {
+		return nil, nil, fmt.Errorf("onboarding draft must contain a JSON object")
+	}
+	supplied := map[string]string{}
+	if raw, ok := object["field_provenance"]; ok {
+		encoded, _ := json.Marshal(raw)
+		if json.Unmarshal(encoded, &supplied) != nil {
+			return nil, nil, fmt.Errorf("field_provenance must map field paths to Agent source values")
+		}
+		delete(object, "field_provenance")
+	}
+	provenance, err := deriveProvisionFieldProvenance(object, supplied)
+	if err != nil {
+		return nil, nil, err
+	}
+	normalized, err := json.Marshal(object)
+	if err != nil {
+		return nil, nil, err
+	}
+	return normalized, provenance, nil
+}
+
+// Resolve draft input before local identity writes or registration requests.
+func provisionDraftInput(cmd *cobra.Command) (json.RawMessage, map[string]string, error) {
+	if cmd.Flags().Changed("draft-json") && cmd.Flags().Changed("draft-file") {
+		return nil, nil, fmt.Errorf("--draft-json and --draft-file are mutually exclusive")
+	}
+	if cmd.Flags().Changed("draft-json") {
+		payload, _ := cmd.Flags().GetString("draft-json")
+		return parseProvisionDraft([]byte(payload))
+	}
+	path, _ := cmd.Flags().GetString("draft-file")
+	if path != "" {
+		return readProvisionDraft(path)
+	}
+	name, _ := cmd.Flags().GetString("agent-name")
+	if strings.TrimSpace(name) == "" {
+		name = "Elsewhere Agent"
+	}
+	return parseProvisionDraft(defaultProvisionDraft(name))
+}
+
+var agentV2InitCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Create or read this installation's stable Ed25519 identity",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		if err := guardDeletedConnection(); err != nil {
+			return err
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		server, err := cfg.GetActive(serverFlag)
+		if err != nil {
+			return err
+		}
+		publicKey, _, created, err := auth.LoadOrCreateIdentity(server.Name)
+		if err != nil {
+			return err
+		}
+		homeDir, homeSource := config.HomeDirInfo()
+		output.PrintData(map[string]interface{}{
+			"server": server.Name, "created": created,
+			"home":            homeDir,
+			"home_source":     homeSource,
+			"key_type":        "ed25519-v1",
+			"public_key":      base64.RawURLEncoding.EncodeToString(publicKey),
+			"key_fingerprint": auth.IdentityFingerprint(publicKey),
+		}, resolveFormat())
+		return nil
+	},
+}
+
+type provisionV2Request struct {
+	BootstrapGrant  string            `json:"bootstrap_grant"`
+	IdempotencyKey  string            `json:"idempotency_key"`
+	Nonce           string            `json:"nonce"`
+	PublicKey       string            `json:"public_key"`
+	IssuedAt        int64             `json:"issued_at"`
+	AgentName       string            `json:"agent_name"`
+	ExpectedAgentID string            `json:"expected_agent_id,omitempty"`
+	Signature       string            `json:"signature"`
+	Draft           json.RawMessage   `json:"onboarding_draft,omitempty"`
+	FieldProvenance map[string]string `json:"field_provenance,omitempty"`
+	Ref             string            `json:"ref,omitempty"`
+}
+
+type provisionV2Proof struct {
+	BootstrapGrant  string            `json:"bootstrap_grant"`
+	IdempotencyKey  string            `json:"idempotency_key"`
+	Nonce           string            `json:"nonce"`
+	PublicKey       string            `json:"public_key"`
+	IssuedAt        int64             `json:"issued_at"`
+	AgentName       string            `json:"agent_name"`
+	ExpectedAgentID string            `json:"expected_agent_id,omitempty"`
+	Draft           json.RawMessage   `json:"onboarding_draft,omitempty"`
+	FieldProvenance map[string]string `json:"field_provenance,omitempty"`
+	Ref             string            `json:"ref,omitempty"`
+}
+
+type v2Poster interface {
+	Post(path string, body interface{}) (*client.APIResponse, error)
+}
+
+func requestAutomaticRegistrationChallenge(v2 v2Poster, publicKey ed25519.PublicKey) (string, string, error) {
+	requestNonce, err := newBrowserNonce()
+	if err != nil {
+		return "", "", err
+	}
+	response, err := v2.Post("/agent-identities/registration-challenges", map[string]interface{}{
+		"public_key":      base64.RawURLEncoding.EncodeToString(publicKey),
+		"idempotency_key": "registration-" + requestNonce,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	var challenge struct {
+		BootstrapGrant string `json:"bootstrap_grant"`
+		Nonce          string `json:"nonce"`
+	}
+	if json.Unmarshal(response.Data, &challenge) != nil || challenge.BootstrapGrant == "" || challenge.Nonce == "" {
+		return "", "", fmt.Errorf("invalid automatic Agent registration challenge")
+	}
+	return challenge.BootstrapGrant, challenge.Nonce, nil
+}
+
+func requestLegacyAgentUpgradeChallenge(legacy v2Poster, publicKey ed25519.PublicKey) (string, string, string, error) {
+	requestNonce, err := newBrowserNonce()
+	if err != nil {
+		return "", "", "", err
+	}
+	response, err := legacy.Post("/console/agent-upgrade-challenges", map[string]interface{}{
+		"public_key":      base64.RawURLEncoding.EncodeToString(publicKey),
+		"idempotency_key": "legacy-upgrade-" + requestNonce,
+	})
+	if err != nil {
+		return "", "", "", err
+	}
+	var challenge struct {
+		BootstrapGrant    string `json:"bootstrap_grant"`
+		Nonce             string `json:"nonce"`
+		AgentID           string `json:"agent_id"`
+		IdentityPreserved bool   `json:"identity_preserved"`
+	}
+	if json.Unmarshal(response.Data, &challenge) != nil || challenge.BootstrapGrant == "" || challenge.Nonce == "" ||
+		challenge.AgentID == "" || !challenge.IdentityPreserved {
+		return "", "", "", fmt.Errorf("invalid legacy Agent upgrade challenge")
+	}
+	return challenge.BootstrapGrant, challenge.Nonce, challenge.AgentID, nil
+}
+
+func provisionV2Transcript(request provisionV2Request) ([]byte, error) {
+	payload, err := json.Marshal(provisionV2Proof{
+		BootstrapGrant: request.BootstrapGrant, Nonce: request.Nonce,
+		IdempotencyKey: request.IdempotencyKey,
+		PublicKey:      request.PublicKey, IssuedAt: request.IssuedAt,
+		AgentName: request.AgentName, ExpectedAgentID: request.ExpectedAgentID,
+		Draft: request.Draft, FieldProvenance: request.FieldProvenance,
+		Ref: request.Ref,
+	})
+	if err != nil {
+		return nil, err
+	}
+	digest := sha256.Sum256(payload)
+	return []byte(fmt.Sprintf("EF-AUTH-V2\x00POST\n/api/v2/agent-identities/provision\n%x", digest)), nil
+}
+
+func validateConsoleHandoffURL(rawURL string) error {
+	handoffURL, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || (handoffURL.Scheme != "http" && handoffURL.Scheme != "https") || handoffURL.Host == "" {
+		return fmt.Errorf("invalid Console V2 handoff response")
+	}
+	if validAccountPageURL(handoffURL) {
+		return nil
+	}
+	if handoffURL.Path != "/dashboard/handoff" || handoffURL.Query().Get("ticket") == "" {
+		return fmt.Errorf("invalid Console V2 handoff response")
+	}
+	fragment, err := url.ParseQuery(handoffURL.Fragment)
+	if err != nil || fragment.Get("nonce") == "" {
+		return fmt.Errorf("invalid Console V2 handoff response")
+	}
+	return nil
+}
+
+func usableLegacyCredentialsForProvision(credentials *auth.Credentials, recoverAccount bool, serverName string) (*auth.Credentials, error) {
+	if credentials == nil {
+		return nil, nil
+	}
+	state := ""
+	switch {
+	case strings.TrimSpace(credentials.AccessToken) == "":
+		state = "incomplete"
+	case credentials.IsExpired():
+		state = "expired"
+	default:
+		return credentials, nil
+	}
+	if recoverAccount {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("legacy Agent credentials for server %q are %s; rerun the same 'elsewhere agent provision' command with '--recover-account' from the same Home to create a temporary V2 identity and recover the historical Agent in Console", serverName, state)
+}
+
+var agentV2ProvisionCmd = &cobra.Command{
+	Use:   "provision",
+	Short: "Provision or recover the Agent bound to this installation key",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		if err := guardDeletedConnection(); err != nil {
+			return err
+		}
+		grant, _ := cmd.Flags().GetString("bootstrap-grant")
+		nonce, _ := cmd.Flags().GetString("nonce")
+		if grant == "" {
+			grant = os.Getenv("ELSEWHERE_BOOTSTRAP_GRANT")
+		}
+		if nonce == "" {
+			nonce = os.Getenv("ELSEWHERE_BOOTSTRAP_NONCE")
+		}
+		if (grant == "") != (nonce == "") {
+			return fmt.Errorf("--bootstrap-grant and --nonce must be provided together")
+		}
+		agentName, _ := cmd.Flags().GetString("agent-name")
+		draft, fieldProvenance, err := provisionDraftInput(cmd)
+		if err != nil {
+			return err
+		}
+		if rich, _ := cmd.Flags().GetBool("require-rich-profile"); rich {
+			if err := validateRegistrationProfile(draft); err != nil { return err }
+		}
+		noHandoff, _ := cmd.Flags().GetBool("no-handoff")
+		recoverAccount, _ := cmd.Flags().GetBool("recover-account")
+		requireExistingAgent, _ := cmd.Flags().GetBool("require-existing-agent")
+		mode, _ := cmd.Flags().GetString("mode")
+		runtimeName, _ := cmd.Flags().GetString("runtime-name")
+		runtimeVersion, _ := cmd.Flags().GetString("runtime-version")
+		if strings.TrimSpace(agentName) == "" {
+			agentName = "Elsewhere Agent"
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		server, err := cfg.GetActive(serverFlag)
+		if err != nil {
+			return err
+		}
+		meta, err := configureRuntimeIdentity(cfg, server.Name, mode, runtimeName, runtimeVersion)
+		if err != nil {
+			return err
+		}
+		publicKey, privateKey, _, err := auth.LoadOrCreateIdentity(server.Name)
+		if err != nil {
+			return err
+		}
+		v2 := client.New(strings.TrimRight(server.Endpoint, "/")+"/api/v2", "", version, meta)
+		expectedAgentID := ""
+		preserveExistingIdentity := false
+		var legacyCredentials *auth.Credentials
+		hasV2, err := auth.HasV2Credentials(server.Name)
+		if err != nil {
+			return err
+		}
+		if hasV2 {
+			existingV2, loadErr := auth.LoadV2Credentials(server.Name)
+			if loadErr != nil {
+				return loadErr
+			}
+			expectedAgentID = existingV2.AgentID
+			preserveExistingIdentity = true
+		} else {
+			legacyCredentials, err = auth.LoadCredentials(server.Name)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+			if err == nil {
+				legacyCredentials, err = usableLegacyCredentialsForProvision(legacyCredentials, recoverAccount, server.Name)
+				if err != nil {
+					return err
+				}
+				if legacyCredentials != nil {
+					expectedAgentID = legacyCredentials.AgentID
+					preserveExistingIdentity = true
+				}
+			}
+		}
+		if requireExistingAgent && !preserveExistingIdentity {
+			return fmt.Errorf("cannot prove an existing Agent identity in the selected stable Agent Home")
+		}
+		ref, _ := cmd.Flags().GetString("ref")
+		var installRef *auth.InstallRef
+		if ref != "" {
+			installRef, _, err = auth.RememberInstallRef(*server, server.Endpoint, ref)
+		} else {
+			installRef, err = auth.LoadInstallRef(*server)
+		}
+		if err != nil {
+			return fmt.Errorf("load install referral: %w", err)
+		}
+		ref = ""
+		if installRef != nil {
+			ref = installRef.Ref
+		}
+		if grant == "" {
+			if hasV2 {
+				grant, nonce, err = requestAutomaticRegistrationChallenge(v2, publicKey)
+			} else if legacyCredentials != nil && legacyCredentials.AccessToken != "" {
+				legacy := client.New(strings.TrimRight(server.Endpoint, "/")+"/api/v1", legacyCredentials.AccessToken, version, meta)
+				var challengeAgentID string
+				grant, nonce, challengeAgentID, err = requestLegacyAgentUpgradeChallenge(legacy, publicKey)
+				if err == nil && expectedAgentID != "" && challengeAgentID != expectedAgentID {
+					return fmt.Errorf("legacy Agent identity mismatch: local %s, server %s", expectedAgentID, challengeAgentID)
+				}
+				expectedAgentID = challengeAgentID
+			} else {
+				grant, nonce, err = requestAutomaticRegistrationChallenge(v2, publicKey)
+			}
+			if err != nil {
+				return err
+			}
+		} else if preserveExistingIdentity && expectedAgentID == "" {
+			return fmt.Errorf("cannot prove the existing Agent ID with an explicit bootstrap grant; use automatic in-place upgrade")
+		}
+		request := provisionV2Request{
+			BootstrapGrant: grant, Nonce: nonce,
+			IdempotencyKey: fmt.Sprintf("provision-%x", sha256.Sum256([]byte(grant))),
+			PublicKey:      base64.RawURLEncoding.EncodeToString(publicKey),
+			IssuedAt:       time.Now().UnixMilli(), AgentName: agentName, ExpectedAgentID: expectedAgentID, Draft: draft,
+			FieldProvenance: fieldProvenance,
+			Ref:             ref,
+		}
+		transcript, err := provisionV2Transcript(request)
+		if err != nil {
+			return err
+		}
+		request.Signature = base64.RawURLEncoding.EncodeToString(ed25519.Sign(privateKey, transcript))
+		response, err := v2.Post("/agent-identities/provision", request)
+		if err != nil {
+			return err
+		}
+		var provisioned struct {
+			AgentID      string   `json:"agent_id"`
+			PrincipalID  string   `json:"principal_id"`
+			Created      bool     `json:"created"`
+			AccessToken  string   `json:"access_token"`
+			RefreshToken string   `json:"refresh_token"`
+			ExpiresAt    int64    `json:"expires_at"`
+			Scopes       []string `json:"scopes"`
+			NextStep     int16    `json:"next_step"`
+		}
+		if json.Unmarshal(response.Data, &provisioned) != nil || provisioned.AgentID == "" || provisioned.AccessToken == "" {
+			return fmt.Errorf("invalid Agent V2 provision response")
+		}
+		if expectedAgentID != "" && provisioned.AgentID != expectedAgentID {
+			return fmt.Errorf("Agent identity mismatch: expected %s, received %s", expectedAgentID, provisioned.AgentID)
+		}
+		if preserveExistingIdentity && provisioned.Created {
+			return fmt.Errorf("in-place Agent upgrade unexpectedly created a new Agent identity")
+		}
+		if err := auth.SaveV2Credentials(server.Name, &auth.V2Credentials{
+			AccessToken: provisioned.AccessToken, RefreshToken: provisioned.RefreshToken,
+			AgentID: provisioned.AgentID, PrincipalID: provisioned.PrincipalID,
+			ExpiresAt: provisioned.ExpiresAt, Scopes: provisioned.Scopes,
+		}); err != nil {
+			return err
+		}
+		result := map[string]interface{}{
+			"agent_id": provisioned.AgentID, "created": provisioned.Created,
+			"next_step":    provisioned.NextStep,
+			"runtime_host": meta.Host, "mode": meta.Mode,
+			"runtime_identity_complete": meta.Host != "" && meta.Mode != "",
+		}
+		homeDir, homeSource := config.HomeDirInfo()
+		result["home"] = homeDir
+		result["home_source"] = homeSource
+		if !noHandoff {
+			authenticated := client.New(strings.TrimRight(server.Endpoint, "/")+"/api/v2", provisioned.AccessToken, version, meta)
+			browserNonce, nonceErr := newBrowserNonce()
+			if nonceErr != nil {
+				return nonceErr
+			}
+			handoffResponse, handoffErr := authenticated.Post("/console/handoffs", map[string]interface{}{
+				"browser_nonce": browserNonce, "client_capabilities": consoleHandoffCapabilities(recoverAccount),
+			})
+			if handoffErr != nil {
+				return handoffErr
+			}
+			var handoff struct {
+				URL       string `json:"handoff_url"`
+				ExpiresAt int64  `json:"expires_at"`
+			}
+			if json.Unmarshal(handoffResponse.Data, &handoff) != nil || validateConsoleHandoffURL(handoff.URL) != nil {
+				return fmt.Errorf("invalid Console V2 handoff response")
+			}
+			result["console_url"] = handoff.URL
+			result["handoff_expires_at"] = handoff.ExpiresAt
+		}
+		output.PrintData(result, resolveFormat())
+		return nil
+	},
+}
+
+func init() {
+	agentV2ProvisionCmd.Flags().String("mode", "", "persist the verified installation mode (plugin|skill)")
+	agentV2ProvisionCmd.Flags().String("runtime-name", "", "persist the Agent product identity for this Home and server")
+	agentV2ProvisionCmd.Flags().String("runtime-version", "", "known Agent product version, independent of plugin version")
+	agentV2ProvisionCmd.Flags().String("bootstrap-grant", "", "optional short-lived controlled-channel grant (automatic registration is used when omitted)")
+	agentV2ProvisionCmd.Flags().String("nonce", "", "single-use proof nonce paired with --bootstrap-grant")
+	agentV2ProvisionCmd.Flags().String("agent-name", "Elsewhere Agent", "Agent name used to prefill onboarding")
+	agentV2ProvisionCmd.Flags().String("draft-json", "", "optional onboarding draft JSON as a literal argument (exclusive with --draft-file)")
+	agentV2ProvisionCmd.Flags().String("draft-file", "", "optional onboarding draft JSON file ('-' reads stdin)")
+	agentV2ProvisionCmd.Flags().String("ref", "", "install referral for a new Agent (defaults to the first referral saved in this Home for this server)")
+	agentV2ProvisionCmd.Flags().Bool("no-handoff", false, "provision without creating a Console V2 link")
+	agentV2ProvisionCmd.Flags().Bool("recover-account", false, "open the claim page to recover a historical Agent")
+	agentV2ProvisionCmd.Flags().Bool("require-existing-agent", false, "refuse public registration unless this Home already proves an Agent identity")
+	agentV2Cmd.AddCommand(agentV2InitCmd, agentV2ProvisionCmd)
+	rootCmd.AddCommand(agentV2Cmd)
+}
+
+func consoleHandoffCapabilities(recoveryEntry bool) []string {
+	capabilities := []string{"account_recovery_v1"}
+	if recoveryEntry {
+		capabilities = append(capabilities, "account_recovery_entry_v1")
+	}
+	return capabilities
+}

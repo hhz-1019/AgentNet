@@ -1,0 +1,305 @@
+package config
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestLoadCreatesDefault(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.DefaultServer != "agentnet" {
+		t.Errorf("DefaultServer = %q, want %q", cfg.DefaultServer, "agentnet")
+	}
+	i := cfg.findServer("agentnet")
+	if i < 0 {
+		t.Fatal("expected elsewhere server to exist")
+	}
+	if cfg.Servers[i].Endpoint != "https://inspiralai.com" {
+		t.Errorf("default endpoint = %q, want %q", cfg.Servers[i].Endpoint, "https://inspiralai.com")
+	}
+	if cfg.Servers[i].StreamEndpoint != "wss://inspiralai.com" {
+		t.Errorf("default stream endpoint = %q, want %q", cfg.Servers[i].StreamEndpoint, "wss://inspiralai.com")
+	}
+}
+
+func TestAddAndRemoveServer(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+	cfg, _ := Load()
+	err := cfg.AddServer("staging", "https://staging.example.test")
+	if err != nil {
+		t.Fatalf("AddServer error: %v", err)
+	}
+	if cfg.findServer("staging") < 0 {
+		t.Error("expected staging server")
+	}
+	err = cfg.AddServer("staging", "https://other.example.test")
+	if err == nil {
+		t.Error("expected error for duplicate server name")
+	}
+	err = cfg.RemoveServer("staging")
+	if err != nil {
+		t.Fatalf("RemoveServer error: %v", err)
+	}
+	if cfg.findServer("staging") >= 0 {
+		t.Error("staging should be removed")
+	}
+	err = cfg.RemoveServer("agentnet")
+	if err == nil {
+		t.Error("expected error removing default server")
+	}
+}
+
+func TestSetCurrent(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+	cfg, _ := Load()
+	cfg.AddServer("staging", "https://staging.example.test")
+	err := cfg.SetCurrent("staging")
+	if err != nil {
+		t.Fatalf("SetCurrent error: %v", err)
+	}
+	if cfg.DefaultServer != "staging" {
+		t.Errorf("DefaultServer = %q, want %q", cfg.DefaultServer, "staging")
+	}
+	err = cfg.SetCurrent("nonexistent")
+	if err == nil {
+		t.Error("expected error for nonexistent server")
+	}
+}
+
+func TestGetActive(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+	cfg, _ := Load()
+	cfg.AddServer("staging", "https://staging.example.test")
+	srv, err := cfg.GetActive("")
+	if err != nil {
+		t.Fatalf("GetActive error: %v", err)
+	}
+	if srv.Name != "agentnet" {
+		t.Errorf("active = %q, want %q", srv.Name, "agentnet")
+	}
+	srv, err = cfg.GetActive("staging")
+	if err != nil {
+		t.Fatalf("GetActive(staging) error: %v", err)
+	}
+	if srv.Name != "staging" {
+		t.Errorf("active = %q, want %q", srv.Name, "staging")
+	}
+}
+
+func TestUpdateServer(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+	cfg, _ := Load()
+	err := cfg.UpdateServer("agentnet", "https://new.example.test", "")
+	if err != nil {
+		t.Fatalf("UpdateServer error: %v", err)
+	}
+	i := cfg.findServer("agentnet")
+	if cfg.Servers[i].Endpoint != "https://new.example.test" {
+		t.Errorf("endpoint = %q, want %q", cfg.Servers[i].Endpoint, "https://new.example.test")
+	}
+}
+
+func TestSaveAndReload(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+	cfg, _ := Load()
+	cfg.AddServer("staging", "https://staging.example.test")
+	cfg.Save()
+	cfg2, err := Load()
+	if err != nil {
+		t.Fatalf("reload error: %v", err)
+	}
+	if cfg2.findServer("staging") < 0 {
+		t.Error("staging server should persist after save/reload")
+	}
+}
+
+func TestHomeDir(t *testing.T) {
+	// Env var without .elsewhere suffix — should auto-append.
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+	home := HomeDir()
+	want := filepath.Join(dir, ".elsewhere")
+	if home != want {
+		t.Errorf("HomeDir = %q, want %q", home, want)
+	}
+
+	// Env var already ending in .elsewhere — no double suffix.
+	efDir := filepath.Join(t.TempDir(), ".elsewhere")
+	t.Setenv("ELSEWHERE_HOME", efDir)
+	home = HomeDir()
+	if home != efDir {
+		t.Errorf("HomeDir = %q, want %q (should not double-suffix)", home, efDir)
+	}
+
+	// No env var — default to ~/.elsewhere.
+	t.Setenv("ELSEWHERE_HOME", "")
+	os.Unsetenv("ELSEWHERE_HOME")
+	home = HomeDir()
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := filepath.Join(userHome, ".elsewhere")
+	if home != expected {
+		t.Errorf("HomeDir = %q, want %q", home, expected)
+	}
+}
+
+func TestSetHomeDir_OverridesEnv(t *testing.T) {
+	envDir := t.TempDir()
+	flagDir := t.TempDir()
+
+	t.Setenv("ELSEWHERE_HOME", envDir)
+	SetHomeDir(flagDir)
+	t.Cleanup(func() { SetHomeDir("") })
+
+	got := HomeDir()
+	want := filepath.Join(flagDir, ".elsewhere")
+	if got != want {
+		t.Errorf("HomeDir = %q, want %q (--homedir should override env)", got, want)
+	}
+}
+
+func TestSetHomeDir_Empty_FallsBackToEnv(t *testing.T) {
+	envDir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", envDir)
+	SetHomeDir("")
+
+	got := HomeDir()
+	want := filepath.Join(envDir, ".elsewhere")
+	if got != want {
+		t.Errorf("HomeDir = %q, want %q (empty override should fall back to env)", got, want)
+	}
+
+}
+
+func TestSetHomeDir_AlreadySuffixed(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), ".elsewhere")
+	SetHomeDir(dir)
+	t.Cleanup(func() { SetHomeDir("") })
+
+	got := HomeDir()
+	if got != dir {
+		t.Errorf("HomeDir = %q, want %q (should not double-suffix)", got, dir)
+	}
+}
+
+func TestKV_GlobalRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetKV("plugin_version", "1.2.0"); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := reloaded.GetKV("plugin_version"); got != "1.2.0" {
+		t.Errorf("GetKV = %q, want %q", got, "1.2.0")
+	}
+	if err := reloaded.SetKV("plugin_version", ""); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, _ = Load()
+	if got := reloaded.GetKV("plugin_version"); got != "" {
+		t.Errorf("after delete, GetKV = %q, want empty", got)
+	}
+}
+
+func TestKV_ServerScopedWithFallback(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+
+	cfg, _ := Load()
+	if err := cfg.AddServerFull("staging", "https://staging.example", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetKV("shared", "global-val"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetServerKV("staging", "shared", "staging-val"); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, _ := Load()
+
+	// Per-server hit beats global.
+	v, ok, err := reloaded.GetServerKV("staging", "shared")
+	if err != nil || !ok || v != "staging-val" {
+		t.Errorf("staging/shared = (%q,%v,%v), want (\"staging-val\",true,nil)", v, ok, err)
+	}
+	// Server with no entry falls back to global.
+	v, ok, err = reloaded.GetServerKV("agentnet", "shared")
+	if err != nil || !ok || v != "global-val" {
+		t.Errorf("elsewhere/shared fallback = (%q,%v,%v)", v, ok, err)
+	}
+	// Missing key returns ok=false.
+	if _, ok, _ := reloaded.GetServerKV("staging", "missing"); ok {
+		t.Error("expected ok=false for missing key")
+	}
+	// Empty value deletes the per-server override.
+	if err := reloaded.SetServerKV("staging", "shared", ""); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, _ = Load()
+	v, _, _ = reloaded.GetServerKV("staging", "shared")
+	if v != "global-val" {
+		t.Errorf("after per-server delete, staging/shared = %q, want global fallback", v)
+	}
+}
+
+func TestClearServerScopedKV(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELSEWHERE_HOME", dir)
+
+	cfg, _ := Load()
+	if err := cfg.AddServerFull("staging", "https://staging.example", ""); err != nil {
+		t.Fatal(err)
+	}
+	// Same key stranded under two server scopes plus a global value.
+	if err := cfg.SetKV("feed_delivery_preference", "global-pref"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetServerKV("staging", "feed_delivery_preference", "staging-pref"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetServerKV("agentnet", "feed_delivery_preference", "elsewhere-pref"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cfg.ClearServerScopedKV("feed_delivery_preference"); err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded, _ := Load()
+	// Every server-scoped copy is gone (inspect the server KV map directly,
+	// without GetServerKV's global fallback)...
+	for i := range reloaded.Servers {
+		if _, ok := reloaded.Servers[i].KV["feed_delivery_preference"]; ok {
+			t.Errorf("server %q still has a server-scoped copy after clear", reloaded.Servers[i].Name)
+		}
+	}
+	// ...but the global value survives.
+	if got := reloaded.GetKV("feed_delivery_preference"); got != "global-pref" {
+		t.Errorf("global value = %q, want %q (must be untouched)", got, "global-pref")
+	}
+	// Idempotent: clearing again when absent is a no-op without error.
+	if err := reloaded.ClearServerScopedKV("feed_delivery_preference"); err != nil {
+		t.Errorf("second clear should be a no-op, got err: %v", err)
+	}
+}

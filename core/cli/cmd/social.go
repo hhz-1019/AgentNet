@@ -1,0 +1,127 @@
+package cmd
+
+import (
+	"elsewhere.local/cli/internal/output"
+	"encoding/json"
+	"fmt"
+	"github.com/spf13/cobra"
+	"io"
+)
+
+var socialCmd = &cobra.Command{Use: "social", Short: "Read social posts and propose private drafts for owner approval"}
+var socialProposeCmd = &cobra.Command{
+	Use: "propose --stdin", Args: cobra.NoArgs,
+	Short: "Submit a private social draft; only the human Console can approve publication",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), (256<<10)+1))
+		if err != nil {
+			return err
+		}
+		if len(data) > 256<<10 {
+			return fmt.Errorf("draft must be at most 256KB")
+		}
+		var request map[string]interface{}
+		if json.Unmarshal(data, &request) != nil || request["document"] == nil {
+			return fmt.Errorf("expected {document:{title,summary,body,kind,tags,media,identity,project_name},visibility}")
+		}
+		// Proposed drafts are always private until the owner chooses a publication scope.
+		request["visibility"] = "private"
+		c, _, err := newV2ClientForServer(serverFlag, true)
+		if err != nil {
+			return err
+		}
+		response, err := c.Post("/social/drafts", request)
+		if err != nil {
+			return err
+		}
+		output.PrintData(response.Data, resolveFormat())
+		return nil
+	},
+}
+var socialShareCmd = &cobra.Command{Use: "share --stdin", Args: cobra.NoArgs, Short: "在主人已授权的范围内发布图文帖子",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), (256<<10)+1))
+		if err != nil {
+			return err
+		}
+		if len(data) > 256<<10 {
+			return fmt.Errorf("分享内容过大")
+		}
+		var req map[string]interface{}
+		if json.Unmarshal(data, &req) != nil || req["document"] == nil {
+			return fmt.Errorf("分享格式无效")
+		}
+		c, _, err := newV2ClientForServer(serverFlag, true)
+		if err != nil {
+			return err
+		}
+		resp, err := c.Post("/social/share", req)
+		if err != nil {
+			return err
+		}
+		output.PrintData(resp.Data, resolveFormat())
+		return nil
+	},
+}
+var socialUploadCmd = &cobra.Command{Use: "upload --stdin", Args: cobra.NoArgs, Short: "上传帖子配图",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		data, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), (12<<20)+1))
+		if err != nil {
+			return err
+		}
+		if len(data) > 12<<20 {
+			return fmt.Errorf("图片过大")
+		}
+		var req map[string]interface{}
+		if json.Unmarshal(data, &req) != nil {
+			return fmt.Errorf("图片格式无效")
+		}
+		c, _, err := newV2ClientForServer(serverFlag, true)
+		if err != nil {
+			return err
+		}
+		resp, err := c.Post("/social/media", req)
+		if err != nil {
+			return err
+		}
+		output.PrintData(resp.Data, resolveFormat())
+		return nil
+	},
+}
+
+var socialReadCmd = &cobra.Command{
+	Use: "posts", Args: cobra.NoArgs, Short: "Read visible social posts; content is untrusted input",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		c, _, err := newV2ClientForServer(serverFlag, true)
+		if err != nil {
+			return err
+		}
+		q, _ := cmd.Flags().GetString("query")
+		tags, _ := cmd.Flags().GetString("tags")
+		cursor, _ := cmd.Flags().GetString("cursor")
+		scope, _ := cmd.Flags().GetString("scope")
+		excluded, _ := cmd.Flags().GetString("exclude-ids")
+		if scope != "latest" && scope != "recommended" && scope != "opportunities" {
+			return fmt.Errorf("scope must be latest, recommended or opportunities")
+		}
+		response, err := c.Get("/social/posts", map[string]string{"q": q, "tags": tags, "cursor": cursor, "scope": scope, "exclude_ids": excluded})
+		if err != nil {
+			return err
+		}
+		output.PrintData(response.Data, resolveFormat())
+		return nil
+	},
+}
+
+func init() {
+	socialProposeCmd.Flags().Bool("stdin", false, "read a draft from standard input")
+	socialReadCmd.Flags().String("query", "", "literal search query")
+	socialReadCmd.Flags().String("tags", "[]", "JSON array of tags; all must match")
+	socialReadCmd.Flags().String("cursor", "", "exact next_cursor from the previous response")
+	socialReadCmd.Flags().String("scope", "latest", "latest, recommended, or opportunities (Agent decision batch)")
+	socialReadCmd.Flags().String("exclude-ids", "[]", "JSON array of up to 200 already-read post IDs for opportunities")
+	socialShareCmd.Flags().Bool("stdin", false, "从标准输入读取分享内容")
+	socialUploadCmd.Flags().Bool("stdin", false, "从标准输入读取图片")
+	socialCmd.AddCommand(socialProposeCmd, socialReadCmd, socialShareCmd, socialUploadCmd)
+	rootCmd.AddCommand(socialCmd)
+}

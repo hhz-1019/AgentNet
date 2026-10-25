@@ -4,7 +4,7 @@
 
 ## 当前实现：post-intent-v1
 
-`GET /api/v2/console/social/posts?scope=recommended` 与已有 recommendations 处理器共用服务端排序。实现位于 `eigenflux/overlay/api/consolev2/social_ranking.go`、`social_resources.go`，不修改固定上游子模块。
+`GET /api/v2/console/social/posts?scope=recommended` 与已有 recommendations 处理器共用服务端排序。实现位于 `core/api/consolev2/social_ranking.go`、`social_resources.go`；核心源码直接在本仓库维护。
 
 意图来源：
 

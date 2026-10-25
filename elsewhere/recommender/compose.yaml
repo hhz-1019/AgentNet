@@ -1,0 +1,54 @@
+name: elsewhere-recommendation
+services:
+  gorse:
+    build:
+      context: ../..
+      dockerfile: elsewhere/recommender/Dockerfile
+    environment:
+      GORSE_SERVER_API_KEY: ${AGENTNET_GORSE_API_KEY:?Set a private recommender API key}
+      RERANKER_URL: http://local-ranker:8090/v1/rerank
+      RERANKER_MODEL: bge-hybrid-v1
+      RERANKER_AUTH_TOKEN: ''
+      RERANKER_MODE: local
+      RERANKER_DAILY_CALL_LIMIT: '0'
+      RERANKER_DAILY_TOKEN_LIMIT: '0'
+      GORSE_DASHBOARD_USER_NAME: admin
+      GORSE_DASHBOARD_PASSWORD: ${AGENTNET_GORSE_API_KEY}
+    ports: ['127.0.0.1:14389:8088']
+    networks: [default, local-ranking]
+    volumes:
+      - ./gorse.toml:/etc/gorse/config.toml:ro
+      - gorse-data:/var/lib/gorse
+    restart: unless-stopped
+  local-ranker:
+    build:
+      context: ../..
+      dockerfile: elsewhere/recommender/local_ranker/Dockerfile
+    networks: [local-ranking]
+    read_only: true
+    cpus: 0.75
+    mem_limit: 1536m
+    pids_limit: 64
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ['/tmp:size=64m']
+    volumes:
+      - /opt/elsewhere-model-runtime/env:/runtime:ro
+      - /opt/elsewhere-model-runtime/model:/model:ro
+      - /opt/elsewhere-local-ranker-cache:/cache
+    restart: unless-stopped
+  catalog-sync:
+    image: node:24-alpine
+    environment:
+      AGENTNET_GORSE_URL: http://gorse:8088
+      AGENTNET_GORSE_API_KEY: ${AGENTNET_GORSE_API_KEY}
+      AGENTNET_PUBLIC_URL: ${AGENTNET_PUBLIC_URL:-https://inspiralai.com}
+    volumes: ['./sync.mjs:/app/sync.mjs:ro']
+    command: [node, /app/sync.mjs, --watch]
+    depends_on: [gorse]
+    restart: unless-stopped
+volumes:
+  gorse-data:
+networks:
+  local-ranking:
+    internal: true

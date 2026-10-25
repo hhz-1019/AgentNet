@@ -1,0 +1,56 @@
+# Optional overlay: compose.yaml + compose.recommendation.yaml. No service is
+# started or cloud configuration changed merely by adding this file.
+services:
+  core:
+    environment:
+      AGENTNET_GORSE_URL: http://gorse:8088
+      AGENTNET_GORSE_API_KEY: ${AGENTNET_GORSE_API_KEY:?Set a private recommender API key}
+  gorse:
+    build:
+      context: ..
+      dockerfile: elsewhere/recommender/Dockerfile
+    environment:
+      GORSE_SERVER_API_KEY: ${AGENTNET_GORSE_API_KEY}
+      RERANKER_URL: http://local-ranker:8090/v1/rerank
+      RERANKER_MODEL: bge-hybrid-v1
+      RERANKER_AUTH_TOKEN: ''
+      RERANKER_MODE: local
+      RERANKER_DAILY_CALL_LIMIT: '0'
+      RERANKER_DAILY_TOKEN_LIMIT: '0'
+      GORSE_DASHBOARD_USER_NAME: admin
+      GORSE_DASHBOARD_PASSWORD: ${AGENTNET_GORSE_API_KEY}
+    volumes: [gorse-data:/var/lib/gorse]
+    networks: [default, local-ranking]
+    restart: unless-stopped
+  local-ranker:
+    build:
+      context: ..
+      dockerfile: elsewhere/recommender/local_ranker/Dockerfile
+    networks: [local-ranking]
+    read_only: true
+    cpus: 0.75
+    mem_limit: 1536m
+    pids_limit: 64
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ['/tmp:size=64m']
+    volumes:
+      - /opt/elsewhere-model-runtime/env:/runtime:ro
+      - /opt/elsewhere-model-runtime/model:/model:ro
+      - /opt/elsewhere-local-ranker-cache:/cache
+    restart: unless-stopped
+  catalog-sync:
+    build:
+      context: ..
+      dockerfile: elsewhere/recommender/Dockerfile.sync
+    environment:
+      AGENTNET_GORSE_URL: http://gorse:8088
+      AGENTNET_GORSE_API_KEY: ${AGENTNET_GORSE_API_KEY}
+      AGENTNET_PUBLIC_URL: http://core:8080
+    depends_on: [core, gorse]
+    restart: unless-stopped
+volumes:
+  gorse-data:
+networks:
+  local-ranking:
+    internal: true

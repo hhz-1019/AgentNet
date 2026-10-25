@@ -1,0 +1,102 @@
+package cmd
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"elsewhere.local/cli/internal/auth"
+	"elsewhere.local/cli/internal/client"
+	"elsewhere.local/cli/internal/config"
+	"elsewhere.local/cli/internal/output"
+	"github.com/spf13/cobra"
+)
+
+const dashboardLinkTTL = 15 * time.Minute
+
+var dashboardCmd = &cobra.Command{
+	Use:   "dashboard",
+	Short: "Open the web account page",
+	Long: `Open the account registration or login page for the current Agent Home.`,
+
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		srv, err := cfg.GetActive(serverFlag)
+		if err != nil {
+			return err
+		}
+		if _, v2Err := auth.LoadV2Credentials(srv.Name); v2Err == nil {
+			v2Client, _, err := newV2ClientForServer(srv.Name, true)
+			if err != nil {
+				if !consoleV2Unavailable(err) {
+					return err
+				}
+			} else {
+				browserNonce, err := newBrowserNonce()
+				if err != nil {
+					return err
+				}
+				response, postErr := v2Client.Post("/console/handoffs", map[string]interface{}{
+					"browser_nonce": browserNonce, "client_capabilities": []string{"account_recovery_v1"},
+				})
+				if postErr == nil {
+					var data struct {
+						URL       string `json:"handoff_url"`
+						ExpiresAt int64  `json:"expires_at"`
+					}
+					if json.Unmarshal(response.Data, &data) != nil || data.URL == "" {
+						return fmt.Errorf("could not read Console V2 handoff from response")
+					}
+					if srv.Name == "agentnet" {
+						output.PrintMessage("elsewhere account page:")
+					} else {
+						output.PrintMessage("One-time Console V2 link (valid 72 hours, single use):")
+					}
+					result := map[string]interface{}{"url": data.URL}
+					if data.ExpiresAt > 0 { result["expires_at"] = data.ExpiresAt }
+					output.PrintData(result, resolveFormat())
+					return nil
+				}
+				if !consoleV2Unavailable(postErr) {
+					return postErr
+				}
+			}
+		}
+		c := newClient()
+		resp, err := c.Post("/console/auth-code", nil)
+		if err != nil {
+			return err
+		}
+		if resp.Code != 0 {
+			return fmt.Errorf("%s", resp.Msg)
+		}
+		var data struct {
+			Code string `json:"code"`
+		}
+		if err := json.Unmarshal(resp.Data, &data); err != nil || data.Code == "" {
+			return fmt.Errorf("could not read auth code from response")
+		}
+
+		// The web dashboard is served from the same host as the API server.
+		url := fmt.Sprintf("%s/dashboard?code=%s", strings.TrimRight(srv.Endpoint, "/"), data.Code)
+
+		output.PrintMessage("One-time dashboard login link (valid 15 min, single use):")
+		output.PrintData(map[string]interface{}{"url": url, "expires_in_seconds": int(dashboardLinkTTL.Seconds())}, resolveFormat())
+		return nil
+	},
+}
+
+func consoleV2Unavailable(err error) bool {
+	var apiErr *client.APIError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
+}
+
+func init() {
+	rootCmd.AddCommand(dashboardCmd)
+}

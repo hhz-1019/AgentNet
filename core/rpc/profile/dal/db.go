@@ -1,0 +1,216 @@
+package dal
+
+import (
+	"errors"
+	"strings"
+	"time"
+
+	"elsewhere_server/pkg/agentidentity"
+	"elsewhere_server/pkg/metrics"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+type Agent struct {
+	AgentID            int64  `gorm:"column:agent_id;primaryKey"`
+	ShortID            string `gorm:"column:short_id;type:varchar(5)"`
+	Email              string `gorm:"column:email;type:varchar(255);not null;unique"`
+	AgentName          string `gorm:"column:agent_name;type:varchar(100);not null"`
+	AgentNameEn        string `gorm:"column:agent_name_en;type:varchar(100);not null;default:''"`
+	Bio                string `gorm:"column:bio;type:text"`
+	CreatedAt          int64  `gorm:"column:created_at;not null"`
+	UpdatedAt          int64  `gorm:"column:updated_at;not null"`
+	ProfileCompletedAt *int64 `gorm:"column:profile_completed_at"`
+	IsOfficial         bool   `gorm:"column:is_official;not null;default:false"`
+}
+
+func (Agent) TableName() string { return "agents" }
+
+// AgentProfile stores legacy extraction state and compatibility fields.
+//
+// Deprecated: Agent Card facts and projections are the canonical profile model.
+// Keep this table mapping only for compatibility while remaining consumers migrate.
+type AgentProfile struct {
+	AgentID          int64  `gorm:"column:agent_id;primaryKey"`
+	Status           int16  `gorm:"column:status;type:smallint;not null;default:0"`
+	Keywords         string `gorm:"column:keywords;type:text"`
+	Country          string `gorm:"column:country;type:varchar(100);default:''"` // Deprecated: use agent_cards.private_card.geo.
+	ProfileEmbedding []byte `gorm:"column:profile_embedding;type:bytea"`
+	EmbeddingModel   string `gorm:"column:embedding_model;type:varchar(100);default:''"`
+	UpdatedAt        int64  `gorm:"column:updated_at;not null"`
+}
+
+func (AgentProfile) TableName() string { return "agent_profiles" }
+
+// BioHistory is an append-only record of a single bio change. Written by
+// UpdateProfile whenever the bio actually changes. Doubles as the daily bio
+// history and as the authoritative signal that an automated refresh took
+// effect. Source/Note are the agent's self-reported provenance (may be empty).
+type BioHistory struct {
+	ID        int64  `gorm:"column:id;primaryKey"`
+	AgentID   int64  `gorm:"column:agent_id;not null"`
+	PrevBio   string `gorm:"column:prev_bio;type:text"`
+	Bio       string `gorm:"column:bio;type:text"`
+	Source    string `gorm:"column:source;type:text"`
+	Note      string `gorm:"column:note;type:text"`
+	Day       int    `gorm:"column:day;not null"`
+	CreatedAt int64  `gorm:"column:created_at;not null"`
+}
+
+func (BioHistory) TableName() string { return "agent_bio_history" }
+
+// InsertBioHistory appends one bio-change record. Day is derived from the
+// current UTC date as YYYYMMDD so callers can group changes per day cheaply.
+func InsertBioHistory(db *gorm.DB, agentID int64, prevBio, bio, source, note string) error {
+	now := time.Now().UTC()
+	rec := &BioHistory{
+		AgentID:   agentID,
+		PrevBio:   prevBio,
+		Bio:       bio,
+		Source:    source,
+		Note:      note,
+		Day:       now.Year()*10000 + int(now.Month())*100 + now.Day(),
+		CreatedAt: now.UnixMilli(),
+	}
+	return db.Create(rec).Error
+}
+
+func CreateAgent(db *gorm.DB, agent *Agent) error {
+	now := time.Now().UnixMilli()
+	agent.CreatedAt = now
+	agent.UpdatedAt = now
+	for attempt := 0; attempt < 100; attempt++ {
+		shortID, err := agentidentity.GenerateShortID()
+		if err != nil {
+			return err
+		}
+		agent.ShortID = shortID
+		result := db.Exec(`INSERT INTO agents
+			(agent_id, short_id, email, agent_name, agent_name_en, bio, created_at, updated_at, is_official)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT (short_id) WHERE short_id IS NOT NULL DO NOTHING`,
+			agent.AgentID, agent.ShortID, agent.Email, agent.AgentName, agent.AgentNameEn,
+			agent.Bio, agent.CreatedAt, agent.UpdatedAt, agent.IsOfficial)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 1 {
+			return nil
+		}
+		metrics.AgentShortIDGenerationCollisionTotal.Inc()
+	}
+	metrics.AgentShortIDGenerationFailureTotal.Inc()
+	return errors.New("short-id collision retry budget exhausted")
+}
+
+func GetAgentByID(db *gorm.DB, agentID int64) (*Agent, error) {
+	var agent Agent
+	err := db.Where("agent_id = ?", agentID).First(&agent).Error
+	return &agent, err
+}
+
+// GetAgentByIDForUpdate returns the current row while serializing profile
+// writers. Both the legacy whole-profile path and the field-level path lock
+// agents before agent_profiles, preserving the shared deadlock order.
+func GetAgentByIDForUpdate(db *gorm.DB, agentID int64) (*Agent, error) {
+	var agent Agent
+	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("agent_id = ?", agentID).First(&agent).Error
+	return &agent, err
+}
+
+func GetAgentByEmail(db *gorm.DB, email string) (*Agent, error) {
+	var agent Agent
+	err := db.Where("email = ?", email).First(&agent).Error
+	return &agent, err
+}
+
+func UpdateAgentFields(db *gorm.DB, agentID int64, updates map[string]interface{}) error {
+	updates["updated_at"] = time.Now().UnixMilli()
+	return db.Model(&Agent{}).Where("agent_id = ?", agentID).Updates(updates).Error
+}
+
+func UpdateAgentEnglishName(db *gorm.DB, agentID int64, originalName, englishName string) error {
+	return db.Model(&Agent{}).Where("agent_id = ? AND agent_name = ? AND agent_name_en = ''", agentID, originalName).
+		Update("agent_name_en", englishName).Error
+}
+
+func GetAgentProfile(db *gorm.DB, agentID int64) (*AgentProfile, error) {
+	var profile AgentProfile
+	err := db.Where("agent_id = ?", agentID).First(&profile).Error
+	return &profile, err
+}
+
+func CreateAgentProfile(db *gorm.DB, profile *AgentProfile) error {
+	profile.UpdatedAt = time.Now().UnixMilli()
+	return db.Create(profile).Error
+}
+
+func UpdateAgentProfileStatus(db *gorm.DB, agentID int64, status int16) error {
+	return db.Model(&AgentProfile{}).Where("agent_id = ?", agentID).Updates(map[string]interface{}{
+		"status":     status,
+		"updated_at": time.Now().UnixMilli(),
+	}).Error
+}
+
+// UpdateAgentProfileKeywords writes legacy Profile extraction output.
+//
+// Deprecated: do not add new callers. Country identity belongs to
+// agent_cards.private_card.geo.
+func UpdateAgentProfileKeywords(db *gorm.DB, agentID int64, keywords []string, country string, status int16) error {
+	return db.Model(&AgentProfile{}).Where("agent_id = ?", agentID).Updates(map[string]interface{}{
+		"keywords":   strings.Join(keywords, ","),
+		"country":    country,
+		"status":     status,
+		"updated_at": time.Now().UnixMilli(),
+	}).Error
+}
+
+// MatchAgentsByKeywords finds agents whose profile keywords match any of the given keywords
+func MatchAgentsByKeywords(db *gorm.DB, keywords []string, excludeAgentID *int64, limit int) ([]int64, error) {
+	if len(keywords) == 0 {
+		return []int64{}, nil
+	}
+
+	if limit <= 0 {
+		limit = 100
+	}
+
+	query := db.Model(&AgentProfile{}).Select("agent_id")
+
+	// Build OR conditions for ILIKE matching
+	var conditions []string
+	var args []interface{}
+	for _, keyword := range keywords {
+		conditions = append(conditions, "keywords ILIKE ?")
+		args = append(args, "%"+keyword+"%")
+	}
+
+	query = query.Where(strings.Join(conditions, " OR "), args...)
+
+	// Exclude specified agent if provided
+	if excludeAgentID != nil {
+		query = query.Where("agent_id != ?", *excludeAgentID)
+	}
+
+	// Only return agents with completed profiles (status = 3)
+	query = query.Where("status = ?", 3)
+
+	query = query.Limit(limit)
+
+	var agentIDs []int64
+	err := query.Pluck("agent_id", &agentIDs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return agentIDs, nil
+}
+
+func UpdateAgentProfileEmbedding(db *gorm.DB, agentID int64, embedding []byte, model string) error {
+	return db.Model(&AgentProfile{}).Where("agent_id = ?", agentID).Updates(map[string]interface{}{
+		"profile_embedding": embedding,
+		"embedding_model":   model,
+		"updated_at":        time.Now().UnixMilli(),
+	}).Error
+}

@@ -1,0 +1,458 @@
+package push
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/hertz-contrib/websocket"
+	"github.com/redis/go-redis/v9"
+
+	notificationrpc "elsewhere_server/kitex_gen/elsewhere/notification"
+	"elsewhere_server/kitex_gen/elsewhere/notification/notificationservice"
+	"elsewhere_server/kitex_gen/elsewhere/pm"
+	"elsewhere_server/kitex_gen/elsewhere/pm/pmservice"
+	"elsewhere_server/pkg/logger"
+	"elsewhere_server/pkg/notificationpayload"
+	"elsewhere_server/ws/hub"
+)
+
+// Message is the envelope pushed to the client over WebSocket.
+type Message struct {
+	Type string      `json:"type"`
+	Data interface{} `json:"data"`
+}
+
+// PMFetchData mirrors the FetchPMResp.data shape sent via the REST API,
+// extended on the WS initial envelope with history + pending friend requests.
+type PMFetchData struct {
+	Messages              []PMMessageData     `json:"messages"`
+	NextCursor            string              `json:"next_cursor"`
+	HistoryMessages       []PMMessageData     `json:"history_messages,omitempty"`
+	FriendRequests        []FriendRequestData `json:"friend_requests,omitempty"`
+	FriendRequestsHasMore bool                `json:"friend_requests_has_more,omitempty"`
+}
+
+type FriendRequestData struct {
+	RequestID       string `json:"request_id"`
+	FromUID         string `json:"from_uid"`
+	ToUID           string `json:"to_uid"`
+	CreatedAt       int64  `json:"created_at"`
+	FromName        string `json:"from_name,omitempty"`
+	ToName          string `json:"to_name,omitempty"`
+	FromShortID     string `json:"from_short_id,omitempty"`
+	ToShortID       string `json:"to_short_id,omitempty"`
+	FromDisplayName string `json:"from_display_name,omitempty"`
+	ToDisplayName   string `json:"to_display_name,omitempty"`
+	Greeting        string `json:"greeting,omitempty"`
+	// Server-verified officialness of the requester (agents.is_official),
+	// stamped by the pm service — clients must never infer it from names.
+	FromIsOfficial bool `json:"from_is_official,omitempty"`
+}
+
+type PMMessageData struct {
+	MsgID        string `json:"msg_id"`
+	ConvID       string `json:"conv_id"`
+	SenderID     string `json:"sender_id"`
+	ReceiverID   string `json:"receiver_id"`
+	Content      string `json:"content"`
+	IsRead       bool   `json:"is_read"`
+	CreatedAt    int64  `json:"created_at"`
+	SenderName   string `json:"sender_name,omitempty"`
+	ReceiverName string `json:"receiver_name,omitempty"`
+	// Server-verified officialness of the sender (agents.is_official),
+	// stamped by the pm service — clients must never infer it from names.
+	SenderIsOfficial bool `json:"sender_is_official,omitempty"`
+}
+
+type NotificationFetchData struct {
+	Notifications []NotificationData `json:"notifications"`
+	NextCursor    string             `json:"next_cursor,omitempty"`
+	HasMore       bool               `json:"has_more"`
+}
+
+type NotificationData struct {
+	NotificationID string          `json:"notification_id"`
+	SourceType     string          `json:"source_type"`
+	Type           string          `json:"type"`
+	CreatedAt      int64           `json:"created_at"`
+	Payload        json.RawMessage `json:"payload,omitempty"`
+}
+
+func buildPMMessages(msgs []*pm.PMMessage) []PMMessageData {
+	result := make([]PMMessageData, len(msgs))
+	for i, m := range msgs {
+		result[i] = PMMessageData{
+			MsgID:            fmt.Sprintf("%d", m.MsgId),
+			ConvID:           fmt.Sprintf("%d", m.ConvId),
+			SenderID:         fmt.Sprintf("%d", m.SenderId),
+			ReceiverID:       fmt.Sprintf("%d", m.ReceiverId),
+			Content:          m.Content,
+			IsRead:           m.IsRead,
+			CreatedAt:        m.CreatedAt,
+			SenderIsOfficial: m.GetSenderIsOfficial(),
+		}
+		if m.SenderName != nil {
+			result[i].SenderName = *m.SenderName
+		}
+		if m.ReceiverName != nil {
+			result[i].ReceiverName = *m.ReceiverName
+		}
+	}
+	return result
+}
+
+func buildFriendRequests(infos []*pm.FriendRequestInfo) []FriendRequestData {
+	result := make([]FriendRequestData, len(infos))
+	for i, fr := range infos {
+		result[i] = FriendRequestData{
+			RequestID:      fmt.Sprintf("%d", fr.RequestId),
+			FromUID:        fmt.Sprintf("%d", fr.FromUid),
+			ToUID:          fmt.Sprintf("%d", fr.ToUid),
+			CreatedAt:      fr.CreatedAt,
+			FromIsOfficial: fr.GetFromIsOfficial(),
+		}
+		if fr.FromName != nil {
+			result[i].FromName = *fr.FromName
+		}
+		if fr.ToName != nil {
+			result[i].ToName = *fr.ToName
+		}
+		if fr.FromShortId != nil {
+			result[i].FromShortID = *fr.FromShortId
+		}
+		if fr.ToShortId != nil {
+			result[i].ToShortID = *fr.ToShortId
+		}
+		if fr.FromDisplayName != nil {
+			result[i].FromDisplayName = *fr.FromDisplayName
+		}
+		if fr.ToDisplayName != nil {
+			result[i].ToDisplayName = *fr.ToDisplayName
+		}
+		if fr.Greeting != nil {
+			result[i].Greeting = *fr.Greeting
+		}
+	}
+	return result
+}
+
+const pendingFRDirection = "incoming"
+const pendingFRLimit = int32(5)
+
+// fetchPendingFriendRequests fetches incoming pending friend requests for the agent.
+// Returns nil slices on error (logged as warning).
+func fetchPendingFriendRequests(ctx context.Context, pmClient pmservice.Client, agentID int64) ([]FriendRequestData, bool) {
+	limit := pendingFRLimit
+	resp, err := pmClient.ListFriendRequests(ctx, &pm.ListFriendRequestsReq{
+		AgentId:   agentID,
+		Direction: pendingFRDirection,
+		Limit:     &limit,
+	})
+	if err != nil {
+		logger.Ctx(ctx).Warn("ws: ListFriendRequests failed", "agentID", agentID, "err", err)
+		return nil, false
+	}
+	if resp == nil || resp.BaseResp == nil {
+		logger.Ctx(ctx).Warn("ws: ListFriendRequests returned nil response or base_resp", "agentID", agentID)
+		return nil, false
+	}
+	if resp.BaseResp.Code != 0 {
+		logger.Ctx(ctx).Warn("ws: ListFriendRequests error", "agentID", agentID, "code", resp.BaseResp.Code, "msg", resp.BaseResp.Msg)
+		return nil, false
+	}
+	pending := buildFriendRequests(resp.Requests)
+	hasMore := resp.HasMore != nil && *resp.HasMore
+	return pending, hasMore
+}
+
+// Run is the main push loop for a single connection. It blocks until the
+// connection's Done channel is closed or the context is cancelled.
+func Run(ctx context.Context, rdb *redis.Client, pmClient pmservice.Client, notificationClient notificationservice.Client, conn *hub.Connection) {
+	pmChannel := fmt.Sprintf("pm:push:%d", conn.AgentID)
+	notificationChannel := fmt.Sprintf("notification:push:%d", conn.AgentID)
+	pubsub := rdb.Subscribe(ctx, pmChannel, notificationChannel)
+	defer pubsub.Close()
+
+	// Initial fetch on connect.
+	pushInitial(ctx, pmClient, conn)
+	pushPendingNotifications(ctx, notificationClient, conn)
+
+	ch := pubsub.Channel()
+	for {
+		select {
+		case <-conn.Done:
+			return
+		case <-ctx.Done():
+			return
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			if msg.Channel == notificationChannel {
+				pushPendingNotifications(ctx, notificationClient, conn)
+			} else {
+				fetchAndPush(ctx, pmClient, conn, msg.Payload)
+			}
+		}
+	}
+}
+
+func pushPendingNotifications(ctx context.Context, client notificationservice.Client, conn *hub.Connection) {
+	if client == nil {
+		return
+	}
+	data, err := fetchPendingNotificationData(ctx, client, conn.AgentID)
+	if err != nil {
+		logger.Ctx(ctx).Warn("ws: ListPending notifications failed", "agentID", conn.AgentID, "err", err)
+		return
+	}
+	if len(data.Notifications) == 0 {
+		return
+	}
+	payload, err := json.Marshal(Message{Type: "notification_push", Data: data})
+	if err != nil {
+		logger.Ctx(ctx).Error("ws: marshal notifications failed", "agentID", conn.AgentID, "err", err)
+		return
+	}
+	conn.WriteMu.Lock()
+	err = conn.Conn.WriteMessage(websocket.TextMessage, payload)
+	conn.WriteMu.Unlock()
+	if err != nil {
+		logger.Ctx(ctx).Error("ws: write notifications failed", "agentID", conn.AgentID, "err", err)
+	}
+}
+
+func fetchPendingNotificationData(ctx context.Context, client notificationservice.Client, agentID int64) (NotificationFetchData, error) {
+	limit := int32(100)
+	response, err := client.ListPending(ctx, &notificationrpc.ListPendingReq{AgentId: agentID, Limit: &limit})
+	if err != nil || response == nil || response.BaseResp == nil || response.BaseResp.Code != 0 {
+		return NotificationFetchData{}, fmt.Errorf("ListPending failed: response=%v: %w", response != nil, err)
+	}
+	data := NotificationFetchData{HasMore: response.GetHasMore(), NextCursor: response.GetNextCursor()}
+	for _, notification := range response.Notifications {
+		if notification == nil || notification.SourceType != "commission_order" || notification.PayloadJson == nil || !json.Valid([]byte(*notification.PayloadJson)) {
+			continue
+		}
+		payload, err := notificationpayload.NormalizeCommissionOrderIDs(*notification.PayloadJson)
+		if err != nil {
+			continue
+		}
+		data.Notifications = append(data.Notifications, NotificationData{
+			NotificationID: strconv.FormatInt(notification.NotificationId, 10), SourceType: notification.SourceType,
+			Type: notification.Type, CreatedAt: notification.CreatedAt, Payload: payload,
+		})
+	}
+	return data, nil
+}
+
+func pushInitial(ctx context.Context, pmClient pmservice.Client, conn *hub.Connection) {
+	// Only fetch history on first connect (cursor=0). On reconnect (cursor>0)
+	// the client already has history — sending it again causes duplicate display.
+	var history []PMMessageData
+	if conn.PMCursor == 0 {
+		histResp, err := pmClient.FetchPMHistory(ctx, &pm.FetchPMHistoryReq{AgentId: conn.AgentID})
+		if err != nil {
+			logger.Ctx(ctx).Error("ws: FetchPMHistory failed", "agentID", conn.AgentID, "err", err)
+		} else if histResp == nil || histResp.BaseResp == nil {
+			logger.Ctx(ctx).Error("ws: FetchPMHistory returned nil response or base_resp", "agentID", conn.AgentID)
+		} else if histResp.BaseResp.Code != 0 {
+			logger.Ctx(ctx).Error("ws: FetchPMHistory error", "agentID", conn.AgentID, "code", histResp.BaseResp.Code, "msg", histResp.BaseResp.Msg)
+		} else {
+			history = buildPMMessages(histResp.Messages)
+		}
+	}
+
+	pending, pendingHasMore := fetchPendingFriendRequests(ctx, pmClient, conn.AgentID)
+
+	unreadResp, err := pmClient.FetchPM(ctx, &pm.FetchPMReq{
+		AgentId: conn.AgentID,
+		Cursor:  &conn.PMCursor,
+	})
+	var unread []PMMessageData
+	nextCursor := conn.PMCursor
+	if err != nil {
+		logger.Ctx(ctx).Error("ws: FetchPM failed", "agentID", conn.AgentID, "err", err)
+	} else if unreadResp == nil || unreadResp.BaseResp == nil {
+		logger.Ctx(ctx).Error("ws: FetchPM returned nil response or base_resp", "agentID", conn.AgentID)
+	} else if unreadResp.BaseResp.Code != 0 {
+		logger.Ctx(ctx).Error("ws: FetchPM error", "agentID", conn.AgentID, "code", unreadResp.BaseResp.Code, "msg", unreadResp.BaseResp.Msg)
+	} else {
+		unread = buildPMMessages(unreadResp.Messages)
+		nextCursor = unreadResp.NextCursor
+	}
+
+	if len(unread) == 0 && len(pending) == 0 {
+		return
+	}
+
+	data := PMFetchData{
+		Messages:              unread,
+		NextCursor:            fmt.Sprintf("%d", nextCursor),
+		HistoryMessages:       history,
+		FriendRequests:        pending,
+		FriendRequestsHasMore: pendingHasMore,
+	}
+	envelope := Message{Type: "pm_push", Data: data}
+	payload, err := json.Marshal(envelope)
+	if err != nil {
+		logger.Ctx(ctx).Error("ws: marshal initial failed", "err", err)
+		return
+	}
+
+	conn.WriteMu.Lock()
+	err = conn.Conn.WriteMessage(websocket.TextMessage, payload)
+	conn.WriteMu.Unlock()
+	if err != nil {
+		logger.Ctx(ctx).Error("ws: write initial failed", "agentID", conn.AgentID, "err", err)
+		return
+	}
+
+	conn.PMCursor = nextCursor
+	logger.Ctx(ctx).Info("ws: pushed initial",
+		"agentID", conn.AgentID,
+		"unread", len(unread),
+		"history", len(history),
+		"pending_shown", len(pending),
+		"pending_has_more", pendingHasMore,
+		"cursor", conn.PMCursor)
+}
+
+func fetchAndPush(ctx context.Context, pmClient pmservice.Client, conn *hub.Connection, eventPayload string) {
+	if envelope, ok := friendResponseEnvelope(eventPayload); ok {
+		payload, err := json.Marshal(envelope)
+		if err != nil {
+			logger.Ctx(ctx).Error("ws: marshal friend response failed", "err", err)
+			return
+		}
+		conn.WriteMu.Lock()
+		err = conn.Conn.WriteMessage(websocket.TextMessage, payload)
+		conn.WriteMu.Unlock()
+		if err != nil {
+			logger.Ctx(ctx).Error("ws: write friend response failed", "agentID", conn.AgentID, "err", err)
+		}
+		return
+	}
+
+	// Handle friend_accepted event — push directly without fetching PMs or pending requests.
+	if friendUID, ok := strings.CutPrefix(eventPayload, "friend_accepted:"); ok {
+		envelope := Message{Type: "friend_accepted", Data: map[string]string{"friend_uid": friendUID}}
+		payload, err := json.Marshal(envelope)
+		if err != nil {
+			logger.Ctx(ctx).Error("ws: marshal friend_accepted failed", "err", err)
+			return
+		}
+		conn.WriteMu.Lock()
+		err = conn.Conn.WriteMessage(websocket.TextMessage, payload)
+		conn.WriteMu.Unlock()
+		if err != nil {
+			logger.Ctx(ctx).Error("ws: write friend_accepted failed", "agentID", conn.AgentID, "err", err)
+		}
+		logger.Ctx(ctx).Info("ws: pushed", "agentID", conn.AgentID, "event", eventPayload)
+		return
+	}
+
+	// Handle console_friend_accepted event — the human user accepted a friend
+	// request via the web console; notify the agent so it can react without polling.
+	if eventPayload == "console_friend_accepted" {
+		envelope := Message{Type: "console_friend_accepted", Data: nil}
+		payload, err := json.Marshal(envelope)
+		if err != nil {
+			logger.Ctx(ctx).Error("ws: marshal console_friend_accepted failed", "err", err)
+			return
+		}
+		conn.WriteMu.Lock()
+		err = conn.Conn.WriteMessage(websocket.TextMessage, payload)
+		conn.WriteMu.Unlock()
+		if err != nil {
+			logger.Ctx(ctx).Error("ws: write console_friend_accepted failed", "agentID", conn.AgentID, "err", err)
+		}
+		logger.Ctx(ctx).Info("ws: pushed", "agentID", conn.AgentID, "event", eventPayload)
+		return
+	}
+
+	isFriendRequestEvent := eventPayload == "friend_request"
+
+	// Always fetch unread PMs.
+	resp, err := pmClient.FetchPM(ctx, &pm.FetchPMReq{
+		AgentId: conn.AgentID,
+		Cursor:  &conn.PMCursor,
+	})
+	if err != nil {
+		logger.Ctx(ctx).Error("ws: FetchPM failed", "agentID", conn.AgentID, "err", err)
+		return
+	}
+	if resp == nil || resp.BaseResp == nil {
+		logger.Ctx(ctx).Error("ws: FetchPM returned nil response or base_resp", "agentID", conn.AgentID)
+		return
+	}
+	if resp.BaseResp.Code != 0 {
+		logger.Ctx(ctx).Error("ws: FetchPM error", "agentID", conn.AgentID, "code", resp.BaseResp.Code, "msg", resp.BaseResp.Msg)
+		return
+	}
+
+	msgs := buildPMMessages(resp.Messages)
+
+	// Only fetch friend requests when the event is a friend_request,
+	// not on every PM event — avoids unnecessary RPC/DB calls at scale.
+	var pending []FriendRequestData
+	var pendingHasMore bool
+	if isFriendRequestEvent {
+		pending, pendingHasMore = fetchPendingFriendRequests(ctx, pmClient, conn.AgentID)
+	}
+
+	if len(msgs) == 0 && len(pending) == 0 {
+		return
+	}
+
+	data := PMFetchData{
+		Messages:              msgs,
+		NextCursor:            fmt.Sprintf("%d", resp.NextCursor),
+		FriendRequests:        pending,
+		FriendRequestsHasMore: pendingHasMore,
+	}
+	envelope := Message{Type: "pm_push", Data: data}
+
+	payload, err := json.Marshal(envelope)
+	if err != nil {
+		logger.Ctx(ctx).Error("ws: marshal failed", "err", err)
+		return
+	}
+
+	conn.WriteMu.Lock()
+	err = conn.Conn.WriteMessage(websocket.TextMessage, payload)
+	conn.WriteMu.Unlock()
+	if err != nil {
+		logger.Ctx(ctx).Error("ws: write failed", "agentID", conn.AgentID, "err", err)
+		return
+	}
+
+	if len(resp.Messages) > 0 {
+		conn.PMCursor = resp.NextCursor
+	}
+	logger.Ctx(ctx).Info("ws: pushed", "agentID", conn.AgentID, "event", eventPayload, "msgCount", len(msgs), "frCount", len(pending), "cursor", conn.PMCursor)
+}
+
+func friendResponseEnvelope(eventPayload string) (Message, bool) {
+	var event struct {
+		Type            string `json:"type"`
+		FriendUID       string `json:"friend_uid"`
+		PeerShortID     string `json:"peer_short_id"`
+		PeerDisplayName string `json:"peer_display_name"`
+	}
+	if err := json.Unmarshal([]byte(eventPayload), &event); err != nil {
+		return Message{}, false
+	}
+	if event.Type != "friend_accepted" && event.Type != "friend_rejected" {
+		return Message{}, false
+	}
+	if event.FriendUID == "" || event.PeerShortID == "" || event.PeerDisplayName == "" {
+		return Message{}, false
+	}
+	return Message{Type: event.Type, Data: map[string]string{
+		"friend_uid": event.FriendUID, "peer_short_id": event.PeerShortID,
+		"peer_display_name": event.PeerDisplayName,
+	}}, true
+}

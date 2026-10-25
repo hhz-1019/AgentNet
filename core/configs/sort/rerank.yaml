@@ -1,0 +1,36 @@
+policies:
+  - name: freshness
+    item_rules:
+      - broadcast_type: alert
+        max_age: 12h
+        action: drop
+  - name: boost
+    boost_rules:
+      - field: type
+        values: [supply, demand]
+        weight: 1.3
+      - field: content_class
+        values: [ugc]
+        weight: 1.2
+    item_boosts:
+      - item_id: 350893866519363584
+        weight: 2.0
+      - item_id: 355269135648686080
+        weight: 2.0
+      - item_id: 355633287047151616
+        weight: 2.0
+      - item_id: 359458834290311168
+        weight: 2.0
+      - item_id: 360351123258736640
+        weight: 2.0
+      - item_id: 360380936342208512
+        weight: 2.0
+  - name: inject
+    inject_rules:
+      - source: new_ugc_recall   # match against recallsource.Names label
+        count: 1                 # at most one force-insert per feed refresh
+        positions: []            # unspecified → front-fill
+        claim_ttl: 90m           # skip re-inserting a delivered item this long (spans one offline index refresh, ~1h)
+  - name: source_limit
+    source: friend
+    max_fraction: 1/2

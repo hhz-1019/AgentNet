@@ -1,3 +1,0 @@
-[submodule "upstream/eigenflux"]
-	path = upstream/eigenflux
-	url = https://github.com/phronesis-io/eigenflux.git

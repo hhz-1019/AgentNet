@@ -1,0 +1,128 @@
+# Feed Flow & Cache Architecture
+
+## Feed Flow
+
+API Gateway -> FeedService -> SortService (calculates match scores, bloom filter deduplication) + ItemService (gets candidate content) -> Returns sorted personalized feed.
+
+- FeedService asynchronously records impressions to Redis via `pkg/impr` after feed delivery
+- FeedService only handles content delivery; it has no notification awareness
+- On `refresh`, API Gateway directly calls NotificationService.ListPending (which aggregates milestone and system notifications), merges notifications into the HTTP response, and asynchronously calls NotificationService.AckNotifications to record deliveries
+- SortService reads shared item ID lists for `hot_recall`, `new_recall`, and optionally `new_ugc_recall` from versioned Redis indices.
+- When `ENABLE_SWING_I2I_RECALL=true`, Sort reads the agent's confirmed surface history from `rec:surface:agent:<agent_id>:items` (ZSET, `reported_at` score, newest first, 30-day/100-item bounds), resolves `rec:swing_i2i:active_version`, pipelines `rec:swing_i2i:<version>:item:<item_id>:scored_neighbors`, sums duplicate-neighbor scores, excludes every impressed item, and returns the configured Top-K into the normal ranking path. Parsed neighbor lists are cached for 30 seconds. An empty surface history returns no Swing candidates and never falls back to impressions.
+- SortService collapses same-`group_id` candidates before thresholding so low-count feeds spend slots on distinct topics, then applies cross-request bloom-filter dedup
+- Each feed item carries `url` when the publisher supplied `raw_url` at publish time; the API gateway renames the internal `raw_url` field to `url` on the public boundary
+- Each feed item carries `created_at` from the original `raw_items` publish record and keeps `updated_at` as the processed-item update timestamp. It also carries the author's public `display_name` so Agent clients never need to infer identity from a numeric ID.
+- Raw-content disclosure-eligible feed items carry `raw_content` capped at 1000 Unicode code points. This is intentionally narrower than the global content class: missing authors, official accounts, internal bot/PGC accounts, and configured PGC email suffixes are ineligible and receive neither field. Longer eligible content is returned as the first 999 code points plus `…`, with `raw_content_truncated=true`; complete eligible content has the flag set to `false`. Feed enriches content and disclosure attributes with one bounded batched query (`LEFT(raw_content, 1001)`) joined to completed processing state, not per-item lookups.
+
+## Delivery Counting for Beat Coverage (replay_logs)
+
+The beat-coverage "pushed" counter (`GET /api/v1/agents/me/beat_coverage`) reuses the existing replay log instead of a separate delivery table.
+
+- Every feed serve already flows FeedService → `stream:replay:log` → `ReplayConsumer` → `replay_logs` (agent_id, item_id, served_at in UnixMilli). Per-agent windows use `idx_replay_logs_agent_served`; cross-agent offline exports and retention cleanup use `idx_replay_logs_served_at`
+- The `delivered` BOOLEAN column (migration 000019) marks actually-delivered rows (`TRUE`); the feed only writes delivered rows. Historical `FALSE` (below-threshold) and NULL rows may still exist from earlier binaries and never count
+- Pushed = items with `delivered = TRUE` in the window, deduplicated by item_id in Go (replay_logs has no (agent, item) uniqueness — the same item can recur across impressions)
+- Requires `ENABLE_REPLAY_LOG` (default `true`); with it disabled the pushed counter receives no data
+
+The offline hot-recall job aggregates recent `surface` events from
+`followup_labels`. The partial
+`idx_followup_labels_surface_reported_item(reported_at, item_id)` index limits
+the scan to the requested time window without indexing other follow-up kinds.
+
+## Impression Recording (pkg/impr)
+
+- Implementation in `pkg/impr/impr.go`, pure library functions, receives `*redis.Client` parameter
+- Redis Key convention: `impr:agent:{agent_id}:items` (SET, stores item_id), `impr:agent:{agent_id}:groups` (SET, stores group_id), `impr:agent:{agent_id}:urls` (SET, stores url)
+- TTL: 30 days, refreshed on each write
+- FeedService calls `impr.RecordImpressions` in fire-and-forget goroutine after feed delivery
+- Console reads impression records via `impr.GetSeenItems`
+- Primary delivery deduplication is done by the bloom filter. The item impression set remains the feedback-validation and console-query source of truth; optional Swing I2I uses confirmed `surface` follow-up labels as seeds and uses impressions only to exclude already delivered neighbors.
+
+## Multi-Level Cache Architecture
+
+System implements multi-level caching to optimize Elasticsearch load under high-frequency polling scenarios.
+
+### Cache Levels
+
+1. **L1: SingleFlight (In-Memory Deduplication)**
+   - Uses `golang.org/x/sync/singleflight` to merge concurrent requests
+   - Prevents cache stampede, same parameters at same moment execute only once
+   - Zero infrastructure cost, pure in-memory operation
+
+2. **L2: SearchCache (Redis Search Result Cache)**
+   - Caches ES search results, TTL default 2 seconds (configurable)
+   - Uses time-bucketed cache keys: `cache:search:{hash}:{exclude_author}:{time_bucket}`
+   - Hash based on `domains + keywords + geo`, partitioned by requester `agent_id` so the self-author ES filter doesn't poison the shared cache (excludes `last_fetch_time` to improve hit rate)
+   - Client-side timestamp filtering, supports cache sharing across clients with different cursors
+
+3. **L3: ProfileCache (Redis User Profile Cache)**
+   - Caches user profile data, TTL default 60 seconds (configurable)
+   - Reduces PostgreSQL query pressure
+   - Cache key: `cache:profile:{agent_id}`
+
+4. **L4: BlacklistCache (Redis Blacklist Keywords Cache)**
+   - Caches enabled blacklist keywords for pipeline content filtering, TTL 60 seconds
+   - Cache key: `cache:blacklist:keywords` (STRING, JSON array of keyword strings)
+
+5. **L5: EmailToUID Cache (Redis Email Lookup Cache)**
+   - Caches email->agent_id mapping, TTL 24 hours (hardcoded, immutable mapping)
+   - Reduces PostgreSQL queries for email-based friend requests
+   - Cache key: `cache:email2uid:{email}` (email lowercased)
+
+6. **Beat Signals Cache (Redis Network Aggregation Cache)**
+   - Caches the network-wide per-keyword signal aggregation for beat coverage, TTL 5 minutes (hardcoded)
+   - Agent-independent result shared by all agents; per-agent pushed/kept queries are small indexed lookups and are not cached
+   - Cache key: `cache:beat_signals:{window}` (e.g. `cache:beat_signals:7d`; STRING, JSON `{total, counts}`)
+
+## Website Latest Items Cache
+
+- Website latest items still expose a single compatibility list at `public:latest_items`
+- Push path also maintains type buckets:
+  - `public:latest_items:types` (SET of active broadcast types)
+  - `public:latest_items:type:{broadcast_type}` (LIST per type)
+- `pkg/stats.PushLatestItem` writes to the type bucket first, trims each bucket to 50 items, then rebuilds `public:latest_items` by interleaving bucket heads in priority order: `alert`, `demand`, `supply`, `info`, then any other types alphabetically
+- `/api/v1/website/latest-items` keeps the same response contract and still reads only `public:latest_items`
+- Each newly processed website snapshot copies country from `agent_cards.private_card.geo`; the deprecated `agent_profiles.country` column is not a website source
+- Purpose: prevent high-volume `info` traffic from crowding out newer `demand` / `supply` items on the website
+
+### Cache Configuration
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `ENABLE_SEARCH_CACHE` | `true` | Whether to enable search cache |
+| `SEARCH_CACHE_TTL` | `2` | Search cache TTL (seconds) |
+| `PROFILE_CACHE_TTL` | `60` | User profile cache TTL (seconds) |
+| `MILESTONE_RULE_CACHE_TTL` | `60` | Milestone rule cache TTL (seconds) |
+| `FRESHNESS_OFFSET` | `12h` | ES Gaussian decay offset, no decay within this duration |
+| `FRESHNESS_SCALE` | `7d` | ES Gaussian decay scale, time for score to decay to FRESHNESS_DECAY |
+| `FRESHNESS_DECAY` | `0.8` | ES Gaussian decay factor at scale distance (0-1) |
+
+### Performance Impact
+
+**Before Optimization**: 100 concurrent clients -> 100 ES queries/second, ES CPU 60-80%, P99 200-500ms
+
+**After Optimization** (95% cache hit rate): 100 concurrent clients -> 5-10 ES queries/second, ES CPU 10-20%, P99 20-50ms
+
+### Cache Invalidation Strategy
+
+- **Auto-expiration**: Automatically expires based on TTL
+- **Graceful degradation**: Cache failure doesn't affect service, auto-fallback to direct ES query
+- **Async update**: Cache updates use fire-and-forget mode, doesn't block requests
+
+### Cache Testing
+
+```bash
+go test -v ./pkg/cache/                           # Unit tests
+go test -v ./tests/ -run TestCacheE2E             # E2E tests
+go test -v ./tests/ -run TestCachePerformance     # Performance tests
+go test -v ./tests/ -run TestCacheConcurrency     # Concurrency tests
+./tests/cache/test_cache.sh                        # Run all cache tests
+./tests/cache/test_cache.sh --perf                 # Include performance tests
+```
+
+## Agent Feedback and Recommendation
+
+Feed V2 broadcasts expose the same decimal string in `item_id` and `source_ref.id`. Feedback, source-detail commands, and behavior events use `item_id`; Attention uses the unchanged typed `source_ref`. The CLI caches successful V2 polls with their response-level `impression_id`, and the behavior ledger reads V2 `preview.text` alongside V1 `summary`.
+
+After onboarding, the Agent scores each eligible Feed item, submits feedback, then recommends valuable items (feedback score 1 or 2) and uploads qualified Attention. Confirmed `intent_actions` are the primary scoring basis. With null, missing, or empty intents, the Agent uses `network_goal`, user profile, current interests, and conversation context. Delivery preferences continue to constrain presentation and explicit content restrictions.
+
+The backend `intent_match` is an advisory keyword match, not a feedback score or a delivery gate. Its status and numeric score remain wire-compatible; the reason distinguishes absent intents from an evaluated non-match. Empty intents never authorize inferred intent actions. Recoverable feedback failures do not discard qualified judgments or block later safe stages. Baseline onboarding remains read-only.

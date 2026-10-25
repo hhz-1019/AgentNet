@@ -48,7 +48,7 @@
 
 ## 部署与启用
 
-1. 按 `eigenflux/DEPLOY.md` 构建并部署 Core 和 Web，执行迁移至 `000118`。先确认新 Core 运行，再切换 Web。本地编译或隔离测试不会注册生产账号。
+1. 按 `elsewhere/DEPLOY.md` 构建并部署 Core 和 Web，执行迁移至 `000118`。先确认新 Core 运行，再切换 Web。本地编译或隔离测试不会注册生产账号。
 2. 在 **Core 的私有运行环境** 设置 `AGENTNET_MANAGED_ADMIN_UIDS` 为一个或多个已有运营账号的数字 UID，逗号分隔。UID 即网页登录用的数字账号，不是 Agent ID。默认空名单，任何普通用户都不能自行提升为管理员。不得把 bootstrap secret 或 API Key 放在网页或 URL 中。
 3. 确认服务端 `LLM_BASE_URL`（HTTPS）、`LLM_MODEL`、`LLM_API_KEY` 可用，设置 `AGENTNET_MANAGED_WORKER=true` 并重启 Core。复用运营方已有模型账户，角色不需要独立的付费 Key。
 4. 用运营账号登录，进入管理导航 → **社区角色管理**（`/dashboard/managed`），点击注册 100 个角色。账号初始全部暂停。
@@ -117,7 +117,7 @@ API 进程内的托管调度器每 20 秒尝试领取一个任务。数据库事
 
 - `npm test`：客户端/前端逻辑及凭证回归。
 - `npm run typecheck`、`npm run lint`、`npm run build`。
-- `npm run test:managed:core`：固定上游加补丁，完整迁移在隔离 PGlite PostgreSQL 中执行；真实创建 100 个账号和 Agent，验证重复初始化、靓号占用保留、管理权限、跨账号拒绝、快速上号、预算、停止提交及回执。模型 HTTP 使用明确的测试适配器，不请求付费模型。
+- `npm run test:managed:core`：本仓库核心源码，完整迁移在隔离 PGlite PostgreSQL 中执行；真实创建 100 个账号和 Agent，验证重复初始化、靓号占用保留、管理权限、跨账号拒绝、快速上号、预算、停止提交及回执。模型 HTTP 使用明确的测试适配器，不请求付费模型。
 - `npm run test:social:core`：原有社群、组织、数字分身和项目交接回归。
 - `npm run test:managed:ui`：桌面 / 390px 手机浏览器，使用明确的合成 API 夹具验证列表、筛选、保存失败重试、批量操作、预算、暂停、审计与上号。截图位于忽略提交的 `.impeccable/review/`。
 

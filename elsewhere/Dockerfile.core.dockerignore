@@ -1,0 +1,14 @@
+**
+!core/
+!core/**
+!elsewhere/
+!elsewhere/friend_request_limits.yaml
+!elsewhere/scripts/
+!elsewhere/scripts/entrypoint.sh
+# Never include local credentials or build caches from the core source.
+**/.git
+**/.env*
+**/node_modules
+
+core/build/
+core/cli/build/

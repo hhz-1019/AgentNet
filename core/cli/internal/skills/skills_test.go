@@ -1,0 +1,534 @@
+package skills
+
+import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"crypto/ed25519"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"testing"
+)
+
+var testManifestSequence atomic.Uint64
+
+func testSigningKey() ed25519.PrivateKey {
+	seed := sha256.Sum256([]byte("elsewhere-skills-manifest-test-key"))
+	return ed25519.NewKeyFromSeed(seed[:])
+}
+
+func signTestManifest(t *testing.T, m *Manifest, sequence uint64) {
+	t.Helper()
+	privateKey := testSigningKey()
+	VerifyPublicKeyBase64 = base64.StdEncoding.EncodeToString(privateKey.Public().(ed25519.PublicKey))
+	m.Sequence = sequence
+	if err := SignManifest(m, privateKey); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// stageSkills writes skills (name -> file -> content) under a temp dir and
+// returns the dir.
+func stageSkills(t *testing.T, skills map[string]map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for name, files := range skills {
+		for fn, content := range files {
+			p := filepath.Join(dir, name, fn)
+			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	return dir
+}
+
+// tarGzDir builds a deterministic-ish gzip tar of the named subdirs of src.
+func tarGzDir(t *testing.T, src string, names []string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	for _, name := range names {
+		root := filepath.Join(src, name)
+		err := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			rel, _ := filepath.Rel(src, p)
+			hdr, _ := tar.FileInfoHeader(info, "")
+			hdr.Name = filepath.ToSlash(rel)
+			if info.IsDir() {
+				hdr.Name += "/"
+			}
+			if err := tw.WriteHeader(hdr); err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			data, _ := os.ReadFile(p)
+			_, err = tw.Write(data)
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	tw.Close()
+	gz.Close()
+	return buf.Bytes()
+}
+
+// serveBundle stands up an httptest server exposing cli/<ver>/ and cli/latest/.
+func serveBundle(t *testing.T, version string, src string, names []string) (*httptest.Server, *Manifest) {
+	t.Helper()
+	m, err := GenerateManifest(src, version, "", names, 1700000000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tarGz := tarGzDir(t, src, names)
+	sum := sha256.Sum256(tarGz)
+	m.TarSHA256 = hex.EncodeToString(sum[:])
+	signTestManifest(t, m, testManifestSequence.Add(1))
+	manBytes, _ := json.Marshal(m)
+
+	mux := http.NewServeMux()
+	for _, prefix := range []string{"/skills/latest", "/cli/latest", "/cli/" + version} {
+		p := prefix
+		mux.HandleFunc(p+"/"+RemoteManifest, func(w http.ResponseWriter, r *http.Request) { w.Write(manBytes) })
+		mux.HandleFunc(p+"/"+TarName, func(w http.ResponseWriter, r *http.Request) { w.Write(tarGz) })
+	}
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv, m
+}
+
+func syncOpts(into, version, cdn string, names []string) SyncOptions {
+	return SyncOptions{Into: into, CLIVersion: version, CDNBase: cdn, Allowlist: names}
+}
+
+func TestDirSHA256Deterministic(t *testing.T) {
+	a := stageSkills(t, map[string]map[string]string{
+		"elsewhere-broadcast": {"SKILL.md": "hi", "references/x.md": "x"},
+	})
+	h1, err := dirSHA256(filepath.Join(a, "elsewhere-broadcast"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2, _ := dirSHA256(filepath.Join(a, "elsewhere-broadcast"))
+	if h1 != h2 {
+		t.Fatalf("non-deterministic: %s != %s", h1, h2)
+	}
+	// .DS_Store must not change the hash.
+	os.WriteFile(filepath.Join(a, "elsewhere-broadcast", ".DS_Store"), []byte("junk"), 0o644)
+	h3, _ := dirSHA256(filepath.Join(a, "elsewhere-broadcast"))
+	if h3 != h1 {
+		t.Fatalf(".DS_Store changed hash: %s != %s", h3, h1)
+	}
+}
+
+func TestSyncInstallUpdateReconcilePreserve(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "skills")
+
+	// v1: elsewhere-broadcast + elsewhere-profile
+	src1 := stageSkills(t, map[string]map[string]string{
+		"elsewhere-broadcast": {"SKILL.md": "b1"},
+		"elsewhere-profile":   {"SKILL.md": "p1"},
+	})
+	names1 := []string{"elsewhere-broadcast", "elsewhere-profile"}
+	srv1, _ := serveBundle(t, "0.0.16", src1, names1)
+
+	// A user-placed third-party skill that must survive every sync.
+	if err := os.MkdirAll(filepath.Join(dst, "my-custom"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(dst, "my-custom", "SKILL.md"), []byte("mine"), 0o644)
+
+	res, err := Sync(syncOpts(dst, "0.0.16", srv1.URL, names1))
+	if err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if res.Source != "skills/latest" {
+		t.Fatalf("source=%s", res.Source)
+	}
+	for _, n := range []string{"elsewhere-broadcast", "elsewhere-profile", "my-custom"} {
+		if !dirExists(filepath.Join(dst, n)) {
+			t.Fatalf("missing %s after install", n)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dst, ManifestFileName)); err != nil {
+		t.Fatalf("no local manifest: %v", err)
+	}
+
+	// v2: elsewhere-broadcast changed, elsewhere-profile removed, elsewhere-communication added.
+	src2 := stageSkills(t, map[string]map[string]string{
+		"elsewhere-broadcast":     {"SKILL.md": "b2-changed"},
+		"elsewhere-communication": {"SKILL.md": "c1"},
+	})
+	names2 := []string{"elsewhere-broadcast", "elsewhere-communication"}
+	srv2, _ := serveBundle(t, "0.0.17", src2, names2)
+
+	res2, err := Sync(syncOpts(dst, "0.0.17", srv2.URL, names2))
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if !dirExists(filepath.Join(dst, "elsewhere-communication")) {
+		t.Fatal("elsewhere-communication not installed on update")
+	}
+	if dirExists(filepath.Join(dst, "elsewhere-profile")) {
+		t.Fatal("elsewhere-profile should have been reconciled away")
+	}
+	if !dirExists(filepath.Join(dst, "my-custom")) {
+		t.Fatal("third-party my-custom was clobbered")
+	}
+	b, _ := os.ReadFile(filepath.Join(dst, "elsewhere-broadcast", "SKILL.md"))
+	if string(b) != "b2-changed" {
+		t.Fatalf("elsewhere-broadcast not updated: %q", b)
+	}
+	found := false
+	for _, r := range res2.Removed {
+		if r == "elsewhere-profile" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("elsewhere-profile not reported removed: %v", res2.Removed)
+	}
+}
+
+func TestSyncDecoupledFromCLIVersion(t *testing.T) {
+	// A skill edit must ship WITHOUT a CLI bump: same CLI version, new content
+	// (new revision) -> sync pulls it.
+	dst := filepath.Join(t.TempDir(), "skills")
+	names := []string{"elsewhere-broadcast"}
+
+	src1 := stageSkills(t, map[string]map[string]string{"elsewhere-broadcast": {"SKILL.md": "v1"}})
+	srv1, _ := serveBundle(t, "0.0.16", src1, names)
+	if _, err := Sync(syncOpts(dst, "0.0.16", srv1.URL, names)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Same CLI version 0.0.16, edited content -> different revision.
+	src2 := stageSkills(t, map[string]map[string]string{"elsewhere-broadcast": {"SKILL.md": "v2-edited"}})
+	srv2, _ := serveBundle(t, "0.0.16", src2, names)
+	res, err := Sync(syncOpts(dst, "0.0.16", srv2.URL, names))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Source == "local" {
+		t.Fatal("expected an update (new revision), got local skip")
+	}
+	got, _ := os.ReadFile(filepath.Join(dst, "elsewhere-broadcast", "SKILL.md"))
+	if string(got) != "v2-edited" {
+		t.Fatalf("skill not updated despite same CLI version: %q", got)
+	}
+
+	// Re-sync identical content -> revision matches -> skip (source local).
+	res2, err := Sync(syncOpts(dst, "0.0.16", srv2.URL, names))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res2.Source != "local" {
+		t.Fatalf("expected revision skip, got source=%s", res2.Source)
+	}
+}
+
+func TestSyncMinCLIVersionGuard(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "skills")
+	names := []string{"elsewhere-broadcast"}
+	src := stageSkills(t, map[string]map[string]string{"elsewhere-broadcast": {"SKILL.md": "needs new cli"}})
+	// serveBundle stamps min_cli_version via GenerateManifest? No — set manually.
+	m, _ := GenerateManifest(src, "9.9.9", "9.9.9", names, 1700000000)
+	tarGz := tarGzDir(t, src, names)
+	sum := sha256.Sum256(tarGz)
+	m.TarSHA256 = hex.EncodeToString(sum[:])
+	signTestManifest(t, m, testManifestSequence.Add(1))
+	manBytes, _ := json.Marshal(m)
+	mux := http.NewServeMux()
+	for _, p := range []string{"/skills/latest", "/cli/latest"} {
+		pre := p
+		mux.HandleFunc(pre+"/"+RemoteManifest, func(w http.ResponseWriter, r *http.Request) { w.Write(manBytes) })
+		mux.HandleFunc(pre+"/"+TarName, func(w http.ResponseWriter, r *http.Request) { w.Write(tarGz) })
+	}
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	// CLI 0.0.16 < min 9.9.9: must NOT install (no local copy) and error/keep.
+	_, err := Sync(syncOpts(dst, "0.0.16", srv.URL, names))
+	if err == nil {
+		t.Fatal("expected min-cli-version guard to refuse install on old CLI")
+	}
+	if dirExists(filepath.Join(dst, "elsewhere-broadcast")) {
+		t.Fatal("must not install skills requiring a newer CLI")
+	}
+}
+
+func TestSignedManifestRejectsTampering(t *testing.T) {
+	src := stageSkills(t, map[string]map[string]string{"elsewhere-broadcast": {"SKILL.md": "trusted"}})
+	m, err := GenerateManifest(src, "0.0.34", "0.0.34", []string{"elsewhere-broadcast"}, 1700000000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.TarSHA256 = strings.Repeat("a", 64)
+	signTestManifest(t, m, 900)
+	if err := verifyManifestSignature(m); err != nil {
+		t.Fatalf("valid signature rejected: %v", err)
+	}
+	m.MinCLIVersion = "99.0.0"
+	if err := verifyManifestSignature(m); err == nil {
+		t.Fatal("tampered signed manifest was accepted")
+	}
+}
+
+func TestSyncRejectsSignedManifestRollback(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "skills")
+	names := []string{"elsewhere-broadcast"}
+	highSrc := stageSkills(t, map[string]map[string]string{"elsewhere-broadcast": {"SKILL.md": "new"}})
+	highServer, _ := serveBundleAtSequence(t, "0.0.34", highSrc, names, 1000)
+	if _, err := Sync(syncOpts(dst, "0.0.34", highServer.URL, names)); err != nil {
+		t.Fatal(err)
+	}
+	lowSrc := stageSkills(t, map[string]map[string]string{"elsewhere-broadcast": {"SKILL.md": "old"}})
+	lowServer, _ := serveBundleAtSequence(t, "0.0.34", lowSrc, names, 999)
+	res, err := Sync(syncOpts(dst, "0.0.34", lowServer.URL, names))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Source != "local" {
+		t.Fatalf("rollback should keep local, got %s", res.Source)
+	}
+	got, _ := os.ReadFile(filepath.Join(dst, "elsewhere-broadcast", "SKILL.md"))
+	if string(got) != "new" {
+		t.Fatalf("rollback changed installed Skill: %q", got)
+	}
+}
+
+func serveBundleAtSequence(t *testing.T, version, src string, names []string, sequence uint64) (*httptest.Server, *Manifest) {
+	t.Helper()
+	m, err := GenerateManifest(src, version, "", names, 1700000000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tarGz := tarGzDir(t, src, names)
+	sum := sha256.Sum256(tarGz)
+	m.TarSHA256 = hex.EncodeToString(sum[:])
+	signTestManifest(t, m, sequence)
+	manBytes, _ := json.Marshal(m)
+	mux := http.NewServeMux()
+	for _, prefix := range []string{"/skills/latest", "/cli/latest"} {
+		p := prefix
+		mux.HandleFunc(p+"/"+RemoteManifest, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(manBytes) })
+		mux.HandleFunc(p+"/"+TarName, func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(tarGz) })
+	}
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv, m
+}
+
+func TestSyncIfStaleKeepsLocalWhenManifestUnavailable(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "skills")
+	src := stageSkills(t, map[string]map[string]string{"elsewhere-broadcast": {"SKILL.md": "b"}})
+	names := []string{"elsewhere-broadcast"}
+	srv, _ := serveBundle(t, "0.0.16", src, names)
+	if _, err := Sync(syncOpts(dst, "0.0.16", srv.URL, names)); err != nil {
+		t.Fatal(err)
+	}
+	manifestBefore, err := os.ReadFile(filepath.Join(dst, ManifestFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A failed manifest fetch must preserve the installed copy without failing
+	// a background freshness check.
+	srv.Close()
+	o := syncOpts(dst, "0.0.16", srv.URL, names)
+	o.IfStale = true
+	res, err := Sync(o)
+	if err != nil {
+		t.Fatalf("if-stale should be offline-safe: %v", err)
+	}
+	if res == nil || res.Source != "local" || !res.NoNetwork || res.VerifiedManifest {
+		t.Fatalf("expected local fallback after failed manifest fetch, got %+v", res)
+	}
+	content, err := os.ReadFile(filepath.Join(dst, "elsewhere-broadcast", "SKILL.md"))
+	if err != nil || string(content) != "b" {
+		t.Fatalf("installed Skill changed during offline fallback: %q, %v", content, err)
+	}
+	manifestAfter, err := os.ReadFile(filepath.Join(dst, ManifestFileName))
+	if err != nil || !bytes.Equal(manifestBefore, manifestAfter) {
+		t.Fatalf("installed manifest changed during offline fallback: %s, %v", manifestAfter, err)
+	}
+}
+
+func TestSyncIfStaleFetchesManifestWithoutDownloadingUnchangedBundle(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "skills")
+	src := stageSkills(t, map[string]map[string]string{"elsewhere-broadcast": {"SKILL.md": "b"}})
+	names := []string{"elsewhere-broadcast"}
+	bundleServer, _ := serveBundle(t, "0.0.16", src, names)
+	var manifestRequests, tarballRequests atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch filepath.Base(r.URL.Path) {
+		case RemoteManifest:
+			manifestRequests.Add(1)
+		case TarName:
+			tarballRequests.Add(1)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		bundleServer.Config.Handler.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	o := syncOpts(dst, "0.0.16", srv.URL, names)
+	if _, err := Sync(o); err != nil {
+		t.Fatal(err)
+	}
+	if manifests, tarballs := manifestRequests.Swap(0), tarballRequests.Swap(0); manifests != 1 || tarballs != 1 {
+		t.Fatalf("initial install requests: manifest=%d, tarball=%d; want 1 each", manifests, tarballs)
+	}
+
+	o.IfStale = true
+	res, err := Sync(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || res.Source != "local" || !res.VerifiedManifest || res.NoNetwork {
+		t.Fatalf("expected verified, unchanged local bundle, got %+v", res)
+	}
+	if manifests, tarballs := manifestRequests.Load(), tarballRequests.Load(); manifests != 1 || tarballs != 0 {
+		t.Fatalf("freshness check requests: manifest=%d, tarball=%d; want 1 manifest and no tarball", manifests, tarballs)
+	}
+}
+
+func TestSyncKeepsLocalOnNetworkFailure(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "skills")
+	src := stageSkills(t, map[string]map[string]string{"elsewhere-broadcast": {"SKILL.md": "b"}})
+	names := []string{"elsewhere-broadcast"}
+	srv, _ := serveBundle(t, "0.0.16", src, names)
+	if _, err := Sync(syncOpts(dst, "0.0.16", srv.URL, names)); err != nil {
+		t.Fatal(err)
+	}
+	// New version, but server unreachable: must keep local, not wipe.
+	res, err := Sync(syncOpts(dst, "0.0.17", "http://127.0.0.1:1", names))
+	if err == nil {
+		// Foreground checks may return the network error; the installation stays intact.
+		t.Log("returned err is acceptable")
+	}
+	_ = res
+	if !dirExists(filepath.Join(dst, "elsewhere-broadcast")) {
+		t.Fatal("local skills wiped on network failure")
+	}
+}
+
+func TestReconcileZombiesManagedByLock(t *testing.T) {
+	// A local manifest NOT managed by us must never yield removals.
+	local := &Manifest{ManagedBy: "someone-else", Skills: []SkillEntry{{Name: "x"}}}
+	remote := &Manifest{ManagedBy: ManagedByValue, Skills: []SkillEntry{{Name: "y"}}}
+	if got := reconcileZombies(local, remote); got != nil {
+		t.Fatalf("foreign manifest should not be reconciled, got %v", got)
+	}
+	managed := &Manifest{ManagedBy: ManagedByValue, Skills: []SkillEntry{{Name: "x"}, {Name: "y"}}}
+	got := reconcileZombies(managed, remote)
+	if len(got) != 1 || got[0] != "x" {
+		t.Fatalf("expected [x] removed, got %v", got)
+	}
+}
+
+func TestVerifyManifestRejectsExtraDir(t *testing.T) {
+	newDir := stageSkills(t, map[string]map[string]string{
+		"elsewhere-broadcast": {"SKILL.md": "b"},
+		"elsewhere-localdev":  {"SKILL.md": "evil"}, // not in manifest -> must be rejected
+	})
+	sum, _ := dirSHA256(filepath.Join(newDir, "elsewhere-broadcast"))
+	m := &Manifest{Skills: []SkillEntry{{Name: "elsewhere-broadcast", SHA256: sum}}}
+	if err := verifyManifest(newDir, m); err == nil {
+		t.Fatal("verifyManifest must reject an extra (unlisted) dir")
+	}
+}
+
+func TestAcquireLockExclusive(t *testing.T) {
+	parent := t.TempDir()
+	l1, ok1, err := acquireLock(parent)
+	if err != nil || !ok1 {
+		t.Fatalf("first lock failed: ok=%v err=%v", ok1, err)
+	}
+	_, ok2, _ := acquireLock(parent)
+	if ok2 {
+		t.Fatal("second lock should fail while first is held")
+	}
+	l1.Release()
+	l3, ok3, _ := acquireLock(parent)
+	if !ok3 {
+		t.Fatal("lock should be acquirable after release")
+	}
+	l3.Release()
+}
+
+func TestRecoverInterruptedRollsBack(t *testing.T) {
+	parent := t.TempDir()
+	real := filepath.Join(parent, "skills")
+	old := real + oldSuffix
+	// Simulate crash between A and B: real moved to old, journal points to old.
+	os.MkdirAll(old, 0o755)
+	os.WriteFile(filepath.Join(old, "marker"), []byte("v1"), 0o644)
+	writeJournal(real+journalSuffix, old)
+
+	recoverInterrupted(real)
+
+	if !dirExists(real) {
+		t.Fatal("recover should have rolled old back to real")
+	}
+	if _, err := os.Stat(real + journalSuffix); !os.IsNotExist(err) {
+		t.Fatal("journal should be cleared after recovery")
+	}
+}
+
+func TestInstallFromBundleReplacesManagedUserEdit(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "skills")
+	bundle := stageSkills(t, map[string]map[string]string{
+		"elsewhere-broadcast": {"SKILL.md": "b1"},
+		"elsewhere-profile":   {"SKILL.md": "p1"},
+	})
+	names := []string{"elsewhere-broadcast", "elsewhere-profile"}
+	opts := SyncOptions{Into: dst, BundleDir: bundle, CLIVersion: "0.0.16", Allowlist: names}
+	if _, err := InstallFromBundle(opts); err != nil {
+		t.Fatal(err)
+	}
+	// User hand-edits one managed skill.
+	if err := os.WriteFile(filepath.Join(dst, "elsewhere-broadcast", "SKILL.md"), []byte("b1-EDITED"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := InstallFromBundle(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Preserved) != 0 {
+		t.Fatalf("local bundle must replace edited managed skills, preserved %v", res.Preserved)
+	}
+	got, _ := os.ReadFile(filepath.Join(dst, "elsewhere-broadcast", "SKILL.md"))
+	if string(got) != "b1" {
+		t.Fatalf("local bundle did not replace managed skill: %q", got)
+	}
+}
+
+func TestRecoverInterruptedNoJournalNoOp(t *testing.T) {
+	parent := t.TempDir()
+	real := filepath.Join(parent, "skills")
+	// Stale .elsewhere-old debris with NO journal must not be restored.
+	old := real + oldSuffix
+	os.MkdirAll(old, 0o755)
+	recoverInterrupted(real)
+	if dirExists(real) {
+		t.Fatal("must not restore stale old without a journal")
+	}
+}

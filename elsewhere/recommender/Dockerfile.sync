@@ -1,0 +1,3 @@
+FROM node:24-alpine
+COPY elsewhere/recommender/sync.mjs /app/sync.mjs
+CMD ["node", "/app/sync.mjs", "--watch"]

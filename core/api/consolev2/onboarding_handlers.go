@@ -1,0 +1,1059 @@
+package consolev2
+
+import (
+	"elsewhere_server/pkg/ownerauth"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/lib/pq"
+	"gorm.io/gorm"
+
+	"elsewhere_server/pkg/activity"
+	"elsewhere_server/pkg/agentcard"
+	"elsewhere_server/pkg/firstcontact"
+	"elsewhere_server/pkg/logger"
+	"elsewhere_server/pkg/mq"
+	"elsewhere_server/pkg/runtimeidentity"
+	profiledal "elsewhere_server/rpc/profile/dal"
+)
+
+type onboardingState struct {
+	State                 string `gorm:"column:state" json:"state"`
+	CurrentStep           int16  `gorm:"column:current_step" json:"current_step"`
+	Revision              int64  `gorm:"column:revision" json:"revision"`
+	ActiveContextRevision *int64 `gorm:"column:active_context_revision" json:"active_context_revision"`
+	CompletedAt           *int64 `gorm:"column:completed_at" json:"completed_at"`
+}
+
+type onboardingDraft struct {
+	Revision        int64           `gorm:"column:revision" json:"revision"`
+	DraftData       json.RawMessage `gorm:"column:draft_data" json:"data"`
+	FieldProvenance json.RawMessage `gorm:"column:field_provenance" json:"field_provenance"`
+	ActorType       string          `gorm:"column:actor_type" json:"actor_type"`
+	CreatedAt       int64           `gorm:"column:created_at" json:"created_at"`
+}
+
+func (s *Service) loadOnboarding(agentID int64) (onboardingState, onboardingDraft, error) {
+	var state onboardingState
+	if err := s.db.Raw(`SELECT state, current_step, revision, active_context_revision, completed_at
+		FROM agent_onboarding_v2 WHERE agent_id = ?`, agentID).Scan(&state).Error; err != nil {
+		return state, onboardingDraft{}, err
+	}
+	if state.State == "" {
+		return state, onboardingDraft{}, gorm.ErrRecordNotFound
+	}
+	var stored struct {
+		Revision        int64  `gorm:"column:revision"`
+		DraftData       string `gorm:"column:draft_data"`
+		FieldProvenance string `gorm:"column:field_provenance"`
+		ActorType       string `gorm:"column:actor_type"`
+		CreatedAt       int64  `gorm:"column:created_at"`
+	}
+	err := s.db.Raw(`SELECT revision, draft_data::text AS draft_data,
+			field_provenance::text AS field_provenance, actor_type, created_at
+		FROM agent_onboarding_drafts WHERE agent_id = ? ORDER BY revision DESC LIMIT 1`, agentID).Scan(&stored).Error
+	draft := onboardingDraft{
+		Revision: stored.Revision, DraftData: json.RawMessage(stored.DraftData),
+		FieldProvenance: json.RawMessage(stored.FieldProvenance), ActorType: stored.ActorType, CreatedAt: stored.CreatedAt,
+	}
+	if err != nil {
+		return state, draft, err
+	}
+	normalized, normalizeErr := normalizeLoadedOnboardingDraft(draft)
+	return state, normalized, normalizeErr
+}
+
+func normalizeLoadedOnboardingDraft(draft onboardingDraft) (onboardingDraft, error) {
+	normalizedData, draftObject, err := normalizeOnboardingDraftJSON(draft.DraftData)
+	if err != nil {
+		return draft, err
+	}
+	provenance := decodeProvenance(draft.FieldProvenance)
+	if len(provenance) == 0 && validProvenance(draft.ActorType) {
+		provenance = deriveInitialProvenance(draftObject, draft.ActorType, nil, draft.CreatedAt)
+	}
+	normalizedProvenance, err := json.Marshal(provenance)
+	if err != nil {
+		return draft, err
+	}
+	draft.DraftData = sanitizeLoadedNetworkDraft(normalizedData)
+	draft.FieldProvenance = normalizedProvenance
+	return draft, nil
+}
+
+func (s *Service) getConsoleSession(_ context.Context, c *app.RequestContext) {
+	id, ok := agentID(c)
+	if !ok {
+		fail(c, http.StatusUnauthorized, "CONSOLE_SESSION_REQUIRED", "Console V2 session is required", nil)
+		return
+	}
+	state, _, err := s.loadOnboarding(id)
+	if err != nil {
+		fail(c, http.StatusInternalServerError, "SESSION_READ_FAILED", "could not read onboarding state", nil)
+		return
+	}
+	var identity struct {
+		AgentName             string `gorm:"column:agent_name"`
+		AgentNameEn           string `gorm:"column:agent_name_en"`
+		ShortID               string `gorm:"column:short_id"`
+		Bio                   string `gorm:"column:bio"`
+		CreatedAt             int64  `gorm:"column:created_at"`
+		IsOfficial            bool   `gorm:"column:is_official"`
+		BoundEmail            string `gorm:"column:bound_email"`
+		EmailVerified         bool   `gorm:"column:email_verified"`
+		LegacyIdentityTrusted bool   `gorm:"column:legacy_identity_trusted"`
+		EmailKind             string `gorm:"column:email_kind"`
+		RuntimeName           string `gorm:"column:runtime_name"`
+		RuntimeVersion        string `gorm:"column:runtime_version"`
+		RuntimeMode           string `gorm:"column:runtime_mode"`
+		ClientHost            string `gorm:"column:client_host"`
+		DeviceName            string `gorm:"column:device_name"`
+		CLIVersion            string `gorm:"column:cli_version"`
+		HeartbeatContract     string `gorm:"column:heartbeat_contract_version"`
+		SkillRevision         string `gorm:"column:skill_revision"`
+		HeartbeatReportedAt   int64  `gorm:"column:heartbeat_reported_at"`
+	}
+	authMethod, _ := c.Get("console_auth_method")
+	legacyHandoff := authMethod == "handoff"
+	legacyBindingClause := "b.status = 'active' AND b.verification_state = 'verified'"
+	if legacyHandoff {
+		legacyBindingClause = "b.status = 'active' AND b.verification_state IN ('verified', 'legacy_unverified')"
+	}
+	query := fmt.Sprintf(`SELECT a.agent_name, a.agent_name_en, a.short_id, a.bio, a.created_at, a.is_official,
+		COALESCE(b.normalized_email, '') AS bound_email,
+		a.email_kind AS email_kind,
+		(b.binding_id IS NOT NULL AND b.verification_state = 'verified') AS email_verified,
+		(b.binding_id IS NOT NULL AND b.verification_state = 'legacy_unverified') AS legacy_identity_trusted,
+		COALESCE(settings.runtime_name, '') AS runtime_name,
+		COALESCE(settings.runtime_version, '') AS runtime_version,
+		COALESCE(settings.mode, '') AS runtime_mode,
+		COALESCE(settings.client_host, '') AS client_host,
+		COALESCE(settings.device_name, '') AS device_name,
+		COALESCE(settings.cli_version, '') AS cli_version,
+		COALESCE(settings.heartbeat_contract_version, '') AS heartbeat_contract_version,
+		COALESCE(settings.skill_revision, '') AS skill_revision,
+		COALESCE(settings.heartbeat_reported_at, 0) AS heartbeat_reported_at
+		FROM agents a
+		LEFT JOIN agent_email_bindings b ON b.agent_id = a.agent_id
+			AND %s
+		LEFT JOIN agent_settings settings ON settings.agent_id = a.agent_id
+		WHERE a.agent_id = ?`, legacyBindingClause)
+	if err := s.db.Raw(query, id).Scan(&identity).Error; err != nil {
+		fail(c, http.StatusInternalServerError, "SESSION_READ_FAILED", "could not read Agent identity", nil)
+		return
+	}
+	verificationLevel := "unverified"
+	if identity.EmailVerified {
+		verificationLevel = "email_verified"
+	}
+	if identity.IsOfficial {
+		verificationLevel = "official"
+	}
+	// Agent-key possession authenticates the local runtime, but it does not
+	// prove which human owns the Console account. Only a verified email binding
+	// completes the claim step.
+	legacyIdentityTrusted := identity.LegacyIdentityTrusted
+	emailBound := identity.EmailVerified
+    ownerUID := ""
+    ownerBound := false
+    if ownerauth.UIDEnabled() {
+        if err := s.db.Raw(`SELECT a.account_number::text FROM agent_owners o JOIN human_accounts a ON a.uid=o.owner_uid WHERE o.agent_id=?`, id).Scan(&ownerUID).Error; err != nil {
+            fail(c, 500, "SESSION_READ_FAILED", "could not read owner", nil); return
+        }
+        if !ownerBound {
+            sessionID, _ := c.Get("console_session_id")
+            if err := s.db.Raw(`SELECT EXISTS (SELECT 1 FROM console_v2_sessions s JOIN agent_owners o ON o.agent_id=s.agent_id AND o.owner_uid=s.owner_uid WHERE s.session_id=? AND s.auth_method='uid_password' AND s.status='active')`, sessionID).Scan(&ownerBound).Error; err != nil {
+                fail(c, 500, "SESSION_READ_FAILED", "could not read owner session", nil); return
+            }
+        }
+    }
+
+	runtime, runtimeName, runtimeVersion := consoleSessionRuntime(
+		identity.RuntimeName, identity.RuntimeVersion, identity.ClientHost,
+	)
+	identityState := "not_connected"
+	if state.State == "completed" {
+		identityState = "connected"
+	}
+	reply(c, http.StatusOK, map[string]interface{}{
+		"agent_id":                fmt.Sprintf("%d", id),
+		"short_id":                identity.ShortID,
+		"elsewhere_id":            "elsewhere#" + identity.ShortID,
+		"agent_name":              identity.AgentName,
+		"agent_name_en":           identity.AgentNameEn,
+		"bio":                     identity.Bio,
+		"created_at":              identity.CreatedAt,
+		"email":                   identity.BoundEmail,
+		"email_bound":             emailBound,
+        "owner_uid": ownerUID, "owner_bound": ownerBound,
+		"legacy_identity_trusted": legacyIdentityTrusted,
+		"verification_level":      verificationLevel,
+		"runtime":                 runtime,
+		"runtime_name":            runtimeName,
+		"runtime_version":         runtimeVersion,
+		"runtime_mode":            identity.RuntimeMode,
+		"device_name":             identity.DeviceName,
+		"identity_state":          identityState,
+		"connection":              map[string]interface{}{"state": identityState},
+		"compatibility":           consoleV2Compatibility(identity.CLIVersion, identity.HeartbeatContract, identity.SkillRevision, identity.HeartbeatReportedAt, state.State == "completed"),
+		"onboarding":              state,
+	})
+}
+
+func consoleSessionRuntime(name, version, clientHost string) (runtime, runtimeName, runtimeVersion string) {
+	runtimeName = strings.TrimSpace(name)
+	runtimeVersion = strings.TrimSpace(version)
+	if runtimeName == "" {
+		if identity, ok := runtimeidentity.Parse(clientHost); ok {
+			runtimeName, runtimeVersion = identity.Name, identity.Version
+		}
+	}
+	if runtimeName == "" {
+		return "", "", ""
+	}
+	runtime = runtimeName
+	if runtimeVersion != "" {
+		runtime += "/" + runtimeVersion
+	}
+	return runtime, runtimeName, runtimeVersion
+}
+
+func (s *Service) deleteConsoleSession(_ context.Context, c *app.RequestContext) {
+	sessionValue, ok := c.Get("console_session_id")
+	sessionID, typeOK := sessionValue.(string)
+	if !ok || !typeOK || sessionID == "" {
+		fail(c, http.StatusUnauthorized, "CONSOLE_SESSION_REQUIRED", "Console V2 session is required", nil)
+		return
+	}
+	now := time.Now().UnixMilli()
+	currentAgentID, _ := agentID(c)
+	if _, err := s.revokeConsoleAccountSessions(c, currentAgentID, now); err != nil {
+		fail(c, http.StatusInternalServerError, "LOGOUT_FAILED", "could not revoke Console V2 session", nil)
+		return
+	}
+	if err := s.db.Exec(`UPDATE console_v2_sessions SET status = 'revoked', revoked_at = ?
+		WHERE session_id = ? AND status = 'active'`, now, sessionID).Error; err != nil {
+		fail(c, http.StatusInternalServerError, "LOGOUT_FAILED", "could not revoke Console V2 session", nil)
+		return
+	}
+	slot := 0
+	if value, ok := c.Get("console_session_slot"); ok {
+		if selected, valid := value.(int); valid && selected >= 0 && selected < maxConsoleAccountSlots {
+			slot = selected
+		}
+	}
+	s.setConsoleCookieAtSlot(c, slot, "", -1)
+	s.setCSRFCookieAtSlot(c, slot, "", -1)
+	nextSlot := -1
+	nextAgentID := int64(0)
+	for candidateSlot := 0; candidateSlot < maxConsoleAccountSlots; candidateSlot++ {
+		if candidateSlot == slot {
+			continue
+		}
+		credential, present := consoleCredential(c, candidateSlot)
+		if !present {
+			continue
+		}
+		session, loadErr := s.loadConsoleSessionCredential(s.db, credential)
+		if loadErr == nil && validConsoleSessionAt(session, now) {
+			nextSlot, nextAgentID = candidateSlot, session.AgentID
+			break
+		}
+	}
+	if nextSlot >= 0 {
+		s.setActiveConsoleSlot(c, nextSlot, int(consoleAbsoluteTTL/time.Second))
+	} else {
+		s.setActiveConsoleSlot(c, 0, -1)
+	}
+	reply(c, http.StatusOK, map[string]interface{}{
+		"revoked": true, "active_agent_id": func() string {
+			if nextAgentID <= 0 {
+				return ""
+			}
+			return strconv.FormatInt(nextAgentID, 10)
+		}(),
+	})
+}
+
+type putDraftRequest struct {
+	ExpectedRevision int64             `json:"expected_revision"`
+	IdempotencyKey   string            `json:"idempotency_key"`
+	Draft            json.RawMessage   `json:"draft"`
+	FieldProvenance  map[string]string `json:"field_provenance,omitempty"`
+}
+
+type putDraftResponse struct {
+	Revision        int64                      `json:"revision"`
+	FieldProvenance map[string]fieldProvenance `json:"field_provenance"`
+	BlockedPaths    []string                   `json:"blocked_paths"`
+}
+
+func (s *Service) putOnboardingDraft(_ context.Context, c *app.RequestContext) {
+	id, ok := agentID(c)
+	if !ok {
+		fail(c, http.StatusUnauthorized, "AGENT_AUTH_REQUIRED", "Agent V2 authentication is required", nil)
+		return
+	}
+	var req putDraftRequest
+	if err := decodeBody(c, &req); err != nil {
+		fail(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error(), nil)
+		return
+	}
+	if req.ExpectedRevision <= 0 || len(req.IdempotencyKey) == 0 || len(req.IdempotencyKey) > 128 {
+		fail(c, http.StatusBadRequest, "INVALID_REQUEST", "expected_revision and idempotency_key are required", nil)
+		return
+	}
+	if len(req.Draft) == 0 || len(req.Draft) > maxRequestBytes {
+		fail(c, http.StatusBadRequest, "INVALID_DRAFT", "draft must be a JSON object within the transport batch limit", nil)
+		return
+	}
+	normalizedDraft, draftObject, normalizeErr := normalizeOnboardingDraftJSON(req.Draft)
+	if normalizeErr != nil {
+		fail(c, http.StatusBadRequest, "INVALID_DRAFT", normalizeErr.Error(), nil)
+		return
+	}
+	req.Draft = normalizedDraft
+	actorType := "agent_prefill"
+	if _, console := c.Get("console_session_id"); console {
+		actorType = "human_edit"
+	}
+	if actorType == provenanceAgent {
+		if err := validateRequestedAgentProvenance(req.FieldProvenance); err != nil {
+			fail(c, http.StatusBadRequest, "INVALID_FIELD_PROVENANCE", err.Error(), nil)
+			return
+		}
+	} else {
+		req.FieldProvenance = nil
+	}
+	provenanceRequestJSON, _ := json.Marshal(req.FieldProvenance)
+	requestHash := hashString(fmt.Sprintf("%d:%s:%s:%s", req.ExpectedRevision, req.Draft, provenanceRequestJSON, actorType))
+	response := putDraftResponse{FieldProvenance: map[string]fieldProvenance{}, BlockedPaths: []string{}}
+	now := time.Now().UnixMilli()
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var prior struct {
+			RequestHash string `gorm:"column:request_hash"`
+			Response    string `gorm:"column:response_snapshot"`
+		}
+		if err := tx.Raw(`SELECT request_hash, response_snapshot::text AS response_snapshot FROM agent_idempotency_requests
+			WHERE agent_id = ? AND operation = 'onboarding_draft_put' AND idempotency_key = ?`, id, req.IdempotencyKey).Scan(&prior).Error; err != nil {
+			return err
+		}
+		if prior.RequestHash != "" {
+			if prior.RequestHash != requestHash {
+				return errConflict
+			}
+			return json.Unmarshal([]byte(prior.Response), &response)
+		}
+		var row onboardingState
+		if err := tx.Raw(`SELECT state, current_step, revision FROM agent_onboarding_v2
+			WHERE agent_id = ? FOR UPDATE`, id).Scan(&row).Error; err != nil {
+			return err
+		}
+		if row.State == "completed" || row.Revision != req.ExpectedRevision {
+			return errConflict
+		}
+		var stored struct {
+			DraftData       string `gorm:"column:draft_data"`
+			FieldProvenance string `gorm:"column:field_provenance"`
+			ActorType       string `gorm:"column:actor_type"`
+		}
+		if err := tx.Raw(`SELECT draft_data::text AS draft_data,
+				field_provenance::text AS field_provenance, actor_type
+			FROM agent_onboarding_drafts WHERE agent_id = ?
+			ORDER BY revision DESC LIMIT 1`, id).Scan(&stored).Error; err != nil {
+			return err
+		}
+		previous, err := decodeJSONObject(json.RawMessage(stored.DraftData))
+		if err != nil {
+			return err
+		}
+		incoming := draftObject
+		provenance := decodeProvenance(json.RawMessage(stored.FieldProvenance))
+		if len(provenance) == 0 && validProvenance(stored.ActorType) {
+			provenance = deriveInitialProvenance(previous, stored.ActorType, nil, now)
+		}
+		merged, provenance, blockedPaths := mergeOnboardingDraft(previous, incoming, provenance, actorType, req.FieldProvenance, now)
+		mergedJSON, err := json.Marshal(merged)
+		if err != nil {
+			return err
+		}
+		provenanceJSON, err := json.Marshal(provenance)
+		if err != nil {
+			return err
+		}
+		newRevision := row.Revision + 1
+		response = putDraftResponse{
+			Revision: newRevision, FieldProvenance: provenance, BlockedPaths: blockedPaths,
+		}
+		if err := tx.Exec(`INSERT INTO agent_onboarding_drafts
+			(agent_id, revision, draft_data, field_provenance, actor_type, request_id, created_at)
+			VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)`, id, newRevision,
+			string(mergedJSON), string(provenanceJSON), actorType, req.IdempotencyKey, now).Error; err != nil {
+			return err
+		}
+		if res := tx.Exec(`UPDATE agent_onboarding_v2 SET revision = ?, updated_at = ?
+			WHERE agent_id = ? AND revision = ?`, newRevision, now, id, row.Revision); res.Error != nil || res.RowsAffected != 1 {
+			return errConflict
+		}
+		snapshot, _ := json.Marshal(response)
+		return tx.Exec(`INSERT INTO agent_idempotency_requests
+			(agent_id, operation, idempotency_key, request_hash, response_snapshot, expires_at, created_at)
+			VALUES (?, 'onboarding_draft_put', ?, ?, ?::jsonb, ?, ?)`, id, req.IdempotencyKey,
+			requestHash, string(snapshot), now+int64(24*time.Hour/time.Millisecond), now).Error
+	})
+	if err != nil && (errors.Is(err, errConflict) || isUniqueViolation(err)) {
+		found, hashConflict, replayErr := s.loadIdempotentResponse(id, "onboarding_draft_put", req.IdempotencyKey, requestHash, &response)
+		switch {
+		case replayErr != nil:
+			err = replayErr
+		case found && hashConflict:
+			err = errConflict
+		case found:
+			err = nil
+		}
+	}
+	if errors.Is(err, errConflict) {
+		fail(c, http.StatusConflict, "REVISION_CONFLICT", "draft changed or idempotency key was reused with a different request", nil)
+		return
+	}
+	if err != nil {
+		fail(c, http.StatusInternalServerError, "DRAFT_SAVE_FAILED", "could not save onboarding draft", nil)
+		return
+	}
+	reply(c, http.StatusOK, response)
+}
+
+func (s *Service) getOnboardingDraft(_ context.Context, c *app.RequestContext) {
+	id, ok := agentID(c)
+	if !ok {
+		fail(c, http.StatusUnauthorized, "CONSOLE_SESSION_REQUIRED", "Console V2 session is required", nil)
+		return
+	}
+	state, draft, err := s.loadOnboarding(id)
+	if err != nil {
+		fail(c, http.StatusInternalServerError, "DRAFT_READ_FAILED", "could not read onboarding draft", nil)
+		return
+	}
+	reply(c, http.StatusOK, map[string]interface{}{"onboarding": state, "draft": draft, "limits": onboardingLimits()})
+}
+
+type confirmStepRequest struct {
+	Step                       int16  `json:"step"`
+	ExpectedOnboardingRevision int64  `json:"expected_onboarding_revision"`
+	IdempotencyKey             string `json:"idempotency_key"`
+}
+
+type identityCardDraft struct {
+	AgentName         string   `json:"agent_name"`
+	Bio               string   `json:"bio"`
+	AgentDescription  string   `json:"agent_description"`
+	HumanDescription  *string  `json:"human_description"`
+	WorkingLanguages  []string `json:"working_languages"`
+	Seeking           []string `json:"seeking"`
+	Offering          []string `json:"offering"`
+	Geo               *string  `json:"geo"`
+	Timezone          *string  `json:"timezone"`
+	CurrentFocus      []string `json:"current_focus"`
+	Demands           []string `json:"demands"`
+	AgentStatus       []string `json:"agent_status"`
+	HumanStatus       []string `json:"human_status"`
+	InterestsNegative []string `json:"interests_negative"`
+}
+
+type draftPayload struct {
+ TwinProfile *twinProfile `json:"twin_profile,omitempty"`
+	IdentityCard     identityCardDraft `json:"identity_card"`
+	SecurityBoundary struct {
+		RecurringPublish bool `json:"recurring_publish"`
+		AutoReplyPM      bool `json:"auto_reply_pm"`
+		AutoComment      bool `json:"auto_comment"`
+		ShowAddFriend    bool `json:"show_add_friend"`
+	} `json:"security_boundary"`
+	NetworkGoal   string `json:"network_goal"`
+	IntentActions []struct {
+		WatchFor          string `json:"watch_for"`
+		TriggerWhen       string `json:"trigger_when"`
+		ActionInstruction string `json:"action_instruction"`
+		ActionPolicy      string `json:"action_policy"`
+		Priority          int16  `json:"priority"`
+	} `json:"intent_actions"`
+}
+
+var (
+	errInvalidOnboardingDraft = errors.New("invalid onboarding draft")
+	errEmailBindingRequired   = errors.New("verified email binding required")
+)
+
+func validateDraftPayload(payload draftPayload) error {
+ if payload.TwinProfile != nil { if err := validateTwinProfile(*payload.TwinProfile, false); err != nil { return err } }
+	if utf8.RuneCountInString(payload.IdentityCard.AgentName) > 100 || utf8.RuneCountInString(payload.IdentityCard.Bio) > 2000 {
+		return errors.New("identity card exceeds its length limit")
+	}
+	if utf8.RuneCountInString(payload.NetworkGoal) > onboardingNetworkGoalMaxChars {
+		return fmt.Errorf("network goal exceeds %d characters", onboardingNetworkGoalMaxChars)
+	}
+	if len(payload.IntentActions) > onboardingIntentMaxItems {
+		return fmt.Errorf("at most %d intent actions are allowed", onboardingIntentMaxItems)
+	}
+	for _, intent := range payload.IntentActions {
+		if err := validateIntent(IntentWriteFields{
+			WatchFor: intent.WatchFor, TriggerWhen: intent.TriggerWhen,
+			ActionInstruction: intent.ActionInstruction, ActionPolicy: intent.ActionPolicy,
+			Priority: intent.Priority,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateDraftStep(payload draftPayload, step int16) error {
+	switch step {
+	case 2:
+		description := payload.IdentityCard.AgentDescription
+		if description == "" {
+			description = payload.IdentityCard.Bio
+		}
+		if err := validateIdentityCardFields(payload.IdentityCard.AgentName, description); err != nil {
+			return fmt.Errorf("%w: %v", errInvalidOnboardingDraft, err)
+		}
+		identityFields := map[string]interface{}{}
+		for name, value := range map[string]*string{
+			"human_description": payload.IdentityCard.HumanDescription,
+			"geo":               payload.IdentityCard.Geo,
+			"timezone":          payload.IdentityCard.Timezone,
+		} {
+			if value != nil {
+				identityFields[name] = *value
+			}
+		}
+		for name, value := range map[string][]string{
+			"working_languages":  payload.IdentityCard.WorkingLanguages,
+			"seeking":            payload.IdentityCard.Seeking,
+			"offering":           payload.IdentityCard.Offering,
+			"agent_status":       payload.IdentityCard.AgentStatus,
+			"human_status":       payload.IdentityCard.HumanStatus,
+			"interests_negative": payload.IdentityCard.InterestsNegative,
+		} {
+			// Older drafts did not include these additive Card fields. Missing
+			// must remain valid; an explicit empty array is still persisted.
+			if value != nil {
+				identityFields[name] = value
+			}
+		}
+		for name, value := range identityFields {
+			spec, ok := agentcard.LookupField(name)
+			if !ok {
+				return fmt.Errorf("%w: unsupported identity field %s", errInvalidOnboardingDraft, name)
+			}
+			raw, _ := json.Marshal(value)
+			normalized, err := agentcard.ValidateValue(spec, raw)
+			if err != nil {
+				return fmt.Errorf("%w: %v", errInvalidOnboardingDraft, err)
+			}
+			if err := agentcard.ValidateConsoleV2Value(name, normalized); err != nil {
+				return fmt.Errorf("%w: %v", errInvalidOnboardingDraft, err)
+			}
+			if spec.Public {
+				if err := agentcard.ValidatePublicContent(spec, normalized); err != nil {
+					return fmt.Errorf("%w: %v", errInvalidOnboardingDraft, err)
+				}
+			}
+		}
+	case 3:
+		if strings.TrimSpace(payload.NetworkGoal) == "" {
+			return fmt.Errorf("%w: network_goal is required", errInvalidOnboardingDraft)
+		}
+		if utf8.RuneCountInString(payload.NetworkGoal) > onboardingNetworkGoalMaxChars {
+			return fmt.Errorf("%w: network goal exceeds %d characters", errInvalidOnboardingDraft, onboardingNetworkGoalMaxChars)
+		}
+	case 4:
+		if len(payload.IntentActions) > onboardingIntentMaxItems {
+			return fmt.Errorf("%w: at most %d intent actions are allowed", errInvalidOnboardingDraft, onboardingIntentMaxItems)
+		}
+		for _, intent := range payload.IntentActions {
+			if err := validateIntent(IntentWriteFields{
+				WatchFor: intent.WatchFor, TriggerWhen: intent.TriggerWhen,
+				ActionInstruction: intent.ActionInstruction, ActionPolicy: intent.ActionPolicy,
+				Priority: intent.Priority,
+			}); err != nil {
+				return fmt.Errorf("%w: %v", errInvalidOnboardingDraft, err)
+			}
+		}
+	case 5:
+		return nil
+	default:
+		return fmt.Errorf("%w: unsupported onboarding step", errInvalidOnboardingDraft)
+	}
+	return nil
+}
+
+func canConfirmOnboardingStep(state string, currentStep, requestedStep int16) bool {
+	return state != "completed" && requestedStep >= 2 && requestedStep <= currentStep
+}
+
+func nextOnboardingStep(currentStep, confirmedStep int16) int16 {
+	if confirmedStep == currentStep && currentStep < 5 {
+		return currentStep + 1
+	}
+	return currentStep
+}
+
+func (s *Service) confirmOnboardingStep(ctx context.Context, c *app.RequestContext) {
+	id, ok := agentID(c)
+	if !ok {
+		fail(c, http.StatusUnauthorized, "CONSOLE_SESSION_REQUIRED", "Console V2 session is required", nil)
+		return
+	}
+	sessionValue, hasSession := c.Get("console_session_id")
+	sessionID, sessionOK := sessionValue.(string)
+	if !hasSession || !sessionOK || sessionID == "" {
+		fail(c, http.StatusUnauthorized, "CONSOLE_SESSION_REQUIRED", "Console V2 session is required", nil)
+		return
+	}
+	var req confirmStepRequest
+	if err := decodeBody(c, &req); err != nil || req.Step < 2 || req.Step > 5 || req.ExpectedOnboardingRevision <= 0 || req.IdempotencyKey == "" {
+		fail(c, http.StatusBadRequest, "INVALID_REQUEST", "step, expected_onboarding_revision, and idempotency_key are required", nil)
+		return
+	}
+	requestHash := hashString(fmt.Sprintf("%d:%d", req.Step, req.ExpectedOnboardingRevision))
+	var response map[string]interface{}
+	replayed := false
+	accountSwitchCompleted := false
+	confirmedIntentCount := 0
+	now := time.Now().UnixMilli()
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var prior struct {
+			RequestHash string `gorm:"column:request_hash"`
+			Response    string `gorm:"column:response_snapshot"`
+		}
+		if err := tx.Raw(`SELECT request_hash, response_snapshot::text AS response_snapshot FROM agent_idempotency_requests
+			WHERE agent_id = ? AND operation = 'onboarding_confirm' AND idempotency_key = ?`, id, req.IdempotencyKey).Scan(&prior).Error; err != nil {
+			return err
+		}
+		if prior.RequestHash != "" {
+			if prior.RequestHash != requestHash {
+				return errConflict
+			}
+			return json.Unmarshal([]byte(prior.Response), &response)
+		}
+		var state onboardingState
+		if err := tx.Raw(`SELECT state, current_step, revision, active_context_revision, completed_at
+			FROM agent_onboarding_v2 WHERE agent_id = ? FOR UPDATE`, id).Scan(&state).Error; err != nil {
+			return err
+		}
+		// A user may revisit and re-confirm any already unlocked step. A prior
+		// step updates its canonical data but never moves the onboarding cursor
+		// backwards; future/locked steps remain rejected.
+		if !canConfirmOnboardingStep(state.State, state.CurrentStep, req.Step) || state.Revision != req.ExpectedOnboardingRevision {
+			return errConflict
+		}
+		var emailVerifiedForSession bool
+		if err := tx.Raw(`SELECT EXISTS (
+			SELECT 1 FROM v2_email_challenges challenges
+			WHERE challenges.console_session_id = ?
+			  AND challenges.subject_agent_id = ?
+			  AND challenges.purpose = 'bind'
+			  AND challenges.status = 'consumed'
+		) OR EXISTS (
+			SELECT 1 FROM agent_account_recoveries recoveries
+			WHERE recoveries.console_session_id = ?
+			  AND recoveries.target_agent_id = ?
+			  AND recoveries.status = 'completed'
+		) OR EXISTS (
+			SELECT 1 FROM agent_cli_account_switches switches
+			WHERE switches.target_console_session_id = ?
+			  AND switches.target_agent_id = ?
+			  AND switches.status IN ('pending_onboarding', 'completed')
+			  AND switches.ownership_verified_at IS NOT NULL
+			  AND switches.expires_at >= ?
+		)`, sessionID, id, sessionID, id, sessionID, id, now).Scan(&emailVerifiedForSession).Error; err != nil {
+			return err
+		}
+        if ownerauth.UIDEnabled() {
+            if err := tx.Raw(`SELECT EXISTS (SELECT 1 FROM console_v2_sessions s JOIN agent_owners o ON o.agent_id=s.agent_id AND o.owner_uid=s.owner_uid WHERE s.session_id=? AND s.agent_id=? AND s.auth_method='uid_password' AND s.status='active')`, sessionID,id).Scan(&emailVerifiedForSession).Error; err != nil { return err }
+        }
+		if !emailVerifiedForSession {
+			return errEmailBindingRequired
+		}
+		var storedDraft struct {
+			DraftData       string `gorm:"column:draft_data"`
+			FieldProvenance string `gorm:"column:field_provenance"`
+			ActorType       string `gorm:"column:actor_type"`
+		}
+		if err := tx.Raw(`SELECT draft_data::text AS draft_data,
+				field_provenance::text AS field_provenance, actor_type
+			FROM agent_onboarding_drafts
+			WHERE agent_id = ? ORDER BY revision DESC LIMIT 1`, id).Scan(&storedDraft).Error; err != nil {
+			return err
+		}
+		normalizedDraftJSON, rawDraft, err := normalizeOnboardingDraftJSON(json.RawMessage(storedDraft.DraftData))
+		if err != nil {
+			return fmt.Errorf("%w: %v", errInvalidOnboardingDraft, err)
+		}
+		var payload draftPayload
+		if err := json.Unmarshal(normalizedDraftJSON, &payload); err != nil {
+			return fmt.Errorf("%w: %v", errInvalidOnboardingDraft, err)
+		}
+		if req.Step == 4 {
+			confirmedIntentCount = len(payload.IntentActions)
+		}
+		provenance := decodeProvenance(json.RawMessage(storedDraft.FieldProvenance))
+		if len(provenance) == 0 && validProvenance(storedDraft.ActorType) {
+			provenance = deriveInitialProvenance(rawDraft, storedDraft.ActorType, nil, now)
+		}
+		if err := validateDraftStep(payload, req.Step); err != nil {
+			return err
+		}
+		provenance = confirmStepProvenance(rawDraft, provenance, req.Step, now)
+		if err := applyConfirmedStep(tx, id, req.Step, payload, provenance, now); err != nil {
+			return err
+		}
+		newRevision := state.Revision + 1
+		nextStep := nextOnboardingStep(state.CurrentStep, req.Step)
+		newState := "in_progress"
+		var contextRevision interface{}
+		if req.Step == 5 && req.Step == state.CurrentStep {
+			compiled, revision, err := compileAndActivateContext(tx, id, now)
+			if err != nil {
+				return err
+			}
+			_ = compiled
+			if err := tx.Exec(`UPDATE agent_principals SET status = 'active', last_seen_at = ?
+				WHERE agent_id = ? AND status = 'limited' AND revoked_at IS NULL`, now, id).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec(`UPDATE agent_credential_sessions SET scopes = ?
+				WHERE principal_id IN (SELECT principal_id FROM agent_principals WHERE agent_id = ?)
+				  AND revoked_at IS NULL AND expires_at > ?`, pq.Array(principalScopesForOnboarding("completed")), id, now).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec(`UPDATE agents SET profile_completed_at = COALESCE(profile_completed_at, ?),
+				updated_at = ? WHERE agent_id = ?`, now, now, id).Error; err != nil {
+				return err
+			}
+			if err := firstcontact.Ensure(tx, id, s.idgen.NextID); err != nil {
+				return err
+			}
+			contextRevision = revision
+			newState = "completed"
+			nextStep = 5
+			if res := tx.Exec(`UPDATE agent_onboarding_v2 SET state = 'completed', current_step = 5,
+				revision = ?, active_context_revision = ?, completed_at = ?, updated_at = ?
+				WHERE agent_id = ? AND revision = ?`, newRevision, revision, now, now, id, state.Revision); res.Error != nil || res.RowsAffected != 1 {
+				return errConflict
+			}
+		} else {
+			if res := tx.Exec(`UPDATE agent_onboarding_v2 SET current_step = ?, revision = ?, updated_at = ?
+				WHERE agent_id = ? AND revision = ?`, nextStep, newRevision, now, id, state.Revision); res.Error != nil || res.RowsAffected != 1 {
+				return errConflict
+			}
+		}
+		provenanceJSON, err := json.Marshal(provenance)
+		if err != nil {
+			return err
+		}
+		if err := tx.Exec(`INSERT INTO agent_onboarding_drafts
+			(agent_id, revision, draft_data, field_provenance, actor_type, request_id, created_at)
+			VALUES (?, ?, ?::jsonb, ?::jsonb, 'human_edit', ?, ?)`, id, newRevision,
+			string(normalizedDraftJSON), string(provenanceJSON), "confirm:"+hashString(req.IdempotencyKey), now).Error; err != nil {
+			return err
+		}
+		response = map[string]interface{}{
+			"state": newState, "current_step": nextStep, "revision": newRevision,
+			"active_context_revision": contextRevision,
+		}
+		if newState == "completed" {
+			response["identity_state"] = "connected"
+			response["connection"] = map[string]interface{}{"state": "connected"}
+			completed, err := s.finalizePendingCLIAccountSwitch(tx, c, id, sessionID, now)
+			if err != nil {
+				return err
+			}
+			accountSwitchCompleted = completed
+			if completed {
+				response["account_switch"] = map[string]interface{}{"status": "completed", "refresh_required": true}
+			}
+		}
+		snapshot, _ := json.Marshal(response)
+		return tx.Exec(`INSERT INTO agent_idempotency_requests
+			(agent_id, operation, idempotency_key, request_hash, response_snapshot, expires_at, created_at)
+			VALUES (?, 'onboarding_confirm', ?, ?, ?::jsonb, ?, ?)`, id, req.IdempotencyKey,
+			requestHash, string(snapshot), now+int64(24*time.Hour/time.Millisecond), now).Error
+	})
+	if err != nil && (errors.Is(err, errConflict) || isUniqueViolation(err)) {
+		found, hashConflict, replayErr := s.loadIdempotentResponse(id, "onboarding_confirm", req.IdempotencyKey, requestHash, &response)
+		switch {
+		case replayErr != nil:
+			err = replayErr
+		case found && hashConflict:
+			err = errConflict
+		case found:
+			replayed = true
+			err = nil
+		}
+	}
+	if errors.Is(err, errConflict) {
+		fail(c, http.StatusConflict, "REVISION_CONFLICT", "onboarding step or revision changed", nil)
+		return
+	}
+	if errors.Is(err, errEmailBindingRequired) {
+		fail(c, http.StatusConflict, "EMAIL_BINDING_REQUIRED", "verify your owner account before confirming onboarding", nil)
+		return
+	}
+	if errors.Is(err, errInvalidOnboardingDraft) {
+		fail(c, http.StatusBadRequest, "CONFIRM_FAILED", err.Error(), nil)
+		return
+	}
+	if err != nil {
+		fail(c, http.StatusInternalServerError, "CONFIRM_FAILED", "could not confirm onboarding step", nil)
+		return
+	}
+	if !replayed && req.Step == 2 {
+		agentcard.PublishRebuild(ctx, id, "console_v2_onboarding_identity")
+		activity.PublishAgentCardUpdate(ctx, id)
+	}
+	if !replayed && req.Step == 3 {
+		activity.PublishNetworkGoalUpdate(ctx, id)
+	}
+	if !replayed && req.Step == 4 {
+		activity.PublishIntentActionsUpdate(ctx, id, confirmedIntentCount)
+	}
+	if !replayed && req.Step == 5 && response["state"] == "completed" {
+		publishProfileCompletion(ctx, id)
+		firstcontact.Notify(ctx, s.db, id)
+		activity.PublishOnboardingCompleted(ctx, id)
+	}
+	if accountSwitchCompleted {
+		s.setCLIAccountSwitchCookie(c, "", -1)
+	}
+	reply(c, http.StatusOK, response)
+}
+
+func publishProfileCompletion(ctx context.Context, agentID int64) {
+	if mq.RDB == nil {
+		logger.Default().Warn("profile completion publish skipped: redis unavailable", "agentID", agentID)
+		return
+	}
+	if _, err := mq.Publish(ctx, "stream:profile:update", map[string]interface{}{
+		"agent_id": strconv.FormatInt(agentID, 10),
+	}); err != nil {
+		logger.Default().Warn("profile completion publish failed", "agentID", agentID, "err", err)
+	}
+}
+
+func applyConfirmedStep(tx *gorm.DB, agentID int64, step int16, payload draftPayload, provenance map[string]fieldProvenance, now int64) error {
+	switch step {
+	case 2:
+		if strings.TrimSpace(payload.IdentityCard.AgentName) == "" {
+			return fmt.Errorf("%w: agent_name is required", errInvalidOnboardingDraft)
+		}
+		description := payload.IdentityCard.AgentDescription
+		if description == "" {
+			description = payload.IdentityCard.Bio
+		}
+		if err := tx.Exec(`UPDATE agents SET agent_name = ?, bio = ?, updated_at = ? WHERE agent_id = ?`,
+			payload.IdentityCard.AgentName, description, now, agentID).Error; err != nil {
+			return err
+		}
+		if err := profiledal.EnsureAgentProfileRow(tx, agentID); err != nil {
+			return err
+		}
+		version, _, err := profiledal.GetProfileVersionAndData(tx, agentID)
+		if err != nil {
+			return err
+		}
+		values := map[string]interface{}{}
+		for key, value := range map[string]*string{
+			"human_description": payload.IdentityCard.HumanDescription,
+			"geo":               payload.IdentityCard.Geo,
+			"timezone":          payload.IdentityCard.Timezone,
+		} {
+			if value != nil {
+				values[key] = *value
+			}
+		}
+		for key, value := range map[string][]string{
+			"working_languages":  payload.IdentityCard.WorkingLanguages,
+			"seeking":            payload.IdentityCard.Seeking,
+			"offering":           payload.IdentityCard.Offering,
+			"current_focus":      payload.IdentityCard.CurrentFocus,
+			"demands":            payload.IdentityCard.Demands,
+			"agent_status":       payload.IdentityCard.AgentStatus,
+			"human_status":       payload.IdentityCard.HumanStatus,
+			"interests_negative": payload.IdentityCard.InterestsNegative,
+		} {
+			if value != nil {
+				values[key] = value
+			}
+		}
+		merge := make(map[string]json.RawMessage, len(values))
+		for key, value := range values {
+			encoded, marshalErr := json.Marshal(value)
+			if marshalErr != nil {
+				return marshalErr
+			}
+			merge[key] = encoded
+		}
+		_, conflict, err := profiledal.ApplyVersionedProfileDataUpdate(tx, agentID, version, merge)
+		if conflict {
+			return errConflict
+		}
+		return err
+	case 3:
+		if strings.TrimSpace(payload.NetworkGoal) == "" {
+			return fmt.Errorf("%w: network_goal is required", errInvalidOnboardingDraft)
+		}
+		if err := tx.Exec(`UPDATE agent_network_goals SET status = 'deleted', updated_at = ?
+			WHERE agent_id = ? AND status = 'active'`, now, agentID).Error; err != nil {
+			return err
+		}
+		return tx.Exec(`INSERT INTO agent_network_goals
+			(agent_id, goal_text, source, status, version, created_at, updated_at)
+			VALUES (?, ?, ?, 'active', 1, ?, ?)`, agentID, payload.NetworkGoal,
+			canonicalSource(provenance, "network_goal"), now, now).Error
+	case 4:
+		if err := tx.Exec(`UPDATE agent_intent_actions SET status = 'deleted', updated_at = ?
+			WHERE agent_id = ? AND status <> 'deleted'`, now, agentID).Error; err != nil {
+			return err
+		}
+		for _, intent := range payload.IntentActions {
+			if err := tx.Exec(`INSERT INTO agent_intent_actions
+				(agent_id, watch_for, trigger_when, action_instruction, action_policy, priority,
+				 source, status, version, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?)`, agentID,
+				intent.WatchFor, intent.TriggerWhen, intent.ActionInstruction, intent.ActionPolicy,
+				intent.Priority, canonicalSource(provenance, "intent_actions"), now, now).Error; err != nil {
+				return err
+			}
+		}
+	case 5:
+		return tx.Exec(`INSERT INTO agent_settings
+			(agent_id, recurring_publish, auto_reply_pm, auto_comment, show_add_friend, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT (agent_id) DO UPDATE SET recurring_publish = EXCLUDED.recurring_publish,
+				auto_reply_pm = EXCLUDED.auto_reply_pm, auto_comment = EXCLUDED.auto_comment,
+				show_add_friend = EXCLUDED.show_add_friend, updated_at = EXCLUDED.updated_at`, agentID,
+			payload.SecurityBoundary.RecurringPublish, payload.SecurityBoundary.AutoReplyPM,
+			payload.SecurityBoundary.AutoComment, payload.SecurityBoundary.ShowAddFriend, now).Error
+	}
+	return nil
+}
+
+func compileAndActivateContext(tx *gorm.DB, agentID, now int64) (json.RawMessage, int64, error) {
+	var head struct {
+		CurrentRevision int64 `gorm:"column:current_revision"`
+	}
+	if err := tx.Raw(`SELECT current_revision FROM agent_context_heads WHERE agent_id = ? FOR UPDATE`, agentID).Scan(&head).Error; err != nil {
+		return nil, 0, err
+	}
+	var goal struct {
+		GoalID   int64  `gorm:"column:goal_id" json:"goal_id,string"`
+		GoalText string `gorm:"column:goal_text" json:"text"`
+		Source   string `gorm:"column:source" json:"source"`
+		Status   string `gorm:"column:status" json:"status"`
+	}
+	if err := tx.Raw(`SELECT goal_id, goal_text, source, status FROM agent_network_goals
+		WHERE agent_id = ? AND status = 'active'`, agentID).Scan(&goal).Error; err != nil {
+		return nil, 0, err
+	}
+	var intents []struct {
+		IntentID          int64  `gorm:"column:intent_id" json:"intent_id,string"`
+		WatchFor          string `gorm:"column:watch_for" json:"watch_for"`
+		TriggerWhen       string `gorm:"column:trigger_when" json:"trigger_when"`
+		ActionInstruction string `gorm:"column:action_instruction" json:"then"`
+		ActionPolicy      string `gorm:"column:action_policy" json:"action_policy"`
+		Priority          int16  `gorm:"column:priority" json:"priority"`
+		Source            string `gorm:"column:source" json:"source"`
+		Status            string `gorm:"column:status" json:"status"`
+	}
+	if err := tx.Raw(`SELECT intent_id, watch_for, trigger_when, action_instruction,
+			action_policy, priority, source, status FROM agent_intent_actions
+		WHERE agent_id = ? AND status = 'active' ORDER BY priority DESC, intent_id`, agentID).Scan(&intents).Error; err != nil {
+		return nil, 0, err
+	}
+	var boundary struct {
+		RecurringPublish bool `gorm:"column:recurring_publish" json:"recurring_publish"`
+		AutoReplyPM      bool `gorm:"column:auto_reply_pm" json:"auto_reply_pm"`
+		AutoComment      bool `gorm:"column:auto_comment" json:"auto_comment"`
+		ShowAddFriend    bool `gorm:"column:show_add_friend" json:"show_add_friend"`
+		AutoStartPM bool `gorm:"column:auto_start_pm" json:"auto_start_pm"`
+		AutoConnect bool `gorm:"column:auto_connect" json:"auto_connect"`
+	}
+	if err := tx.Raw(`SELECT COALESCE(settings.recurring_publish, true) AS recurring_publish,
+			COALESCE(settings.auto_reply_pm, true) AS auto_reply_pm,
+			COALESCE(settings.auto_comment, true) AS auto_comment,
+			COALESCE(settings.show_add_friend, true) AS show_add_friend,
+			COALESCE(settings.auto_start_pm, false) AS auto_start_pm,
+			COALESCE(settings.auto_connect, false) AS auto_connect
+		FROM agents agent LEFT JOIN agent_settings settings ON settings.agent_id = agent.agent_id
+		WHERE agent.agent_id = ?`, agentID).Scan(&boundary).Error; err != nil {
+		return nil, 0, err
+	}
+	safety, err := compileSocialSafety(tx, agentID)
+	if err != nil { return nil, 0, err }
+	revision := head.CurrentRevision + 1
+	compiled, err := json.Marshal(map[string]interface{}{
+		"context_revision":  revision,
+		"network_goal":      goal,
+		"intent_actions":    intents,
+		"security_boundary": boundary,
+		"safety":            safety,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := tx.Exec(`INSERT INTO agent_context_revisions
+		(agent_id, revision, compiled_context, schema_version, generated_at)
+		VALUES (?, ?, ?::jsonb, 1, ?)`, agentID, revision, string(compiled), now).Error; err != nil {
+		return nil, 0, err
+	}
+	if res := tx.Exec(`UPDATE agent_context_heads SET current_revision = ?, active_revision = ?, updated_at = ?
+		WHERE agent_id = ? AND current_revision = ?`, revision, revision, now, agentID, head.CurrentRevision); res.Error != nil || res.RowsAffected != 1 {
+		return nil, 0, errConflict
+	}
+	return compiled, revision, nil
+}
+
+func (s *Service) getControlContext(_ context.Context, c *app.RequestContext) {
+	id, _ := agentID(c)
+	if err := s.ensureSocialContext(id); err != nil {
+		fail(c, http.StatusServiceUnavailable, "CONTEXT_NOT_AVAILABLE", "活动设置暂时无法更新", nil); return
+	}
+	ifNewer := int64(0)
+	if raw := strings.TrimSpace(c.Query("if_newer")); raw != "" {
+		value, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || value < 0 {
+			fail(c, http.StatusBadRequest, "INVALID_REVISION", "if_newer must be a non-negative revision", nil)
+			return
+		}
+		ifNewer = value
+	}
+	var row struct {
+		Revision int64  `gorm:"column:revision"`
+		Context  string `gorm:"column:compiled_context"`
+	}
+	if err := s.db.Raw(`SELECT r.revision, r.compiled_context::text AS compiled_context
+		FROM agent_context_heads h JOIN agent_context_revisions r
+		  ON r.agent_id = h.agent_id AND r.revision = h.active_revision
+		WHERE h.agent_id = ?`, id).Scan(&row).Error; err != nil || row.Revision == 0 {
+		fail(c, http.StatusInternalServerError, "CONTEXT_NOT_AVAILABLE", "active control context is not available", nil)
+		return
+	}
+	if ifNewer >= row.Revision {
+		reply(c, http.StatusOK, map[string]interface{}{"context_revision": row.Revision, "unchanged": true})
+		return
+	}
+	reply(c, http.StatusOK, map[string]interface{}{
+		"context_revision": row.Revision, "unchanged": false,
+		"control_context": json.RawMessage(row.Context),
+	})
+}

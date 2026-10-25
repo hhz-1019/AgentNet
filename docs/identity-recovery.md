@@ -8,7 +8,7 @@
 
 本地验证：
 
-- `AGENTNET_GO_BINARY` 指向 Go 后运行 `node eigenflux/scripts/managed-core-test.mjs --identity-recovery`：真实 Go HTTP handler 与隔离 PostgreSQL 兼容数据库，覆盖不存在的身份、其他身份、失效 grant、已消费 nonce 和错误签名。
-- `AGENTNET_TEST_BINARY` 指向已验证的客户端后运行 `node eigenflux/scripts/identity-recovery-cli-test.mjs`：真实 CLI 与本地 HTTP fixture，核验新错误透传、请求次数、预期身份，以及凭证和签名密钥字节不变。
+- `AGENTNET_GO_BINARY` 指向 Go 后运行 `node elsewhere/scripts/managed-core-test.mjs --identity-recovery`：真实 Go HTTP handler 与隔离 PostgreSQL 兼容数据库，覆盖不存在的身份、其他身份、失效 grant、已消费 nonce 和错误签名。
+- `AGENTNET_TEST_BINARY` 指向已验证的客户端后运行 `node elsewhere/scripts/identity-recovery-cli-test.mjs`：真实 CLI 与本地 HTTP fixture，核验新错误透传、请求次数、预期身份，以及凭证和签名密钥字节不变。
 
 以上是本地验证入口，不代表修复已经部署到线上。

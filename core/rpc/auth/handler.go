@@ -1,0 +1,717 @@
+package main
+
+import (
+	"elsewhere_server/pkg/ownerauth"
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"elsewhere_server/kitex_gen/elsewhere/auth"
+	"elsewhere_server/kitex_gen/elsewhere/base"
+	"elsewhere_server/pkg/agentcard"
+	"elsewhere_server/pkg/config"
+	"elsewhere_server/pkg/db"
+	"elsewhere_server/pkg/email"
+	"elsewhere_server/pkg/logger"
+	"elsewhere_server/pkg/mq"
+	"elsewhere_server/rpc/auth/dal"
+)
+
+var emailRegexp = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+
+const sessionDurationMs = int64(30 * 24 * time.Hour / time.Millisecond)
+
+const agentV2SessionValidationSQL = `SELECT principal.agent_id,
+	(principal.status = 'active') AS principal_active,
+	COALESCE(onboarding.state = 'completed', FALSE) AS onboarding_completed,
+	('communication:read' = ANY(session.scopes)) AS communication_allowed
+	FROM agent_credential_sessions session
+	JOIN agent_principals principal ON principal.principal_id = session.principal_id
+	JOIN agents agent ON agent.agent_id = principal.agent_id
+	LEFT JOIN agent_onboarding_v2 onboarding ON onboarding.agent_id = principal.agent_id
+	WHERE session.access_token_hash = ? AND session.audience = 'agent_v2'
+	  AND session.revoked_at IS NULL AND session.expires_at > ?
+	  AND session.access_refresh_required = FALSE
+	  AND principal.revoked_at IS NULL AND principal.status IN ('limited', 'active')
+	  AND agent.identity_state = 'active'`
+
+// AuthServiceImpl implements the kitex-generated AuthService interface.
+type AuthServiceImpl struct {
+	emailSender              email.Sender
+	emailVerificationEnabled bool
+	mockUniversalOTP         string
+	mockOTPEmailSuffix       []string // e.g. ["@test.com"]
+	mockOTPIPWhitelist       []string // e.g. ["10.0.0.1"]
+	testEmailSuffixes        []string // test-account matchers ("@domain" = suffix, full address = exact) that log in with a fixed OTP, no IP whitelist
+	testOTP                  string   // fixed OTP for testEmailSuffixes; empty disables the test-login path
+	agentIDGen               interface {
+		NextID() (int64, error)
+	}
+}
+
+// isMockOTPEmail returns true if the email suffix matches the mock whitelist.
+func (s *AuthServiceImpl) isMockOTPEmail(emailAddr string) bool {
+	if len(s.mockOTPEmailSuffix) == 0 || s.mockUniversalOTP == "" {
+		return false
+	}
+	lowerEmail := strings.ToLower(emailAddr)
+	for _, suffix := range s.mockOTPEmailSuffix {
+		if strings.HasSuffix(lowerEmail, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// isMockOTPIPAllowed returns true if the client IP is in the mock whitelist.
+func (s *AuthServiceImpl) isMockOTPIPAllowed(clientIP string) bool {
+	if len(s.mockOTPIPWhitelist) == 0 {
+		return false
+	}
+	for _, ip := range s.mockOTPIPWhitelist {
+		if clientIP == ip {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *AuthServiceImpl) isMockOTPBypass(emailAddr, clientIP string) bool {
+	return s.isMockOTPEmail(emailAddr) && s.isMockOTPIPAllowed(clientIP)
+}
+
+// isTestAccountEmail reports whether the email is a test account that logs in
+// with the fixed testOTP: "@domain" entries match by suffix, while full-address
+// patterns support glob syntax. Unlike the mock path it requires no IP
+// whitelist, so test bots can sign in from anywhere. Empty testOTP disables it.
+func (s *AuthServiceImpl) isTestAccountEmail(emailAddr string) bool {
+	if s.testOTP == "" || len(s.testEmailSuffixes) == 0 {
+		return false
+	}
+	return config.EmailMatchesAnyPattern(emailAddr, s.testEmailSuffixes)
+}
+
+func (s *AuthServiceImpl) isOTPMatched(code string, challenge *dal.AuthEmailChallenge) bool {
+	challengeEmail := ""
+	if challenge.Email != nil {
+		challengeEmail = *challenge.Email
+	}
+	challengeIP := ""
+	if challenge.ClientIP != nil {
+		challengeIP = *challenge.ClientIP
+	}
+	if s.isTestAccountEmail(challengeEmail) {
+		return code == s.testOTP
+	}
+	if s.isMockOTPEmail(challengeEmail) {
+		if !s.isMockOTPIPAllowed(challengeIP) {
+			logger.Default().Warn("mock OTP email suffix matched but client IP not in whitelist", "emailMasked", logger.MaskEmail(challengeEmail), "clientIP", challengeIP)
+			return false
+		}
+		return code == s.mockUniversalOTP
+	}
+	return sha256Hex(code) == challenge.CodeHash
+}
+
+func sha256Hex(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:])
+}
+
+func generateOTP() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
+// getCachedVerifyResult returns a previously cached VerifyLogin success
+// response, or nil if the cache is empty or corrupt.
+func getCachedVerifyResult(ctx context.Context, challengeID string) *auth.VerifyLoginResp {
+	cacheKey := "auth:verify:result:" + challengeID
+	cached, err := mq.RDB.Get(ctx, cacheKey).Result()
+	if err != nil {
+		return nil
+	}
+	var resp auth.VerifyLoginResp
+	if jerr := json.Unmarshal([]byte(cached), &resp); jerr != nil {
+		return nil
+	}
+	return &resp
+}
+
+func normalizeEmail(raw string) string {
+	return strings.ToLower(strings.TrimSpace(raw))
+}
+
+func checkIPRateLimit(ctx context.Context, key string, limit int64, window time.Duration, msg string) *base.BaseResp {
+	count, _ := mq.RDB.Incr(ctx, key).Result()
+	if count == 1 {
+		mq.RDB.Expire(ctx, key, window)
+	}
+	if count > limit {
+		return &base.BaseResp{Code: 429, Msg: msg}
+	}
+	return nil
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
+
+func (s *AuthServiceImpl) buildStartLoginDirectResp(loginResp *auth.VerifyLoginResp) *auth.StartLoginResp {
+	resp := &auth.StartLoginResp{
+		AgentId:                &loginResp.AgentId,
+		AccessToken:            &loginResp.AccessToken,
+		ExpiresAt:              &loginResp.ExpiresAt,
+		IsNewAgent:             &loginResp.IsNewAgent,
+		NeedsProfileCompletion: &loginResp.NeedsProfileCompletion,
+		VerificationRequired:   boolPtr(false),
+		BaseResp:               loginResp.BaseResp,
+	}
+	if loginResp.ProfileCompletedAt != nil {
+		resp.ProfileCompletedAt = loginResp.ProfileCompletedAt
+	}
+	return resp
+}
+
+func (s *AuthServiceImpl) completeEmailLogin(ctx context.Context, normalizedEmail string, clientIP, userAgent *string) (*auth.VerifyLoginResp, error) {
+	var agent *dal.Agent
+	var err error
+	isNew := false
+
+	agent, err = dal.GetAgentByEmail(db.DB, normalizedEmail)
+	if err != nil {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "db error: " + err.Error()},
+		}, nil
+	}
+
+	if agent == nil {
+		if s.agentIDGen == nil {
+			return &auth.VerifyLoginResp{
+				BaseResp: &base.BaseResp{Code: 500, Msg: "agent id generator is not initialized"},
+			}, nil
+		}
+		newAgentID, genErr := s.agentIDGen.NextID()
+		if genErr != nil {
+			return &auth.VerifyLoginResp{
+				BaseResp: &base.BaseResp{Code: 500, Msg: "failed to generate agent id: " + genErr.Error()},
+			}, nil
+		}
+		agent, err = dal.CreateMinimalAgent(db.DB, newAgentID, normalizedEmail)
+		if err != nil {
+			return &auth.VerifyLoginResp{
+				BaseResp: &base.BaseResp{Code: 500, Msg: "failed to create agent: " + err.Error()},
+			}, nil
+		}
+		isNew = true
+	}
+	if agent.EmailKind != "" && agent.EmailKind != "legacy_real" {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 403, Msg: "this identity must use Console V2 authentication"},
+		}, nil
+	}
+	if isNew {
+		agentcard.PublishRebuild(ctx, agent.AgentID, "agent_registered")
+	}
+
+	now := time.Now().UnixMilli()
+	_ = dal.SetEmailVerifiedAt(db.DB, agent.AgentID, now)
+
+	accessToken := "at_" + uuid.New().String()
+	tokenHash := sha256Hex(accessToken)
+	expireAt := now + sessionDurationMs
+
+	session := &dal.AgentSession{
+		AgentID:   agent.AgentID,
+		TokenHash: tokenHash,
+		Status:    0,
+		ExpireAt:  expireAt,
+		ClientIP:  clientIP,
+		UserAgent: userAgent,
+	}
+	if err := dal.CreateSession(db.DB, session); err != nil {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to create session: " + err.Error()},
+		}, nil
+	}
+
+	cacheKey := "auth:session:" + tokenHash
+	mq.RDB.Set(ctx, cacheKey, fmt.Sprintf("%d:%s", agent.AgentID, normalizedEmail), 10*time.Minute)
+
+	latestAgent, _ := dal.GetAgentByEmail(db.DB, agent.Email)
+	if latestAgent != nil {
+		agent = latestAgent
+	}
+
+	needsProfile := agent.AgentName == "" || agent.Bio == ""
+	if agent.ProfileCompletedAt != nil && agent.AgentName != "" && agent.Bio != "" {
+		needsProfile = false
+	}
+
+	resp := &auth.VerifyLoginResp{
+		AgentId:                agent.AgentID,
+		AccessToken:            accessToken,
+		ExpiresAt:              expireAt,
+		IsNewAgent:             isNew,
+		NeedsProfileCompletion: needsProfile,
+		BaseResp:               &base.BaseResp{Code: 0, Msg: "success"},
+	}
+	if agent.ProfileCompletedAt != nil {
+		resp.ProfileCompletedAt = agent.ProfileCompletedAt
+	}
+	return resp, nil
+}
+
+// StartLogin creates a challenge, sends OTP verification email, and returns challenge metadata.
+func (s *AuthServiceImpl) StartLogin(ctx context.Context, req *auth.StartLoginReq) (*auth.StartLoginResp, error) {
+	if ownerauth.UIDEnabled() { return &auth.StartLoginResp{BaseResp: &base.BaseResp{Code: 410, Msg: "email login disabled; use UID Console login"}}, nil }
+	logger.Ctx(ctx).Info("StartLogin called", "method", req.LoginMethod, "emailMasked", logger.MaskEmail(req.Email))
+	if req.LoginMethod != "email" {
+		return &auth.StartLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "unsupported login_method"},
+		}, nil
+	}
+
+	normalizedEmail := normalizeEmail(req.Email)
+	if !emailRegexp.MatchString(normalizedEmail) {
+		return &auth.StartLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "invalid email format"},
+		}, nil
+	}
+	// Console V2 identities must never reach the V1 direct-login or email-send
+	// paths. The reserved alias is rejected without I/O; a bound V2 email uses
+	// the existing unique email index for one cheap policy lookup.
+	if strings.HasSuffix(normalizedEmail, "@identity.invalid") {
+		return &auth.StartLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "email is unavailable for this login method"},
+		}, nil
+	}
+	if existing, lookupErr := dal.GetAgentByEmail(db.DB, normalizedEmail); lookupErr != nil {
+		return &auth.StartLoginResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to validate login policy"},
+		}, nil
+	} else if existing != nil && existing.EmailKind != "" && existing.EmailKind != "legacy_real" {
+		return &auth.StartLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "email is unavailable for this login method"},
+		}, nil
+	}
+
+	emailHash := sha256Hex(normalizedEmail)
+	clientIP := ""
+	if req.ClientIp != nil {
+		clientIP = *req.ClientIp
+	}
+	mockBypass := s.isMockOTPBypass(normalizedEmail, clientIP) || s.isTestAccountEmail(normalizedEmail)
+
+	if !s.emailVerificationEnabled {
+		loginResp, err := s.completeEmailLogin(ctx, normalizedEmail, req.ClientIp, req.UserAgent)
+		if err != nil {
+			return nil, err
+		}
+		return s.buildStartLoginDirectResp(loginResp), nil
+	}
+
+	// IP rate limit: 30 per 10 min. Each StartLogin call counts toward this
+	// quota — even if the challenge/OTP is reused for the same email — so a
+	// client cannot fan out email sends without bound.
+	if clientIP != "" && !mockBypass {
+		ipKey := "auth:login:start:email:ip:" + clientIP
+		if resp := checkIPRateLimit(ctx, ipKey, 30, 10*time.Minute, "too many requests from this IP"); resp != nil {
+			return &auth.StartLoginResp{BaseResp: resp}, nil
+		}
+	}
+
+	// Within the 10-minute challenge validity window, repeated StartLogin for
+	// the same email must return the same challenge_id and the same OTP.
+	// Uses a SetNX-based retry loop to prevent race conditions when concurrent
+	// requests arrive (e.g. LLM agents that fire multiple requests rapidly).
+	activeKey := "auth:login:email:active:" + emailHash
+	var challengeID string
+	var otpCode string
+	var expireAt int64
+
+	for attempt := 0; attempt < 2 && challengeID == ""; attempt++ {
+		// Step 1: Try to reuse an existing challenge from Redis cache.
+		if val, gerr := mq.RDB.Get(ctx, activeKey).Result(); gerr == nil && val != "" {
+			if sep := strings.IndexByte(val, ':'); sep > 0 {
+				cachedID := val[:sep]
+				cachedOTP := val[sep+1:]
+				// 1-minute safety buffer: if the existing challenge is about to
+				// expire, issue a fresh one so the user has enough time to enter
+				// the OTP after receiving the email.
+				if existing, cerr := dal.GetChallenge(db.DB, cachedID); cerr == nil &&
+					existing != nil && existing.Status == 0 &&
+					existing.ExpireAt > time.Now().Add(time.Minute).UnixMilli() {
+					challengeID = cachedID
+					otpCode = cachedOTP
+					expireAt = existing.ExpireAt
+					break
+				}
+			}
+			// Stale or consumed entry — delete so SetNX below can proceed.
+			mq.RDB.Del(ctx, activeKey)
+		}
+
+		// Step 2: Create a new challenge in the DB.
+		newID := "ch_" + uuid.New().String()
+		newOTP, gerr := generateOTP()
+		if gerr != nil {
+			return &auth.StartLoginResp{
+				BaseResp: &base.BaseResp{Code: 500, Msg: "failed to generate OTP"},
+			}, nil
+		}
+
+		now := time.Now().UnixMilli()
+		newExpireAt := now + 600_000 // 10 minutes in ms
+
+		emailVal := normalizedEmail
+		challenge := &dal.AuthEmailChallenge{
+			ChallengeID:  newID,
+			LoginMethod:  req.LoginMethod,
+			Email:        &emailVal,
+			CodeHash:     sha256Hex(newOTP),
+			Status:       0,
+			AttemptCount: 0,
+			MaxAttempts:  5,
+			ExpireAt:     newExpireAt,
+			CreatedAt:    now,
+			ClientIP:     req.ClientIp,
+			UserAgent:    req.UserAgent,
+		}
+
+		if cerr := dal.CreateChallenge(db.DB, challenge); cerr != nil {
+			return &auth.StartLoginResp{
+				BaseResp: &base.BaseResp{Code: 500, Msg: "failed to create challenge: " + cerr.Error()},
+			}, nil
+		}
+
+		// Step 3: Atomic claim via SET NX — only one concurrent request wins.
+		set, serr := mq.RDB.SetNX(ctx, activeKey, newID+":"+newOTP, 10*time.Minute).Result()
+		if serr != nil {
+			// Redis unavailable — degrade gracefully: use the challenge we
+			// just created and accept a small chance of duplicate OTPs.
+			logger.Ctx(ctx).Warn("StartLogin SetNX failed, degrading", "err", serr)
+			challengeID = newID
+			otpCode = newOTP
+			expireAt = newExpireAt
+			break
+		}
+
+		if set {
+			// We won the race.
+			challengeID = newID
+			otpCode = newOTP
+			expireAt = newExpireAt
+		} else {
+			// Another request claimed the key first. Revoke our orphaned
+			// challenge and loop back to read the winner's value.
+			_ = dal.RevokeChallenge(db.DB, newID)
+			logger.Ctx(ctx).Info("StartLogin SetNX race lost, retrying", "attempt", attempt, "revokedChallenge", newID)
+		}
+	}
+
+	if challengeID == "" {
+		return &auth.StartLoginResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to establish login challenge"},
+		}, nil
+	}
+
+	// Send email on every call except for fixed-OTP targets. Reuse of the
+	// challenge does not suppress normal email delivery — the IP rate limit is
+	// the throttle.
+	if s.isTestAccountEmail(normalizedEmail) {
+		logger.Ctx(ctx).Info("official test OTP target, skipping email send", "emailMasked", logger.MaskEmail(normalizedEmail), "clientIP", clientIP)
+	} else if s.isMockOTPEmail(normalizedEmail) {
+		if !mockBypass {
+			logger.Ctx(ctx).Warn("mock OTP email suffix matched but client IP not in whitelist, rejecting", "emailMasked", logger.MaskEmail(normalizedEmail), "clientIP", clientIP)
+			return &auth.StartLoginResp{
+				BaseResp: &base.BaseResp{Code: 400, Msg: "invalid email format"},
+			}, nil
+		}
+		logger.Ctx(ctx).Info("mock OTP target, skipping email send", "emailMasked", logger.MaskEmail(normalizedEmail), "clientIP", clientIP)
+	} else {
+		sendCtx := context.WithValue(ctx, email.ChallengeIDKey, challengeID)
+		if err := s.emailSender.SendLoginVerifyMail(sendCtx, normalizedEmail, otpCode); err != nil {
+			return &auth.StartLoginResp{
+				BaseResp: &base.BaseResp{Code: 500, Msg: "failed to send email: " + err.Error()},
+			}, nil
+		}
+	}
+
+	expiresInSec := int32((expireAt - time.Now().UnixMilli()) / 1000)
+	if expiresInSec < 0 {
+		expiresInSec = 0
+	}
+	resendAfterSec := int32(0)
+
+	return &auth.StartLoginResp{
+		ChallengeId:          &challengeID,
+		ExpiresInSec:         &expiresInSec,
+		ResendAfterSec:       &resendAfterSec,
+		VerificationRequired: boolPtr(true),
+		BaseResp:             &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
+
+// VerifyLogin validates the OTP code and issues a session token.
+func (s *AuthServiceImpl) VerifyLogin(ctx context.Context, req *auth.VerifyLoginReq) (*auth.VerifyLoginResp, error) {
+	if ownerauth.UIDEnabled() { return &auth.VerifyLoginResp{BaseResp: &base.BaseResp{Code: 410, Msg: "email login disabled; use UID Console login"}}, nil }
+	logger.Ctx(ctx).Info("VerifyLogin called", "challengeID", req.ChallengeId)
+	if !s.emailVerificationEnabled {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "email verification is disabled; call /api/v1/auth/login directly"},
+		}, nil
+	}
+
+	if req.LoginMethod != "email" {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "unsupported login_method"},
+		}, nil
+	}
+
+	if req.Code == nil || *req.Code == "" {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "code is required"},
+		}, nil
+	}
+
+	challenge, err := dal.GetChallenge(db.DB, req.ChallengeId)
+	if err != nil {
+		if req.ClientIp != nil && *req.ClientIp != "" {
+			ipKey := "auth:login:verify:email:ip:" + *req.ClientIp
+			if resp := checkIPRateLimit(ctx, ipKey, 100, 10*time.Minute, "too many verify attempts from this IP"); resp != nil {
+				return &auth.VerifyLoginResp{BaseResp: resp}, nil
+			}
+		}
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 404, Msg: "challenge not found"},
+		}, nil
+	}
+
+	clientIP := ""
+	if req.ClientIp != nil {
+		clientIP = *req.ClientIp
+	}
+	challengeEmail := ""
+	if challenge.Email != nil {
+		challengeEmail = *challenge.Email
+	}
+
+	// IP rate limit: 100 per 10 min, unless the request is using mock email+IP allowlist.
+	if clientIP != "" && !s.isMockOTPBypass(challengeEmail, clientIP) {
+		ipKey := "auth:login:verify:email:ip:" + clientIP
+		if resp := checkIPRateLimit(ctx, ipKey, 100, 10*time.Minute, "too many verify attempts from this IP"); resp != nil {
+			return &auth.VerifyLoginResp{BaseResp: resp}, nil
+		}
+	}
+
+	now := time.Now().UnixMilli()
+
+	// Idempotent handling for already-consumed challenges (e.g. client
+	// double-click submits two VerifyLogin requests within ~1s; the first
+	// succeeds, the second would previously fail with "challenge is no longer
+	// valid", causing the client to think verification failed).
+	// Check cache first: if no cache, skip SHA256 entirely. If cache exists,
+	// verify OTP before returning (so a wrong code still fails).
+	if challenge.Status == 1 {
+		if resp := getCachedVerifyResult(ctx, req.ChallengeId); resp != nil {
+			if s.isOTPMatched(*req.Code, challenge) {
+				logger.Ctx(ctx).Info("VerifyLogin idempotent hit", "challengeID", req.ChallengeId)
+				return resp, nil
+			}
+		}
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "challenge is no longer valid"},
+		}, nil
+	}
+	if challenge.Status != 0 {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "challenge is no longer valid"},
+		}, nil
+	}
+	if challenge.ExpireAt < now {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "challenge has expired"},
+		}, nil
+	}
+	if challenge.AttemptCount >= challenge.MaxAttempts {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "max attempts exceeded"},
+		}, nil
+	}
+
+	// Verify OTP code.
+	// In mock mode, allow universal OTP for local development/testing only.
+	matched := s.isOTPMatched(*req.Code, challenge)
+
+	if !matched {
+		_ = dal.IncrementChallengeAttempts(db.DB, req.ChallengeId)
+		// Re-fetch to check updated count
+		updated, fetchErr := dal.GetChallenge(db.DB, req.ChallengeId)
+		if fetchErr == nil && updated.AttemptCount >= updated.MaxAttempts {
+			_ = dal.RevokeChallenge(db.DB, req.ChallengeId)
+		}
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 401, Msg: "invalid code"},
+		}, nil
+	}
+
+	// Atomically consume challenge to prevent concurrent double-use.
+	consumed, err := dal.ConsumeChallenge(db.DB, req.ChallengeId, now)
+	if err != nil {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to consume challenge"},
+		}, nil
+	}
+	if !consumed {
+		// Another request consumed it between our status check and the atomic
+		// UPDATE.  Return the cached result (idempotent).
+		if resp := getCachedVerifyResult(ctx, req.ChallengeId); resp != nil {
+			logger.Ctx(ctx).Info("VerifyLogin idempotent hit (post-consume race)", "challengeID", req.ChallengeId)
+			return resp, nil
+		}
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "challenge is no longer valid"},
+		}, nil
+	}
+
+	if challenge.Email == nil || *challenge.Email == "" {
+		return &auth.VerifyLoginResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "no email associated with challenge"},
+		}, nil
+	}
+
+	loginResp, loginErr := s.completeEmailLogin(ctx, normalizeEmail(*challenge.Email), req.ClientIp, req.UserAgent)
+	if loginErr != nil {
+		return nil, loginErr
+	}
+	if loginResp.BaseResp != nil && loginResp.BaseResp.Code == 0 {
+		// Cache the successful response for idempotent replay (2-minute window
+		// is sufficient to cover client double-click scenarios).
+		if respJSON, jerr := json.Marshal(loginResp); jerr == nil {
+			cacheKey := "auth:verify:result:" + req.ChallengeId
+			mq.RDB.Set(ctx, cacheKey, string(respJSON), 2*time.Minute)
+		}
+
+		// Clean up the StartLogin active-challenge key so the next StartLogin
+		// creates a fresh challenge instead of reusing this consumed one.
+		consumedEmail := normalizeEmail(*challenge.Email)
+		activeKey := "auth:login:email:active:" + sha256Hex(consumedEmail)
+		if cached, cerr := mq.RDB.Get(ctx, activeKey).Result(); cerr == nil {
+			if strings.HasPrefix(cached, req.ChallengeId+":") {
+				mq.RDB.Del(ctx, activeKey)
+			}
+		}
+	}
+	return loginResp, nil
+}
+
+// ValidateSession verifies an access token and returns the associated agent_id and email.
+func (s *AuthServiceImpl) ValidateSession(ctx context.Context, req *auth.ValidateSessionReq) (*auth.ValidateSessionResp, error) {
+	logger.Ctx(ctx).Debug("ValidateSession called")
+	tokenHash := sha256Hex(req.AccessToken)
+	if strings.HasPrefix(req.AccessToken, "efv2a_") {
+		var session struct {
+			AgentID              int64 `gorm:"column:agent_id"`
+			PrincipalActive      bool  `gorm:"column:principal_active"`
+			OnboardingCompleted  bool  `gorm:"column:onboarding_completed"`
+			CommunicationAllowed bool  `gorm:"column:communication_allowed"`
+		}
+		now := time.Now().UnixMilli()
+		err := db.DB.Raw(agentV2SessionValidationSQL, tokenHash, now).Scan(&session).Error
+		if err != nil {
+			return &auth.ValidateSessionResp{BaseResp: &base.BaseResp{Code: 503, Msg: "Agent V2 authentication is temporarily unavailable"}}, nil
+		}
+		if session.AgentID <= 0 {
+			return &auth.ValidateSessionResp{BaseResp: &base.BaseResp{Code: 401, Msg: "invalid or expired Agent V2 session"}}, nil
+		}
+		if !session.OnboardingCompleted {
+			return &auth.ValidateSessionResp{BaseResp: &base.BaseResp{Code: 409, Msg: "ONBOARDING_REQUIRED"}}, nil
+		}
+		if !session.PrincipalActive || !session.CommunicationAllowed {
+			return &auth.ValidateSessionResp{BaseResp: &base.BaseResp{Code: 403, Msg: "AGENT_SCOPE_REQUIRED"}}, nil
+		}
+		return &auth.ValidateSessionResp{
+			AgentId:  session.AgentID,
+			BaseResp: &base.BaseResp{Code: 0, Msg: "success"},
+		}, nil
+	}
+
+	// Check Redis cache
+	cacheKey := "auth:session:" + tokenHash
+	val, err := mq.RDB.Get(ctx, cacheKey).Result()
+	if err == nil && val != "" {
+		parts := strings.SplitN(val, ":", 2)
+		var agentID int64
+		var email string
+		fmt.Sscanf(parts[0], "%d", &agentID)
+		if len(parts) > 1 {
+			email = parts[1]
+		}
+		if agentID > 0 {
+			return &auth.ValidateSessionResp{
+				AgentId:  agentID,
+				Email:    &email,
+				BaseResp: &base.BaseResp{Code: 0, Msg: "success"},
+			}, nil
+		}
+	}
+
+	// Cache miss: query DB
+	session, err := dal.GetSessionByTokenHash(db.DB, tokenHash)
+	if err != nil {
+		return &auth.ValidateSessionResp{
+			BaseResp: &base.BaseResp{Code: 401, Msg: "invalid or expired session"},
+		}, nil
+	}
+
+	// Fetch email for agent
+	var agentEmail string
+	var agent dal.Agent
+	if err := db.DB.Select("email").Where("agent_id = ?", session.AgentID).First(&agent).Error; err == nil {
+		agentEmail = agent.Email
+	}
+
+	// Cache result, update last_seen_at and extend expire_at (sliding expiration)
+	mq.RDB.Set(ctx, cacheKey, fmt.Sprintf("%d:%s", session.AgentID, agentEmail), 10*time.Minute)
+	now := time.Now().UnixMilli()
+	newExpireAt := now + sessionDurationMs
+	if err := dal.UpdateSessionActivity(db.DB, session.SessionID, now, newExpireAt); err != nil {
+		logger.Ctx(ctx).Error("failed to update session activity", "err", err, "sessionID", session.SessionID)
+	}
+
+	return &auth.ValidateSessionResp{
+		AgentId:  session.AgentID,
+		Email:    &agentEmail,
+		BaseResp: &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
+
+// Logout revokes the session associated with the given access token.
+func (s *AuthServiceImpl) Logout(ctx context.Context, req *auth.LogoutReq) (*auth.LogoutResp, error) {
+	tokenHash := sha256Hex(req.AccessToken)
+
+	if err := dal.RevokeSession(db.DB, tokenHash); err != nil {
+		logger.Ctx(ctx).Error("logout: db revoke failed", "err", err)
+	}
+
+	if err := mq.RDB.Del(ctx, "auth:session:"+tokenHash).Err(); err != nil {
+		logger.Ctx(ctx).Error("logout: redis del failed", "err", err)
+	}
+
+	return &auth.LogoutResp{
+		BaseResp: &base.BaseResp{Code: 0, Msg: "logged out"},
+	}, nil
+}

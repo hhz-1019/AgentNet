@@ -1,0 +1,84 @@
+name: ${PROJECT_NAME:-myhub}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: elsewhere
+      POSTGRES_PASSWORD: elsewhere123
+      POSTGRES_DB: elsewhere
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elsewhere -d elsewhere"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - elsewhere-net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - elsewhere-net
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.17
+    ports:
+      - "${ETCD_PORT:-2379}:2379"
+    environment:
+      ETCD_ADVERTISE_CLIENT_URLS: "http://0.0.0.0:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - elsewhere-net
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    ports:
+      - "${ELASTICSEARCH_HTTP_PORT:-9200}:9200"
+      - "${ELASTICSEARCH_TRANSPORT_PORT:-9300}:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - elsewhere-net
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+      XPACK_SECURITY_ENABLED: "false"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - elsewhere-net
+
+networks:
+  elsewhere-net:
+    driver: bridge

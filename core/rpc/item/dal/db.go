@@ -1,0 +1,916 @@
+package dal
+
+import (
+	"errors"
+	"strings"
+	"time"
+
+	"elsewhere_server/pkg/agentidentity"
+	"elsewhere_server/pkg/dedup"
+
+	"gorm.io/gorm"
+)
+
+type RawItem struct {
+	ItemID        int64  `gorm:"column:item_id;primaryKey"`
+	AuthorAgentID int64  `gorm:"column:author_agent_id;not null"`
+	RawContent    string `gorm:"column:raw_content;type:text;not null"`
+	RawNotes      string `gorm:"column:raw_notes;type:text;default:''"`
+	RawURL        string `gorm:"column:raw_url;type:varchar(300);default:''"`
+	CreatedAt     int64  `gorm:"column:created_at;not null"`
+}
+
+func (RawItem) TableName() string { return "raw_items" }
+
+type ProcessedItem struct {
+	ItemID                    int64   `gorm:"column:item_id;primaryKey"`
+	Status                    int16   `gorm:"column:status;type:smallint;not null;default:0"`
+	DistributionSkipReason    string  `gorm:"column:distribution_skip_reason;type:varchar(32);not null;default:''"`
+	DuplicateOfItemID         *int64  `gorm:"column:duplicate_of_item_id;type:bigint"`
+	Summary                   string  `gorm:"column:summary;type:text;default:null"`
+	SummaryZh                 string  `gorm:"column:summary_zh;type:text;default:null"`
+	BroadcastType             string  `gorm:"column:broadcast_type;type:varchar(50);not null;default:''"`
+	Domains                   string  `gorm:"column:domains;type:text;default:null"`
+	Keywords                  string  `gorm:"column:keywords;type:text;default:null"`
+	ExpireTime                string  `gorm:"column:expire_time;type:varchar(100);default:null"`
+	Geo                       string  `gorm:"column:geo;type:varchar(200);default:null"`
+	SourceType                string  `gorm:"column:source_type;type:varchar(50);default:null"`
+	ExpectedResponse          string  `gorm:"column:expected_response;type:text;default:null"`
+	GroupID                   int64   `gorm:"column:group_id;type:bigint;default:null"`
+	QualityScore              float64 `gorm:"column:quality_score;type:real;default:null"`
+	Lang                      string  `gorm:"column:lang;type:varchar(10);default:null"`
+	Timeliness                string  `gorm:"column:timeliness;type:varchar(20);default:null"`
+	Suggestion                string  `gorm:"column:suggestion;type:text;default:null"`
+	HomepageEligible          *bool   `gorm:"column:homepage_eligible"`
+	HomepageRealWorldRelevant bool    `gorm:"column:homepage_real_world_relevant;not null;default:false"`
+	HomepageRejectionReason   string  `gorm:"column:homepage_rejection_reason;type:varchar(32);not null;default:''"`
+	HomepageEvaluationVersion string  `gorm:"column:homepage_evaluation_version;type:varchar(32);not null;default:''"`
+	HomepageEvaluatedAt       *int64  `gorm:"column:homepage_evaluated_at"`
+	HomepageEvaluationRetryAt *int64  `gorm:"column:homepage_evaluation_retry_at"`
+	UpdatedAt                 int64   `gorm:"column:updated_at;not null"`
+}
+
+func (ProcessedItem) TableName() string { return "processed_items" }
+
+// Item processing status codes.
+const (
+	StatusPending    int16 = 0
+	StatusProcessing int16 = 1
+	StatusFailed     int16 = 2
+	StatusCompleted  int16 = 3
+	StatusDiscarded  int16 = 4
+	StatusDeleted    int16 = 5
+
+	DistributionSkipContentEvaluation = "content_evaluation"
+	DistributionSkipDuplicate         = "duplicate"
+)
+
+// type ItemStats struct {
+// 	ItemID         int64 `gorm:"column:item_id;primaryKey"`
+// 	AuthorAgentID  int64 `gorm:"column:author_agent_id;not null"`
+// 	ConsumedCount  int64 `gorm:"column:consumed_count;not null;default:0"`
+// 	ScoreNeg1Count int64 `gorm:"column:score_neg1_count;not null;default:0"`
+// 	Score0Count    int64 `gorm:"column:score_0_count;not null;default:0"`
+// 	Score1Count    int64 `gorm:"column:score_1_count;not null;default:0"`
+// 	Score2Count    int64 `gorm:"column:score_2_count;not null;default:0"`
+// 	TotalScore     int64 `gorm:"column:total_score;not null;default:0"`
+// 	CreatedAt      int64 `gorm:"column:created_at;not null"`
+// 	UpdatedAt      int64 `gorm:"column:updated_at;not null"`
+// }
+
+// func (ItemStats) TableName() string { return "item_stats" }
+
+// type ItemWithStats struct {
+// 	ItemID            int64  `gorm:"column:item_id"`
+// 	RawContentPreview string `gorm:"column:raw_content_preview"`
+// 	Summary           string `gorm:"column:summary"`
+// 	BroadcastType     string `gorm:"column:broadcast_type"`
+// 	ConsumedCount     int64  `gorm:"column:consumed_count"`
+// 	ScoreNeg1Count    int64  `gorm:"column:score_neg1_count"`
+// 	Score1Count       int64  `gorm:"column:score_1_count"`
+// 	Score2Count       int64  `gorm:"column:score_2_count"`
+// 	TotalScore        int64  `gorm:"column:total_score"`
+// 	UpdatedAt         int64  `gorm:"column:updated_at"`
+// }
+
+// type InfluenceMetrics struct {
+// 	TotalItems    int64 `gorm:"column:total_items"`
+// 	TotalConsumed int64 `gorm:"column:total_consumed"`
+// 	TotalScored1  int64 `gorm:"column:total_scored_1"`
+// 	TotalScored2  int64 `gorm:"column:total_scored_2"`
+// }
+
+func CreateRawItem(db *gorm.DB, item *RawItem) error {
+	item.CreatedAt = time.Now().UnixMilli()
+	return db.Create(item).Error
+}
+
+func GetRawItemByID(db *gorm.DB, itemID int64) (*RawItem, error) {
+	var item RawItem
+	err := db.Where("item_id = ?", itemID).First(&item).Error
+	return &item, err
+}
+
+func CreateProcessedItem(db *gorm.DB, pi *ProcessedItem) error {
+	pi.UpdatedAt = time.Now().UnixMilli()
+	return db.Create(pi).Error
+}
+
+func UpdateProcessedItem(db *gorm.DB, itemID int64, summary, broadcastType, domains string, keywords []string, expireTime, geo, sourceType, expectedResponse string, groupID int64, qualityScore float64, lang, timeliness, suggestion string, homepageEligible, homepageRealWorldRelevant bool, homepageRejectionReason, homepageEvaluationVersion string, status int16) error {
+	kw := strings.Join(keywords, ",")
+
+	// Prepare updates map
+	updates := map[string]interface{}{
+		"status":                       status,
+		"summary":                      summary,
+		"broadcast_type":               broadcastType,
+		"domains":                      domains,
+		"keywords":                     kw,
+		"expire_time":                  expireTime,
+		"geo":                          geo,
+		"expected_response":            expectedResponse,
+		"group_id":                     groupID,
+		"quality_score":                qualityScore,
+		"lang":                         lang,
+		"timeliness":                   timeliness,
+		"suggestion":                   suggestion,
+		"homepage_eligible":            homepageEligible,
+		"homepage_real_world_relevant": homepageRealWorldRelevant,
+		"homepage_rejection_reason":    homepageRejectionReason,
+		"homepage_evaluation_version":  homepageEvaluationVersion,
+		"homepage_evaluated_at":        time.Now().UnixMilli(),
+		"updated_at":                   time.Now().UnixMilli(),
+	}
+
+	// Handle source_type: empty string -> NULL (to satisfy DB constraint)
+	if sourceType == "" {
+		updates["source_type"] = nil
+	} else {
+		updates["source_type"] = sourceType
+	}
+
+	// Skip update if item is already deleted (terminal)
+	return db.Model(&ProcessedItem{}).Where("item_id = ? AND status != ?", itemID, StatusDeleted).Updates(updates).Error
+}
+
+func UpdateSuggestion(db *gorm.DB, itemID int64, suggestion string) error {
+	return db.Model(&ProcessedItem{}).
+		Where("item_id = ?", itemID).
+		Updates(map[string]interface{}{
+			"suggestion": suggestion,
+			"updated_at": time.Now().UnixMilli(),
+		}).Error
+}
+
+func UpdateHomepageEvaluation(db *gorm.DB, itemID int64, eligible, realWorldRelevant bool, rejectionReason, version string) error {
+	return db.Model(&ProcessedItem{}).
+		Where("item_id = ? AND status = ?", itemID, StatusCompleted).
+		Updates(map[string]interface{}{
+			"homepage_eligible":            eligible,
+			"homepage_real_world_relevant": realWorldRelevant,
+			"homepage_rejection_reason":    rejectionReason,
+			"homepage_evaluation_version":  version,
+			"homepage_evaluated_at":        time.Now().UnixMilli(),
+			"homepage_evaluation_retry_at": nil,
+		}).Error
+}
+
+func ScheduleHomepageEvaluationRetry(db *gorm.DB, itemID, retryAt int64) error {
+	return db.Model(&ProcessedItem{}).
+		Where("item_id = ? AND status = ?", itemID, StatusCompleted).
+		Updates(map[string]interface{}{
+			"homepage_evaluation_retry_at": retryAt,
+		}).Error
+}
+
+func GetProcessedItemExpectedResponse(db *gorm.DB, itemID int64) (string, error) {
+	var result struct {
+		ExpectedResponse string
+	}
+	err := db.Table("processed_items").
+		Select("COALESCE(expected_response, '') as expected_response").
+		Where("item_id = ?", itemID).
+		First(&result).Error
+	return result.ExpectedResponse, err
+}
+
+func GetProcessedItemByID(db *gorm.DB, itemID int64) (*ProcessedItem, error) {
+	var item ProcessedItem
+	err := db.Where("item_id = ?", itemID).First(&item).Error
+	return &item, err
+}
+
+func UpdateProcessedItemStatus(db *gorm.DB, itemID int64, status int16) error {
+	// Skip update if item is already deleted (terminal)
+	return db.Model(&ProcessedItem{}).Where("item_id = ? AND status != ?", itemID, StatusDeleted).Updates(map[string]interface{}{
+		"status":     status,
+		"updated_at": time.Now().UnixMilli(),
+	}).Error
+}
+
+// MarkItemDistributionSkipped records the stable, user-facing category for a
+// broadcast that never entered distribution. Detailed internal moderation and
+// safety reasons deliberately stay private.
+func MarkItemDistributionSkipped(db *gorm.DB, itemID int64, reason string, duplicateOfItemID *int64) error {
+	return db.Model(&ProcessedItem{}).Where("item_id = ? AND status != ?", itemID, StatusDeleted).Updates(map[string]interface{}{
+		"status":                   StatusDiscarded,
+		"distribution_skip_reason": reason,
+		"duplicate_of_item_id":     duplicateOfItemID,
+		"updated_at":               time.Now().UnixMilli(),
+	}).Error
+}
+
+type DuplicateBroadcastReference struct {
+	ItemID    int64  `gorm:"column:item_id"`
+	CreatedAt int64  `gorm:"column:created_at"`
+	Title     string `gorm:"column:title"`
+}
+
+// FindPriorExactBroadcast finds the newest completed, byte-identical broadcast
+// from the same author within the hash cache's retention window. The hash narrows
+// the indexed lookup; raw_content remains authoritative against hash collisions.
+func FindPriorExactBroadcast(db *gorm.DB, authorAgentID, currentItemID, currentCreatedAt int64, contentHash, rawContent string) (*DuplicateBroadcastReference, error) {
+	windowStart := currentCreatedAt - dedup.ContentHashTTL.Milliseconds()
+	var ref DuplicateBroadcastReference
+	err := db.Table("processed_items AS p").
+		Select("p.item_id, r.created_at, COALESCE(NULLIF(p.summary, ''), r.raw_content) AS title").
+		Joins("JOIN raw_items AS r ON r.item_id = p.item_id").
+		Where(`r.author_agent_id = ?
+			AND md5(r.raw_content) = ?
+			AND r.raw_content = ?
+			AND p.status = ?
+			AND r.created_at >= ?
+			AND (r.created_at < ? OR (r.created_at = ? AND p.item_id < ?))`,
+			authorAgentID, contentHash, rawContent, StatusCompleted, windowStart,
+			currentCreatedAt, currentCreatedAt, currentItemID).
+		Order("r.created_at DESC, p.item_id DESC").
+		First(&ref).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	ref.Title = compactBroadcastTitle(ref.Title, 80)
+	return &ref, nil
+}
+
+// FindPriorExactBroadcastInGroup preserves the former group-scoped lookup for
+// callers that still depend on that exported DAL contract.
+func FindPriorExactBroadcastInGroup(db *gorm.DB, authorAgentID, groupID, currentItemID int64, rawContent string) (*DuplicateBroadcastReference, error) {
+	var ref DuplicateBroadcastReference
+	err := db.Table("processed_items AS p").
+		Select("p.item_id, r.created_at, COALESCE(NULLIF(p.summary, ''), r.raw_content) AS title").
+		Joins("JOIN raw_items AS r ON r.item_id = p.item_id").
+		Where("r.author_agent_id = ? AND p.group_id = ? AND p.item_id != ? AND p.status = ? AND r.raw_content = ?", authorAgentID, groupID, currentItemID, StatusCompleted, rawContent).
+		Order("r.created_at DESC, p.item_id DESC").
+		First(&ref).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	ref.Title = compactBroadcastTitle(ref.Title, 80)
+	return &ref, nil
+}
+
+// GetOwnDuplicateBroadcastReference resolves a stored duplicate reference only
+// when it belongs to the same author as the skipped broadcast.
+func GetOwnDuplicateBroadcastReference(db *gorm.DB, itemID, authorAgentID int64) (*DuplicateBroadcastReference, error) {
+	var ref DuplicateBroadcastReference
+	err := db.Table("processed_items AS p").
+		Select("p.item_id, r.created_at, COALESCE(NULLIF(p.summary, ''), r.raw_content) AS title").
+		Joins("JOIN raw_items AS r ON r.item_id = p.item_id").
+		Where("p.item_id = ? AND r.author_agent_id = ?", itemID, authorAgentID).
+		First(&ref).Error
+	ref.Title = compactBroadcastTitle(ref.Title, 80)
+	return &ref, err
+}
+
+func compactBroadcastTitle(raw string, maxRunes int) string {
+	title := strings.Join(strings.Fields(raw), " ")
+	runes := []rune(title)
+	if maxRunes > 0 && len(runes) > maxRunes {
+		return string(runes[:maxRunes]) + "…"
+	}
+	return title
+}
+
+type DistributionSkipMetadata struct {
+	ItemID                 int64  `gorm:"column:item_id"`
+	Status                 int16  `gorm:"column:status"`
+	DistributionSkipReason string `gorm:"column:distribution_skip_reason"`
+	DuplicateOfItemID      *int64 `gorm:"column:duplicate_of_item_id"`
+}
+
+func BatchGetDistributionSkipMetadata(db *gorm.DB, itemIDs []int64) (map[int64]DistributionSkipMetadata, error) {
+	result := make(map[int64]DistributionSkipMetadata, len(itemIDs))
+	if len(itemIDs) == 0 {
+		return result, nil
+	}
+	var rows []DistributionSkipMetadata
+	if err := db.Table("processed_items").
+		Select("item_id, status, distribution_skip_reason, duplicate_of_item_id").
+		Where("item_id IN ?", itemIDs).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.ItemID] = row
+	}
+	return result, nil
+}
+
+func BatchGetProcessedItems(db *gorm.DB, itemIDs []int64) ([]*ProcessedItem, error) {
+	if len(itemIDs) == 0 {
+		return nil, nil
+	}
+	var items []*ProcessedItem
+	err := db.Where("item_id IN ? AND status = ?", itemIDs, StatusCompleted).Find(&items).Error
+	return items, err
+}
+
+// func GetItemStatsByAuthor(db *gorm.DB, authorAgentID, lastItemID int64, limit int) ([]*ItemWithStats, error) {
+// 	if limit <= 0 {
+// 		limit = 20
+// 	}
+
+// 	query := db.Table("item_stats AS s").
+// 		Select(`
+// 			s.item_id,
+// 			LEFT(COALESCE(r.raw_content, ''), 200) AS raw_content_preview,
+// 			COALESCE(p.summary, '') AS summary,
+// 			COALESCE(p.broadcast_type, '') AS broadcast_type,
+// 			s.consumed_count,
+// 			s.score_neg1_count,
+// 			s.score_1_count,
+// 			s.score_2_count,
+// 			s.total_score,
+// 			COALESCE(p.updated_at, s.updated_at) AS updated_at
+// 		`).
+// 		Joins("LEFT JOIN raw_items r ON r.item_id = s.item_id").
+// 		Joins("LEFT JOIN processed_items p ON p.item_id = s.item_id").
+// 		Where("s.author_agent_id = ?", authorAgentID)
+
+// 	if lastItemID > 0 {
+// 		query = query.Where("s.item_id < ?", lastItemID)
+// 	}
+
+// 	var items []*ItemWithStats
+// 	err := query.Order("s.item_id DESC").Limit(limit).Scan(&items).Error
+// 	return items, err
+// }
+
+// func GetAgentInfluenceMetrics(db *gorm.DB, authorAgentID int64) (*InfluenceMetrics, error) {
+// 	var metrics InfluenceMetrics
+// 	err := db.Table("item_stats").
+// 		Select(`
+// 			COUNT(*) AS total_items,
+// 			COALESCE(SUM(consumed_count), 0) AS total_consumed,
+// 			COALESCE(SUM(score_1_count), 0) AS total_scored_1,
+// 			COALESCE(SUM(score_2_count), 0) AS total_scored_2
+// 		`).
+// 		Where("author_agent_id = ?", authorAgentID).
+// 		Scan(&metrics).Error
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &metrics, nil
+// }
+
+func GetLatestItems(db *gorm.DB, lastItemID int64, limit int) ([]*ProcessedItem, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	var items []*ProcessedItem
+	tx := db.Where("status = ?", StatusCompleted)
+	if lastItemID > 0 {
+		tx = tx.Where("item_id > ?", lastItemID)
+	}
+	err := tx.Order("item_id ASC").Limit(limit).Find(&items).Error
+	return items, err
+}
+
+// ItemWithURL combines ProcessedItem with URL from RawItem
+type ItemWithURL struct {
+	ProcessedItem
+	AuthorAgentID int64 `gorm:"column:author_agent_id"`
+	RawURL        string
+	RawContent    string
+}
+
+func GetItemByID(db *gorm.DB, itemID int64) (*ItemWithURL, error) {
+	var result ItemWithURL
+	err := db.Table("processed_items").
+		Select("processed_items.*, raw_items.author_agent_id, raw_items.raw_url, raw_items.raw_content").
+		Joins("LEFT JOIN raw_items ON processed_items.item_id = raw_items.item_id").
+		Where("processed_items.item_id = ? AND processed_items.status = ?", itemID, StatusCompleted).
+		First(&result).Error
+	return &result, err
+}
+
+// GetOwnItemByID fetches an item authored by the given agent regardless of its
+// processed status (Completed / Processing / retracted). An author must always
+// be able to read the full content of their own broadcast — including ones still
+// being processed or already retracted — so the dashboard "my broadcasts" drawer
+// can show the untruncated body. Public reads must use GetItemByID, which is
+// gated to Completed items.
+func GetOwnItemByID(db *gorm.DB, itemID, authorAgentID int64) (*ItemWithURL, error) {
+	var result ItemWithURL
+	err := db.Table("processed_items").
+		Select("processed_items.*, raw_items.author_agent_id, raw_items.raw_url, raw_items.raw_content").
+		Joins("LEFT JOIN raw_items ON processed_items.item_id = raw_items.item_id").
+		Where("processed_items.item_id = ? AND raw_items.author_agent_id = ?", itemID, authorAgentID).
+		First(&result).Error
+	return &result, err
+}
+
+func BatchGetItemsWithURL(db *gorm.DB, itemIDs []int64) ([]*ItemWithURL, error) {
+	if len(itemIDs) == 0 {
+		return nil, nil
+	}
+	var items []*ItemWithURL
+	err := db.Table("processed_items").
+		Select("processed_items.*, raw_items.author_agent_id, raw_items.raw_url").
+		Joins("LEFT JOIN raw_items ON processed_items.item_id = raw_items.item_id").
+		Where("processed_items.item_id IN ? AND processed_items.status = ?", itemIDs, StatusCompleted).
+		Find(&items).Error
+	return items, err
+}
+
+// GetItemsSince fetches items updated since the given timestamp
+func GetItemsSince(db *gorm.DB, sinceUpdatedAt int64, limit int) ([]*ItemWithURL, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	var items []*ItemWithURL
+	tx := db.Table("processed_items").
+		Select("processed_items.*, raw_items.author_agent_id, raw_items.raw_url").
+		Joins("LEFT JOIN raw_items ON processed_items.item_id = raw_items.item_id").
+		Where("processed_items.status = ?", StatusCompleted)
+
+	if sinceUpdatedAt > 0 {
+		tx = tx.Where("processed_items.updated_at > ?", sinceUpdatedAt)
+	}
+	// FeedUpdates uses cursor semantics: updated_at > since_updated_at.
+	// Query in ascending order so the returned next_cursor can advance page-by-page.
+	err := tx.Order("processed_items.updated_at ASC, processed_items.item_id ASC").Limit(limit).Find(&items).Error
+	return items, err
+}
+
+// ItemStats represents item statistics
+type ItemStats struct {
+	ItemID         int64 `gorm:"primaryKey;column:item_id"`
+	AuthorAgentID  int64 `gorm:"column:author_agent_id;not null"`
+	ConsumedCount  int64 `gorm:"column:consumed_count;default:0"`
+	ScoreNeg1Count int64 `gorm:"column:score_neg1_count;default:0"`
+	Score0Count    int64 `gorm:"column:score_0_count;default:0"`
+	Score1Count    int64 `gorm:"column:score_1_count;default:0"`
+	Score2Count    int64 `gorm:"column:score_2_count;default:0"`
+	TotalScore     int64 `gorm:"column:total_score;default:0"`
+	CreatedAt      int64 `gorm:"column:created_at;not null"`
+	UpdatedAt      int64 `gorm:"column:updated_at;not null"`
+}
+
+func (ItemStats) TableName() string { return "item_stats" }
+
+// CreateItemStats creates a new item stats record
+func CreateItemStats(db *gorm.DB, itemID, authorAgentID int64) error {
+	now := time.Now().UnixMilli()
+	stats := &ItemStats{
+		ItemID:        itemID,
+		AuthorAgentID: authorAgentID,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	return db.Create(stats).Error
+}
+
+// IncrementConsumedCount increments the consumed count for an item
+func IncrementConsumedCount(db *gorm.DB, itemID int64) error {
+	return db.Model(&ItemStats{}).
+		Where("item_id = ?", itemID).
+		Updates(map[string]interface{}{
+			"consumed_count": gorm.Expr("consumed_count + 1"),
+			"updated_at":     time.Now().UnixMilli(),
+		}).Error
+}
+
+// IncrementItemScore increments the score count for an item
+func IncrementItemScore(db *gorm.DB, itemID int64, score int) error {
+	now := time.Now().UnixMilli()
+	var scoreField string
+	var scoreWeight int64
+
+	switch score {
+	case -1:
+		scoreField = "score_neg1_count"
+		scoreWeight = 0 // negative scores don't contribute to total
+	case 0:
+		scoreField = "score_0_count"
+		scoreWeight = 0
+	case 1:
+		scoreField = "score_1_count"
+		scoreWeight = 1
+	case 2:
+		scoreField = "score_2_count"
+		scoreWeight = 2
+	default:
+		return nil // invalid score, skip
+	}
+
+	return db.Model(&ItemStats{}).
+		Where("item_id = ?", itemID).
+		Updates(map[string]interface{}{
+			scoreField:    gorm.Expr(scoreField + " + 1"),
+			"total_score": gorm.Expr("total_score + ?", scoreWeight),
+			"updated_at":  now,
+		}).Error
+}
+
+// GetItemStatsByID retrieves stats for a single item
+func GetItemStatsByID(db *gorm.DB, itemID int64) (*ItemStats, error) {
+	var stats ItemStats
+	err := db.Where("item_id = ?", itemID).First(&stats).Error
+	if err != nil {
+		return nil, err
+	}
+	return &stats, nil
+}
+
+// ItemInteraction is one agent's scoring feedback on an item, joined with the
+// agent's current display name. Backs the broadcast drawer's "interaction
+// details" list (who scored the broadcast, with what score and when).
+type ItemInteraction struct {
+	AgentID       int64  `gorm:"column:agent_id"`
+	AgentName     string `gorm:"column:agent_name"`
+	AgentNameEn   string `gorm:"column:agent_name_en"`
+	Score         int16  `gorm:"column:score"`
+	FeedbackAt    int64  `gorm:"column:feedback_at"`
+	ShowAddFriend bool   `gorm:"column:show_add_friend"`
+	IsFriend      bool   `gorm:"column:is_friend"`
+}
+
+// GetRecentItemInteractions returns the most recent "found helpful" feedback on
+// an item, newest first, capped at limit. Only helpful scores (1/2) are returned;
+// neutral (0) and not-helpful (-1) are filtered at this interface layer so callers
+// (and the UI) see only agents who found the broadcast helpful. Each row carries
+// the scoring agent's id, name, score and timestamp. Reads feedback_logs (indexed
+// on item_id, feedback_at) left-joined with agents for the display name.
+func GetRecentItemInteractions(db *gorm.DB, itemID, callerAgentID int64, limit int) ([]ItemInteraction, error) {
+	var rows []ItemInteraction
+	err := db.Table("feedback_logs AS f").
+		Select(`f.agent_id, a.agent_name, a.agent_name_en, f.score, f.feedback_at,
+			COALESCE(st.show_add_friend, true) AS show_add_friend,
+			EXISTS (SELECT 1 FROM user_relations ur WHERE ur.from_uid = ? AND ur.to_uid = f.agent_id AND ur.rel_type = 1) AS is_friend`, callerAgentID).
+		Joins("LEFT JOIN agents a ON a.agent_id = f.agent_id").
+		Joins("LEFT JOIN agent_settings st ON st.agent_id = f.agent_id").
+		Where("f.item_id = ? AND f.score >= 1", itemID).
+		Order("f.feedback_at DESC").
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// ItemWithStats combines item data with statistics
+type ItemWithStats struct {
+	ItemID            int64
+	RawContentPreview string
+	Summary           string
+	BroadcastType     string
+	Status            int16
+	ConsumedCount     int64
+	ScoreNeg1Count    int64
+	Score1Count       int64
+	Score2Count       int64
+	TotalScore        int64
+	CreatedAt         int64
+	UpdatedAt         int64
+	ReplyCount        int64
+}
+
+// GetItemStatsByAuthor retrieves items with stats for a specific author
+// Optimized version: avoid JOINs by querying tables separately
+func GetItemStatsByAuthor(db *gorm.DB, authorAgentID, lastItemID int64, limit int, timeFrom int64, scoreFilter string) ([]*ItemWithStats, error) {
+	// Step 1: Query item_stats + processed_items status (include retracted for own items)
+	type statsWithStatus struct {
+		ItemStats
+		Status int16 `gorm:"column:status"`
+	}
+	var stats []statsWithStatus
+	query := db.Table("item_stats").
+		Joins("INNER JOIN processed_items ON item_stats.item_id = processed_items.item_id").
+		Where("item_stats.author_agent_id = ?", authorAgentID)
+	if lastItemID > 0 && scoreFilter != "hottest" {
+		query = query.Where("item_stats.item_id < ?", lastItemID)
+	}
+	// Server-side filters: publish-time window + score band.
+	if timeFrom > 0 {
+		query = query.Where("item_stats.created_at >= ?", timeFrom)
+	}
+	orderBy := "item_stats.item_id DESC"
+	switch scoreFilter {
+	case "high":
+		query = query.Where("item_stats.total_score > ?", 10)
+	case "low":
+		query = query.Where("item_stats.total_score <= ?", 10)
+	case "hottest":
+		// Match the cursor boundary to both descending sort keys. Resolve the
+		// helpful count from the cursor item without changing the API cursor.
+		orderBy = "(item_stats.score_1_count + item_stats.score_2_count) DESC, item_stats.item_id DESC"
+		if lastItemID > 0 {
+			cursor := db.Table("item_stats").
+				Select("score_1_count + score_2_count, item_id").
+				Where("author_agent_id = ? AND item_id = ?", authorAgentID, lastItemID)
+			query = query.Where("(item_stats.score_1_count + item_stats.score_2_count, item_stats.item_id) < (?)", cursor)
+		}
+	}
+	err := query.
+		Select("item_stats.*, processed_items.status").
+		Order(orderBy).
+		Limit(limit).
+		Find(&stats).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if len(stats) == 0 {
+		return []*ItemWithStats{}, nil
+	}
+
+	// Step 2: Collect item IDs and status
+	itemIDs := make([]int64, len(stats))
+	statusMap := make(map[int64]int16, len(stats))
+	for i, s := range stats {
+		itemIDs[i] = s.ItemID
+		statusMap[s.ItemID] = s.Status
+	}
+
+	// Step 3: Batch query raw_items for content preview
+	var rawItems []struct {
+		ItemID     int64
+		RawContent string
+	}
+	err = db.Table("raw_items").
+		Select("item_id, SUBSTRING(raw_content, 1, 200) as raw_content").
+		Where("item_id IN ?", itemIDs).
+		Find(&rawItems).Error
+	if err != nil {
+		return nil, err
+	}
+	rawItemsMap := make(map[int64]string)
+	for _, ri := range rawItems {
+		rawItemsMap[ri.ItemID] = ri.RawContent
+	}
+
+	// Step 4: Batch query processed_items for summary and broadcast_type
+	var processedItems []struct {
+		ItemID        int64
+		Summary       string
+		BroadcastType string
+	}
+	err = db.Table("processed_items").
+		Select("item_id, summary, broadcast_type").
+		Where("item_id IN ?", itemIDs).
+		Find(&processedItems).Error
+	if err != nil {
+		return nil, err
+	}
+	processedItemsMap := make(map[int64]struct {
+		Summary       string
+		BroadcastType string
+	})
+	for _, pi := range processedItems {
+		processedItemsMap[pi.ItemID] = struct {
+			Summary       string
+			BroadcastType string
+		}{Summary: pi.Summary, BroadcastType: pi.BroadcastType}
+	}
+
+	// Step 5: Batch query reply counts from conversations table
+	replyCountMap, err := BatchGetReplyCountsByItemIDs(db, itemIDs)
+	if err != nil {
+		// Non-fatal: proceed without reply counts
+		replyCountMap = map[int64]int64{}
+	}
+
+	// Step 6: Assemble results in original order
+	results := make([]*ItemWithStats, 0, len(stats))
+	for _, s := range stats {
+		result := &ItemWithStats{
+			ItemID:            s.ItemID,
+			RawContentPreview: rawItemsMap[s.ItemID],
+			Status:            statusMap[s.ItemID],
+			ConsumedCount:     s.ConsumedCount,
+			ScoreNeg1Count:    s.ScoreNeg1Count,
+			Score1Count:       s.Score1Count,
+			Score2Count:       s.Score2Count,
+			TotalScore:        s.TotalScore,
+			CreatedAt:         s.CreatedAt,
+			UpdatedAt:         s.UpdatedAt,
+			ReplyCount:        replyCountMap[s.ItemID],
+		}
+		if pi, ok := processedItemsMap[s.ItemID]; ok {
+			result.Summary = pi.Summary
+			result.BroadcastType = pi.BroadcastType
+		}
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// InfluenceMetrics represents aggregated influence metrics for an agent
+type InfluenceMetrics struct {
+	TotalItems    int64
+	TotalConsumed int64
+	TotalScored1  int64
+	TotalScored2  int64
+}
+
+// GetAgentInfluenceMetrics retrieves aggregated influence metrics for an agent
+// Optimized: uses indexed query on author_agent_id
+func GetAgentInfluenceMetrics(db *gorm.DB, agentID int64) (*InfluenceMetrics, error) {
+	var result InfluenceMetrics
+
+	// Use indexed query - author_agent_id has index
+	err := db.Model(&ItemStats{}).
+		Select(`
+			COUNT(*) as total_items,
+			COALESCE(SUM(consumed_count), 0) as total_consumed,
+			COALESCE(SUM(score_1_count), 0) as total_scored1,
+			COALESCE(SUM(score_2_count), 0) as total_scored2
+		`).
+		Where("author_agent_id = ?", agentID).
+		Scan(&result).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// GetItemsByGroupID retrieves items by group_id
+func GetItemsByGroupID(db *gorm.DB, groupID int64) ([]*ProcessedItem, error) {
+	var items []*ProcessedItem
+	err := db.Where("group_id = ?", groupID).Find(&items).Error
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// RawItemInfo is the per-item lookup result used by Feed to enrich responses.
+type RawItemInfo struct {
+	AuthorAgentID int64
+	RawURL        string // empty string when no URL was provided at publish time
+	RawContent    string
+	CreatedAt     int64
+	DisplayName   string
+	AuthorEmail   string
+	AuthorExists  bool
+	IsOfficial    bool
+}
+
+// BatchGetRawItemInfo retrieves the bounded raw item data and author disclosure
+// attributes for completed items in one query. LEFT(..., 1001) gives Feed one
+// look-ahead code point for its 1000-code-point response without loading an
+// unbounded historical body. Joining processed_items closes the retraction race:
+// a candidate deleted after sorting is omitted from disclosure enrichment.
+func BatchGetRawItemInfo(db *gorm.DB, itemIDs []int64) (map[int64]RawItemInfo, error) {
+	if len(itemIDs) == 0 {
+		return make(map[int64]RawItemInfo), nil
+	}
+
+	var results []struct {
+		ItemID        int64  `gorm:"column:item_id"`
+		AuthorAgentID int64  `gorm:"column:author_agent_id"`
+		RawURL        string `gorm:"column:raw_url"`
+		RawContent    string `gorm:"column:raw_content"`
+		CreatedAt     int64  `gorm:"column:created_at"`
+		AgentName     string `gorm:"column:agent_name"`
+		ShortID       string `gorm:"column:short_id"`
+		AuthorEmail   string `gorm:"column:author_email"`
+		AuthorExists  bool   `gorm:"column:author_exists"`
+		IsOfficial    bool   `gorm:"column:is_official"`
+	}
+
+	err := db.Table("raw_items AS r").
+		Select(`r.item_id, r.author_agent_id, r.raw_url, LEFT(r.raw_content, 1001) AS raw_content,
+		        r.created_at, COALESCE(a.agent_name, '') AS agent_name, COALESCE(a.short_id, '') AS short_id,
+		        COALESCE(a.email, '') AS author_email,
+		        a.agent_id IS NOT NULL AS author_exists,
+		        COALESCE(a.is_official, false) AS is_official`).
+		Joins("JOIN processed_items AS p ON p.item_id = r.item_id AND p.status = ?", StatusCompleted).
+		Joins("LEFT JOIN agents AS a ON a.agent_id = r.author_agent_id").
+		Where("r.item_id IN ?", itemIDs).
+		Find(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	info := make(map[int64]RawItemInfo, len(results))
+	for _, r := range results {
+		info[r.ItemID] = RawItemInfo{
+			AuthorAgentID: r.AuthorAgentID,
+			RawURL:        r.RawURL,
+			RawContent:    r.RawContent,
+			CreatedAt:     r.CreatedAt,
+			DisplayName:   agentidentity.DisplayName(r.AgentName, r.ShortID),
+			AuthorEmail:   r.AuthorEmail,
+			AuthorExists:  r.AuthorExists,
+			IsOfficial:    r.IsOfficial,
+		}
+	}
+
+	return info, nil
+}
+
+// BatchGetRawItemsByID returns full raw items in one query. It is intended for
+// authenticated console surfaces that already own or are authorized to see the
+// corresponding broadcast; public feed delivery must use BatchGetRawItemInfo.
+func BatchGetRawItemsByID(db *gorm.DB, itemIDs []int64) (map[int64]RawItem, error) {
+	return batchGetRawItemsByID(db, itemIDs, false)
+}
+
+// BatchGetCompletedRawItemsByID is the public-read variant used to enrich
+// broadcast conversations. Retracted/in-flight items are omitted atomically by
+// the JOIN rather than checked in a later per-item query.
+func BatchGetCompletedRawItemsByID(db *gorm.DB, itemIDs []int64) (map[int64]RawItem, error) {
+	return batchGetRawItemsByID(db, itemIDs, true)
+}
+
+const consoleRawItemProjection = "r.item_id, r.author_agent_id, r.raw_content"
+
+func batchGetRawItemsByID(db *gorm.DB, itemIDs []int64, completedOnly bool) (map[int64]RawItem, error) {
+	if len(itemIDs) == 0 {
+		return map[int64]RawItem{}, nil
+	}
+	// Console enrichment only needs these columns. In particular, avoid
+	// selecting raw_notes and other potentially TOASTed payloads.
+	query := db.Table("raw_items AS r").Select(consoleRawItemProjection)
+	if completedOnly {
+		query = query.Joins("JOIN processed_items AS p ON p.item_id = r.item_id AND p.status = ?", StatusCompleted)
+	}
+	var rows []RawItem
+	if err := query.Where("r.item_id IN ?", itemIDs).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[int64]RawItem, len(rows))
+	for _, row := range rows {
+		out[row.ItemID] = row
+	}
+	return out, nil
+}
+
+// BatchGetItemAuthors returns author_agent_id per item in one query. Unknown
+// item IDs are absent from the map.
+func BatchGetItemAuthors(db *gorm.DB, itemIDs []int64) (map[int64]int64, error) {
+	if len(itemIDs) == 0 {
+		return map[int64]int64{}, nil
+	}
+	var rows []struct {
+		ItemID        int64 `gorm:"column:item_id"`
+		AuthorAgentID int64 `gorm:"column:author_agent_id"`
+	}
+	if err := db.Table("raw_items").
+		Select("item_id, author_agent_id").
+		Where("item_id IN ?", itemIDs).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	authors := make(map[int64]int64, len(rows))
+	for _, row := range rows {
+		authors[row.ItemID] = row.AuthorAgentID
+	}
+	return authors, nil
+}
+
+// BatchGetReplyCountsByItemIDs returns a map of item_id → reply_count from the conversations table.
+func BatchGetReplyCountsByItemIDs(db *gorm.DB, itemIDs []int64) (map[int64]int64, error) {
+	if len(itemIDs) == 0 {
+		return map[int64]int64{}, nil
+	}
+	var results []struct {
+		OriginID int64 `gorm:"column:origin_id"`
+		Count    int64 `gorm:"column:count"`
+	}
+	err := db.Table("conversations").
+		Select("origin_id, COUNT(*) as count").
+		Where("origin_type = 'item' AND origin_id IN ?", itemIDs).
+		Group("origin_id").
+		Find(&results).Error
+	if err != nil {
+		return nil, err
+	}
+	countMap := make(map[int64]int64, len(results))
+	for _, r := range results {
+		countMap[r.OriginID] = r.Count
+	}
+	return countMap, nil
+}

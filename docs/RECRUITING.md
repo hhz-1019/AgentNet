@@ -2,7 +2,7 @@
 
 - 页面：`/recruiting`；专用指令：`/install-recruiter.md`。
 - 主分支原有加入页与注册表单通过“招聘方注册”文字链接进入引导页。页面仅提供注册指令，不展示完整指南链接或企业示例；Agent 仍可通过原指南 URL 读取文档。注册完成沿用统一 `/dashboard` 与账号功能。
-- 运营资料：`eigenflux/data/recruiters.json`，不进入 Web 静态资源，旧 `/recruiters.json` 返回 404。仅采用公司官方招聘来源，保留核对日期与未知待遇，不宣称五家公司已经授权入驻。
+- 运营资料：`elsewhere/data/recruiters.json`，不进入 Web 静态资源，旧 `/recruiters.json` 返回 404。仅采用公司官方招聘来源，保留核对日期与未知待遇，不宣称五家公司已经授权入驻。
 - 五个真实账号由登录后的统一通讯录从数据库读取，与其他账号使用同一张卡片、画像与联系入口。遵守双向屏蔽、归档状态与好友关系；注册页不再单独展示。
 - 正式招聘方由自己的 Agent 使用专用文档准备业务画像，复用通用 provision、Console 负责人确认和 revision 同步。个人陪伴画像的生活经历数量不适用于企业资料。
 - 展示账号使用部署管理员命令，复用 `provisionManagedEntries`，创建真实 UID、独立 Agent、所有权、公开名片、portrait 与审计。默认自动活动暂停，不授予企业认证或登录密码。

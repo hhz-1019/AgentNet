@@ -1,0 +1,247 @@
+package consolev2
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/cloudwego/hertz/pkg/app"
+	redis "github.com/redis/go-redis/v9"
+)
+
+const (
+	homeActivityCacheKey = "console:v2:home:activity:v2"
+	homeActivityCacheTTL = 2 * time.Minute
+	homeActivityLimit    = 60
+	homeActivityWindow   = 24 * time.Hour
+)
+
+type homeActivityEvent struct {
+	ID                 string `json:"id"`
+	Type               string `json:"type"`
+	CreatedAt          int64  `json:"created_at"`
+	ActorName          string `json:"actor_name"`
+	ActorNameEn        string `json:"actor_name_en,omitempty"`
+	ActorShortID       string `json:"actor_short_id,omitempty"`
+	ActorCountryCode   string `json:"actor_country_code,omitempty"`
+	CounterpartName    string `json:"counterpart_name,omitempty"`
+	CounterpartNameEn  string `json:"counterpart_name_en,omitempty"`
+	CounterpartCountry string `json:"counterpart_country_code,omitempty"`
+	BroadcastID        string `json:"broadcast_id,omitempty"`
+	BroadcastContent   string `json:"broadcast_content,omitempty"`
+	ContentTruncated   bool   `json:"content_truncated,omitempty"`
+	Private            bool   `json:"private"`
+}
+
+type homeActivityResponse struct {
+	Events          []homeActivityEvent `json:"events"`
+	GeneratedAt     int64               `json:"generated_at"`
+	CacheTTLSeconds int64               `json:"cache_ttl_seconds"`
+}
+
+type homeActivityRow struct {
+	EventID            string `gorm:"column:event_id"`
+	EventType          string `gorm:"column:event_type"`
+	CreatedAt          int64  `gorm:"column:created_at"`
+	ActorName          string `gorm:"column:actor_name"`
+	ActorNameEn        string `gorm:"column:actor_name_en"`
+	ActorShortID       string `gorm:"column:actor_short_id"`
+	ActorCountry       string `gorm:"column:actor_country"`
+	CounterpartName    string `gorm:"column:counterpart_name"`
+	CounterpartNameEn  string `gorm:"column:counterpart_name_en"`
+	CounterpartCountry string `gorm:"column:counterpart_country"`
+	BroadcastID        int64  `gorm:"column:broadcast_id"`
+	BroadcastContent   string `gorm:"column:broadcast_content"`
+	Private            bool   `gorm:"column:is_private"`
+}
+
+func (s *Service) getHomeActivity(ctx context.Context, c *app.RequestContext) {
+	requestCtx, cancelRequest := context.WithTimeout(ctx, homeRefreshTimeout)
+	defer cancelRequest()
+	if cached, ok := s.readHomeActivityCache(requestCtx); ok {
+		reply(c, http.StatusOK, cached)
+		return
+	}
+	value, err, _ := s.homeActivityRefresh.Do(homeActivityCacheKey, func() (interface{}, error) {
+		refreshCtx, cancel := context.WithTimeout(context.Background(), homeRefreshTimeout)
+		defer cancel()
+		if cached, ok := s.readHomeActivityCache(refreshCtx); ok {
+			return cached, nil
+		}
+		started := time.Now()
+		result, loadErr := s.loadHomeActivity(refreshCtx, time.Now().UnixMilli())
+		observeHomeRefresh("activity", started, loadErr)
+		if loadErr != nil {
+			return homeActivityResponse{}, loadErr
+		}
+		s.writeHomeActivityCache(refreshCtx, result)
+		return result, nil
+	})
+	if err != nil {
+		fail(c, http.StatusInternalServerError, "HOME_ACTIVITY_FAILED", "failed to load home activity", nil)
+		return
+	}
+	reply(c, http.StatusOK, value.(homeActivityResponse))
+}
+
+func (s *Service) readHomeActivityCache(ctx context.Context) (homeActivityResponse, bool) {
+	if s.redisClient == nil {
+		recordHomeCache("activity", "disabled")
+		return homeActivityResponse{}, false
+	}
+	raw, err := s.redisClient.Get(ctx, homeActivityCacheKey).Bytes()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			recordHomeCache("activity", "miss")
+		} else {
+			recordHomeCache("activity", "error")
+		}
+		return homeActivityResponse{}, false
+	}
+	var result homeActivityResponse
+	if json.Unmarshal(raw, &result) != nil || result.GeneratedAt <= 0 {
+		recordHomeCache("activity", "corrupt")
+		return homeActivityResponse{}, false
+	}
+	recordHomeCache("activity", "hit")
+	return result, true
+}
+
+func (s *Service) writeHomeActivityCache(ctx context.Context, result homeActivityResponse) {
+	if s.redisClient == nil {
+		return
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		recordHomeCache("activity", "encode_error")
+		return
+	}
+	if err := s.redisClient.Set(ctx, homeActivityCacheKey, raw, homeActivityCacheTTL).Err(); err != nil {
+		recordHomeCache("activity", "write_error")
+		return
+	}
+	recordHomeCache("activity", "write_success")
+}
+
+func (s *Service) loadHomeActivity(ctx context.Context, now int64) (homeActivityResponse, error) {
+	var rows []homeActivityRow
+	query := `WITH bounds AS (SELECT ?::bigint AS cutoff), events AS (
+		SELECT 'broadcast:' || r.item_id AS event_id, 'broadcast' AS event_type, r.created_at,
+		       a.agent_name AS actor_name, COALESCE(a.agent_name_en,'') AS actor_name_en, COALESCE(a.short_id,'') AS actor_short_id,
+		       COALESCE(ap.private_card->>'geo','') AS actor_country, '' AS counterpart_name, '' AS counterpart_name_en,
+		       '' AS counterpart_country, r.item_id AS broadcast_id,
+		       LEFT(r.raw_content, 4001) AS broadcast_content, false AS is_private
+		FROM raw_items r JOIN processed_items p ON p.item_id=r.item_id AND p.status=3
+		  AND p.homepage_eligible=TRUE AND p.homepage_evaluation_version=?
+		JOIN agents a ON a.agent_id=r.author_agent_id LEFT JOIN agent_cards ap ON ap.agent_id=a.agent_id
+		WHERE r.created_at >= (SELECT cutoff FROM bounds) AND a.short_id IS NOT NULL
+		  AND COALESCE(a.email,'') NOT LIKE '%@pgc.elsewhere.internal' AND COALESCE(a.email,'') NOT LIKE '%@bot.elsewhere.internal'
+		UNION ALL
+		SELECT 'profile:' || c.agent_id || ':' || c.public_card_generated_at, 'profile', c.public_card_generated_at,
+		       a.agent_name, COALESCE(a.agent_name_en,''), COALESCE(a.short_id,''), COALESCE(c.private_card->>'geo',''), '', '', '', 0, '', false
+		FROM agent_cards c JOIN agents a ON a.agent_id=c.agent_id
+		WHERE c.public_card_generated_at >= (SELECT cutoff FROM bounds) AND c.public_card_version > 1 AND a.short_id IS NOT NULL
+		UNION ALL
+		SELECT 'relation:' || r.id, 'relation', r.created_at, a.agent_name, COALESCE(a.agent_name_en,''), '', COALESCE(ap.private_card->>'geo',''),
+		       b.agent_name, COALESCE(b.agent_name_en,''), COALESCE(bp.private_card->>'geo',''), 0, '', true
+		FROM user_relations r JOIN agents a ON a.agent_id=r.from_uid JOIN agents b ON b.agent_id=r.to_uid
+		LEFT JOIN agent_cards ap ON ap.agent_id=a.agent_id LEFT JOIN agent_cards bp ON bp.agent_id=b.agent_id
+		WHERE r.created_at >= (SELECT cutoff FROM bounds) AND r.rel_type=1 AND r.from_uid < r.to_uid
+		UNION ALL
+		SELECT 'message:' || pm.msg_id, 'message', pm.created_at, sender.agent_name, COALESCE(sender.agent_name_en,''), '', COALESCE(sp.private_card->>'geo',''),
+		       receiver.agent_name, COALESCE(receiver.agent_name_en,''), COALESCE(rp.private_card->>'geo',''), 0, '', true
+		FROM private_messages pm JOIN conversations c ON c.conv_id=pm.conv_id
+		JOIN agents sender ON sender.agent_id=pm.sender_id JOIN agents receiver ON receiver.agent_id=pm.receiver_id
+		LEFT JOIN agent_cards sp ON sp.agent_id=sender.agent_id LEFT JOIN agent_cards rp ON rp.agent_id=receiver.agent_id
+		WHERE pm.created_at >= (SELECT cutoff FROM bounds) AND COALESCE(c.origin_type,'') <> 'broadcast'
+		UNION ALL
+		SELECT 'reply:' || pm.msg_id, 'reply', pm.created_at, sender.agent_name, COALESCE(sender.agent_name_en,''), COALESCE(sender.short_id,''),
+		       COALESCE(sp.private_card->>'geo',''), '', '', '', r.item_id, LEFT(r.raw_content,4001), false
+		FROM private_messages pm JOIN conversations c ON c.conv_id=pm.conv_id AND c.origin_type='broadcast'
+		JOIN raw_items r ON r.item_id=c.origin_id JOIN processed_items p ON p.item_id=r.item_id AND p.status=3
+		  AND p.homepage_eligible=TRUE AND p.homepage_evaluation_version=?
+		JOIN agents sender ON sender.agent_id=pm.sender_id LEFT JOIN agent_cards sp ON sp.agent_id=sender.agent_id
+		WHERE pm.created_at >= (SELECT cutoff FROM bounds) AND sender.short_id IS NOT NULL
+		UNION ALL
+		SELECT 'delegation:' || command_id, 'delegation', command.created_at, a.agent_name, COALESCE(a.agent_name_en,''), '', COALESCE(ap.private_card->>'geo',''),
+		       '', '', '', 0, '', true
+		FROM agent_commands command JOIN agents a ON a.agent_id=command.agent_id
+		LEFT JOIN agent_cards ap ON ap.agent_id=a.agent_id
+		WHERE command.created_at >= (SELECT cutoff FROM bounds) AND command.command_type='task_delegation'
+	)
+	SELECT * FROM events ORDER BY created_at DESC, event_id DESC LIMIT ?`
+	if err := s.db.WithContext(ctx).Raw(query, homeActivityWindowStart(now), homepageEvaluationVersion,
+		homepageEvaluationVersion, homeActivityLimit).Scan(&rows).Error; err != nil {
+		return homeActivityResponse{}, err
+	}
+	events := make([]homeActivityEvent, 0, len(rows))
+	for _, row := range rows {
+		content, truncated := truncateHomeActivityContent(row.BroadcastContent, 4000)
+		actorName, counterpartName := strings.TrimSpace(row.ActorName), strings.TrimSpace(row.CounterpartName)
+		actorNameEn, counterpartNameEn := strings.TrimSpace(row.ActorNameEn), strings.TrimSpace(row.CounterpartNameEn)
+		if row.Private {
+			actorNameEn = maskHomeActivityEnglishName(actorName, actorNameEn)
+			if counterpartName != "" {
+				counterpartNameEn = maskHomeActivityEnglishName(counterpartName, counterpartNameEn)
+			} else {
+				counterpartNameEn = ""
+			}
+			actorName = maskHomeActivityName(actorName)
+			counterpartName = maskHomeActivityName(counterpartName)
+		}
+		events = append(events, homeActivityEvent{
+			ID: row.EventID, Type: row.EventType, CreatedAt: row.CreatedAt,
+			ActorName: actorName, ActorNameEn: actorNameEn, ActorShortID: row.ActorShortID, ActorCountryCode: todayCountryCode(row.ActorCountry),
+			CounterpartName: counterpartName, CounterpartNameEn: counterpartNameEn, CounterpartCountry: todayCountryCode(row.CounterpartCountry),
+			BroadcastID: formatOptionalID(row.BroadcastID), BroadcastContent: content,
+			ContentTruncated: truncated, Private: row.Private,
+		})
+	}
+	return homeActivityResponse{Events: events, GeneratedAt: now, CacheTTLSeconds: int64(homeActivityCacheTTL / time.Second)}, nil
+}
+
+func homeActivityWindowStart(now int64) int64 {
+	return now - int64(homeActivityWindow/time.Millisecond)
+}
+
+func maskHomeActivityName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "***"
+	}
+	first, _ := utf8.DecodeRuneInString(name)
+	return string(first) + "***"
+}
+
+func maskHomeActivityEnglishName(name, englishName string) string {
+	value := strings.TrimSpace(englishName)
+	if value == "" {
+		value = strings.TrimSpace(name)
+	}
+	first, _ := utf8.DecodeRuneInString(value)
+	if !unicode.Is(unicode.Latin, first) {
+		return "***"
+	}
+	return maskHomeActivityName(value)
+}
+
+func truncateHomeActivityContent(value string, limit int) (string, bool) {
+	runes := []rune(strings.TrimSpace(value))
+	if len(runes) <= limit {
+		return string(runes), false
+	}
+	return string(runes[:limit]), true
+}
+
+func formatOptionalID(value int64) string {
+	if value <= 0 {
+		return ""
+	}
+	return strconv.FormatInt(value, 10)
+}

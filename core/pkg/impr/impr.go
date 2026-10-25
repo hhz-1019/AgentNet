@@ -1,0 +1,122 @@
+package impr
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+const (
+	// ImprTTL is the TTL for impression records (used for feedback validation only).
+	ImprTTL = 30 * 24 * time.Hour
+
+	KeyItemIDs  = "impr:agent:%d:items"
+	KeyGroupIDs = "impr:agent:%d:groups"
+	KeyURLs     = "impr:agent:%d:urls"
+)
+
+// ImprItem represents an item to record as seen.
+type ImprItem struct {
+	ItemID  int64
+	GroupID int64
+	URL     string
+}
+
+// RecordImpressions writes impression records to Redis (SADD + Expire).
+func RecordImpressions(ctx context.Context, rdb *redis.Client, agentID int64, items []ImprItem) error {
+	if len(items) == 0 {
+		return nil
+	}
+
+	itemKey := fmt.Sprintf(KeyItemIDs, agentID)
+	groupKey := fmt.Sprintf(KeyGroupIDs, agentID)
+	urlKey := fmt.Sprintf(KeyURLs, agentID)
+
+	pipe := rdb.Pipeline()
+	for _, item := range items {
+		pipe.SAdd(ctx, itemKey, item.ItemID)
+		if item.GroupID != 0 {
+			pipe.SAdd(ctx, groupKey, item.GroupID)
+		}
+		if item.URL != "" {
+			pipe.SAdd(ctx, urlKey, item.URL)
+		}
+	}
+	// Refresh TTL
+	pipe.Expire(ctx, itemKey, ImprTTL)
+	pipe.Expire(ctx, groupKey, ImprTTL)
+	pipe.Expire(ctx, urlKey, ImprTTL)
+
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+// SeenItems holds the sets of already-seen identifiers for an agent.
+type SeenItems struct {
+	ItemIDs  []int64
+	GroupIDs []int64
+	URLs     []string
+}
+
+// GetSeenItems reads impression records from Redis (SMEMBERS).
+func GetSeenItems(ctx context.Context, rdb *redis.Client, agentID int64) (*SeenItems, error) {
+	itemKey := fmt.Sprintf(KeyItemIDs, agentID)
+	groupKey := fmt.Sprintf(KeyGroupIDs, agentID)
+	urlKey := fmt.Sprintf(KeyURLs, agentID)
+
+	pipe := rdb.Pipeline()
+	itemCmd := pipe.SMembers(ctx, itemKey)
+	groupCmd := pipe.SMembers(ctx, groupKey)
+	urlCmd := pipe.SMembers(ctx, urlKey)
+	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+		return nil, err
+	}
+
+	itemIDs := parseIDs(itemCmd.Val())
+
+	var groupIDs []int64
+	for _, s := range groupCmd.Val() {
+		id, err := strconv.ParseInt(s, 10, 64)
+		if err == nil {
+			groupIDs = append(groupIDs, id)
+		}
+	}
+	if groupIDs == nil {
+		groupIDs = []int64{}
+	}
+
+	urls := urlCmd.Val()
+	if urls == nil {
+		urls = []string{}
+	}
+
+	return &SeenItems{
+		ItemIDs:  itemIDs,
+		GroupIDs: groupIDs,
+		URLs:     urls,
+	}, nil
+}
+
+// GetSeenItemIDs reads only the item impression set. Recall paths use this
+// narrower query so they do not fetch the unrelated group and URL sets.
+func GetSeenItemIDs(ctx context.Context, rdb *redis.Client, agentID int64) ([]int64, error) {
+	values, err := rdb.SMembers(ctx, fmt.Sprintf(KeyItemIDs, agentID)).Result()
+	if err != nil && err != redis.Nil {
+		return nil, err
+	}
+	return parseIDs(values), nil
+}
+
+func parseIDs(values []string) []int64 {
+	ids := make([]int64, 0, len(values))
+	for _, value := range values {
+		id, err := strconv.ParseInt(value, 10, 64)
+		if err == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}

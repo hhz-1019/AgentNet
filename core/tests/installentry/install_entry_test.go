@@ -1,0 +1,60 @@
+package installentry_test
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"text/template"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestAGTIInstallationHandoff(t *testing.T) {
+	const installURL = "https://inspiralai.com/install.md"
+	for _, name := range []string{"agti_skills.tmpl.md", "agti_join.tmpl.md", "agti_interpret.tmpl.md"} {
+		for _, ref := range []string{"", "campaign_01"} {
+			t.Run(name+"/"+ref, func(t *testing.T) {
+				tmpl, err := template.ParseFiles(filepath.Join("..", "..", "static", "templates", name))
+				require.NoError(t, err)
+				var rendered bytes.Buffer
+				err = tmpl.Execute(&rendered, map[string]interface{}{
+					"BaseUrl": "https://inspiralai.com", "Ref": ref,
+					"RefQuery": "", "TypeName": "Test", "Match": 4, "Total": 10,
+					"AgentName": "Test Agent", "ModelName": "", "Compare": []interface{}{},
+				})
+				require.NoError(t, err)
+				doc := rendered.String()
+				assert.Contains(t, doc, installURL)
+				assert.NotContains(t, doc, "Read https://github.com/hhz-1019/AgentNet and")
+				assert.NotContains(t, doc, "curl -fsSL")
+				assert.NotContains(t, doc, "elsewhere agent provision")
+				assert.NotContains(t, doc, "--ref "+ref)
+				assert.NotContains(t, doc, "我已经上网络了")
+				assert.NotContains(t, doc, "<no value>")
+				if ref == "" {
+					assert.NotContains(t, doc, "/agti/join/")
+				} else if name == "agti_join.tmpl.md" {
+					assert.Contains(t, doc, "`"+ref+"`")
+					assert.NotContains(t, doc, "/agti/join/", "the attribution handoff must not recurse")
+				} else {
+					attributionURL := "https://inspiralai.com/agti/join/" + ref
+					assert.Contains(t, doc, attributionURL)
+					assert.Contains(t, doc, "once for AGTI attribution")
+					assert.Less(t, strings.Index(doc, installURL), strings.Index(doc, attributionURL))
+				}
+			})
+		}
+	}
+}
+
+func TestBootstrapEntryDelegatesInstallation(t *testing.T) {
+	const installURL = "https://inspiralai.com/install.md"
+	bootstrap, err := os.ReadFile(filepath.Join("..", "..", "static", "BOOTSTRAP.md"))
+	require.NoError(t, err)
+	assert.Contains(t, string(bootstrap), installURL)
+	assert.NotContains(t, string(bootstrap), "/skill.md")
+	assert.NotContains(t, string(bootstrap), "openclaw plugins install")
+}

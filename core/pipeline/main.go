@@ -1,0 +1,320 @@
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	"elsewhere_server/kitex_gen/elsewhere/commission/commissionservice"
+	"elsewhere_server/kitex_gen/elsewhere/order/orderservice"
+	"elsewhere_server/kitex_gen/elsewhere/pm/pmservice"
+	"elsewhere_server/pipeline/consumer"
+	"elsewhere_server/pipeline/embedding"
+	"elsewhere_server/pipeline/llm"
+	"elsewhere_server/pipeline/official"
+	"elsewhere_server/pkg/commissionindex"
+	"elsewhere_server/pkg/commissionsource"
+	"elsewhere_server/pkg/config"
+	"elsewhere_server/pkg/db"
+	"elsewhere_server/pkg/es"
+	"elsewhere_server/pkg/idgen"
+	"elsewhere_server/pkg/logger"
+	"elsewhere_server/pkg/metrics"
+	"elsewhere_server/pkg/milestone"
+	"elsewhere_server/pkg/mq"
+	"elsewhere_server/pkg/recall"
+	"elsewhere_server/pkg/rpcx"
+	"elsewhere_server/pkg/telemetry"
+
+	etcd "github.com/kitex-contrib/registry-etcd"
+)
+
+func main() {
+	cfg := config.Load()
+	logFlush := logger.Init("pipeline", cfg.EffectiveLokiURL(), cfg.LogLevel)
+	defer logFlush()
+
+	shutdown, err := telemetry.Init("pipeline", cfg.OtelExporterEndpoint, cfg.MonitorEnabled)
+	if err != nil {
+		log.Fatalf("failed to init telemetry: %v", err)
+	}
+	defer shutdown(context.Background())
+
+	go metrics.StartMetricsServer(9070)
+
+	db.Init(cfg.PgDSN)
+	log.Println("PostgreSQL connected")
+
+	mq.Init(cfg.RedisAddr, cfg.RedisPassword)
+	mq.SetDefaultStreamMaxLen(cfg.MqStreamMaxLen)
+	log.Println("Redis connected")
+
+	if err := es.InitES(cfg.EmbeddingDimensions); err != nil {
+		log.Fatalf("Failed to initialize Elasticsearch: %v", err)
+	}
+	log.Println("Elasticsearch connected")
+
+	// PM RPC client: the official welcome consumer sends private messages as the
+	// official account by reusing PMService.SendPM (conversation creation, friend
+	// fast-path, push) rather than reimplementing it against the DAL.
+	resolver, err := etcd.NewEtcdResolver([]string{cfg.EtcdAddr})
+	if err != nil {
+		log.Fatalf("failed to create etcd resolver: %v", err)
+	}
+	pmClient, err := pmservice.NewClient("PMService", rpcx.ClientOptions(resolver)...)
+	if err != nil {
+		log.Fatalf("failed to create pm client: %v", err)
+	}
+	log.Println("PM RPC client initialized")
+
+	var commissionIndexConsumer *consumer.CommissionIndexConsumer
+	if cfg.EnableCommissionIndex {
+		commissionClient, err := commissionservice.NewClient(cfg.CommissionSourceService, rpcx.ClientOptions(resolver)...)
+		if err != nil {
+			log.Fatalf("failed to create Commission source client: %v", err)
+		}
+		orderClient, err := orderservice.NewClient(cfg.OrderSourceService, rpcx.ClientOptions(resolver)...)
+		if err != nil {
+			log.Fatalf("failed to create Commission order source client: %v", err)
+		}
+		store := commissionindex.ESStore{Index: cfg.CommissionIndexName, Alias: cfg.CommissionIndexAlias, Dimensions: cfg.EmbeddingDimensions}
+		if err := store.Ensure(context.Background()); err != nil {
+			log.Fatalf("failed to bootstrap Commission index: %v", err)
+		}
+		embedder := embedding.NewClient(cfg.EmbeddingProvider, cfg.EmbeddingApiKey, cfg.EmbeddingBaseURL, cfg.EmbeddingModel, cfg.EmbeddingDimensions)
+		commissionIndexConsumer = consumer.NewCommissionIndexConsumer(cfg, commissionsource.Adapter{Commission: commissionClient, Order: orderClient}, store, embedder)
+		log.Println("Commission index consumer initialized")
+	}
+	var commissionNotificationConsumer *consumer.CommissionOrderNotificationConsumer
+	if cfg.EnableCommissionOrderNotifications {
+		commissionNotificationConsumer = consumer.NewCommissionOrderNotificationConsumer(cfg, db.DB, mq.RDB)
+		log.Println("Commission Order notification consumer initialized")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	etcdEndpoints := splitEtcdEndpoints(cfg.EtcdAddr)
+	milestoneEventIDGen, err := idgen.NewManagedGenerator(context.Background(), idgen.ManagedGeneratorConfig{
+		Endpoints:      etcdEndpoints,
+		WorkerPrefix:   cfg.IDWorkerPrefix,
+		ServiceName:    "milestone-event-id",
+		InstanceID:     cfg.IDInstanceID,
+		LeaseTTLSecond: cfg.IDWorkerLeaseTTL,
+		EpochMS:        cfg.IDSnowflakeEpoch,
+	})
+	if err != nil {
+		log.Fatalf("failed to init milestone event id generator: %v", err)
+	}
+	defer func() {
+		_ = milestoneEventIDGen.Close(context.Background())
+	}()
+	milestoneSvc, err := milestone.NewService(
+		db.DB,
+		mq.RDB,
+		milestoneEventIDGen,
+		milestone.WithRuleCacheTTLSeconds(cfg.MilestoneRuleCacheTTL),
+	)
+	if err != nil {
+		log.Fatalf("failed to init milestone service: %v", err)
+	}
+
+	prompts, err := llm.LoadDefaultPrompts()
+	if err != nil {
+		log.Fatalf("failed to load prompt templates: %v", err)
+	}
+	if err := llm.ValidateAllPrompts(prompts); err != nil {
+		log.Fatalf("prompt validation failed: %v", err)
+	}
+	log.Printf("Loaded and validated %d prompt templates: %v", len(prompts.Names()), prompts.Names())
+
+	// Shared official-account sender for the consumers that act as the official
+	// account (welcome, first-broadcast reply, inbox chat).
+	officialSender := official.NewSender(cfg, pmClient, llm.NewClient(cfg, prompts), prompts)
+
+	profileConsumer := consumer.NewProfileConsumer(cfg, prompts)
+	agentCardConsumer := consumer.NewAgentCardConsumer()
+	itemConsumer := consumer.NewItemConsumer(cfg, prompts)
+	itemStatsConsumer := consumer.NewItemStatsConsumer(cfg, milestoneSvc)
+
+	var replayConsumer *consumer.ReplayConsumer
+	if cfg.EnableReplayLog {
+		replayIDGen, err := idgen.NewManagedGenerator(context.Background(), idgen.ManagedGeneratorConfig{
+			Endpoints:      etcdEndpoints,
+			WorkerPrefix:   cfg.IDWorkerPrefix,
+			ServiceName:    "replay-log-id",
+			InstanceID:     cfg.IDInstanceID,
+			LeaseTTLSecond: cfg.IDWorkerLeaseTTL,
+			EpochMS:        cfg.IDSnowflakeEpoch,
+		})
+		if err != nil {
+			log.Fatalf("failed to init replay log id generator: %v", err)
+		}
+		defer func() {
+			_ = replayIDGen.Close(context.Background())
+		}()
+		replayConsumer = consumer.NewReplayConsumer(replayIDGen)
+	}
+
+	activityIDGen, err := idgen.NewManagedGenerator(context.Background(), idgen.ManagedGeneratorConfig{
+		Endpoints:      etcdEndpoints,
+		WorkerPrefix:   cfg.IDWorkerPrefix,
+		ServiceName:    "activity-log-id",
+		InstanceID:     cfg.IDInstanceID,
+		LeaseTTLSecond: cfg.IDWorkerLeaseTTL,
+		EpochMS:        cfg.IDSnowflakeEpoch,
+	})
+	if err != nil {
+		log.Fatalf("failed to init activity log id generator: %v", err)
+	}
+	defer func() {
+		_ = activityIDGen.Close(context.Background())
+	}()
+	activityConsumer := consumer.NewActivityConsumer(activityIDGen)
+
+	followupIDGen, err := idgen.NewManagedGenerator(context.Background(), idgen.ManagedGeneratorConfig{
+		Endpoints:      etcdEndpoints,
+		WorkerPrefix:   cfg.IDWorkerPrefix,
+		ServiceName:    "followup-label-id",
+		InstanceID:     cfg.IDInstanceID,
+		LeaseTTLSecond: cfg.IDWorkerLeaseTTL,
+		EpochMS:        cfg.IDSnowflakeEpoch,
+	})
+	if err != nil {
+		log.Fatalf("failed to init followup label id generator: %v", err)
+	}
+	defer func() {
+		_ = followupIDGen.Close(context.Background())
+	}()
+	surfaceHistory := recall.NewSurfaceHistoryStore(mq.RDB, cfg.RecallRedisNamespace)
+	followupConsumer := consumer.NewFollowupConsumer(followupIDGen, surfaceHistory)
+
+	var officialWelcomeConsumer *consumer.OfficialWelcomeConsumer
+	if cfg.EnableOfficialWelcome {
+		officialWelcomeConsumer = consumer.NewOfficialWelcomeConsumer(cfg, officialSender)
+	}
+	var officialFirstBroadcastConsumer *consumer.OfficialFirstBroadcastConsumer
+	if cfg.EnableOfficialFirstBroadcast {
+		officialFirstBroadcastConsumer = consumer.NewOfficialFirstBroadcastConsumer(officialSender)
+	}
+	var officialChatConsumer *consumer.OfficialChatConsumer
+	if cfg.EnableOfficialChat {
+		officialChatConsumer = consumer.NewOfficialChatConsumer(officialSender)
+	}
+
+	go profileConsumer.Start(ctx)
+	go agentCardConsumer.Start(ctx)
+	go itemConsumer.Start(ctx)
+	go itemStatsConsumer.Start(ctx)
+	go runMilestoneRecovery(ctx, milestoneSvc)
+	go runMilestoneRuleInvalidationSubscriber(ctx, milestoneSvc)
+	if replayConsumer != nil {
+		go replayConsumer.Start(ctx)
+	}
+	go activityConsumer.Start(ctx)
+	go followupConsumer.Start(ctx)
+	if officialWelcomeConsumer != nil {
+		go officialWelcomeConsumer.Start(ctx)
+	}
+	if officialFirstBroadcastConsumer != nil {
+		go officialFirstBroadcastConsumer.Start(ctx)
+	}
+	if officialChatConsumer != nil {
+		go officialChatConsumer.Start(ctx)
+	}
+	if commissionIndexConsumer != nil {
+		go commissionIndexConsumer.Start(ctx)
+	}
+	if commissionNotificationConsumer != nil {
+		go commissionNotificationConsumer.Start(ctx)
+	}
+
+	lagGroups := []metrics.StreamGroup{
+		{Stream: "stream:profile:update", Group: "cg:profile:update"},
+		{Stream: "stream:agentcard:rebuild", Group: "cg:agentcard:rebuild"},
+		{Stream: "stream:item:publish", Group: "cg:item:publish"},
+		{Stream: "stream:item:stats", Group: "cg:item:stats"},
+		{Stream: "stream:replay:log", Group: "cg:replay:log"},
+		{Stream: "stream:agent:activity", Group: "cg:agent:activity"},
+		{Stream: "stream:followup:label", Group: "cg:followup:label"},
+	}
+	if cfg.EnableOfficialWelcome {
+		lagGroups = append(lagGroups, metrics.StreamGroup{Stream: "stream:profile:update", Group: "cg:official:welcome"})
+	}
+	if cfg.EnableOfficialFirstBroadcast {
+		lagGroups = append(lagGroups, metrics.StreamGroup{Stream: "stream:item:publish", Group: "cg:official:firstbroadcast"})
+	}
+	if commissionIndexConsumer != nil {
+		lagGroups = append(lagGroups, metrics.StreamGroup{Stream: cfg.CommissionStream, Group: cfg.CommissionConsumerGroup})
+	}
+	if commissionNotificationConsumer != nil {
+		lagGroups = append(lagGroups, metrics.StreamGroup{Stream: cfg.CommissionNotificationStream, Group: cfg.CommissionNotificationConsumerGroup})
+	}
+	go metrics.StartLagPoller(ctx, mq.RDB, lagGroups, 10*time.Second)
+
+	log.Println("Pipeline started, waiting for messages...")
+
+	// Graceful shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
+
+	log.Println("Shutting down pipeline...")
+	cancel()
+	log.Println("Pipeline stopped")
+}
+
+func runMilestoneRecovery(ctx context.Context, svc *milestone.Service) {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			recovered, err := svc.RecoverPendingNotifications(ctx, 100)
+			if err != nil {
+				logger.Default().Warn("milestone recover failed", "err", err)
+				continue
+			}
+			if recovered > 0 {
+				logger.Default().Info("milestone recover restored pending notifications", "count", recovered)
+			}
+		}
+	}
+}
+
+func runMilestoneRuleInvalidationSubscriber(ctx context.Context, svc *milestone.Service) {
+	err := milestone.SubscribeRuleInvalidation(ctx, mq.RDB, func(metricKey string) {
+		if metricKey == "" {
+			svc.InvalidateAllRules()
+			logger.Default().Info("milestone rule cache invalidated for all metrics")
+			return
+		}
+		svc.InvalidateRules(metricKey)
+		logger.Default().Info("milestone rule cache invalidated", "metric", metricKey)
+	})
+	if err != nil && ctx.Err() == nil {
+		logger.Default().Warn("milestone rule invalidation subscriber stopped", "err", err)
+	}
+}
+
+func splitEtcdEndpoints(raw string) []string {
+	parts := strings.Split(raw, ",")
+	endpoints := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			endpoints = append(endpoints, p)
+		}
+	}
+	if len(endpoints) == 0 {
+		return []string{"localhost:2379"}
+	}
+	return endpoints
+}

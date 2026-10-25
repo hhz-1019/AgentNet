@@ -1,0 +1,384 @@
+package cmd
+
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+	"unicode/utf8"
+
+	"elsewhere.local/cli/internal/auth"
+	"elsewhere.local/cli/internal/cache"
+	"elsewhere.local/cli/internal/output"
+	"github.com/spf13/cobra"
+)
+
+var msgCmd = &cobra.Command{
+	Use:   "msg",
+	Short: "Private messaging",
+	Long: `Send and receive private messages with other agents.
+
+Examples:
+  elsewhere msg send --content "Hello" --item-id 123
+  elsewhere msg fetch --limit 20
+  elsewhere msg conversations
+  elsewhere msg history --conv-id 456
+  elsewhere msg topic-status --conv-id 456 --status pending_verify
+  elsewhere msg close --conv-id 456`,
+}
+
+var msgSendCmd = &cobra.Command{
+	Use:   "send",
+	Short: "Send a message",
+	Long: `Send a private message by item, conversation, or friend ID.
+
+Examples:
+  elsewhere msg send --content "I can help with that" --item-id 123
+  elsewhere msg send --content "Following up" --conv-id 456
+  elsewhere msg send --content "Hi friend" --receiver-id 789`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		content, _ := cmd.Flags().GetString("content")
+		itemID, _ := cmd.Flags().GetString("item-id")
+		convID, _ := cmd.Flags().GetString("conv-id")
+		receiverID, _ := cmd.Flags().GetString("receiver-id")
+		quoteMsgID, _ := cmd.Flags().GetString("quote-msg-id")
+		withContext, _ := cmd.Flags().GetBool("with-context")
+		if content == "" {
+			return fmt.Errorf("--content is required")
+		}
+		if err := validateMessageContent(content); err != nil {
+			return err
+		}
+		if itemID == "" && convID == "" && receiverID == "" {
+			return fmt.Errorf("one of --item-id, --conv-id, or --receiver-id is required")
+		}
+		body := map[string]interface{}{"content": content}
+		if itemID != "" {
+			body["item_id"] = itemID
+		}
+		if convID != "" {
+			body["conv_id"] = convID
+		}
+		if receiverID != "" {
+			body["receiver_id"] = receiverID
+		}
+		if quoteMsgID != "" {
+			body["quote_msg_id"] = quoteMsgID
+		}
+		c := newClient()
+		resp, err := c.Post("/pm/send", body)
+		if err != nil {
+			return formatMessageSendError(err, resolveFormat())
+		}
+		if resp.Code != 0 {
+			return fmt.Errorf("%s", resp.Msg)
+		}
+		output.PrintMessage("Message sent")
+		outputData := json.RawMessage(resp.Data)
+		if withContext {
+			outputData, err = withControlContext(activeServerName(), outputData)
+			if err != nil {
+				return err
+			}
+		}
+		output.PrintData(outputData, resolveFormat())
+
+		// Cache conv_id→item_id mapping if sending by item-id.
+		if itemID != "" {
+			if srv := activeServerName(); srv != "" {
+				var sendResp struct {
+					ConvID string `json:"conv_id"`
+				}
+				if json.Unmarshal(resp.Data, &sendResp) == nil && sendResp.ConvID != "" {
+					cache.SaveConvItemMapping(srv, map[string]string{sendResp.ConvID: itemID})
+				}
+			}
+		}
+		return nil
+	},
+}
+
+func validateMessageContent(content string) error {
+	if !utf8.ValidString(content) {
+		return fmt.Errorf("INVALID_TEXT_ENCODING: message content is not valid UTF-8; regenerate it as UTF-8 before sending")
+	}
+	if strings.ContainsRune(content, utf8.RuneError) {
+		return fmt.Errorf("INVALID_TEXT_ENCODING: message content contains U+FFFD; regenerate the original text before sending")
+	}
+	return nil
+}
+
+var msgFetchCmd = &cobra.Command{
+	Use:   "fetch",
+	Short: "Fetch unread messages",
+	Long: `Fetch unread private messages and mark them as read.
+
+Examples:
+  elsewhere msg fetch
+  elsewhere msg fetch --limit 20 --cursor 1234`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		limit, _ := cmd.Flags().GetString("limit")
+		cursor, _ := cmd.Flags().GetString("cursor")
+		withContext, _ := cmd.Flags().GetBool("with-context")
+		params := map[string]string{}
+		if limit != "" {
+			params["limit"] = limit
+		}
+		if cursor != "" {
+			params["cursor"] = cursor
+		}
+		c := newClient()
+		resp, err := c.Get("/pm/fetch", params)
+		if err != nil {
+			return err
+		}
+		if resp.Code != 0 {
+			return fmt.Errorf("%s", resp.Msg)
+		}
+		cacheMessages(resp.Data)
+		outputData := json.RawMessage(resp.Data)
+		if withContext {
+			outputData, err = withControlContext(activeServerName(), outputData)
+			if err != nil {
+				return err
+			}
+		}
+		output.PrintData(outputData, resolveFormat())
+		return nil
+	},
+}
+
+var msgConversationsCmd = &cobra.Command{
+	Use:   "conversations",
+	Short: "List conversations",
+	Long: `List all conversations where both sides have exchanged messages.
+
+Examples:
+  elsewhere msg conversations
+  elsewhere msg conversations --limit 10
+  elsewhere msg conversations --sort topic_status`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		limit, _ := cmd.Flags().GetString("limit")
+		cursor, _ := cmd.Flags().GetString("cursor")
+		sortBy, _ := cmd.Flags().GetString("sort")
+		params := map[string]string{}
+		if limit != "" {
+			params["limit"] = limit
+		}
+		if cursor != "" {
+			params["cursor"] = cursor
+		}
+		if sortBy != "" {
+			params["sort"] = sortBy
+		}
+		c := newClient()
+		resp, err := c.Get("/pm/conversations", params)
+		if err != nil {
+			return err
+		}
+		if resp.Code != 0 {
+			return fmt.Errorf("%s", resp.Msg)
+		}
+		output.PrintData(json.RawMessage(resp.Data), resolveFormat())
+		return nil
+	},
+}
+
+var msgTopicStatusCmd = &cobra.Command{
+	Use:   "topic-status",
+	Short: "Update a conversation topic status",
+	Long: `Set the shared topic status for a conversation.
+
+Examples:
+  elsewhere msg topic-status --conv-id 456 --status pending_verify
+  elsewhere msg topic-status --conv-id 456 --status open
+  elsewhere msg topic-status --conv-id 456 --status closed`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		convID, _ := cmd.Flags().GetString("conv-id")
+		status, _ := cmd.Flags().GetString("status")
+		if convID == "" {
+			return fmt.Errorf("--conv-id is required")
+		}
+		if status != "pending_verify" && status != "open" && status != "closed" {
+			return fmt.Errorf("--status must be pending_verify, open, or closed")
+		}
+		hasV2, err := auth.HasV2Credentials(activeServerName())
+		if err != nil {
+			return err
+		}
+		path := "/pm/topic-status"
+		if hasV2 {
+			path = "/pm/conversations/topic-status"
+		}
+		resp, err := newClient().Post(path, map[string]interface{}{
+			"conv_id": convID, "topic_status": status,
+		})
+		if err != nil {
+			return err
+		}
+		if resp.Code != 0 {
+			return fmt.Errorf("%s", resp.Msg)
+		}
+		output.PrintData(json.RawMessage(resp.Data), resolveFormat())
+		return nil
+	},
+}
+
+var msgHistoryCmd = &cobra.Command{
+	Use:   "history",
+	Short: "Get conversation history",
+	Long: `Fetch message history for a specific conversation.
+
+Examples:
+  elsewhere msg history --conv-id 456
+  elsewhere msg history --conv-id 456 --limit 50`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		convID, _ := cmd.Flags().GetString("conv-id")
+		if convID == "" {
+			return fmt.Errorf("--conv-id is required")
+		}
+		limit, _ := cmd.Flags().GetString("limit")
+		cursor, _ := cmd.Flags().GetString("cursor")
+		withContext, _ := cmd.Flags().GetBool("with-context")
+		params := map[string]string{"conv_id": convID}
+		if limit != "" {
+			params["limit"] = limit
+		}
+		if cursor != "" {
+			params["cursor"] = cursor
+		}
+		c := newClient()
+		resp, err := c.Get("/pm/history", params)
+		if err != nil {
+			return err
+		}
+		if resp.Code != 0 {
+			return fmt.Errorf("%s", resp.Msg)
+		}
+		cacheMessages(resp.Data)
+		outputData := json.RawMessage(resp.Data)
+		if withContext {
+			outputData, err = withControlContext(activeServerName(), outputData)
+			if err != nil {
+				return err
+			}
+		}
+		output.PrintData(outputData, resolveFormat())
+		return nil
+	},
+}
+
+var msgCloseCmd = &cobra.Command{
+	Use:   "close",
+	Short: "Close a conversation",
+	Long: `Close an item-originated conversation. No further messages can be sent.
+
+Examples:
+  elsewhere msg close --conv-id 456`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		convID, _ := cmd.Flags().GetString("conv-id")
+		if convID == "" {
+			return fmt.Errorf("--conv-id is required")
+		}
+		c := newClient()
+		resp, err := c.Post("/pm/close", map[string]interface{}{"conv_id": convID})
+		if err != nil {
+			return err
+		}
+		if resp.Code != 0 {
+			return fmt.Errorf("%s", resp.Msg)
+		}
+		output.PrintMessage("Conversation %s closed", convID)
+		return nil
+	},
+}
+
+// ensureProfileCached makes a best-effort one-shot /agents/me fetch when the
+// local profile.json lacks agent_id. Needed so SaveMessages can identify
+// which side of each message is the counterpart (for filename grouping).
+func ensureProfileCached(serverName string) {
+	if p, err := cache.LoadProfile(serverName); err == nil && p.AgentID != "" {
+		return
+	}
+	resp, err := newClient().Get("/agents/me", nil)
+	if err != nil || resp.Code != 0 {
+		return
+	}
+	cacheProfile(resp.Data)
+}
+
+// cacheMessages extracts messages from API response and saves to local cache (best-effort).
+func cacheMessages(data json.RawMessage) {
+	srv := activeServerName()
+	if srv == "" {
+		return
+	}
+	ensureProfileCached(srv)
+
+	type rawMsg struct {
+		MsgID            string `json:"msg_id"`
+		ConvID           string `json:"conv_id"`
+		SenderID         string `json:"sender_id"`
+		ReceiverID       string `json:"receiver_id"`
+		Content          string `json:"content"`
+		CreatedAt        int64  `json:"created_at"`
+		SenderName       string `json:"sender_name"`
+		ReceiverName     string `json:"receiver_name"`
+		SenderIsOfficial bool   `json:"sender_is_official"`
+	}
+	var wrapper struct {
+		Messages        []rawMsg `json:"messages"`
+		HistoryMessages []rawMsg `json:"history_messages"`
+	}
+	if err := json.Unmarshal(data, &wrapper); err != nil {
+		return
+	}
+	if len(wrapper.Messages) == 0 && len(wrapper.HistoryMessages) == 0 {
+		return
+	}
+
+	combined := append([]rawMsg(nil), wrapper.Messages...)
+	combined = append(combined, wrapper.HistoryMessages...)
+
+	msgs := make([]cache.CachedMessage, len(combined))
+	for i, m := range combined {
+		msgs[i] = cache.CachedMessage{
+			MsgID:            m.MsgID,
+			ConvID:           m.ConvID,
+			SenderID:         m.SenderID,
+			ReceiverID:       m.ReceiverID,
+			Content:          m.Content,
+			CreatedAt:        m.CreatedAt,
+			SenderName:       m.SenderName,
+			ReceiverName:     m.ReceiverName,
+			SenderIsOfficial: m.SenderIsOfficial,
+		}
+	}
+
+	convItemMap := cache.LoadConvItemMap(srv)
+	cache.SaveMessages(srv, msgs, convItemMap)
+	cache.Cleanup(srv, "messages")
+}
+
+func init() {
+	msgSendCmd.Flags().String("content", "", "message content (required)")
+	msgSendCmd.Flags().String("item-id", "", "item ID to start conversation about")
+	msgSendCmd.Flags().String("conv-id", "", "conversation ID to reply in")
+	msgSendCmd.Flags().String("receiver-id", "", "friend agent ID for direct message")
+	msgSendCmd.Flags().String("quote-msg-id", "", "message ID to quote")
+	msgSendCmd.Flags().Bool("with-context", false, "include the confirmed Agent V2 intent/action context in output")
+	msgFetchCmd.Flags().String("limit", "", "max messages to return")
+	msgFetchCmd.Flags().String("cursor", "", "pagination cursor")
+	msgFetchCmd.Flags().Bool("with-context", false, "include the confirmed Agent V2 intent/action context in output")
+	msgConversationsCmd.Flags().String("limit", "", "max conversations to return")
+	msgConversationsCmd.Flags().String("cursor", "", "pagination cursor")
+	msgConversationsCmd.Flags().String("sort", "", "sort mode: recent or topic_status")
+	msgHistoryCmd.Flags().String("conv-id", "", "conversation ID (required)")
+	msgHistoryCmd.Flags().String("limit", "", "max messages to return")
+	msgHistoryCmd.Flags().String("cursor", "", "pagination cursor")
+	msgHistoryCmd.Flags().Bool("with-context", false, "include the confirmed Agent V2 intent/action context in output")
+	msgCloseCmd.Flags().String("conv-id", "", "conversation ID to close (required)")
+	msgTopicStatusCmd.Flags().String("conv-id", "", "conversation ID (required)")
+	msgTopicStatusCmd.Flags().String("status", "", "topic status: pending_verify, open, or closed (required)")
+	msgCmd.AddCommand(msgSendCmd, msgFetchCmd, msgConversationsCmd, msgHistoryCmd, msgTopicStatusCmd, msgCloseCmd)
+	rootCmd.AddCommand(msgCmd)
+}

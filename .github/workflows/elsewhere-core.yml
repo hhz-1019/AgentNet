@@ -1,0 +1,213 @@
+name: elsewhere production stack
+on:
+  push:
+    branches: [main, 'codex/**', 'feat/**']
+    paths: ['elsewhere/**', 'core/**', '.github/workflows/elsewhere-core.yml', 'package*.json', '.oxlintrc.json', '.oxfmtrc.json', '.dockerignore']
+  pull_request:
+    branches: [main]
+    paths: ['elsewhere/**', 'core/**', '.github/workflows/elsewhere-core.yml', 'package*.json', '.oxlintrc.json', '.oxfmtrc.json', '.dockerignore']
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.25', cache-dependency-path: 'core/cli/go.sum'}
+      - run: node elsewhere/scripts/installer-protocol-test.mjs
+  recommender-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: '3.11'
+          activate-environment: local-ranking-test
+      - name: Local ranking cache and HTTP tests
+        shell: bash -el {0}
+        run: |
+          conda install -y --override-channels -c conda-forge numpy
+          python -m unittest discover -s elsewhere/recommender/local_ranker -v
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: elsewhere/recommender/Dockerfile
+          load: true
+          tags: elsewhere-gorse:verify
+          cache-from: type=gha,scope=gorse
+          cache-to: type=gha,scope=gorse,mode=max,timeout=2m,ignore-error=true
+      - name: Export tested gorse image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: bash elsewhere/scripts/export-release-image.sh gorse "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: release-gorse-${{ github.sha }}
+          path: /tmp/release-gorse/*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: elsewhere/recommender/Dockerfile.sync
+          load: true
+          tags: elsewhere-sync:verify
+          cache-from: type=gha,scope=sync
+          cache-to: type=gha,scope=sync,mode=max,timeout=2m,ignore-error=true
+      - name: Export tested sync image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: bash elsewhere/scripts/export-release-image.sh sync "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: release-sync-${{ github.sha }}
+          path: /tmp/release-sync/*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+  web-and-adapters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm}
+      - run: npm ci
+      - run: npm run check:brand
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run test:deploy:hk
+      - run: node --test elsewhere/scripts/aliyun-hk-recommender-release.test.mjs
+      - run: node elsewhere/scripts/sync-companion-policy.mjs --check
+      - run: npm run test:performance:unit
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.25', cache-dependency-path: 'core/**/go.sum'}
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:host:protocol
+      - run: npm run test:moment:live
+      - run: npm run test:social:live
+      - run: npm run test:social:ui
+      - run: npm run test:moment:ui
+      - run: npm run test:alignment:ui
+      - run: npm run test:discovery:ui
+      - run: npm run test:scroll:ui
+      - run: npm run test:twin:ui
+      - run: npm run test:phone:core
+      - run: npm run test:phone:ui
+      - run: npm run test:guest:ui
+      - run: npm run test:performance
+      - run: npm run test:managed:core
+      - run: npm run test:managed:ui
+      - run: node elsewhere/scripts/managed-core-test.mjs --deletion
+      - run: node elsewhere/scripts/account-deletion-ui-smoke.mjs
+      - run: npm run test:analytics:core
+      - run: npm run test:analytics:ui
+      - run: npm run test:members:ui
+      - run: npm run test:registration:ui
+      - run: npm run test:registration:profile
+      - run: npm run build
+      - run: node elsewhere/scripts/entry-acceptance.mjs
+      - run: npm run test:performance:acceptance
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: elsewhere/Dockerfile.web
+          build-args: RELEASE_REVISION=${{ github.sha }}
+          load: true
+          tags: agentnet-web:verify
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max,timeout=2m,ignore-error=true
+      - run: docker run --rm --entrypoint caddy agentnet-web:verify validate --config /etc/caddy/Caddyfile
+      - name: Check production gateway routing
+        run: |
+          node --input-type=module -e 'import http from "node:http"; http.createServer((req,res)=>{res.setHeader("Content-Type","application/json"); res.setHeader("Cache-Control","private, no-store"); res.end(JSON.stringify({path:req.url}));}).listen(18888,"0.0.0.0");' &
+          docker run -d --name web-routing --network host -e CORE_HTTP=127.0.0.1:18888 -e CORE_WS=127.0.0.1:18888 agentnet-web:verify
+          for i in {1..20}; do curl -fsS http://localhost:8080/release.json && break || sleep 1; done
+          test "$(curl -fsS http://localhost:8080/api/v1/website/stats | jq -r .path)" = /api/v1/website/stats
+          test "$(curl -fsS http://localhost:8080/api/v2/agent/events/ws | jq -r .path)" = /api/v2/agent/events/ws
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v2/bootstrap-grants)" = 404
+          curl -fsS http://localhost:8080/dashboard | grep 'id="root"'
+          ASSET_PATH=$(curl -fsS http://localhost:8080/ | grep -oE '/assets/[^" ]+\.js' | head -1)
+          curl -fsSI "http://localhost:8080$ASSET_PATH" | grep -i 'cache-control: public, max-age=31536000, immutable'
+          curl -fsSI http://localhost:8080/ | grep -i 'cache-control: no-cache'
+          curl -fsSI http://localhost:8080/api/v2/console/session | grep -i 'cache-control: private, no-store'
+          docker rm -f web-routing
+      - name: Export tested web image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: bash elsewhere/scripts/export-release-image.sh web "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: release-web-${{ github.sha }}
+          path: /tmp/release-web/*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+  core-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: elsewhere/Dockerfile.core
+          build-args: RELEASE_REVISION=${{ github.sha }}
+          load: true
+          tags: agentnet-core:verify
+          cache-from: type=gha,scope=core
+          cache-to: type=gha,scope=core,mode=max,timeout=2m,ignore-error=true
+      - run: docker run --rm -e PUBLIC_BASE_URL=http://localhost:4320 agentnet-core:verify cli version
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm}
+      - run: npm ci
+      - run: node elsewhere/scripts/test-config.mjs
+      - name: Pull public test dependencies with bounded retries
+        run: |
+          for attempt in 1 2 3; do
+            docker compose --env-file .env.elsewhere.verify -f elsewhere/compose.test.yaml pull postgres redis etcd elasticsearch && exit 0
+            sleep 15
+          done
+          exit 1
+      - run: docker compose --env-file .env.elsewhere.verify -f elsewhere/compose.test.yaml up -d --wait --wait-timeout 240
+      - name: SDK and MCP protocol acceptance against real services
+        env:
+          AGENTNET_TEST_URL: http://127.0.0.1:4326
+          AGENTNET_CLI: .agentnet-audit/bin/agentnet-cli
+        run: |
+          mkdir -p .agentnet-audit/bin
+          docker compose --env-file .env.elsewhere.verify -f elsewhere/compose.test.yaml cp core:/app/build/elsewhere .agentnet-audit/bin/agentnet-cli
+          chmod +x .agentnet-audit/bin/agentnet-cli
+          node elsewhere/scripts/seed-test-owners.mjs
+          npm run core:smoke
+          npm run core:mcp:smoke
+          node elsewhere/scripts/first-contact-smoke.mjs
+      - name: Diagnose failed isolated deployment
+        if: failure()
+        run: |
+          docker compose --env-file .env.elsewhere.verify -f elsewhere/compose.test.yaml ps --all
+          docker compose --env-file .env.elsewhere.verify -f elsewhere/compose.test.yaml logs --no-color --tail 200
+      - name: Stop isolated test deployment
+        if: always()
+        run: docker compose --env-file .env.elsewhere.verify -f elsewhere/compose.test.yaml down --volumes || true
+      - name: Export tested core image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: bash elsewhere/scripts/export-release-image.sh core "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: release-core-${{ github.sha }}
+          path: /tmp/release-core/*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error

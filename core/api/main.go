@@ -1,0 +1,512 @@
+// @title           elsewhere_server API
+// @version         1.0
+// @description     Elsewhere Information Distribution Platform API
+// @BasePath        /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Enter your access token, e.g. "at_e489..."
+
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/app/server"
+	hertztracing "github.com/hertz-contrib/obs-opentelemetry/tracing"
+	hertzSwagger "github.com/hertz-contrib/swagger"
+	etcd "github.com/kitex-contrib/registry-etcd"
+	swaggerFiles "github.com/swaggo/files"
+
+	agentcardapi "elsewhere_server/api/agentcard"
+	"elsewhere_server/api/agti"
+	"elsewhere_server/api/clients"
+	"elsewhere_server/api/commissionaccess"
+	"elsewhere_server/api/commissiondiscovery"
+	"elsewhere_server/api/commissionintegration"
+	"elsewhere_server/api/consolev2"
+	_ "elsewhere_server/api/docs"
+	apihandler "elsewhere_server/api/handler_gen/elsewhere/api"
+	"elsewhere_server/api/install"
+	"elsewhere_server/api/middleware"
+	router_gen "elsewhere_server/api/router_gen"
+	"elsewhere_server/api/tradebff"
+	"elsewhere_server/kitex_gen/elsewhere/auth/authservice"
+	"elsewhere_server/kitex_gen/elsewhere/commission/commissionservice"
+	"elsewhere_server/kitex_gen/elsewhere/feed/feedservice"
+	"elsewhere_server/kitex_gen/elsewhere/item/itemservice"
+	"elsewhere_server/kitex_gen/elsewhere/notification/notificationservice"
+	"elsewhere_server/kitex_gen/elsewhere/order/orderservice"
+	"elsewhere_server/kitex_gen/elsewhere/pm/pmservice"
+	"elsewhere_server/kitex_gen/elsewhere/profile/profileservice"
+	"elsewhere_server/kitex_gen/elsewhere/sort/sortservice"
+	"elsewhere_server/pipeline/embedding"
+	"elsewhere_server/pkg/commissionindex"
+	"elsewhere_server/pkg/commissionsource"
+	"elsewhere_server/pkg/config"
+	"elsewhere_server/pkg/db"
+	"elsewhere_server/pkg/embeddingmeta"
+	"elsewhere_server/pkg/es"
+	"elsewhere_server/pkg/idgen"
+	"elsewhere_server/pkg/logger"
+	"elsewhere_server/pkg/metrics"
+	"elsewhere_server/pkg/mq"
+	"elsewhere_server/pkg/publicurl"
+	"elsewhere_server/pkg/rpcx"
+	"elsewhere_server/pkg/telemetry"
+)
+
+func main() {
+	cfg := config.Load()
+	if err := cfg.ValidateCommissionDiscoveryConfiguration(); err != nil {
+		log.Fatal("invalid Commission discovery configuration")
+	}
+	commissionAccess, err := commissionaccess.New(cfg.EnableCommissionAllowlist, cfg.CommissionAgentIDWhitelist)
+	if err != nil {
+		log.Fatal(err)
+	}
+	integrationMode, err := cfg.CommissionIntegrationMode()
+	if err != nil {
+		log.Fatal("invalid Commission integration configuration")
+	}
+	integrationListener, err := reserveIntegrationListener(integrationMode, net.Listen)
+	if err != nil {
+		log.Fatalf("reserve Commission integration listener: %v", err)
+	}
+	if integrationListener != nil {
+		defer integrationListener.Close()
+	}
+	middleware.SetBlockedAgentEmails(cfg.BlockedAgentEmails)
+	logFlush := logger.Init("api-gateway", cfg.EffectiveLokiURL(), cfg.LogLevel)
+	defer logFlush()
+
+	shutdown, err := telemetry.Init("api-gateway", cfg.OtelExporterEndpoint, cfg.MonitorEnabled)
+	if err != nil {
+		log.Fatalf("failed to init telemetry: %v", err)
+	}
+	defer shutdown(context.Background())
+
+	go metrics.StartMetricsServer(cfg.ApiPort + 1000)
+
+	// Init PostgreSQL for handlers that query DB directly (e.g. feed URL enrichment).
+	db.Init(cfg.PgDSN)
+	log.Println("PostgreSQL connected")
+
+	// Init Redis (for publishing stream messages)
+	mq.Init(cfg.RedisAddr, cfg.RedisPassword)
+	mq.SetDefaultStreamMaxLen(cfg.MqStreamMaxLen)
+	log.Println("Redis connected")
+
+	// Init etcd resolver
+	r, err := etcd.NewEtcdResolver([]string{cfg.EtcdAddr})
+	if err != nil {
+		log.Fatalf("failed to create etcd resolver: %v", err)
+	}
+
+	var consoleV2Service *consolev2.Service
+	var consoleV2IDGen *idgen.ManagedGenerator
+	if cfg.EnableConsoleV2 {
+		if strings.TrimSpace(cfg.ConsoleV2BootstrapSecret) == "" {
+			log.Fatal("CONSOLE_V2_BOOTSTRAP_SECRET is required when ENABLE_CONSOLE_V2=true")
+		}
+		if strings.TrimSpace(cfg.ConsoleV2OTPPepper) == "" {
+			log.Fatal("CONSOLE_V2_OTP_PEPPER is required when ENABLE_CONSOLE_V2=true")
+		}
+		consoleV2IDGen, err = idgen.NewManagedGenerator(context.Background(), idgen.ManagedGeneratorConfig{
+			Endpoints:      splitEtcdEndpoints(cfg.EtcdAddr),
+			WorkerPrefix:   cfg.IDWorkerPrefix,
+			ServiceName:    "api-console-v2-agent-id",
+			InstanceID:     cfg.IDInstanceID,
+			LeaseTTLSecond: cfg.IDWorkerLeaseTTL,
+			EpochMS:        cfg.IDSnowflakeEpoch,
+		})
+		if err != nil {
+			log.Fatalf("failed to init Console V2 agent id generator: %v", err)
+		}
+		defer func() { _ = consoleV2IDGen.Close(context.Background()) }()
+		consoleV2Service, err = consolev2.NewService(db.DB, consoleV2IDGen, cfg)
+		if err != nil {
+			log.Fatalf("failed to init Console V2 service: %v", err)
+		}
+		consoleV2Service.SetRedisClient(mq.RDB)
+	}
+
+	// Init kitex clients
+	profileClient, err := profileservice.NewClient("ProfileService", rpcx.ClientOptions(r)...)
+	if err != nil {
+		log.Fatalf("failed to create profile client: %v", err)
+	}
+	log.Println("Profile RPC client initialized")
+
+	itemClient, err := itemservice.NewClient("ItemService", rpcx.ClientOptions(r)...)
+	if err != nil {
+		log.Fatalf("failed to create item client: %v", err)
+	}
+	log.Println("Item RPC client initialized")
+
+	feedClient, err := feedservice.NewClient("FeedService", rpcx.ClientOptions(r)...)
+	if err != nil {
+		log.Fatalf("failed to create feed client: %v", err)
+	}
+	log.Println("Feed RPC client initialized")
+	if consoleV2Service != nil {
+		consoleV2Service.SetFeedClient(feedClient)
+	}
+
+	authClient, err := authservice.NewClient("AuthService", rpcx.ClientOptions(r)...)
+	if err != nil {
+		log.Fatalf("failed to create auth client: %v", err)
+	}
+	log.Println("Auth RPC client initialized")
+
+	pmClient, err := pmservice.NewClient("PMService", rpcx.ClientOptions(r)...)
+	if err != nil {
+		log.Fatalf("failed to create pm client: %v", err)
+	}
+	log.Println("PM RPC client initialized")
+
+	notificationClient, err := notificationservice.NewClient("NotificationService", rpcx.ClientOptions(r)...)
+	if err != nil {
+		log.Fatalf("failed to create notification client: %v", err)
+	}
+	log.Println("Notification RPC client initialized")
+	if consoleV2Service != nil {
+		consoleV2Service.SetNotificationClient(notificationClient)
+	}
+
+	sortClient, err := sortservice.NewClient("SortService", rpcx.ClientOptions(r)...)
+	if err != nil {
+		log.Fatalf("failed to create sort client: %v", err)
+	}
+	log.Println("Sort RPC client initialized")
+	var commissionDiscoveryService *commissiondiscovery.Service
+	var commissionDiscoveryIDGen *idgen.ManagedGenerator
+	if cfg.CommissionDiscoveryEnabled {
+		commissionDiscoveryIDGen, err = idgen.NewManagedGenerator(context.Background(), idgen.ManagedGeneratorConfig{
+			Endpoints:      splitEtcdEndpoints(cfg.EtcdAddr),
+			WorkerPrefix:   cfg.IDWorkerPrefix,
+			ServiceName:    "api-commission-discovery-impression-id",
+			InstanceID:     cfg.IDInstanceID,
+			LeaseTTLSecond: cfg.IDWorkerLeaseTTL,
+			EpochMS:        cfg.IDSnowflakeEpoch,
+		})
+		if err != nil {
+			log.Fatalf("failed to init Commission discovery impression id generator: %v", err)
+		}
+		defer func() { _ = commissionDiscoveryIDGen.Close(context.Background()) }()
+		commissionDiscoveryService = commissiondiscovery.New(sortClient, commissionDiscoveryIDGen, mq.Publish, commissionAccess)
+	}
+
+	var integrationServer *server.Hertz
+	if integrationMode.Enabled {
+		if err := es.InitClient(); err != nil {
+			log.Fatalf("initialize Elasticsearch for Commission diagnostics: %v", err)
+		}
+		commissionSourceClient, err := commissionservice.NewClient(cfg.CommissionSourceService, rpcx.ClientOptions(r)...)
+		if err != nil {
+			log.Fatalf("create Commission source client for diagnostics: %v", err)
+		}
+		orderSourceClient, err := orderservice.NewClient(cfg.OrderSourceService, rpcx.ClientOptions(r)...)
+		if err != nil {
+			log.Fatalf("create Order source client for diagnostics: %v", err)
+		}
+		projection, err := commissionintegration.NewRedisProjectionState(mq.RDB, cfg.CommissionStream, cfg.CommissionConsumerGroup, cfg.CommissionDeadLetterStream)
+		if err != nil {
+			log.Fatal("initialize Commission projection diagnostics")
+		}
+		source := commissionsource.Adapter{Commission: commissionSourceClient, Order: orderSourceClient}
+		store := commissionindex.ESStore{Index: cfg.CommissionIndexName, Alias: cfg.CommissionIndexAlias, Dimensions: cfg.EmbeddingDimensions}
+		embeddingClient := embedding.NewClient(cfg.EmbeddingProvider, cfg.EmbeddingApiKey, cfg.EmbeddingBaseURL, cfg.EmbeddingModel, cfg.EmbeddingDimensions)
+		diagnostics, err := commissionintegration.NewService(projection, source, store, commissionintegration.NewEmbeddingProbe(embeddingmeta.NormalizeProvider(cfg.EmbeddingProvider), cfg.EmbeddingDimensions, embeddingClient))
+		if err != nil {
+			log.Fatal("initialize Commission diagnostics service")
+		}
+		integrationServer, err = commissionintegration.NewServer(integrationMode, diagnostics, integrationListener)
+		if err != nil {
+			log.Fatal("initialize Commission diagnostics server")
+		}
+	}
+
+	// Wire RPC clients for generated handlers
+	clients.ProfileClient = profileClient
+	clients.ItemClient = itemClient
+	clients.FeedClient = feedClient
+	clients.AuthClient = authClient
+	clients.PMClient = pmClient
+	clients.NotificationClient = notificationClient
+	clients.SortClient = sortClient
+
+	publicBaseURL := publicurl.Resolve(cfg.PublicBaseURL, cfg.ApiPort)
+
+	// Init Hertz
+	listenAddr := cfg.ListenAddr(cfg.ApiPort)
+	tracer, tracerCfg := hertztracing.NewServerTracer(hertztracing.WithShouldIgnore(tradebff.IgnoreAlipayAuthorizationTrace))
+	h := server.Default(
+		server.WithHostPorts(listenAddr),
+		server.WithMaxRequestBodySize(12 << 20),
+		tracer,
+	)
+	h.Use(hertztracing.ServerMiddleware(tracerCfg))
+	h.Use(middleware.TraceIDMiddleware())
+	h.Use(metrics.HertzMiddleware())
+
+	// Public installation entry document and installer scripts.
+	h.StaticFile("/bootstrap.md", "static/BOOTSTRAP.md")
+	install.RegisterShellInstaller(h)
+
+	// Swagger UI
+	h.GET("/swagger/*any", hertzSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Agent-authenticated settings sync (read + agent-reported push). Registered
+	// manually to reuse AuthMiddleware without an IDL/router regen.
+	h.GET("/api/v1/agents/me/settings", middleware.AuthMiddleware(), apihandler.GetMySettings)
+	// ClientInfoMiddleware parses X-Client-Model (and friends) into ctx so the
+	// agent's reported runtime model is persisted. Generated routes get this via
+	// rootMw, but this route is hand-registered, so attach it explicitly.
+	h.PUT("/api/v1/agents/me/settings", middleware.ClientInfoMiddleware(), middleware.AuthMiddleware(), apihandler.PutMySettings)
+	// Beat coverage: per-keyword signal/push/keep stats for the Profile page.
+	h.GET("/api/v1/agents/me/beat_coverage", middleware.AuthMiddleware(), apihandler.GetBeatCoverage)
+	// Messages: total/per-origin unread + mark-conversation-read.
+	h.GET("/api/v1/pm/unread", middleware.AuthMiddleware(), apihandler.GetUnreadBreakdown)
+	h.POST("/api/v1/pm/read", middleware.AuthMiddleware(), apihandler.MarkConvRead)
+
+	// Agent Card: read projections + field-level versioned profile writes.
+	agentcardapi.Register(h)
+
+	// Commission discovery is an authenticated Facade over SortService. Source
+	// writes, orders, wallet operations, and file transfers stay in Commission.
+	if commissionDiscoveryService != nil {
+		commissiondiscovery.Register(h, commissionDiscoveryService)
+	}
+
+	// Broadcasts: 7-day influence leaderboard + the caller's rated broadcasts.
+	h.GET("/api/v1/broadcasts/leaderboard", middleware.AuthMiddleware(), apihandler.BroadcastLeaderboard)
+	h.GET("/api/v1/broadcasts/rated", middleware.AuthMiddleware(), apihandler.MyRatedItems)
+	// Network-wide 7-day most-helpful broadcasts board (top 100 by helpful count).
+	h.GET("/api/v1/broadcasts/top", middleware.AuthMiddleware(), apihandler.TopBroadcasts)
+	// New-user broadcasts: up to 100 broadcasts from agents registered in the
+	// last 3 days, newest first (no praise threshold).
+	h.GET("/api/v1/broadcasts/new-users", middleware.AuthMiddleware(), apihandler.NewUserBroadcasts)
+	// Contacted-but-not-friend history: durable friend-request senders + non-friend
+	// broadcast-comment conversation peers, de-duplicated, most-recent first.
+	h.GET("/api/v1/relations/contacted", middleware.AuthMiddleware(), apihandler.ContactedRelations)
+
+	// AgentRapport quiz (public marketing activity at /agti). Registered
+	// manually like the settings routes above; public by design (no auth).
+	agtiBank, err := agti.LoadBank("static/agti")
+	if err != nil {
+		log.Fatalf("failed to load agti bank: %v", err)
+	}
+	// AGTI activity runs on its own domain (configured by AGTI_HOST) so the
+	// whole funnel — skills/answer/result/join/interpret links — stays on .net,
+	// independent of the product-wide publicBaseURL (.ai). Override via AGTI_BASE_URL.
+	agtiBaseURL := os.Getenv("AGTI_BASE_URL")
+	if agtiBaseURL == "" {
+		agtiBaseURL = "https://inspiralai.com"
+	}
+	if err := agti.InitSkills("static/templates/agti_skills.tmpl.md", "static/templates/agti_join.tmpl.md", "static/templates/agti_interpret.tmpl.md", agtiBaseURL); err != nil {
+		log.Fatalf("failed to init agti skills: %v", err)
+	}
+	agti.Register(h, agtiBank, agtiBaseURL)
+	log.Printf("AgentRapport quiz registered (%d questions, %d types)", len(agtiBank.Items), len(agtiBank.Types))
+
+	// Install attribution (public marketing landing page at /install). Mints
+	// invite tokens carrying UTM data and records install conversions. Manually
+	// registered like agti above; public by design (no auth).
+	install.Register(h, publicBaseURL)
+	log.Print("Install attribution registered")
+	// Anonymous Agent Card sharing is a public identity capability, not a
+	// Console V2 session capability. Keep it available across console flags.
+	agentcardapi.RegisterPublic(h)
+	log.Print("Public Agent Card routes registered")
+
+	if consoleV2Service != nil {
+		// Existing V1 bearer sessions use this additive read-only endpoint to
+		// decide whether the new Console bundle should show the runtime upgrade
+		// screen. Existing V1 routes remain unchanged and ungated.
+		h.GET("/api/v1/console/compatibility", middleware.AuthMiddleware(), consoleV2Service.LegacyConsoleCompatibilityHandler())
+		h.POST("/api/v1/console/agent-upgrade-challenges", middleware.AuthMiddleware(), consoleV2Service.LegacyAgentUpgradeChallengeHandler())
+		consoleV2Service.Register(h)
+		consoleV2Service.RegisterCommissionDiscovery(h, commissionDiscoveryService)
+		registerConsoleV2BusinessBFF(h, consoleV2Service, cfg)
+		log.Print("Console V2 routes registered")
+	}
+
+	// Register generated routes
+	router_gen.GeneratedRegister(h)
+
+	log.Printf("API gateway starting on %s", listenAddr)
+	log.Printf("Public base URL: %s", publicBaseURL)
+	if integrationServer == nil {
+		h.Spin()
+		return
+	}
+	log.Printf("Commission integration diagnostics starting on %s", integrationMode.ControlAddr)
+	signalContext, stopSignals := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+	defer stopSignals()
+	if err := runSupervised(signalContext, h, integrationServer); err != nil {
+		log.Fatalf("API server failed: %v", err)
+	}
+}
+
+func registerConsoleV2BusinessBFF(h *server.Hertz, service *consolev2.Service, cfg *config.Config) {
+	trade, err := tradebff.New(tradebff.Config{
+		Endpoint:             cfg.CommissionAPIEndpoint,
+		DelegationKeyID:      cfg.CommissionDelegateKID,
+		DelegationPrivateKey: cfg.CommissionDelegatePrivate,
+	})
+	if err != nil {
+		log.Printf("Commission BFF disabled: %v", err)
+		trade = tradebff.NewUnavailable("")
+	}
+	read := func(path string, handler app.HandlerFunc) {
+		h.GET("/api/v2/console/bff/"+path, service.ConsoleBFFHandlers(false, handler)...)
+	}
+	write := func(method, path string, handler app.HandlerFunc) {
+		h.Handle(method, "/api/v2/console/bff/"+path, service.ConsoleBFFHandlers(true, handler)...)
+	}
+
+	read("console/today", apihandler.ConsoleGetToday)
+	read("console/activity-log", apihandler.ConsoleGetActivityLog)
+	read("console/activity-calendar", apihandler.ConsoleGetActivityCalendar)
+	read("console/highlights", apihandler.ConsoleGetHighlights)
+	write(http.MethodPost, "console/highlight-feedback", apihandler.ConsoleHighlightFeedback)
+	read("console/settings", apihandler.ConsoleGetSettings)
+	write(http.MethodPut, "console/settings", apihandler.ConsoleUpdateSettings)
+	read("agents/me", consoleV2GetMe)
+	read("agents/me/card", agentcardapi.GetMyCard)
+	read("agents/me/card/page", agentcardapi.GetMyCardPage)
+	read("agents/me/card/refresh-context", agentcardapi.GetRefreshContext)
+	write(http.MethodPut, "agents/me/profile/fields", agentcardapi.PutProfileFields)
+	read("agents/me/beat_coverage", apihandler.GetBeatCoverage)
+	read("agents/items", apihandler.GetMyItems)
+	write(http.MethodDelete, "agents/items/:item_id", apihandler.DeleteMyItem)
+	read("broadcasts/rated", apihandler.MyRatedItems)
+	read("broadcasts/leaderboard", apihandler.BroadcastLeaderboard)
+	read("broadcasts/top", apihandler.TopBroadcasts)
+	read("broadcasts/new-users", apihandler.NewUserBroadcasts)
+	// These compatibility BFF routes preserve the unchanged Console pages even
+	// while the optional Card-enriched communication projection is disabled.
+	// ENABLE_COMMUNICATION_V2 controls only the dedicated additive V2 reads/WS;
+	// it is not an authorization boundary because the V1 communication feature
+	// remains available.
+	read("relations/friends", apihandler.ListFriends)
+	read("relations/applications", apihandler.ListFriendRequests)
+	read("pm/conversations", apihandler.ListConversations)
+	read("pm/history", apihandler.GetConvHistory)
+	read("relations/contacted", apihandler.ContactedRelations)
+	write(http.MethodPost, "relations/apply", apihandler.SendFriendRequest)
+	write(http.MethodPost, "relations/handle", apihandler.HandleFriendRequest)
+	write(http.MethodPost, "relations/remark", apihandler.UpdateFriendRemark)
+	read("pm/unread", apihandler.GetUnreadBreakdown)
+	write(http.MethodPost, "pm/send", apihandler.SendPM)
+	write(http.MethodPost, "pm/read", apihandler.MarkConvRead)
+	write(http.MethodPost, "pm/topic-status", apihandler.UpdateConversationTopicStatus)
+	read("items/:item_id", apihandler.GetItem)
+
+	read("trade/overview", trade.TradeOverview)
+	read("trade/commissions", trade.TradeCommissions)
+	read("trade/commissions/:commission_id/reviews", trade.TradeCommissionReviews)
+	read("trade/orders", trade.TradeOrders)
+	read("trade/orders/:order_id", trade.TradeOrder)
+	read("trade/orders/:order_id/snapshots/:snapshot_id/file", trade.TradeOrderFile)
+	write(http.MethodPost, "trade/orders/:order_id/payment", trade.TradeOrderPayment)
+	read("earnings/summary", trade.EarningsSummary)
+	read("earnings/records", trade.EarningsRecords)
+	read("payout-method", trade.PayoutMethod)
+	read("payout-method/kyc", trade.WalletKYC)
+	write(http.MethodPost, "payout-method/kyc", trade.StartWalletKYC)
+	write(http.MethodPost, "payout-method/kyc/authorization", trade.AuthorizeWalletKYC)
+	authorization := tradebff.NewAlipayAuthorization(trade, mq.RDB, tradebff.AlipayAuthorizationConfig{AppID: cfg.AlipayAuthAppID, CallbackURL: cfg.AlipayAuthCallbackURL, Production: cfg.AlipayAuthProduction})
+	write(http.MethodPost, "payout-method/alipay/authorizations", authorization.Start)
+	read("payout-method/alipay/authorizations/:authorization_id", authorization.Status)
+	write(http.MethodPost, "payout-method/alipay/authorizations/:authorization_id/confirm", authorization.Confirm)
+	h.GET(tradebff.AlipayAuthorizationCallbackPath, authorization.Callback)
+	h.GET(tradebff.AlipayAuthorizationResultPath, tradebff.AlipayAuthorizationResult)
+	write(http.MethodPost, "payout-method/authorization", trade.MutatePayoutMethod)
+	write(http.MethodPost, "withdrawals", trade.CreateWithdrawal)
+	read("withdrawals/:withdrawal_id", trade.Withdrawal)
+}
+
+func splitEtcdEndpoints(raw string) []string {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if endpoint := strings.TrimSpace(part); endpoint != "" {
+			out = append(out, endpoint)
+		}
+	}
+	return out
+}
+
+func reserveIntegrationListener(mode config.CommissionIntegration, listen func(string, string) (net.Listener, error)) (net.Listener, error) {
+	if !mode.Enabled {
+		return nil, nil
+	}
+	if listen == nil {
+		return nil, errors.New("integration listener is unavailable")
+	}
+	listener, err := listen("tcp", mode.ControlAddr)
+	if err != nil {
+		return nil, fmt.Errorf("bind integration listener: %w", err)
+	}
+	return listener, nil
+}
+
+type managedHTTPServer interface {
+	Run() error
+	Shutdown(context.Context) error
+	Close() error
+}
+
+func runSupervised(ctx context.Context, public, private managedHTTPServer) error {
+	if public == nil || private == nil {
+		return errors.New("managed HTTP server is unavailable")
+	}
+	serverErrors := make(chan error, 2)
+	start := func(name string, managed managedHTTPServer) {
+		go func() {
+			if err := managed.Run(); err != nil {
+				serverErrors <- fmt.Errorf("%s server: %w", name, err)
+				return
+			}
+			serverErrors <- fmt.Errorf("%s server stopped unexpectedly", name)
+		}()
+	}
+	start("public", public)
+	start("integration diagnostics", private)
+
+	var runErr error
+	select {
+	case <-ctx.Done():
+	case runErr = <-serverErrors:
+	}
+	shutdownContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	shutdownErrors := make(chan error, 2)
+	for _, running := range []managedHTTPServer{public, private} {
+		go func(managed managedHTTPServer) {
+			shutdownErr := managed.Shutdown(shutdownContext)
+			if shutdownErr != nil {
+				shutdownErr = errors.Join(shutdownErr, managed.Close())
+			}
+			shutdownErrors <- shutdownErr
+		}(running)
+	}
+	var shutdownErr error
+	for range 2 {
+		shutdownErr = errors.Join(shutdownErr, <-shutdownErrors)
+	}
+	return errors.Join(runErr, shutdownErr)
+}

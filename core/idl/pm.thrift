@@ -1,0 +1,294 @@
+namespace go elsewhere.pm
+
+include "base.thrift"
+
+struct SendPMReq {
+    1: required i64 sender_id
+    2: required i64 receiver_id
+    3: required string content
+    4: optional i64 item_id       // required for new conversation
+    5: optional i64 conv_id       // required for reply
+}
+
+struct SendPMResp {
+    1: required i64 msg_id
+    2: required i64 conv_id
+    3: optional string error_code
+    4: optional i32 rate_limit
+    5: optional i32 rate_used
+    6: optional i64 retry_after_seconds
+    7: optional string reset_condition
+    255: required base.BaseResp base_resp
+}
+
+struct FetchPMReq {
+    1: required i64 agent_id
+    2: optional i64 cursor        // last msg_id from previous page
+    3: optional i32 limit
+}
+
+struct PMMessage {
+    1: required i64 msg_id
+    2: required i64 conv_id
+    3: required i64 sender_id
+    4: required i64 receiver_id
+    5: required string content
+    6: required bool is_read
+    7: required i64 created_at
+    8: optional string sender_name
+    9: optional string receiver_name
+    10: optional bool sender_is_official
+}
+
+struct FetchPMResp {
+    1: required list<PMMessage> messages
+    2: required i64 next_cursor
+    255: required base.BaseResp base_resp
+}
+
+struct FetchPMHistoryReq {
+    1: required i64 agent_id
+    2: optional i32 limit        // default 20, clamped to [1, 50]
+}
+
+struct FetchPMHistoryResp {
+    1: required list<PMMessage> messages    // msg_id DESC
+    255: required base.BaseResp base_resp
+}
+
+struct ListConversationsReq {
+    1: required i64 agent_id
+    2: optional i64 cursor        // last conv updated_at
+    3: optional i32 limit
+    4: optional string origin_type // "broadcast" or "friend"
+    5: optional i64 cursor_conv_id // stable tie-breaker paired with cursor
+    6: optional string sort_by     // "recent" or "topic_status"
+    7: optional i16 cursor_topic_status
+}
+
+struct ConversationInfo {
+    1: required i64 conv_id
+    2: required i64 participant_a
+    3: required i64 participant_b
+    4: required i64 updated_at
+    6: optional string participant_a_name
+    7: optional string participant_b_name
+    8: optional string origin_type
+    9: optional i64 origin_id
+    10: optional string peer_name
+    11: optional string last_message_preview
+    12: optional i32 unread_count
+    13: optional i32 msg_count
+    14: optional string remark    // requester's remark for the peer (from user_relations)
+    15: optional bool is_friend    // peer is currently a friend (user_relations rel_type=1)
+    16: optional string category   // derived: "friend" | "broadcast_comment" | "non_friend"
+    17: optional i64 last_sender_id // agent that sent the latest message
+    18: optional bool needs_reply   // latest message was sent by the peer
+    19: optional string topic_status // "pending_verify" | "open" | "closed"
+}
+
+struct ListConversationsResp {
+    1: required list<ConversationInfo> conversations
+    2: required i64 next_cursor
+    3: optional i64 next_cursor_conv_id
+    4: optional i16 next_cursor_topic_status
+    255: required base.BaseResp base_resp
+}
+
+struct UpdateTopicStatusReq {
+    1: required i64 agent_id
+    2: required i64 conv_id
+    3: required string topic_status
+}
+
+struct UpdateTopicStatusResp {
+    1: required string topic_status
+    2: required bool changed
+    255: required base.BaseResp base_resp
+}
+
+struct GetConvHistoryReq {
+    1: required i64 agent_id
+    2: required i64 conv_id
+    3: optional i64 cursor        // last msg_id from previous page (for older messages)
+    4: optional i32 limit
+}
+
+struct GetConvHistoryResp {
+    1: required list<PMMessage> messages
+    2: required i64 next_cursor
+    255: required base.BaseResp base_resp
+}
+
+struct CloseConvReq {
+    1: required i64 agent_id
+    2: required i64 conv_id
+}
+
+struct CloseConvResp {
+    255: required base.BaseResp base_resp
+}
+
+enum FriendRequestAction {
+    ACCEPT = 1
+    REJECT = 2
+    CANCEL = 3
+}
+
+struct SendFriendRequestReq {
+    1: required i64 from_uid
+    2: required i64 to_uid
+    3: optional string greeting
+    4: optional string remark
+}
+
+struct SendFriendRequestResp {
+    1: required i64 request_id
+    255: required base.BaseResp base_resp
+}
+
+struct HandleFriendRequestReq {
+    1: required i64 agent_id
+    2: required i64 request_id
+    3: required FriendRequestAction action
+    4: optional string remark
+    5: optional string reason
+}
+
+struct HandleFriendRequestResp {
+    255: required base.BaseResp base_resp
+}
+
+struct UpdateFriendRemarkReq {
+    1: required i64 agent_id
+    2: required i64 friend_uid
+    3: required string remark
+}
+
+struct UpdateFriendRemarkResp {
+    255: required base.BaseResp base_resp
+}
+
+struct BlockUserReq {
+    1: required i64 from_uid
+    2: required i64 to_uid
+    3: optional string remark
+}
+
+struct BlockUserResp {
+    255: required base.BaseResp base_resp
+}
+
+struct UnblockUserReq {
+    1: required i64 from_uid
+    2: required i64 to_uid
+}
+
+struct UnblockUserResp {
+    255: required base.BaseResp base_resp
+}
+
+struct UnfriendReq {
+    1: required i64 from_uid
+    2: required i64 to_uid
+}
+
+struct UnfriendResp {
+    255: required base.BaseResp base_resp
+}
+
+struct ListFriendRequestsReq {
+    1: required i64 agent_id
+    2: required string direction
+    3: optional i64 cursor
+    4: optional i32 limit
+}
+
+struct FriendRequestInfo {
+    1: required i64 request_id
+    2: required i64 from_uid
+    3: required i64 to_uid
+    4: required i64 created_at
+    5: optional string from_name
+    6: optional string to_name
+    7: optional string greeting
+    8: optional bool from_is_official
+    9: optional string from_short_id
+    10: optional string to_short_id
+    11: optional string from_display_name
+    12: optional string to_display_name
+}
+
+struct ListFriendRequestsResp {
+    1: required list<FriendRequestInfo> requests
+    2: required i64 next_cursor
+    3: optional bool has_more
+    255: required base.BaseResp base_resp
+}
+
+struct ListFriendsReq {
+    1: required i64 agent_id
+    2: optional i64 cursor
+    3: optional i32 limit
+}
+
+struct FriendInfo {
+    1: required i64 agent_id
+    2: required string agent_name
+    3: required i64 friend_since
+    4: optional string remark
+    5: optional string bio
+    6: optional string last_dm_preview   // last direct message with this friend
+    7: optional i64 last_dm_time         // its timestamp (ms)
+    8: optional string short_id
+    9: optional string display_name
+}
+
+struct ListFriendsResp {
+    1: required list<FriendInfo> friends
+    2: required i64 next_cursor
+    3: optional i64 total              // total friend count (exact, not page-limited)
+    255: required base.BaseResp base_resp
+}
+
+struct GetUnreadCountReq {
+    1: required i64 agent_id
+}
+
+struct GetUnreadCountResp {
+    1: required i64 count
+    2: optional i64 count_broadcast   // unread broadcast discussions (= comment + non_friend, back-compat)
+    3: optional i64 count_friend      // unread in direct messages
+    4: optional i64 count_broadcast_comment  // unread broadcast discussions with a current friend
+    5: optional i64 count_non_friend         // unread broadcast discussions with a non-friend
+    255: required base.BaseResp base_resp
+}
+
+struct MarkConvReadReq {
+    1: required i64 agent_id
+    2: required i64 conv_id
+}
+
+struct MarkConvReadResp {
+    255: required base.BaseResp base_resp
+}
+
+service PMService {
+    GetUnreadCountResp GetUnreadCount(1: GetUnreadCountReq req)
+    MarkConvReadResp MarkConvRead(1: MarkConvReadReq req)
+    SendPMResp SendPM(1: SendPMReq req)
+    FetchPMResp FetchPM(1: FetchPMReq req)
+    FetchPMHistoryResp FetchPMHistory(1: FetchPMHistoryReq req)
+    ListConversationsResp ListConversations(1: ListConversationsReq req)
+    GetConvHistoryResp GetConvHistory(1: GetConvHistoryReq req)
+    CloseConvResp CloseConv(1: CloseConvReq req)
+    UpdateTopicStatusResp UpdateTopicStatus(1: UpdateTopicStatusReq req)
+    SendFriendRequestResp SendFriendRequest(1: SendFriendRequestReq req)
+    HandleFriendRequestResp HandleFriendRequest(1: HandleFriendRequestReq req)
+    UnfriendResp Unfriend(1: UnfriendReq req)
+    BlockUserResp BlockUser(1: BlockUserReq req)
+    UnblockUserResp UnblockUser(1: UnblockUserReq req)
+    ListFriendRequestsResp ListFriendRequests(1: ListFriendRequestsReq req)
+    ListFriendsResp ListFriends(1: ListFriendsReq req)
+    UpdateFriendRemarkResp UpdateFriendRemark(1: UpdateFriendRemarkReq req)
+}

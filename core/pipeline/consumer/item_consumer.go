@@ -1,0 +1,530 @@
+package consumer
+
+import (
+	"context"
+	"elsewhere_server/pkg/json"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"elsewhere_server/pipeline/embedding"
+	"elsewhere_server/pipeline/llm"
+	"elsewhere_server/pkg/config"
+	"elsewhere_server/pkg/db"
+	"elsewhere_server/pkg/dedup"
+	"elsewhere_server/pkg/logger"
+	"elsewhere_server/pkg/metrics"
+	"elsewhere_server/pkg/mq"
+	"elsewhere_server/pkg/stats"
+	itemDal "elsewhere_server/rpc/item/dal"
+	profileDal "elsewhere_server/rpc/profile/dal"
+	sortDal "elsewhere_server/rpc/sort/dal"
+)
+
+const (
+	itemStream            = "stream:item:publish"
+	itemGroup             = "cg:item:publish"
+	itemConsumerName      = "item-worker-1"
+	itemMetricsLabel      = "item:publish"
+	itemMaxRetryCount     = int64(3)
+	itemRetryMinIdle      = time.Second
+	itemRetryPollInterval = 200 * time.Millisecond
+	itemReadBlock         = 500 * time.Millisecond
+)
+
+var (
+	updateProcessedItem       = itemDal.UpdateProcessedItem
+	updateProcessedItemStatus = itemDal.UpdateProcessedItemStatus
+	ackItemMessage            = mq.Ack
+)
+
+func homepageCountryFromPrivateCard(raw string) (string, error) {
+	var card struct {
+		Geo string `json:"geo"`
+	}
+	if err := json.Unmarshal([]byte(raw), &card); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(card.Geo), nil
+}
+
+// ItemConsumer enriches published items with LLM-extracted metadata.
+//
+// The tunable fields (consumerName, maxRetries, retryMinIdle, readBlock,
+// handleMessage) are kept on the consumer struct so miniredis-based tests can
+// override them between NewItemConsumer and Start, mirroring ItemStatsConsumer.
+type ItemConsumer struct {
+	llmClient        *llm.Client
+	safetyClient     *llm.Client
+	embeddingClient  *embedding.Client
+	qualityThreshold float64
+	consumerName     string
+	workers          int
+	maxRetries       int64
+	retryMinIdle     time.Duration
+	readBlock        time.Duration
+	handleMessage    MessageHandler
+}
+
+func NewItemConsumer(cfg *config.Config, prompts *llm.PromptRegistry) *ItemConsumer {
+	c := &ItemConsumer{
+		llmClient:        llm.NewClient(cfg, prompts),
+		safetyClient:     llm.NewSafetyClient(cfg, prompts),
+		embeddingClient:  embedding.NewClient(cfg.EmbeddingProvider, cfg.EmbeddingApiKey, cfg.EmbeddingBaseURL, cfg.EmbeddingModel, cfg.EmbeddingDimensions),
+		qualityThreshold: cfg.QualityThreshold,
+		consumerName:     itemConsumerName,
+		maxRetries:       itemMaxRetryCount,
+		retryMinIdle:     itemRetryMinIdle,
+		readBlock:        itemReadBlock,
+		workers:          cfg.ItemConsumerWorkers,
+	}
+	c.handleMessage = c.handle
+	return c
+}
+
+func (c *ItemConsumer) Start(ctx context.Context) {
+	logger.Default().Info("ItemConsumer starting", "qualityThreshold", c.qualityThreshold)
+	runner := &StreamConsumer{
+		Name:                    "ItemConsumer",
+		Stream:                  itemStream,
+		Group:                   itemGroup,
+		ConsumerName:            c.consumerName,
+		MetricsLabel:            itemMetricsLabel,
+		Workers:                 c.workers,
+		MaxRetries:              c.maxRetries,
+		RetryMinIdle:            c.retryMinIdle,
+		PollInterval:            itemRetryPollInterval,
+		ReadBlock:               c.readBlock,
+		FatalOnGroupCreateError: true,
+		Handle:                  c.handleMessage,
+	}
+	runner.Run(ctx)
+}
+
+func (c *ItemConsumer) handle(ctx context.Context, msgID string, values map[string]any) HandleResult {
+	itemIDStr, ok := values["item_id"].(string)
+	if !ok {
+		logger.Default().Warn("ItemConsumer invalid message: missing item_id")
+		return HandleFailure
+	}
+
+	itemID, err := strconv.ParseInt(itemIDStr, 10, 64)
+	if err != nil {
+		logger.Default().Warn("ItemConsumer invalid item_id", "itemID", itemIDStr)
+		return HandleFailure
+	}
+	logger.Default().Info("ItemConsumer processing item", "itemID", itemID)
+
+	// Preserve publisher's expected_response if set to "no_reply"
+	publisherExpResp, _ := itemDal.GetProcessedItemExpectedResponse(db.DB, itemID)
+
+	// Set status to processing
+	itemDal.UpdateProcessedItemStatus(db.DB, itemID, itemDal.StatusProcessing)
+
+	// Get raw item
+	raw, err := itemDal.GetRawItemByID(db.DB, itemID)
+	if err != nil {
+		logger.Default().Warn("raw item not found", "itemID", itemID, "err", err)
+		itemDal.UpdateProcessedItemStatus(db.DB, itemID, itemDal.StatusFailed)
+		return HandleFailure
+	}
+
+	// Check blacklist keywords (cheap string match — run first)
+	if matched := checkBlacklist(ctx, raw.RawContent, raw.RawURL, raw.RawNotes); matched != "" {
+		logger.Default().Info("item discarded by blacklist keyword", "itemID", itemID, "keyword", matched)
+		if err := itemDal.MarkItemDistributionSkipped(db.DB, itemID, itemDal.DistributionSkipContentEvaluation, nil); err != nil {
+			logger.Default().Error("failed to update discard status", "itemID", itemID, "err", err)
+			return HandleRetry
+		}
+		return HandleSuccess
+	}
+
+	// --- Dedup phase (cheap gates before expensive LLM calls) ---
+
+	// Phase 1: Hash-based deduplication (Redis lookup — exact duplicates are discarded)
+	contentHash := dedup.ComputeContentHash(raw.RawContent)
+	logger.Default().Debug("ItemConsumer content hash", "itemID", itemID, "hash", contentHash)
+
+	if hashExists, err := dedup.HashExists(ctx, mq.RDB, contentHash); err == nil && hashExists {
+		prior, priorErr := itemDal.FindPriorExactBroadcast(
+			db.DB, raw.AuthorAgentID, itemID, raw.CreatedAt, contentHash, raw.RawContent,
+		)
+		if priorErr != nil {
+			logger.Default().Warn("ItemConsumer failed to resolve prior duplicate, continuing", "itemID", itemID, "err", priorErr)
+		} else if decision := resolveExactDuplicateSkip(prior); decision.Discard {
+			logger.Default().Info("ItemConsumer exact duplicate of prior same-author broadcast, discarding", "itemID", itemID, "duplicateOf", *decision.DuplicateOf)
+			if err := itemDal.MarkItemDistributionSkipped(db.DB, itemID, itemDal.DistributionSkipDuplicate, decision.DuplicateOf); err != nil {
+				logger.Default().Error("failed to update discard status", "itemID", itemID, "err", err)
+				return HandleRetry
+			}
+			return HandleSuccess
+		}
+		logger.Default().Info("ItemConsumer hash match without a resolvable same-author original, continuing", "itemID", itemID)
+	} else if err != nil {
+		logger.Default().Warn("ItemConsumer Redis hash check failed, continuing", "itemID", itemID, "err", err)
+	}
+
+	// Generate embedding (needed for both vector dedup and ES indexing)
+	var itemEmbedding []float32
+	var finalGroupID int64
+	embAttempt := 0
+	for !embedding.Disabled() && embAttempt < maxRetries {
+		embAttempt++
+		var embErr error
+		itemEmbedding, embErr = c.embeddingClient.GetEmbedding(ctx, raw.RawContent)
+		if embErr == nil {
+			if expectedDims := c.embeddingClient.Dimensions(); expectedDims > 0 && len(itemEmbedding) != expectedDims {
+				embErr = fmt.Errorf("embedding dimension mismatch: got=%d want=%d", len(itemEmbedding), expectedDims)
+				itemEmbedding = nil
+			}
+		}
+		if embErr == nil {
+			break
+		}
+		logger.Default().Warn("ItemConsumer embedding attempt failed", "attempt", embAttempt, "maxRetries", maxRetries, "itemID", itemID, "err", embErr)
+		if embAttempt < maxRetries {
+			time.Sleep(time.Duration(embAttempt) * time.Second)
+		}
+	}
+
+	// Phase 2: Vector-based deduplication (assigns default group_id using info-mode rules)
+	// similarItems is preserved for post-LLM broadcast_type-specific correction
+	var similarItems []sortDal.Item
+	if itemEmbedding == nil {
+		logger.Default().Warn("ItemConsumer all embedding attempts failed, using item_id as group_id", "itemID", itemID)
+		finalGroupID = itemID
+	} else {
+		var err error
+		similarItems, err = sortDal.SearchSimilarItems(ctx, itemEmbedding, simThreshold, 5)
+		if err != nil {
+			logger.Default().Warn("ItemConsumer similarity search failed", "itemID", itemID, "err", err)
+			finalGroupID = itemID
+		} else {
+			finalGroupID = assignDefaultGroupID(itemID, similarItems)
+			if finalGroupID != itemID {
+				logger.Default().Info("ItemConsumer item matched to group (default)", "itemID", itemID, "groupID", finalGroupID)
+			} else {
+				logger.Default().Info("ItemConsumer item is unique, creating new group", "itemID", itemID, "groupID", finalGroupID)
+			}
+		}
+	}
+
+	// --- LLM phase (expensive calls, run after cheap filters) ---
+
+	// Safety check
+	var safetyResult *llm.SafetyResult
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		safetyResult, err = c.safetyClient.CheckSafety(ctx, raw.RawContent, raw.RawNotes)
+		if err == nil {
+			break
+		}
+		logger.Default().Warn("ItemConsumer safety check attempt failed", "attempt", attempt, "maxRetries", maxRetries, "itemID", itemID, "err", err)
+		time.Sleep(time.Duration(attempt) * time.Second)
+	}
+	if err != nil {
+		logger.Default().Error("ItemConsumer safety check all retries failed, discarding in strict mode", "itemID", itemID, "err", err)
+		if statusErr := itemDal.MarkItemDistributionSkipped(db.DB, itemID, itemDal.DistributionSkipContentEvaluation, nil); statusErr != nil {
+			logger.Default().Error("failed to update discard status after safety check error", "itemID", itemID, "err", statusErr)
+			return HandleRetry
+		}
+		return HandleSuccess
+	}
+	if !safetyResult.Safe {
+		logger.Default().Info("item flagged by safety check", "itemID", itemID, "flag", safetyResult.Flag, "reason", safetyResult.Reason)
+		if err := itemDal.MarkItemDistributionSkipped(db.DB, itemID, itemDal.DistributionSkipContentEvaluation, nil); err != nil {
+			logger.Default().Error("failed to update discard status", "itemID", itemID, "err", err)
+			return HandleRetry
+		}
+		return HandleSuccess
+	}
+
+	// --- Draft Indexing: make item discoverable immediately after safety check ---
+	draftItem := &sortDal.Item{
+		ID:            itemID,
+		AuthorAgentID: raw.AuthorAgentID,
+		Content:       raw.RawContent,
+		RawURL:        raw.RawURL,
+		GroupID:       finalGroupID,
+		Embedding:     itemEmbedding,
+		CreatedAt:     time.Unix(raw.CreatedAt/1000, 0),
+		UpdatedAt:     time.Now(),
+	}
+	if err := sortDal.IndexItem(ctx, draftItem); err != nil {
+		logger.Default().Warn("ItemConsumer failed to index draft item", "itemID", itemID, "err", err)
+	} else {
+		logger.Default().Info("ItemConsumer draft item indexed to ES", "itemID", itemID)
+	}
+
+	// LLM processing with retries
+	var result *llm.ExtractResult
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		result, err = c.llmClient.ProcessItem(ctx, raw.RawContent, raw.RawNotes)
+		if err == nil {
+			break
+		}
+		logger.Default().Warn("ItemConsumer LLM attempt failed", "attempt", attempt, "maxRetries", maxRetries, "itemID", itemID, "err", err)
+		time.Sleep(time.Duration(attempt) * time.Second)
+	}
+	if err != nil {
+		logger.Default().Error("all retries failed", "itemID", itemID, "err", err)
+		itemDal.UpdateProcessedItemStatus(db.DB, itemID, itemDal.StatusFailed)
+		return HandleFailure
+	}
+	llm.NormalizeHomepageEvaluation(result)
+
+	// Check discard flag
+	if result.Discard {
+		logger.Default().Info("item discarded by LLM", "itemID", itemID, "reason", result.DiscardReason)
+		if delErr := sortDal.DeleteItem(ctx, itemID); delErr != nil {
+			logger.Default().Warn("ItemConsumer failed to remove draft from ES", "itemID", itemID, "err", delErr)
+		}
+		if err := itemDal.MarkItemDistributionSkipped(db.DB, itemID, itemDal.DistributionSkipContentEvaluation, nil); err != nil {
+			logger.Default().Error("failed to update discard status", "itemID", itemID, "err", err)
+			return HandleRetry
+		}
+		return HandleSuccess
+	}
+
+	// Check quality threshold
+	if result.Quality < c.qualityThreshold {
+		logger.Default().Info("item quality below threshold, discarding", "itemID", itemID, "quality", result.Quality, "threshold", c.qualityThreshold)
+		if delErr := sortDal.DeleteItem(ctx, itemID); delErr != nil {
+			logger.Default().Warn("ItemConsumer failed to remove draft from ES", "itemID", itemID, "err", delErr)
+		}
+		if err := itemDal.MarkItemDistributionSkipped(db.DB, itemID, itemDal.DistributionSkipContentEvaluation, nil); err != nil {
+			logger.Default().Error("failed to update discard status", "itemID", itemID, "err", err)
+			return HandleRetry
+		}
+		return HandleSuccess
+	}
+
+	logger.Default().Info("ItemConsumer item passed quality check", "itemID", itemID, "quality", result.Quality, "lang", result.Lang, "timeliness", result.Timeliness)
+
+	// Correct group_id based on broadcast_type-specific rules
+	correctedGroupID := resolveGroupID(itemID, raw.AuthorAgentID, result.BroadcastType, similarItems, time.Now())
+	if correctedGroupID != finalGroupID {
+		logger.Default().Info("ItemConsumer group_id corrected by broadcast_type rules",
+			"itemID", itemID, "broadcastType", result.BroadcastType,
+			"oldGroupID", finalGroupID, "newGroupID", correctedGroupID)
+		finalGroupID = correctedGroupID
+		// Update hash dedup cache with corrected group_id
+		if err := dedup.SaveHash(ctx, mq.RDB, contentHash, finalGroupID); err != nil {
+			logger.Default().Warn("ItemConsumer failed to update hash after group correction", "itemID", itemID, "err", err)
+		}
+	} else {
+		logger.Default().Debug("ItemConsumer group_id unchanged after broadcast_type check",
+			"itemID", itemID, "broadcastType", result.BroadcastType, "groupID", finalGroupID)
+	}
+
+	// Join domains array to comma-separated string
+	domainsStr := ""
+	if len(result.Domains) > 0 {
+		domainsStr = result.Domains[0]
+		for i := 1; i < len(result.Domains); i++ {
+			domainsStr += "," + result.Domains[i]
+		}
+	}
+
+	// Preserve publisher's "no_reply" intent over LLM analysis
+	finalExpectedResponse := result.ExpectedResponse
+	if publisherExpResp == "no_reply" {
+		finalExpectedResponse = "no_reply"
+	}
+
+	// Generate action suggestion (non-blocking: failure leaves suggestion empty)
+	var suggestion string
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		suggestResult, suggestErr := c.llmClient.SuggestAction(ctx, llm.SuggestActionInput{
+			Content:          raw.RawContent,
+			Notes:            raw.RawNotes,
+			Summary:          result.Summary,
+			BroadcastType:    result.BroadcastType,
+			Domains:          result.Domains,
+			Keywords:         result.Keywords,
+			Geo:              result.Geo,
+			Timeliness:       result.Timeliness,
+			ExpectedResponse: finalExpectedResponse,
+		})
+		if suggestErr == nil {
+			suggestion = suggestResult.Suggestion
+			break
+		}
+		logger.Default().Warn("ItemConsumer suggest action attempt failed",
+			"attempt", attempt, "maxRetries", maxRetries, "itemID", itemID, "err", suggestErr)
+		time.Sleep(time.Duration(attempt) * time.Second)
+	}
+
+	// Update processed item with LLM results
+	if !persistProcessedItem(ctx, msgID, itemID, result, domainsStr, finalExpectedResponse, finalGroupID, suggestion) {
+		return HandleFailure
+	}
+
+	// Only completed items reserve their exact-content hash.  Failed processing
+	// must remain retryable instead of being discarded as its own duplicate.
+	if err := dedup.SaveHash(ctx, mq.RDB, contentHash, finalGroupID); err != nil {
+		logger.Default().Warn("ItemConsumer failed to save hash", "itemID", itemID, "err", err)
+	}
+
+	// Index processed item to Elasticsearch
+	esItem := &sortDal.Item{
+		ID:               itemID,
+		AuthorAgentID:    raw.AuthorAgentID,
+		Content:          raw.RawContent,
+		RawURL:           raw.RawURL,
+		Summary:          result.Summary,
+		Type:             result.BroadcastType,
+		Domains:          result.Domains,
+		Keywords:         result.Keywords,
+		ExpireTime:       parseExpireTime(result.ExpireTime),
+		Geo:              result.Geo,
+		SourceType:       result.SourceType,
+		ExpectedResponse: finalExpectedResponse,
+		GroupID:          finalGroupID,
+		QualityScore:     result.Quality,
+		Lang:             result.Lang,
+		Timeliness:       result.Timeliness,
+		Embedding:        itemEmbedding,
+		CreatedAt:        time.Unix(raw.CreatedAt/1000, 0),
+		UpdatedAt:        time.Now(),
+	}
+
+	if err := sortDal.IndexItem(ctx, esItem); err != nil {
+		logger.Default().Error("ItemConsumer failed to index item to ES", "itemID", itemID, "err", err)
+		// Don't block the flow, continue to ACK
+	} else {
+		logger.Default().Info("ItemConsumer item indexed to ES successfully", "itemID", itemID)
+
+		// Cache invalidation for alert items
+		if result.BroadcastType == "alert" {
+			go func() {
+				payload := map[string]interface{}{
+					"domains":  strings.Join(result.Domains, ","),
+					"keywords": strings.Join(result.Keywords, ","),
+				}
+				if _, err := mq.Publish(context.Background(), "stream:cache:invalidate", payload); err != nil {
+					logger.Default().Warn("ItemConsumer failed to publish cache invalidation", "itemID", itemID, "err", err)
+				}
+			}()
+		}
+
+		// Update statistics counters (fire-and-forget)
+		go func() {
+			bgCtx := context.Background()
+
+			// Increment total item count
+			if err := stats.IncrItemTotal(bgCtx, mq.RDB); err != nil {
+				logger.Default().Warn("ItemConsumer failed to increment item total", "err", err)
+			}
+
+			// Get agent info for latest items list
+			agent, err := profileDal.GetAgentByID(db.DB, raw.AuthorAgentID)
+			if err != nil {
+				logger.Default().Warn("ItemConsumer failed to get agent info", "itemID", itemID, "err", err)
+				return
+			}
+
+			// The owner-only Agent Card is the canonical country source. The legacy
+			// agent_profiles.country value is deprecated and may be overwritten by
+			// Bio keyword extraction with an empty value.
+			country := ""
+			card, err := profileDal.GetAgentCard(db.DB, raw.AuthorAgentID)
+			if err != nil {
+				logger.Default().Warn("ItemConsumer failed to get private Agent Card country", "itemID", itemID, "err", err)
+			} else if country, err = homepageCountryFromPrivateCard(card.PrivateCard); err != nil {
+				logger.Default().Warn("ItemConsumer failed to decode private Agent Card country", "itemID", itemID, "err", err)
+				country = ""
+			}
+
+			// Parse raw_notes as JSON map
+			notes := make(map[string]string)
+			if raw.RawNotes != "" {
+				var notesMap map[string]interface{}
+				if err := json.Unmarshal([]byte(raw.RawNotes), &notesMap); err == nil {
+					for k, v := range notesMap {
+						if str, ok := v.(string); ok {
+							notes[k] = str
+						}
+					}
+				}
+			}
+
+			// Push to latest items list
+			snapshot := &stats.ItemSnapshot{
+				ID:      itemID,
+				Agent:   agent.AgentName,
+				Country: country,
+				Type:    result.BroadcastType,
+				Domains: result.Domains,
+				Content: raw.RawContent,
+				URL:     raw.RawURL,
+				Notes:   notes,
+			}
+
+			if err := stats.PushLatestItem(bgCtx, mq.RDB, snapshot); err != nil {
+				logger.Default().Warn("ItemConsumer failed to push item to latest items", "itemID", itemID, "err", err)
+			} else {
+				logger.Default().Debug("ItemConsumer item pushed to latest items list", "itemID", itemID)
+			}
+		}()
+	}
+
+	metrics.ItemPublishToProcessDuration.Observe(float64(time.Now().UnixMilli()-raw.CreatedAt) / 1000.0)
+	return HandleSuccess
+}
+
+func persistProcessedItem(ctx context.Context, msgID string, itemID int64, result *llm.ExtractResult, domainsStr, finalExpectedResponse string, finalGroupID int64, suggestion string) bool {
+	if err := updateProcessedItem(db.DB, itemID, result.Summary, result.BroadcastType, domainsStr, result.Keywords, result.ExpireTime, result.Geo, result.SourceType, finalExpectedResponse, finalGroupID, result.Quality, result.Lang, result.Timeliness, suggestion, llm.HomepageEligibleValue(result), llm.HomepageRealWorldRelevantValue(result), result.HomepageRejectionReason, result.HomepageEvaluationVersion, itemDal.StatusCompleted); err != nil {
+		logger.Default().Error("failed to persist processed item", "itemID", itemID, "broadcastType", result.BroadcastType, "err", err)
+
+		if statusErr := updateProcessedItemStatus(db.DB, itemID, itemDal.StatusFailed); statusErr != nil {
+			logger.Default().Error("failed to mark item as failed after persist error", "itemID", itemID, "err", statusErr)
+		}
+
+		ackItemMessage(ctx, itemStream, itemGroup, msgID)
+		return false
+	}
+
+	logger.Default().Info("ItemConsumer item processed", "itemID", itemID, "broadcastType", result.BroadcastType, "domains", result.Domains, "keywords", result.Keywords, "groupID", finalGroupID, "quality", result.Quality, "hasSuggestion", suggestion != "")
+	return true
+}
+
+// matchBlacklist returns the first matching keyword if any blacklist keyword is found
+// in the concatenated raw content, or empty string if no match.
+func matchBlacklist(keywords []string, rawContent, rawURL, rawNotes string) string {
+	if len(keywords) == 0 {
+		return ""
+	}
+	combined := strings.ToLower(rawContent + " " + rawURL + " " + rawNotes)
+	for _, kw := range keywords {
+		if strings.Contains(combined, strings.ToLower(kw)) {
+			return kw
+		}
+	}
+	return ""
+}
+
+// checkBlacklist loads keywords from cache and checks for matches.
+func checkBlacklist(ctx context.Context, rawContent, rawURL, rawNotes string) string {
+	keywords := loadBlacklistKeywords(ctx)
+	return matchBlacklist(keywords, rawContent, rawURL, rawNotes)
+}
+
+// parseExpireTime parses expire time string to *time.Time
+func parseExpireTime(expireTimeStr string) *time.Time {
+	if expireTimeStr == "" {
+		return nil
+	}
+	// Try multiple formats
+	formats := []string{
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	}
+	for _, format := range formats {
+		if t, err := time.Parse(format, expireTimeStr); err == nil {
+			return &t
+		}
+	}
+	return nil
+}

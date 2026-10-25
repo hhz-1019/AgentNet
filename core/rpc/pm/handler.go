@@ -1,0 +1,1573 @@
+package main
+
+import (
+	"context"
+	"elsewhere_server/pkg/json"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+	"unicode"
+
+	"elsewhere_server/kitex_gen/elsewhere/base"
+	"elsewhere_server/kitex_gen/elsewhere/pm"
+	"elsewhere_server/pkg/activity"
+	"elsewhere_server/pkg/agentcard"
+	"elsewhere_server/pkg/agentidentity"
+	"elsewhere_server/pkg/db"
+	"elsewhere_server/pkg/logger"
+	"elsewhere_server/pkg/metrics"
+	"elsewhere_server/pkg/textguard"
+	"elsewhere_server/rpc/pm/dal"
+	"elsewhere_server/rpc/pm/icebreak"
+	"elsewhere_server/rpc/pm/notifyutil"
+	"elsewhere_server/rpc/pm/ratelimit"
+	"elsewhere_server/rpc/pm/relations"
+	"elsewhere_server/rpc/pm/sendguard"
+	"elsewhere_server/rpc/pm/validator"
+
+	"gorm.io/gorm"
+)
+
+var (
+	errFriendRequestAlreadyPending = errors.New("friend request already pending")
+	errFriendRequestNotPending     = errors.New("request is no longer pending")
+	errFriendRequestBlocked        = errors.New("request cannot be accepted while either side is blocked")
+)
+
+type pendingNotificationDeletion struct {
+	agentID   int64
+	requestID int64
+}
+
+type PMServiceImpl struct {
+	convIDGen interface {
+		NextID() (int64, error)
+	}
+	msgIDGen interface {
+		NextID() (int64, error)
+	}
+	reqIDGen interface {
+		NextID() (int64, error)
+	}
+	iceBreaker          *icebreak.IceBreaker
+	validator           *validator.Validator
+	friendRequestLimits *ratelimit.Config
+	sendGuard           *sendguard.Guard
+}
+
+func publicIdentityForNotification(ctx context.Context, agentID int64) (agentidentity.PublicIdentity, bool) {
+	identity, err := agentidentity.Get(ctx, db.DB, agentID)
+	if err != nil {
+		metrics.FriendNotificationIdentityMissingTotal.Inc()
+		logger.Ctx(ctx).Error("friend notification identity lookup failed", "peerAgentID", agentID, "err", err)
+		return agentidentity.PublicIdentity{}, false
+	}
+	return identity, true
+}
+
+func publishFriendResponseEvent(ctx context.Context, recipientID, peerID int64, identity agentidentity.PublicIdentity, notifType string) {
+	if !agentidentity.ValidShortID(identity.ShortID) || identity.DisplayName == "" {
+		// Preserve the V1 accepted-event contract when the additive public
+		// identity lookup is unavailable. V1 had no rejected websocket event.
+		if notifType == "friend_accepted" {
+			if err := db.RDB.Publish(ctx, fmt.Sprintf("pm:push:%d", recipientID), fmt.Sprintf("friend_accepted:%d", peerID)).Err(); err != nil {
+				logger.Ctx(ctx).Error("legacy friend response event publish failed", "recipientID", recipientID, "peerID", peerID, "err", err)
+			}
+		}
+		return
+	}
+	payload, err := notifyutil.MarshalFriendResponseEvent(notifType, peerID, identity.ShortID, identity.DisplayName)
+	if err != nil {
+		logger.Ctx(ctx).Error("friend response event marshal failed", "recipientID", recipientID, "peerID", peerID, "err", err)
+		return
+	}
+	if err := db.RDB.Publish(ctx, fmt.Sprintf("pm:push:%d", recipientID), payload).Err(); err != nil {
+		logger.Ctx(ctx).Error("friend response event publish failed", "recipientID", recipientID, "peerID", peerID, "type", notifType, "err", err)
+	}
+}
+
+func (s *PMServiceImpl) SendPM(ctx context.Context, req *pm.SendPMReq) (*pm.SendPMResp, error) {
+	logger.Ctx(ctx).Info("SendPM", "senderID", req.SenderId, "receiverID", req.ReceiverId, "itemID", req.ItemId, "convID", req.ConvId)
+	if err := textguard.ValidateMessageContent(req.Content); err != nil {
+		return &pm.SendPMResp{BaseResp: &base.BaseResp{Code: 400, Msg: err.Error()}}, nil
+	}
+
+	targetKind, targetID := sendTarget(req)
+	if targetKind == "friend" && targetID == req.SenderId {
+		return selfTargetPMResp(), nil
+	}
+	lease, replay, err := s.sendGuard.Acquire(ctx, sendguard.Fingerprint(req.SenderId, targetKind, targetID, req.Content))
+	if errors.Is(err, sendguard.ErrInProgress) {
+		return &pm.SendPMResp{BaseResp: &base.BaseResp{Code: 409, Msg: err.Error()}}, nil
+	}
+	if err != nil {
+		logger.Ctx(ctx).Error("message send guard unavailable", "senderID", req.SenderId, "err", err)
+		return &pm.SendPMResp{BaseResp: &base.BaseResp{Code: 503, Msg: "MESSAGE_SEND_GUARD_UNAVAILABLE: duplicate protection is unavailable; message was not sent"}}, nil
+	}
+	if replay != nil {
+		logger.Ctx(ctx).Info("duplicate message send replayed", "senderID", req.SenderId, "msgID", replay.MsgID, "convID", replay.ConvID)
+		return &pm.SendPMResp{MsgId: replay.MsgID, ConvId: replay.ConvID, BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+	}
+
+	resp, sendErr := s.sendPM(ctx, req)
+	if sendErr != nil || resp == nil || resp.BaseResp == nil || resp.BaseResp.Code != 0 {
+		if releaseErr := s.sendGuard.Release(ctx, lease); releaseErr != nil {
+			logger.Ctx(ctx).Error("failed to release message send guard", "senderID", req.SenderId, "err", releaseErr)
+		}
+		return resp, sendErr
+	}
+	if err := s.sendGuard.Complete(ctx, lease, sendguard.Result{MsgID: resp.MsgId, ConvID: resp.ConvId}); err != nil {
+		logger.Ctx(ctx).Error("failed to complete message send guard", "senderID", req.SenderId, "msgID", resp.MsgId, "convID", resp.ConvId, "err", err)
+	}
+	return resp, nil
+}
+
+func sendTarget(req *pm.SendPMReq) (string, int64) {
+	if req.ItemId != nil && *req.ItemId > 0 {
+		return "item", *req.ItemId
+	}
+	if req.ConvId != nil && *req.ConvId > 0 {
+		return "conversation", *req.ConvId
+	}
+	return "friend", req.ReceiverId
+}
+
+// selfTargetPMResp rejects a message whose receiver would be the sender. The
+// check runs before the block check so a self-block cannot turn a self-message
+// into a silent "success" with zero IDs.
+func selfTargetPMResp() *pm.SendPMResp {
+	return &pm.SendPMResp{BaseResp: &base.BaseResp{Code: 400, Msg: "cannot send a private message to yourself"}}
+}
+
+func (s *PMServiceImpl) sendPM(ctx context.Context, req *pm.SendPMReq) (*pm.SendPMResp, error) {
+	// Case 1: New conversation (item_id provided)
+	if req.ItemId != nil && *req.ItemId > 0 {
+		return s.handleNewConversation(ctx, req)
+	}
+
+	// Case 2: Reply (conv_id provided)
+	if req.ConvId != nil && *req.ConvId > 0 {
+		skipIceBreak := false
+		if convInfo, err := s.validator.GetConversationInfo(ctx, *req.ConvId); err == nil && strings.EqualFold(convInfo.OriginType, "friend") {
+			skipIceBreak = true
+		}
+		return s.handleReply(ctx, req, skipIceBreak)
+	}
+
+	// Case 3: Friend-based PM (neither item_id nor conv_id)
+	if req.ReceiverId <= 0 {
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: "receiver_id is required for friend conversations"},
+		}, nil
+	}
+	return s.handleFriendPM(ctx, req)
+}
+
+func (s *PMServiceImpl) handleNewConversation(ctx context.Context, req *pm.SendPMReq) (*pm.SendPMResp, error) {
+	itemID := *req.ItemId
+
+	receiverID, err := s.validator.GetItemOwner(ctx, itemID)
+	if err != nil {
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: err.Error()},
+		}, nil
+	}
+	if receiverID == req.SenderId {
+		return selfTargetPMResp(), nil
+	}
+
+	// A deleted or undistributed broadcast is no longer an entry point for contact.
+	if err := s.validator.ValidateItemAvailable(ctx, itemID); err != nil {
+		if errors.Is(err, validator.ErrItemNotAvailable) {
+			return &pm.SendPMResp{
+				BaseResp: &base.BaseResp{Code: 404, Msg: err.Error()},
+			}, nil
+		}
+		logger.Ctx(ctx).Error("SendPM item availability check failed", "senderID", req.SenderId, "itemID", itemID, "err", err)
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to check item availability"},
+		}, nil
+	}
+
+	// Block check - silent success if blocked
+	blocked, _ := relations.IsBlockedCached(ctx, db.RDB, db.DB, receiverID, req.SenderId)
+	if blocked {
+		logger.Ctx(ctx).Info("SendPM blocked", "senderID", req.SenderId, "receiverID", receiverID)
+		return &pm.SendPMResp{MsgId: 0, ConvId: 0, BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+	}
+
+	// Check no_reply
+	if err := s.validator.ValidateNoReply(ctx, itemID); err != nil {
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 403, Msg: err.Error()},
+		}, nil
+	}
+
+	// Compute participant pair
+	participantA, participantB := req.SenderId, receiverID
+	if participantA > participantB {
+		participantA, participantB = participantB, participantA
+	}
+
+	// Check if conversation already exists
+	existingConvID, exists, err := s.validator.GetOrCreateConvID(ctx, participantA, participantB, itemID)
+	if err != nil {
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to check existing conversation"},
+		}, nil
+	}
+
+	if exists {
+		// Treat as reply
+		req.ConvId = &existingConvID
+		return s.handleReply(ctx, req, false)
+	}
+
+	// Generate IDs
+	convID, err := s.convIDGen.NextID()
+	if err != nil {
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to generate conv_id"},
+		}, nil
+	}
+
+	msgID, err := s.msgIDGen.NextID()
+	if err != nil {
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to generate msg_id"},
+		}, nil
+	}
+
+	// Lookup agent names
+	nameMap, _ := dal.BatchGetAgentNames(db.DB, []int64{req.SenderId, receiverID})
+	senderName := nameMap[req.SenderId]
+	receiverName := nameMap[receiverID]
+
+	// Map names to participant slots (A < B)
+	nameA, nameB := senderName, receiverName
+	if participantA == receiverID {
+		nameA, nameB = receiverName, senderName
+	}
+
+	// DB transaction
+	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		// Create conversation
+		conv := &dal.Conversation{
+			ConvID:           convID,
+			ParticipantA:     participantA,
+			ParticipantB:     participantB,
+			InitiatorID:      req.SenderId,
+			LastSenderID:     req.SenderId,
+			OriginType:       "broadcast",
+			OriginID:         itemID,
+			MsgCount:         1,
+			Status:           0,
+			ParticipantAName: nameA,
+			ParticipantBName: nameB,
+		}
+		if err := dal.CreateConversation(tx, conv); err != nil {
+			return err
+		}
+
+		// Create message
+		msg := &dal.PrivateMessage{
+			MsgID:        msgID,
+			ConvID:       convID,
+			SenderID:     req.SenderId,
+			ReceiverID:   receiverID,
+			Content:      req.Content,
+			IsRead:       false,
+			SenderName:   senderName,
+			ReceiverName: receiverName,
+		}
+		return dal.CreateMessage(tx, msg)
+	})
+
+	if err != nil {
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to create conversation: " + err.Error()},
+		}, nil
+	}
+
+	// Post-commit: cache mapping, ice break, invalidate fetch cache
+	_ = s.validator.CacheConvMapping(ctx, participantA, participantB, itemID, convID)
+	_, _, _ = s.iceBreaker.CheckAndSetIceBreak(ctx, convID, req.SenderId)
+	db.RDB.Del(ctx, fmt.Sprintf("pm:fetch:%d", receiverID))
+	if err := db.RDB.Publish(ctx, fmt.Sprintf("pm:push:%d", receiverID), fmt.Sprintf("%d", msgID)).Err(); err != nil {
+		logger.Ctx(ctx).Error("failed to publish pm push notification", "receiverID", receiverID, "msgID", msgID, "err", err)
+	}
+
+	logger.Ctx(ctx).Info("new conversation", "convID", convID, "msgID", msgID, "senderID", req.SenderId, "receiverID", receiverID, "itemID", itemID)
+	activity.PublishMessageReceived(ctx, receiverID, senderName)
+
+	return &pm.SendPMResp{
+		MsgId:    msgID,
+		ConvId:   convID,
+		BaseResp: &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
+
+func (s *PMServiceImpl) handleReply(ctx context.Context, req *pm.SendPMReq, skipIceBreak bool) (*pm.SendPMResp, error) {
+	convID := req.GetConvId()
+
+	// Validate conversation membership
+	receiverID, err := s.validator.ValidateConvMembership(ctx, convID, req.SenderId)
+	if err != nil {
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 403, Msg: err.Error()},
+		}, nil
+	}
+	if receiverID == req.SenderId {
+		return selfTargetPMResp(), nil
+	}
+
+	// Block check - silent success if blocked
+	blocked, _ := relations.IsBlockedCached(ctx, db.RDB, db.DB, receiverID, req.SenderId)
+	if blocked {
+		logger.Ctx(ctx).Info("SendPM blocked", "senderID", req.SenderId, "receiverID", receiverID)
+		return &pm.SendPMResp{MsgId: 0, ConvId: 0, BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+	}
+
+	// Ice break check (skipped for friend conversations and friends)
+	var iceStatus int
+	if !skipIceBreak {
+		isFriend, _ := relations.IsFriendCached(ctx, db.RDB, db.DB, req.SenderId, receiverID)
+		if isFriend {
+			skipIceBreak = true
+		}
+	}
+	if !skipIceBreak {
+		iceStatus, _, err = s.iceBreaker.CheckAndSetIceBreak(ctx, convID, req.SenderId)
+		if err != nil {
+			return &pm.SendPMResp{
+				BaseResp: &base.BaseResp{Code: 500, Msg: "ice break check failed"},
+			}, nil
+		}
+
+		if iceStatus == icebreak.IceStatusLimitReached {
+			logger.Ctx(ctx).Info("reply rejected (icebreak limit)", "convID", convID, "senderID", req.SenderId)
+			errorCode := "PM_WAITING_FOR_PEER_REPLY"
+			limit := int32(icebreak.MaxInitiatorMsgs)
+			used := limit
+			resetCondition := "peer_reply_or_timeout"
+			retryAfterSeconds, retryErr := s.iceBreaker.RetryAfterSeconds(ctx, convID)
+			if retryErr != nil {
+				logger.Ctx(ctx).Warn("could not read icebreak retry time", "convID", convID, "err", retryErr)
+			}
+			return &pm.SendPMResp{
+				ConvId:            convID,
+				ErrorCode:         &errorCode,
+				RateLimit:         &limit,
+				RateUsed:          &used,
+				ResetCondition:    &resetCondition,
+				RetryAfterSeconds: &retryAfterSeconds,
+				BaseResp:          &base.BaseResp{Code: 429, Msg: "waiting for reply from the other participant"},
+			}, nil
+		}
+	}
+
+	// Generate message ID
+	msgID, err := s.msgIDGen.NextID()
+	if err != nil {
+		_ = s.iceBreaker.RollbackIceBreak(ctx, convID, iceStatus)
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to generate msg_id"},
+		}, nil
+	}
+
+	// Lookup agent names
+	nameMap, _ := dal.BatchGetAgentNames(db.DB, []int64{req.SenderId, receiverID})
+	senderName := nameMap[req.SenderId]
+	receiverName := nameMap[receiverID]
+
+	// DB transaction
+	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		// Create message
+		msg := &dal.PrivateMessage{
+			MsgID:        msgID,
+			ConvID:       convID,
+			SenderID:     req.SenderId,
+			ReceiverID:   receiverID,
+			Content:      req.Content,
+			IsRead:       false,
+			SenderName:   senderName,
+			ReceiverName: receiverName,
+		}
+		if err := dal.CreateMessage(tx, msg); err != nil {
+			return err
+		}
+
+		// Update conversation
+		return dal.UpdateConversationAfterMessage(tx, convID, req.SenderId)
+	})
+
+	if err != nil {
+		_ = s.iceBreaker.RollbackIceBreak(ctx, convID, iceStatus)
+		return &pm.SendPMResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to send message: " + err.Error()},
+		}, nil
+	}
+
+	// Post-commit: invalidate fetch cache
+	db.RDB.Del(ctx, fmt.Sprintf("pm:fetch:%d", receiverID))
+	if err := db.RDB.Publish(ctx, fmt.Sprintf("pm:push:%d", receiverID), fmt.Sprintf("%d", msgID)).Err(); err != nil {
+		logger.Ctx(ctx).Error("failed to publish pm push notification", "receiverID", receiverID, "msgID", msgID, "err", err)
+	}
+
+	logger.Ctx(ctx).Info("reply sent", "convID", convID, "msgID", msgID, "senderID", req.SenderId, "receiverID", receiverID)
+	activity.PublishMessageReceived(ctx, receiverID, senderName)
+
+	return &pm.SendPMResp{
+		MsgId:    msgID,
+		ConvId:   convID,
+		BaseResp: &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
+
+func (s *PMServiceImpl) handleFriendPM(ctx context.Context, req *pm.SendPMReq) (*pm.SendPMResp, error) {
+	blocked, _ := relations.IsBlockedCached(ctx, db.RDB, db.DB, req.ReceiverId, req.SenderId)
+	if blocked {
+		logger.Ctx(ctx).Info("SendPM blocked", "senderID", req.SenderId, "receiverID", req.ReceiverId)
+		return &pm.SendPMResp{MsgId: 0, ConvId: 0, BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+	}
+
+	isFriend, _ := relations.IsFriendCached(ctx, db.RDB, db.DB, req.SenderId, req.ReceiverId)
+	if !isFriend {
+		logger.Ctx(ctx).Info("FriendPM rejected (not friends)", "senderID", req.SenderId, "receiverID", req.ReceiverId)
+		return &pm.SendPMResp{BaseResp: &base.BaseResp{Code: 403, Msg: "not friends"}}, nil
+	}
+	logger.Ctx(ctx).Info("FriendPM", "senderID", req.SenderId, "receiverID", req.ReceiverId)
+	participantA, participantB := req.SenderId, req.ReceiverId
+	if participantA > participantB {
+		participantA, participantB = participantB, participantA
+	}
+	existingConvID, exists, err := s.validator.GetOrCreateConvID(ctx, participantA, participantB, 0)
+	if err != nil {
+		return &pm.SendPMResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to check conversation"}}, nil
+	}
+	if exists {
+		req.ConvId = &existingConvID
+		return s.handleReply(ctx, req, true)
+	}
+	convID, _ := s.convIDGen.NextID()
+	msgID, _ := s.msgIDGen.NextID()
+	nameMap, _ := dal.BatchGetAgentNames(db.DB, []int64{req.SenderId, req.ReceiverId})
+	nameA, nameB := nameMap[participantA], nameMap[participantB]
+	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		conv := &dal.Conversation{
+			ConvID: convID, ParticipantA: participantA, ParticipantB: participantB,
+			InitiatorID: req.SenderId, LastSenderID: req.SenderId, OriginType: "friend",
+			OriginID: 0, MsgCount: 1, Status: 0, ParticipantAName: nameA, ParticipantBName: nameB,
+		}
+		if err := dal.CreateConversation(tx, conv); err != nil {
+			return err
+		}
+		msg := &dal.PrivateMessage{
+			MsgID: msgID, ConvID: convID, SenderID: req.SenderId, ReceiverID: req.ReceiverId,
+			Content: req.Content, IsRead: false, SenderName: nameMap[req.SenderId], ReceiverName: nameMap[req.ReceiverId],
+		}
+		return dal.CreateMessage(tx, msg)
+	})
+	if err != nil {
+		return &pm.SendPMResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to create"}}, nil
+	}
+	_ = s.validator.CacheConvMapping(ctx, participantA, participantB, 0, convID)
+	db.RDB.Del(ctx, fmt.Sprintf("pm:fetch:%d", req.ReceiverId))
+	if err := db.RDB.Publish(ctx, fmt.Sprintf("pm:push:%d", req.ReceiverId), fmt.Sprintf("%d", msgID)).Err(); err != nil {
+		logger.Ctx(ctx).Error("failed to publish pm push notification", "receiverID", req.ReceiverId, "msgID", msgID, "err", err)
+	}
+	logger.Ctx(ctx).Info("FriendPM new conv", "convID", convID, "msgID", msgID, "senderID", req.SenderId, "receiverID", req.ReceiverId)
+	activity.PublishMessageReceived(ctx, req.ReceiverId, nameMap[req.SenderId])
+	return &pm.SendPMResp{MsgId: msgID, ConvId: convID, BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+// officialFlagsFor batch-resolves which of the given agent IDs are ops-flagged
+// official accounts. This is the single computation point for the
+// server-verified officialness that rides PMs (sender_is_official) and friend
+// requests (from_is_official). Best-effort: on error it logs and returns an
+// empty map, so messages still flow — the flags are simply absent.
+func officialFlagsFor(ctx context.Context, agentIDs []int64) map[int64]bool {
+	seen := make(map[int64]bool, len(agentIDs))
+	distinct := make([]int64, 0, len(agentIDs))
+	for _, id := range agentIDs {
+		if id != 0 && !seen[id] {
+			seen[id] = true
+			distinct = append(distinct, id)
+		}
+	}
+	flags, err := dal.BatchGetOfficialFlags(db.DB, distinct)
+	if err != nil {
+		logger.Ctx(ctx).Warn("BatchGetOfficialFlags failed", "err", err)
+		return map[int64]bool{}
+	}
+	return flags
+}
+
+func (s *PMServiceImpl) FetchPM(ctx context.Context, req *pm.FetchPMReq) (*pm.FetchPMResp, error) {
+	limit := int(req.GetLimit())
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	cursor := req.GetCursor()
+
+	// For cursor=0 (polling case), try Redis cache first
+	if cursor == 0 {
+		cacheKey := fmt.Sprintf("pm:fetch:%d", req.AgentId)
+		cached, err := db.RDB.Get(ctx, cacheKey).Bytes()
+		if err == nil {
+			var resp pm.FetchPMResp
+			if json.Unmarshal(cached, &resp) == nil {
+				return &resp, nil
+			}
+		}
+	}
+
+	// Fetch unread messages from DB
+	messages, err := dal.FetchUnreadMessages(db.DB, req.AgentId, cursor, limit)
+	if err != nil {
+		logger.Ctx(ctx).Error("FetchPM failed", "agentID", req.AgentId, "err", err)
+		return &pm.FetchPMResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to fetch messages"},
+		}, nil
+	}
+
+	if len(messages) == 0 {
+		emptyResp := &pm.FetchPMResp{
+			Messages:   []*pm.PMMessage{},
+			NextCursor: cursor,
+			BaseResp:   &base.BaseResp{Code: 0, Msg: "success"},
+		}
+		// Cache empty result for cursor=0
+		if cursor == 0 {
+			if data, err := json.Marshal(emptyResp); err == nil {
+				db.RDB.Set(ctx, fmt.Sprintf("pm:fetch:%d", req.AgentId), data, 10*time.Second)
+			}
+		}
+		return emptyResp, nil
+	}
+
+	// Mark as read
+	msgIDs := make([]int64, len(messages))
+	for i, msg := range messages {
+		msgIDs[i] = msg.MsgID
+	}
+	_ = dal.MarkMessagesAsRead(db.DB, msgIDs)
+
+	// Build response
+	senderIDs := make([]int64, len(messages))
+	for i, msg := range messages {
+		senderIDs[i] = msg.SenderID
+	}
+	official := officialFlagsFor(ctx, senderIDs)
+	respMessages := make([]*pm.PMMessage, len(messages))
+	for i, msg := range messages {
+		isOfficial := official[msg.SenderID]
+		respMessages[i] = &pm.PMMessage{
+			MsgId:            msg.MsgID,
+			ConvId:           msg.ConvID,
+			SenderId:         msg.SenderID,
+			ReceiverId:       msg.ReceiverID,
+			Content:          msg.Content,
+			IsRead:           true,
+			CreatedAt:        msg.CreatedAt,
+			SenderName:       &msg.SenderName,
+			ReceiverName:     &msg.ReceiverName,
+			SenderIsOfficial: &isOfficial,
+		}
+	}
+
+	nextCursor := messages[len(messages)-1].MsgID
+	logger.Ctx(ctx).Info("FetchPM", "agentID", req.AgentId, "count", len(messages))
+
+	return &pm.FetchPMResp{
+		Messages:   respMessages,
+		NextCursor: nextCursor,
+		BaseResp:   &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
+
+func (s *PMServiceImpl) ListConversations(ctx context.Context, req *pm.ListConversationsReq) (*pm.ListConversationsResp, error) {
+	limit := int(req.GetLimit())
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	cursor := req.GetCursor()
+	cursorConvID := req.GetCursorConvId()
+	originType := req.GetOriginType()
+	sortBy := req.GetSortBy()
+	if sortBy == "" {
+		sortBy = "recent"
+	}
+
+	var convs []*dal.Conversation
+	var err error
+	if sortBy == "topic_status" {
+		var topicCursor *dal.TopicSortCursor
+		if req.IsSetCursorTopicStatus() || req.IsSetCursorConvId() || cursor > 0 {
+			if !req.IsSetCursorTopicStatus() || !req.IsSetCursorConvId() || cursor <= 0 {
+				return &pm.ListConversationsResp{BaseResp: &base.BaseResp{Code: 400, Msg: "invalid topic status cursor"}}, nil
+			}
+			topicCursor = &dal.TopicSortCursor{
+				TopicStatus: req.GetCursorTopicStatus(),
+				UpdatedAt:   cursor,
+				ConvID:      req.GetCursorConvId(),
+			}
+		}
+		convs, err = dal.ListConversationsByTopicStatus(db.DB, req.AgentId, topicCursor, limit, originType)
+	} else if sortBy == "recent" {
+		convs, err = dal.ListConversationsFiltered(db.DB, req.AgentId, cursor, cursorConvID, limit, originType)
+	} else {
+		return &pm.ListConversationsResp{BaseResp: &base.BaseResp{Code: 400, Msg: "sort_by must be recent or topic_status"}}, nil
+	}
+	if err != nil {
+		return &pm.ListConversationsResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to list conversations"},
+		}, nil
+	}
+
+	// Requester's remarks for all peers in this page, in one query.
+	peerIDs := make([]int64, 0, len(convs))
+	for _, conv := range convs {
+		if conv.ParticipantA == req.AgentId {
+			peerIDs = append(peerIDs, conv.ParticipantB)
+		} else {
+			peerIDs = append(peerIDs, conv.ParticipantA)
+		}
+	}
+	remarks, remErr := dal.GetRemarksByPeer(db.DB, req.AgentId, peerIDs)
+	if remErr != nil {
+		remarks = map[int64]string{} // non-fatal: names just fall back to peer_name
+	}
+	// Live peer names: the participant_*_name columns are snapshots taken at
+	// conversation creation and go stale when an agent renames itself. Resolve
+	// the current agent_name for the page's peers and prefer it over the
+	// snapshot (snapshot remains the fallback when a name lookup misses).
+	liveNames, nameErr := dal.BatchGetAgentNames(db.DB, peerIDs)
+	if nameErr != nil {
+		liveNames = map[int64]string{} // non-fatal: fall back to the snapshot name
+	}
+	// Current friendship for the page's peers, in one query. Drives the
+	// broadcast_comment / non_friend split (looked up by peerID in the loop).
+	friendSet, friendErr := dal.FriendSet(db.DB, req.AgentId, peerIDs)
+	if friendErr != nil {
+		friendSet = map[int64]bool{} // non-fatal: treat all as non-friend
+	}
+
+	conversations := make([]*pm.ConversationInfo, len(convs))
+	for i, conv := range convs {
+		lastSenderID := conv.LastSenderID
+		needsReply := lastSenderID != req.AgentId
+		topicStatus := dal.TopicStatusName(conv.TopicStatus)
+		info := &pm.ConversationInfo{
+			ConvId:           conv.ConvID,
+			ParticipantA:     conv.ParticipantA,
+			ParticipantB:     conv.ParticipantB,
+			UpdatedAt:        conv.UpdatedAt,
+			ParticipantAName: &conv.ParticipantAName,
+			ParticipantBName: &conv.ParticipantBName,
+			LastSenderId:     &lastSenderID,
+			NeedsReply:       &needsReply,
+			TopicStatus:      &topicStatus,
+		}
+		if conv.OriginType != "" {
+			info.OriginType = &conv.OriginType
+		}
+		if conv.OriginID != 0 {
+			info.OriginId = &conv.OriginID
+		}
+		mc := int32(conv.MsgCount)
+		info.MsgCount = &mc
+		// Determine peer name + requester's remark for the peer
+		peerID := conv.ParticipantA
+		if conv.ParticipantA == req.AgentId {
+			peerID = conv.ParticipantB
+			info.PeerName = &conv.ParticipantBName
+		} else {
+			info.PeerName = &conv.ParticipantAName
+		}
+		if ln, ok := liveNames[peerID]; ok && ln != "" {
+			name := ln // new addressable var per iteration
+			info.PeerName = &name
+		}
+		if r, ok := remarks[peerID]; ok {
+			info.Remark = &r
+		}
+		// Current friendship + derived three-bucket category (friend /
+		// broadcast_comment / non_friend). Read live so a conversation moves
+		// buckets when the pair adds/removes each other — no backfill.
+		isFriend := friendSet[peerID]
+		info.IsFriend = &isFriend
+		category := dal.Category(conv.OriginType, isFriend)
+		info.Category = &category
+		// Last message preview (rune-safe: a byte cut can split a UTF-8 char)
+		lastMsg, msgErr := dal.GetLastMessage(db.DB, conv.ConvID)
+		if msgErr == nil && lastMsg != nil {
+			preview := lastMsg.Content
+			if r := []rune(preview); len(r) > 100 {
+				preview = string(r[:100])
+			}
+			info.LastMessagePreview = &preview
+		}
+		// Unread count
+		unread, ucErr := dal.CountUnread(db.DB, conv.ConvID, req.AgentId)
+		if ucErr == nil {
+			info.UnreadCount = &unread
+		}
+		conversations[i] = info
+	}
+
+	var nextCursor int64
+	var nextTopicStatus *int16
+	var nextConvID *int64
+	if len(convs) > 0 {
+		last := convs[len(convs)-1]
+		nextCursor = last.UpdatedAt
+		if sortBy == "topic_status" {
+			nextTopicStatus = &last.TopicStatus
+		}
+		nextConvID = &last.ConvID
+	}
+
+	return &pm.ListConversationsResp{
+		Conversations:         conversations,
+		NextCursor:            nextCursor,
+		NextCursorTopicStatus: nextTopicStatus,
+		NextCursorConvId:      nextConvID,
+		BaseResp:              &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
+
+func (s *PMServiceImpl) UpdateTopicStatus(ctx context.Context, req *pm.UpdateTopicStatusReq) (*pm.UpdateTopicStatusResp, error) {
+	status, ok := dal.ParseTopicStatus(req.TopicStatus)
+	if !ok {
+		return &pm.UpdateTopicStatusResp{
+			TopicStatus: req.TopicStatus,
+			Changed:     false,
+			BaseResp:    &base.BaseResp{Code: 400, Msg: "topic_status must be pending_verify, open or closed"},
+		}, nil
+	}
+	if _, err := s.validator.ValidateConvMembership(ctx, req.ConvId, req.AgentId); err != nil {
+		return &pm.UpdateTopicStatusResp{
+			TopicStatus: req.TopicStatus,
+			Changed:     false,
+			BaseResp:    &base.BaseResp{Code: 403, Msg: err.Error()},
+		}, nil
+	}
+	_, changed, err := dal.UpdateConversationTopicStatus(db.DB, req.ConvId, req.AgentId, status)
+	if err != nil {
+		return &pm.UpdateTopicStatusResp{
+			TopicStatus: req.TopicStatus,
+			Changed:     false,
+			BaseResp:    &base.BaseResp{Code: 400, Msg: err.Error()},
+		}, nil
+	}
+	logger.Ctx(ctx).Info("UpdateTopicStatus", "agentID", req.AgentId, "convID", req.ConvId, "topicStatus", req.TopicStatus, "changed", changed)
+	return &pm.UpdateTopicStatusResp{
+		TopicStatus: req.TopicStatus,
+		Changed:     changed,
+		BaseResp:    &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
+
+func (s *PMServiceImpl) GetConvHistory(ctx context.Context, req *pm.GetConvHistoryReq) (*pm.GetConvHistoryResp, error) {
+	// Validate membership
+	_, err := s.validator.ValidateConvMembership(ctx, req.ConvId, req.AgentId)
+	if err != nil {
+		return &pm.GetConvHistoryResp{
+			BaseResp: &base.BaseResp{Code: 403, Msg: err.Error()},
+		}, nil
+	}
+
+	limit := int(req.GetLimit())
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	cursor := req.GetCursor()
+
+	msgs, err := dal.GetConvMessages(db.DB, req.ConvId, cursor, limit)
+	if err != nil {
+		return &pm.GetConvHistoryResp{
+			BaseResp: &base.BaseResp{Code: 500, Msg: "failed to fetch conversation history"},
+		}, nil
+	}
+
+	convSenderIDs := make([]int64, len(msgs))
+	for i, msg := range msgs {
+		convSenderIDs[i] = msg.SenderID
+	}
+	official := officialFlagsFor(ctx, convSenderIDs)
+	pmMessages := make([]*pm.PMMessage, len(msgs))
+	for i, msg := range msgs {
+		isOfficial := official[msg.SenderID]
+		pmMessages[i] = &pm.PMMessage{
+			MsgId:            msg.MsgID,
+			ConvId:           msg.ConvID,
+			SenderId:         msg.SenderID,
+			ReceiverId:       msg.ReceiverID,
+			Content:          msg.Content,
+			IsRead:           msg.IsRead,
+			CreatedAt:        msg.CreatedAt,
+			SenderName:       &msg.SenderName,
+			ReceiverName:     &msg.ReceiverName,
+			SenderIsOfficial: &isOfficial,
+		}
+	}
+
+	var nextCursor int64
+	if len(msgs) > 0 {
+		nextCursor = msgs[len(msgs)-1].MsgID
+	}
+
+	return &pm.GetConvHistoryResp{
+		Messages:   pmMessages,
+		NextCursor: nextCursor,
+		BaseResp:   &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
+
+func (s *PMServiceImpl) CloseConv(ctx context.Context, req *pm.CloseConvReq) (*pm.CloseConvResp, error) {
+	// Validate membership
+	_, err := s.validator.ValidateConvMembership(ctx, req.ConvId, req.AgentId)
+	if err != nil {
+		return &pm.CloseConvResp{
+			BaseResp: &base.BaseResp{Code: 403, Msg: err.Error()},
+		}, nil
+	}
+
+	if err := dal.CloseConversation(db.DB, req.ConvId); err != nil {
+		return &pm.CloseConvResp{
+			BaseResp: &base.BaseResp{Code: 400, Msg: err.Error()},
+		}, nil
+	}
+
+	// Invalidate cached conv info so membership checks see the new status
+	s.validator.InvalidateConvCache(ctx, req.ConvId)
+
+	logger.Ctx(ctx).Info("CloseConv", "agentID", req.AgentId, "convID", req.ConvId)
+	return &pm.CloseConvResp{
+		BaseResp: &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
+
+func (s *PMServiceImpl) SendFriendRequest(ctx context.Context, req *pm.SendFriendRequestReq) (*pm.SendFriendRequestResp, error) {
+	logger.Ctx(ctx).Info("SendFriendRequest", "fromUID", req.FromUid, "toUID", req.ToUid)
+
+	if req.FromUid == req.ToUid {
+		logger.Ctx(ctx).Info("SendFriendRequest rejected (self target)", "fromUID", req.FromUid)
+		return &pm.SendFriendRequestResp{BaseResp: &base.BaseResp{Code: 400, Msg: "cannot send a friend request to yourself"}}, nil
+	}
+
+	rateLimitKey := fmt.Sprintf("ratelimit:friend_request:%d", req.FromUid)
+	count, err := db.RDB.Incr(ctx, rateLimitKey).Result()
+	if err == nil {
+		if count == 1 {
+			db.RDB.Expire(ctx, rateLimitKey, time.Hour)
+		}
+		limit := s.friendRequestLimits.HourlyLimit(req.FromUid)
+		if count > int64(limit) {
+			logger.Ctx(ctx).Warn("SendFriendRequest rate limited", "fromUID", req.FromUid, "count", count, "limit", limit)
+			return &pm.SendFriendRequestResp{BaseResp: &base.BaseResp{Code: 429, Msg: "too many requests, please try again later"}}, nil
+		}
+	}
+
+	greeting := ""
+	if req.Greeting != nil {
+		greeting = truncateByWeightedLength(*req.Greeting, 200)
+	}
+
+	remark := ""
+	if req.Remark != nil {
+		remark = truncateByWeightedLength(*req.Remark, 100)
+	}
+
+	blocked, _ := relations.IsBlockedCached(ctx, db.RDB, db.DB, req.FromUid, req.ToUid)
+	if blocked {
+		logger.Ctx(ctx).Info("SendFriendRequest blocked (sender blocked target)", "fromUID", req.FromUid, "toUID", req.ToUid)
+		return &pm.SendFriendRequestResp{BaseResp: &base.BaseResp{Code: 403, Msg: "cannot send request"}}, nil
+	}
+	blocked, _ = relations.IsBlockedCached(ctx, db.RDB, db.DB, req.ToUid, req.FromUid)
+	if blocked {
+		logger.Ctx(ctx).Info("SendFriendRequest blocked (target blocked sender)", "fromUID", req.FromUid, "toUID", req.ToUid)
+		return &pm.SendFriendRequestResp{BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+	}
+
+	isFriend, _ := relations.IsFriendCached(ctx, db.RDB, db.DB, req.FromUid, req.ToUid)
+	if isFriend {
+		logger.Ctx(ctx).Info("SendFriendRequest rejected (already friends)", "fromUID", req.FromUid, "toUID", req.ToUid)
+		return &pm.SendFriendRequestResp{BaseResp: &base.BaseResp{Code: 400, Msg: "already friends"}}, nil
+	}
+
+	var requestID int64
+	var notifyRecipient bool
+	var deletions []pendingNotificationDeletion
+
+	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		if err := dal.LockRelationPair(tx, req.FromUid, req.ToUid); err != nil {
+			return err
+		}
+
+		outgoingReq, err := dal.GetFriendRequestBetweenForUpdate(tx, req.FromUid, req.ToUid)
+		if err != nil {
+			return err
+		}
+		incomingReq, err := dal.GetFriendRequestBetweenForUpdate(tx, req.ToUid, req.FromUid)
+		if err != nil {
+			return err
+		}
+
+		if incomingReq != nil && incomingReq.Status == dal.RequestStatusPending {
+			updated, err := dal.UpdateRequestStatusIfPending(tx, incomingReq.ID, dal.RequestStatusAccepted)
+			if err != nil {
+				return err
+			}
+			if !updated {
+				return errFriendRequestNotPending
+			}
+			if err := dal.CreateFriendRelation(tx, req.FromUid, req.ToUid, remark, incomingReq.Remark); err != nil {
+				return err
+			}
+			requestID = incomingReq.ID
+			deletions = append(deletions, pendingNotificationDeletion{agentID: req.FromUid, requestID: incomingReq.ID})
+			return nil
+		}
+
+		if outgoingReq != nil {
+			switch outgoingReq.Status {
+			case dal.RequestStatusPending:
+				return errFriendRequestAlreadyPending
+			case dal.RequestStatusRejected, dal.RequestStatusCancelled, dal.RequestStatusUnfriended, dal.RequestStatusAccepted:
+				requestID, err = s.reqIDGen.NextID()
+				if err != nil {
+					return err
+				}
+				if err := dal.ResetFriendRequest(tx, outgoingReq.ID, requestID, greeting, remark); err != nil {
+					return err
+				}
+				deletions = append(deletions, pendingNotificationDeletion{agentID: req.ToUid, requestID: outgoingReq.ID})
+				notifyRecipient = true
+				return nil
+			default:
+				return fmt.Errorf("unsupported friend request status: %d", outgoingReq.Status)
+			}
+		}
+
+		requestID, err = s.reqIDGen.NextID()
+		if err != nil {
+			return err
+		}
+		if _, err := dal.CreateFriendRequest(tx, requestID, req.FromUid, req.ToUid, greeting, remark); err != nil {
+			return err
+		}
+		notifyRecipient = true
+		return nil
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, errFriendRequestAlreadyPending):
+			return &pm.SendFriendRequestResp{BaseResp: &base.BaseResp{Code: 400, Msg: err.Error()}}, nil
+		default:
+			logger.Ctx(ctx).Error("SendFriendRequest failed", "fromUID", req.FromUid, "toUID", req.ToUid, "err", err)
+			return &pm.SendFriendRequestResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to create request"}}, nil
+		}
+	}
+
+	if notifyRecipient {
+		activity.PublishFriendRequestSent(ctx, req.FromUid)
+		activity.PublishFriendRequestReceived(ctx, req.ToUid)
+		logger.Ctx(ctx).Info("SendFriendRequest created", "requestID", requestID, "fromUID", req.FromUid, "toUID", req.ToUid)
+		peerIdentity, identityOK := publicIdentityForNotification(ctx, req.FromUid)
+		if !identityOK {
+			peerIdentity = agentidentity.PublicIdentity{}
+		}
+		go func(identity agentidentity.PublicIdentity) {
+			if err := notifyutil.WriteFriendRequestNotification(context.Background(), db.RDB, requestID, req.ToUid, req.FromUid, identity.ShortID, identity.DisplayName, greeting); err != nil {
+				logger.Default().Error("failed to write friend request notification", "requestID", requestID, "agentID", req.ToUid, "err", err)
+			}
+		}(peerIdentity)
+		if err := db.RDB.Publish(ctx, fmt.Sprintf("pm:push:%d", req.ToUid), "friend_request").Err(); err != nil {
+			logger.Ctx(ctx).Error("failed to publish friend request push notification", "agentID", req.ToUid, "err", err)
+		}
+	} else {
+		activity.PublishFriendAdded(ctx, req.FromUid, "")
+		activity.PublishFriendAdded(ctx, req.ToUid, "")
+		logger.Ctx(ctx).Info("SendFriendRequest auto-accepted mutual request", "requestID", requestID, "fromUID", req.FromUid, "toUID", req.ToUid)
+		peerIdentity, identityOK := publicIdentityForNotification(ctx, req.FromUid)
+		if !identityOK {
+			peerIdentity = agentidentity.PublicIdentity{}
+		}
+		go func(identity agentidentity.PublicIdentity) {
+			if err := notifyutil.WriteFriendResponseNotification(context.Background(), db.RDB, requestID, req.ToUid, req.FromUid, identity.ShortID, identity.DisplayName, "friend_accepted", ""); err != nil {
+				logger.Default().Error("failed to write auto-accept friend notification", "requestID", requestID, "agentID", req.ToUid, "err", err)
+			}
+		}(peerIdentity)
+		publishFriendResponseEvent(ctx, req.ToUid, req.FromUid, peerIdentity, "friend_accepted")
+	}
+	s.deletePendingFriendRequestNotifications(deletions)
+	_ = relations.InvalidateFriendCache(ctx, db.RDB, req.FromUid)
+	_ = relations.InvalidateFriendCache(ctx, db.RDB, req.ToUid)
+	if !notifyRecipient {
+		// Mutual-request auto-accept created a friendship; both Cards'
+		// relation counts changed.
+		agentcard.PublishRebuild(ctx, req.FromUid, "friend_added")
+		agentcard.PublishRebuild(ctx, req.ToUid, "friend_added")
+	}
+
+	return &pm.SendFriendRequestResp{RequestId: requestID, BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+func (s *PMServiceImpl) HandleFriendRequest(ctx context.Context, req *pm.HandleFriendRequestReq) (*pm.HandleFriendRequestResp, error) {
+	logger.Ctx(ctx).Info("HandleFriendRequest", "requestID", req.RequestId, "agentID", req.AgentId, "action", req.Action)
+
+	reason := ""
+	if req.Reason != nil {
+		reason = truncateByWeightedLength(*req.Reason, 200)
+	}
+
+	var friendReq *dal.FriendRequest
+	var responseNotifType string
+	var deletePending bool
+
+	err := db.DB.Transaction(func(tx *gorm.DB) error {
+		var err error
+		friendReq, err = dal.GetFriendRequestForUpdate(tx, req.RequestId)
+		if err != nil {
+			return err
+		}
+		if friendReq == nil {
+			return gorm.ErrRecordNotFound
+		}
+		if err := dal.LockRelationPair(tx, friendReq.FromUID, friendReq.ToUID); err != nil {
+			return err
+		}
+		if friendReq.Status != dal.RequestStatusPending {
+			return errFriendRequestNotPending
+		}
+
+		switch req.Action {
+		case pm.FriendRequestAction_ACCEPT:
+			if friendReq.ToUID != req.AgentId {
+				return fmt.Errorf("not recipient")
+			}
+			blockedBySender, err := dal.IsBlocked(tx, friendReq.FromUID, friendReq.ToUID)
+			if err != nil {
+				return err
+			}
+			blockedByRecipient, err := dal.IsBlocked(tx, friendReq.ToUID, friendReq.FromUID)
+			if err != nil {
+				return err
+			}
+			if blockedBySender || blockedByRecipient {
+				return errFriendRequestBlocked
+			}
+
+			recipientRemark := ""
+			if req.Remark != nil {
+				recipientRemark = truncateByWeightedLength(*req.Remark, 100)
+			}
+			updated, err := dal.UpdateRequestStatusIfPending(tx, req.RequestId, dal.RequestStatusAccepted)
+			if err != nil {
+				return err
+			}
+			if !updated {
+				return errFriendRequestNotPending
+			}
+			isFriend, err := dal.IsFriend(tx, friendReq.FromUID, friendReq.ToUID)
+			if err != nil {
+				return err
+			}
+			if !isFriend {
+				if err := dal.CreateFriendRelation(tx, friendReq.FromUID, friendReq.ToUID, friendReq.Remark, recipientRemark); err != nil {
+					return err
+				}
+			}
+			responseNotifType = "friend_accepted"
+			deletePending = true
+
+		case pm.FriendRequestAction_REJECT:
+			if friendReq.ToUID != req.AgentId {
+				return fmt.Errorf("not recipient")
+			}
+			updated, err := dal.UpdateRequestStatusIfPending(tx, req.RequestId, dal.RequestStatusRejected)
+			if err != nil {
+				return err
+			}
+			if !updated {
+				return errFriendRequestNotPending
+			}
+			responseNotifType = "friend_rejected"
+			deletePending = true
+
+		case pm.FriendRequestAction_CANCEL:
+			if friendReq.FromUID != req.AgentId {
+				return fmt.Errorf("not sender")
+			}
+			updated, err := dal.UpdateRequestStatusIfPending(tx, req.RequestId, dal.RequestStatusCancelled)
+			if err != nil {
+				return err
+			}
+			if !updated {
+				return errFriendRequestNotPending
+			}
+			deletePending = true
+
+		default:
+			return fmt.Errorf("invalid action")
+		}
+		return nil
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			return &pm.HandleFriendRequestResp{BaseResp: &base.BaseResp{Code: 404, Msg: "request not found"}}, nil
+		case errors.Is(err, errFriendRequestNotPending):
+			return &pm.HandleFriendRequestResp{BaseResp: &base.BaseResp{Code: 400, Msg: err.Error()}}, nil
+		case errors.Is(err, errFriendRequestBlocked):
+			return &pm.HandleFriendRequestResp{BaseResp: &base.BaseResp{Code: 403, Msg: err.Error()}}, nil
+		case err.Error() == "not recipient":
+			return &pm.HandleFriendRequestResp{BaseResp: &base.BaseResp{Code: 403, Msg: "not recipient"}}, nil
+		case err.Error() == "not sender":
+			return &pm.HandleFriendRequestResp{BaseResp: &base.BaseResp{Code: 403, Msg: "not sender"}}, nil
+		case err.Error() == "invalid action":
+			return &pm.HandleFriendRequestResp{BaseResp: &base.BaseResp{Code: 400, Msg: "invalid action"}}, nil
+		default:
+			logger.Ctx(ctx).Error("HandleFriendRequest failed", "requestID", req.RequestId, "agentID", req.AgentId, "err", err)
+			return &pm.HandleFriendRequestResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to handle request"}}, nil
+		}
+	}
+
+	if deletePending {
+		s.deletePendingFriendRequestNotifications([]pendingNotificationDeletion{{agentID: friendReq.ToUID, requestID: friendReq.ID}})
+	}
+	_ = relations.InvalidateFriendCache(ctx, db.RDB, friendReq.FromUID)
+	_ = relations.InvalidateFriendCache(ctx, db.RDB, friendReq.ToUID)
+
+	switch responseNotifType {
+	case "friend_accepted":
+		logger.Ctx(ctx).Info("FriendRequest accepted", "requestID", req.RequestId, "fromUID", friendReq.FromUID, "toUID", friendReq.ToUID)
+		// The HTTP gateway already records the accepting Agent. Record the
+		// original requester here so both sides see the established relation.
+		activity.PublishFriendAdded(ctx, friendReq.FromUID, "")
+		agentcard.PublishRebuild(ctx, friendReq.FromUID, "friend_added")
+		agentcard.PublishRebuild(ctx, friendReq.ToUID, "friend_added")
+		peerIdentity, identityOK := publicIdentityForNotification(ctx, friendReq.ToUID)
+		if !identityOK {
+			peerIdentity = agentidentity.PublicIdentity{}
+		}
+		go func(identity agentidentity.PublicIdentity) {
+			if err := notifyutil.WriteFriendResponseNotification(context.Background(), db.RDB, req.RequestId, friendReq.FromUID, friendReq.ToUID, identity.ShortID, identity.DisplayName, responseNotifType, reason); err != nil {
+				logger.Default().Error("failed to write friend accepted notification", "requestID", req.RequestId, "agentID", friendReq.FromUID, "err", err)
+			}
+		}(peerIdentity)
+		publishFriendResponseEvent(ctx, friendReq.FromUID, friendReq.ToUID, peerIdentity, responseNotifType)
+	case "friend_rejected":
+		logger.Ctx(ctx).Info("FriendRequest rejected", "requestID", req.RequestId, "agentID", req.AgentId)
+		peerIdentity, identityOK := publicIdentityForNotification(ctx, friendReq.ToUID)
+		if !identityOK {
+			peerIdentity = agentidentity.PublicIdentity{}
+		}
+		go func(identity agentidentity.PublicIdentity) {
+			if err := notifyutil.WriteFriendResponseNotification(context.Background(), db.RDB, req.RequestId, friendReq.FromUID, friendReq.ToUID, identity.ShortID, identity.DisplayName, responseNotifType, reason); err != nil {
+				logger.Default().Error("failed to write friend rejected notification", "requestID", req.RequestId, "agentID", friendReq.FromUID, "err", err)
+			}
+		}(peerIdentity)
+		publishFriendResponseEvent(ctx, friendReq.FromUID, friendReq.ToUID, peerIdentity, responseNotifType)
+	default:
+		logger.Ctx(ctx).Info("FriendRequest cancelled", "requestID", req.RequestId, "agentID", req.AgentId)
+	}
+
+	return &pm.HandleFriendRequestResp{BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+func (s *PMServiceImpl) Unfriend(ctx context.Context, req *pm.UnfriendReq) (*pm.UnfriendResp, error) {
+	logger.Ctx(ctx).Info("Unfriend", "fromUID", req.FromUid, "toUID", req.ToUid)
+
+	err := db.DB.Transaction(func(tx *gorm.DB) error {
+		if err := dal.DeleteFriendRelation(tx, req.FromUid, req.ToUid); err != nil {
+			return err
+		}
+		return tx.Model(&dal.FriendRequest{}).
+			Where("((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?)) AND status = ?",
+				req.FromUid, req.ToUid, req.ToUid, req.FromUid, dal.RequestStatusAccepted).
+			Update("status", dal.RequestStatusUnfriended).Error
+	})
+	if err != nil {
+		if errors.Is(err, dal.ErrNotFriends) {
+			return &pm.UnfriendResp{BaseResp: &base.BaseResp{Code: 400, Msg: err.Error()}}, nil
+		}
+		logger.Ctx(ctx).Error("Unfriend failed", "fromUID", req.FromUid, "toUID", req.ToUid, "err", err)
+		return &pm.UnfriendResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to unfriend"}}, nil
+	}
+	_ = relations.InvalidateFriendCache(ctx, db.RDB, req.FromUid)
+	_ = relations.InvalidateFriendCache(ctx, db.RDB, req.ToUid)
+	agentcard.PublishRebuild(ctx, req.FromUid, "friend_removed")
+	agentcard.PublishRebuild(ctx, req.ToUid, "friend_removed")
+	logger.Ctx(ctx).Info("Unfriend done", "fromUID", req.FromUid, "toUID", req.ToUid)
+	return &pm.UnfriendResp{BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+func (s *PMServiceImpl) BlockUser(ctx context.Context, req *pm.BlockUserReq) (*pm.BlockUserResp, error) {
+	logger.Ctx(ctx).Info("BlockUser", "fromUID", req.FromUid, "toUID", req.ToUid)
+
+	if req.FromUid == req.ToUid {
+		logger.Ctx(ctx).Info("BlockUser rejected (self target)", "fromUID", req.FromUid)
+		return &pm.BlockUserResp{BaseResp: &base.BaseResp{Code: 400, Msg: "cannot block yourself"}}, nil
+	}
+
+	remark := ""
+	if req.Remark != nil {
+		remark = truncateByWeightedLength(*req.Remark, 100)
+	}
+
+	var deletions []pendingNotificationDeletion
+	err := db.DB.Transaction(func(tx *gorm.DB) error {
+		if err := dal.LockRelationPair(tx, req.FromUid, req.ToUid); err != nil {
+			return err
+		}
+		outgoingReq, err := dal.GetFriendRequestBetweenForUpdate(tx, req.FromUid, req.ToUid)
+		if err != nil {
+			return err
+		}
+		incomingReq, err := dal.GetFriendRequestBetweenForUpdate(tx, req.ToUid, req.FromUid)
+		if err != nil {
+			return err
+		}
+		if err := dal.CreateBlockRelation(tx, req.FromUid, req.ToUid, remark); err != nil {
+			return err
+		}
+		tx.Where("((from_uid = ? AND to_uid = ?) OR (from_uid = ? AND to_uid = ?)) AND rel_type = ?",
+			req.FromUid, req.ToUid, req.ToUid, req.FromUid, dal.RelTypeFriend).Delete(&dal.UserRelation{})
+		for _, request := range []*dal.FriendRequest{outgoingReq, incomingReq} {
+			if request == nil {
+				continue
+			}
+			switch request.Status {
+			case dal.RequestStatusPending:
+				updated, err := dal.UpdateRequestStatusIfPending(tx, request.ID, dal.RequestStatusCancelled)
+				if err != nil {
+					return err
+				}
+				if updated {
+					deletions = append(deletions, pendingNotificationDeletion{agentID: request.ToUID, requestID: request.ID})
+				}
+			case dal.RequestStatusAccepted:
+				if err := dal.UpdateRequestStatus(tx, request.ID, dal.RequestStatusUnfriended); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, dal.ErrAlreadyBlocked) {
+			return &pm.BlockUserResp{BaseResp: &base.BaseResp{Code: 409, Msg: err.Error()}}, nil
+		}
+		logger.Ctx(ctx).Error("BlockUser failed", "fromUID", req.FromUid, "toUID", req.ToUid, "err", err)
+		return &pm.BlockUserResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to block"}}, nil
+	}
+	_ = db.RDB.SAdd(ctx, fmt.Sprintf("block:%d", req.FromUid), req.ToUid)
+	_ = relations.InvalidateFriendCache(ctx, db.RDB, req.FromUid)
+	_ = relations.InvalidateFriendCache(ctx, db.RDB, req.ToUid)
+	s.deletePendingFriendRequestNotifications(deletions)
+	// Blocking removes any friend relation in the transaction above, so both
+	// Cards' relation counts changed.
+	agentcard.PublishRebuild(ctx, req.FromUid, "friend_removed")
+	agentcard.PublishRebuild(ctx, req.ToUid, "friend_removed")
+	logger.Ctx(ctx).Info("BlockUser done", "fromUID", req.FromUid, "toUID", req.ToUid)
+	return &pm.BlockUserResp{BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+func (s *PMServiceImpl) UnblockUser(ctx context.Context, req *pm.UnblockUserReq) (*pm.UnblockUserResp, error) {
+	logger.Ctx(ctx).Info("UnblockUser", "fromUID", req.FromUid, "toUID", req.ToUid)
+
+	err := db.DB.Transaction(func(tx *gorm.DB) error {
+		if err := dal.DeleteBlockRelation(tx, req.FromUid, req.ToUid); err != nil {
+			return err
+		}
+		return tx.Model(&dal.FriendRequest{}).
+			Where("from_uid = ? AND to_uid = ? AND status = ?", req.ToUid, req.FromUid, dal.RequestStatusPending).
+			Update("status", dal.RequestStatusCancelled).Error
+	})
+	if err != nil {
+		if errors.Is(err, dal.ErrNotBlocked) {
+			return &pm.UnblockUserResp{BaseResp: &base.BaseResp{Code: 400, Msg: err.Error()}}, nil
+		}
+		logger.Ctx(ctx).Error("UnblockUser failed", "fromUID", req.FromUid, "toUID", req.ToUid, "err", err)
+		return &pm.UnblockUserResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to unblock"}}, nil
+	}
+	_ = db.RDB.SRem(ctx, fmt.Sprintf("block:%d", req.FromUid), req.ToUid)
+	logger.Ctx(ctx).Info("UnblockUser done", "fromUID", req.FromUid, "toUID", req.ToUid)
+	return &pm.UnblockUserResp{BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+func (s *PMServiceImpl) ListFriendRequests(ctx context.Context, req *pm.ListFriendRequestsReq) (*pm.ListFriendRequestsResp, error) {
+	limit := int(req.GetLimit())
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	cursor := req.GetCursor()
+
+	requests, hasMore, err := dal.ListFriendRequests(db.DB, req.AgentId, req.Direction, cursor, limit)
+	if err != nil {
+		logger.Ctx(ctx).Error("ListFriendRequests failed", "agentID", req.AgentId, "direction", req.Direction, "err", err)
+		return &pm.ListFriendRequestsResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to list"}}, nil
+	}
+	logger.Ctx(ctx).Info("ListFriendRequests", "agentID", req.AgentId, "direction", req.Direction, "count", len(requests))
+
+	var result []*pm.FriendRequestInfo
+	if len(requests) > 0 {
+		var uids []int64
+		fromUIDs := make([]int64, 0, len(requests))
+		for _, r := range requests {
+			uids = append(uids, r.FromUID, r.ToUID)
+			fromUIDs = append(fromUIDs, r.FromUID)
+		}
+		nameMap, _ := dal.BatchGetAgentNames(db.DB, uids)
+		identities, identityErr := agentidentity.GetBatch(ctx, db.DB, uids)
+		if identityErr != nil {
+			logger.Ctx(ctx).Warn("ListFriendRequests optional identity lookup failed", "agentID", req.AgentId, "err", identityErr)
+			identities = map[int64]agentidentity.PublicIdentity{}
+		}
+		official := officialFlagsFor(ctx, fromUIDs)
+		for _, r := range requests {
+			fromName, toName := nameMap[r.FromUID], nameMap[r.ToUID]
+			fromIsOfficial := official[r.FromUID]
+			info := &pm.FriendRequestInfo{
+				RequestId:      r.ID,
+				FromUid:        r.FromUID,
+				ToUid:          r.ToUID,
+				CreatedAt:      r.CreatedAt,
+				FromName:       &fromName,
+				ToName:         &toName,
+				FromIsOfficial: &fromIsOfficial,
+			}
+			if identity, ok := identities[r.FromUID]; ok {
+				shortID, displayName := identity.ShortID, identity.DisplayName
+				info.FromShortId, info.FromDisplayName = &shortID, &displayName
+			}
+			if identity, ok := identities[r.ToUID]; ok {
+				shortID, displayName := identity.ShortID, identity.DisplayName
+				info.ToShortId, info.ToDisplayName = &shortID, &displayName
+			}
+			if r.Greeting != "" {
+				info.Greeting = &r.Greeting
+			}
+			result = append(result, info)
+		}
+	}
+
+	var nextCursor int64
+	if len(requests) > 0 {
+		nextCursor = requests[len(requests)-1].ID
+	}
+	return &pm.ListFriendRequestsResp{Requests: result, NextCursor: nextCursor, HasMore: &hasMore, BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+func (s *PMServiceImpl) ListFriends(ctx context.Context, req *pm.ListFriendsReq) (*pm.ListFriendsResp, error) {
+	limit := int(req.GetLimit())
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	cursor := req.GetCursor()
+
+	friends, err := dal.ListFriends(db.DB, req.AgentId, cursor, limit)
+	if err != nil {
+		logger.Ctx(ctx).Error("ListFriends failed", "agentID", req.AgentId, "err", err)
+		return &pm.ListFriendsResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to list"}}, nil
+	}
+	logger.Ctx(ctx).Info("ListFriends", "agentID", req.AgentId, "count", len(friends))
+
+	var result []*pm.FriendInfo
+	friendIDs := make([]int64, 0, len(friends))
+	for _, friend := range friends {
+		friendIDs = append(friendIDs, friend.AgentID)
+	}
+	identities, identityErr := agentidentity.GetBatch(ctx, db.DB, friendIDs)
+	if identityErr != nil {
+		logger.Ctx(ctx).Warn("ListFriends optional identity lookup failed", "agentID", req.AgentId, "err", identityErr)
+		identities = map[int64]agentidentity.PublicIdentity{}
+	}
+	for _, f := range friends {
+		info := &pm.FriendInfo{
+			AgentId:     f.AgentID,
+			AgentName:   f.AgentName,
+			FriendSince: f.FriendSince,
+		}
+		if identity, ok := identities[f.AgentID]; ok {
+			shortID, displayName := identity.ShortID, identity.DisplayName
+			info.ShortId, info.DisplayName = &shortID, &displayName
+		}
+		if f.Remark != "" {
+			info.Remark = &f.Remark
+		}
+		if f.Bio != "" {
+			info.Bio = &f.Bio
+		}
+		// Attach the last direct message with this friend (for relations "recent activity").
+		if dm, derr := dal.GetLastFriendDM(db.DB, req.AgentId, f.AgentID); derr == nil && dm.MsgID != 0 {
+			content := dm.Content
+			ts := dm.CreatedAt
+			info.LastDmPreview = &content
+			info.LastDmTime = &ts
+		}
+		result = append(result, info)
+	}
+
+	var nextCursor int64
+	if len(friends) > 0 {
+		nextCursor = friends[len(friends)-1].RelationID
+	}
+	resp := &pm.ListFriendsResp{Friends: result, NextCursor: nextCursor, BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}
+	if total, cErr := dal.CountFriends(db.DB, req.AgentId); cErr == nil {
+		resp.Total = &total
+	}
+	return resp, nil
+}
+
+// GetUnreadCount returns the agent's total unread message count across conversations.
+func (s *PMServiceImpl) GetUnreadCount(ctx context.Context, req *pm.GetUnreadCountReq) (*pm.GetUnreadCountResp, error) {
+	n, err := dal.CountUnreadTotal(db.DB, req.AgentId)
+	if err != nil {
+		logger.Ctx(ctx).Error("GetUnreadCount failed", "agentID", req.AgentId, "err", err)
+		return &pm.GetUnreadCountResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to count"}}, nil
+	}
+	comment, nonFriend, fr, _ := dal.CountUnreadByOrigin(db.DB, req.AgentId)
+	bc := comment + nonFriend // back-compat: count_broadcast = comment + non_friend
+	return &pm.GetUnreadCountResp{Count: n, CountBroadcast: &bc, CountBroadcastComment: &comment, CountNonFriend: &nonFriend, CountFriend: &fr, BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+// MarkConvRead marks all messages the agent received in a conversation as read.
+func (s *PMServiceImpl) MarkConvRead(ctx context.Context, req *pm.MarkConvReadReq) (*pm.MarkConvReadResp, error) {
+	if err := dal.MarkConvReadByAgent(db.DB, req.ConvId, req.AgentId); err != nil {
+		logger.Ctx(ctx).Error("MarkConvRead failed", "agentID", req.AgentId, "convID", req.ConvId, "err", err)
+		return &pm.MarkConvReadResp{BaseResp: &base.BaseResp{Code: 500, Msg: "failed to mark read"}}, nil
+	}
+	return &pm.MarkConvReadResp{BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+func (s *PMServiceImpl) UpdateFriendRemark(ctx context.Context, req *pm.UpdateFriendRemarkReq) (*pm.UpdateFriendRemarkResp, error) {
+	logger.Ctx(ctx).Info("UpdateFriendRemark", "agentID", req.AgentId, "friendUID", req.FriendUid)
+
+	remark := truncateByWeightedLength(req.Remark, 100)
+
+	if err := dal.UpdateFriendRemark(db.DB, req.AgentId, req.FriendUid, remark); err != nil {
+		logger.Ctx(ctx).Error("UpdateFriendRemark failed", "agentID", req.AgentId, "friendUID", req.FriendUid, "err", err)
+		return &pm.UpdateFriendRemarkResp{BaseResp: &base.BaseResp{Code: 400, Msg: err.Error()}}, nil
+	}
+
+	logger.Ctx(ctx).Info("UpdateFriendRemark done", "agentID", req.AgentId, "friendUID", req.FriendUid)
+	return &pm.UpdateFriendRemarkResp{BaseResp: &base.BaseResp{Code: 0, Msg: "success"}}, nil
+}
+
+// truncateByWeightedLength truncates a string to fit within maxLen weighted characters.
+// ASCII characters count as 1, CJK characters count as 2.
+func truncateByWeightedLength(s string, maxLen int) string {
+	length := 0
+	for i, r := range s {
+		w := 1
+		if unicode.Is(unicode.Han, r) || unicode.Is(unicode.Hiragana, r) ||
+			unicode.Is(unicode.Katakana, r) || unicode.Is(unicode.Hangul, r) {
+			w = 2
+		}
+		if length+w > maxLen {
+			return s[:i]
+		}
+		length += w
+	}
+	return s
+}
+
+func (s *PMServiceImpl) deletePendingFriendRequestNotifications(items []pendingNotificationDeletion) {
+	if db.RDB == nil || len(items) == 0 {
+		return
+	}
+
+	go func() {
+		for _, item := range items {
+			if err := notifyutil.DeletePMNotifications(context.Background(), db.RDB, item.agentID, item.requestID); err != nil {
+				logger.Default().Error("failed to delete friend request notification", "requestID", item.requestID, "agentID", item.agentID, "err", err)
+			}
+		}
+	}()
+}
+
+// FetchPMHistory returns the last N messages involving the agent that
+// are NOT in the unread-received set. Read-only: does NOT mark anything.
+// Intended for recovery-on-reconnect (WS) and every REST pm/fetch call.
+// Must be called BEFORE FetchPM in handlers that call both, because
+// FetchPM's mark-as-read side effect would leak new read messages into
+// a subsequent history call.
+func (s *PMServiceImpl) FetchPMHistory(ctx context.Context, req *pm.FetchPMHistoryReq) (*pm.FetchPMHistoryResp, error) {
+	if req.AgentId <= 0 {
+		return &pm.FetchPMHistoryResp{
+			Messages: []*pm.PMMessage{},
+			BaseResp: &base.BaseResp{Code: 400, Msg: "invalid agent_id"},
+		}, nil
+	}
+
+	limit := 20
+	if req.Limit != nil {
+		limit = int(*req.Limit)
+	}
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	messages, err := dal.FetchRecentReadMessages(db.DB, req.AgentId, limit)
+	if err != nil {
+		logger.Ctx(ctx).Error("FetchPMHistory failed", "agentID", req.AgentId, "err", err)
+		return &pm.FetchPMHistoryResp{
+			Messages: []*pm.PMMessage{},
+			BaseResp: &base.BaseResp{Code: 500, Msg: "internal error"},
+		}, nil
+	}
+
+	historySenderIDs := make([]int64, len(messages))
+	for i, msg := range messages {
+		historySenderIDs[i] = msg.SenderID
+	}
+	official := officialFlagsFor(ctx, historySenderIDs)
+	respMessages := make([]*pm.PMMessage, len(messages))
+	for i, msg := range messages {
+		isOfficial := official[msg.SenderID]
+		respMessages[i] = &pm.PMMessage{
+			MsgId:            msg.MsgID,
+			ConvId:           msg.ConvID,
+			SenderId:         msg.SenderID,
+			ReceiverId:       msg.ReceiverID,
+			Content:          msg.Content,
+			IsRead:           msg.IsRead,
+			CreatedAt:        msg.CreatedAt,
+			SenderName:       &msg.SenderName,
+			ReceiverName:     &msg.ReceiverName,
+			SenderIsOfficial: &isOfficial,
+		}
+	}
+
+	logger.Ctx(ctx).Info("FetchPMHistory", "agentID", req.AgentId, "count", len(respMessages))
+	return &pm.FetchPMHistoryResp{
+		Messages: respMessages,
+		BaseResp: &base.BaseResp{Code: 0, Msg: "success"},
+	}, nil
+}
