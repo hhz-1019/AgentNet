@@ -97,6 +97,9 @@ func (s *Service) claimManagedMode(ctx context.Context, now time.Time, repliesOn
 			return err
 		}
 		for _, candidate := range candidates {
+			if informationExpired(candidate.SeedIndex, now) {
+				continue
+			}
 			if candidate.PriorityReply {
 				candidate.Action = "message"
 			}

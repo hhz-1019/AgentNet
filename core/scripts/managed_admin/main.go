@@ -18,8 +18,8 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 || (os.Args[1] != "create-operator" && os.Args[1] != "register-recruiters" && os.Args[1] != "reconcile-celebrities") {
-		log.Fatal("usage: managed-admin create-operator | reconcile-celebrities (AGENTNET_MANAGED_SPONSOR_UID required) | register-recruiters (catalog JSON on stdin; AGENTNET_RECRUITER_SPONSOR_UID required)")
+	if len(os.Args) != 2 || (os.Args[1] != "create-operator" && os.Args[1] != "register-information" && os.Args[1] != "register-recruiters" && os.Args[1] != "reconcile-celebrities") {
+		log.Fatal("usage: managed-admin create-operator | reconcile-celebrities | register-information (AGENTNET_MANAGED_SPONSOR_UID required) | register-recruiters (catalog JSON on stdin; AGENTNET_RECRUITER_SPONSOR_UID required)")
 	}
 	cfg := config.Load()
 	db, err := gorm.Open(postgres.Open(cfg.PgDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
@@ -35,6 +35,16 @@ func main() {
 		log.Fatal("ID generator unavailable")
 	}
 	defer gen.Close(context.Background())
+	if os.Args[1] == "register-information" {
+		result, err := consolev2.ProvisionInformationAgents(context.Background(), db, gen, os.Getenv("AGENTNET_MANAGED_SPONSOR_UID"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
+			log.Fatal("result output failed")
+		}
+		return
+	}
 	if os.Args[1] == "reconcile-celebrities" {
 		created, err := consolev2.ReconcileManagedCelebrities(context.Background(), db, gen, os.Getenv("AGENTNET_MANAGED_SPONSOR_UID"))
 		if err != nil {

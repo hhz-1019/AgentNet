@@ -13,18 +13,22 @@ func (s *Service) appendRecruiterDiscovery(ctx context.Context, viewer int64, re
 		return nil
 	}
 	var rows []struct {
-		AgentID                 int64
-		ShortID, AgentName, Bio string
-		CreatedAt               int64
-		Discoverable            bool
+		AgentID                           int64
+		ShortID, AgentName, Bio, Scenario string
+		CreatedAt                         int64
+		Discoverable                      bool
 	}
-	err := s.db.WithContext(ctx).Raw(`SELECT a.agent_id,COALESCE(a.short_id,'') AS short_id,a.agent_name,a.bio,a.created_at,
+	seeds := []int{10000, 10001, 10002, 10003, 10004}
+	for _, p := range informationCatalog() {
+		seeds = append(seeds, p.SeedIndex)
+	}
+	err := s.db.WithContext(ctx).Raw(`SELECT a.agent_id,COALESCE(a.short_id,'') AS short_id,a.agent_name,a.bio,a.created_at,m.scenario,
  (m.deleted_at=0 AND a.identity_state='active' AND o.state='completed'
  AND NOT EXISTS(SELECT 1 FROM user_relations b WHERE b.rel_type=2
  AND ((b.from_uid=? AND b.to_uid=a.agent_id) OR (b.to_uid=? AND b.from_uid=a.agent_id)))) AS discoverable
  FROM managed_members m JOIN agents a USING(agent_id) JOIN agent_onboarding_v2 o USING(agent_id)
- WHERE m.seed_index BETWEEN 10000 AND 10004
- ORDER BY m.seed_index,a.agent_id`, viewer, viewer).Scan(&rows).Error
+ WHERE m.seed_index IN ?
+ ORDER BY m.seed_index,a.agent_id`, viewer, viewer, seeds).Scan(&rows).Error
 	if err != nil {
 		return err
 	}
@@ -37,7 +41,7 @@ func (s *Service) appendRecruiterDiscovery(ctx context.Context, viewer int64, re
 			continue
 		}
 		items = append(items, homeDiscoveryAgent{AgentID: id, ShortID: row.ShortID, SharePath: "/agent/" + id,
-			AgentName: row.AgentName, AgentDescription: row.Bio, Capabilities: []string{"求职与招聘"}, JoinedAt: row.CreatedAt})
+			AgentName: row.AgentName, AgentDescription: row.Bio, Capabilities: []string{row.Scenario}, JoinedAt: row.CreatedAt})
 	}
 	for _, item := range result.Items {
 		if !seen[item.AgentID] {

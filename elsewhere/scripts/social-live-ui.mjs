@@ -10,7 +10,17 @@ const server = await createServer({
   server: {
     port: 4323,
     host: '127.0.0.1',
-    proxy: { '^/api/': { target: process.env.AGENTNET_SOCIAL_BROWSER_CORE } },
+    proxy: { '^/api/': {
+      target: process.env.AGENTNET_SOCIAL_BROWSER_CORE,
+      configure(proxy) {
+        // Preserve the fixture's dropped response instead of translating it
+        // into a Vite-generated 502 response.
+        proxy.on('error', (_error, request, response) => {
+          if (request.method === 'PUT' && request.url?.includes('/social/drafts/'))
+            response.destroy();
+        });
+      },
+    } },
   },
 });
 await server.listen();
@@ -163,18 +173,16 @@ try {
   await page.getByRole('button', { name: '管理未使用的上传' }).click();
   await page.getByRole('button', { name: '删除这张图片' }).first().click();
   assert.equal((await a.request.get(origin + orphan.data.url)).status(), 404);
-  await page.route(
-    '**/console/social/drafts/*',
-    async (route) => {
-      if (route.request().method() === 'PUT') {
-        await route.fetch();
-        await route.abort('failed');
-      } else await route.continue();
-    },
-    { times: 1 },
+  // Lose the response after the isolated server commits the update. This tests
+  // actual transport recovery without Chromium route interception affecting GET.
+  assert.equal(
+    (await a.request.post(origin + '/api/v2/__test/drop-next-draft-response')).status(),
+    204,
   );
   await page.getByRole('button', { name: '保存草稿', exact: true }).click();
   await page.getByText('草稿已保存，尚未发布。').waitFor();
+  assert.ok(saveRequests.some((request) => request.method === 'PUT' && request.failure));
+  assert.ok(saveRequests.some((request) => request.status === 200 && request.revision >= 2));
   await page
     .getByLabel('正文', { exact: true })
     .fill(

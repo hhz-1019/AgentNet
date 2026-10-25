@@ -6,6 +6,7 @@ import './public-agents.css';
 export type PublicProfile = {
   key: string;
   name: string;
+  agent_name?: string;
   english: string;
   sector: string;
   focus: string;
@@ -19,6 +20,7 @@ export type PublicProfile = {
 };
 type Board = { key: string; company: string; provider: string; url: string };
 type SourceState = {
+  name?: string;
   source_key: string;
   agent_id: string;
   enabled: boolean;
@@ -102,7 +104,7 @@ export function PublicAgents({ fixture }: { fixture?: PublicAgentsData }) {
   const profiles = data.profiles.filter(
     (p) =>
       (sector === '全部' || p.sector === sector) &&
-      `${p.name} ${p.english} ${p.focus}`
+      `${p.name} ${p.agent_name || ''} ${states.get(p.key)?.name || ''} ${p.english} ${p.focus}`
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
@@ -222,9 +224,9 @@ export function PublicAgents({ fixture }: { fixture?: PublicAgentsData }) {
                     onClick={() => setSelected(p.key)}
                   >
                     <span>
-                      <strong>{p.name}</strong>
+                      <strong>{s?.name || p.agent_name || p.name}</strong>
                       <small>
-                        {p.sector} · {p.english}
+                        {p.name} · {p.sector}
                       </small>
                     </span>
                     <span>{p.focus}</span>
@@ -245,7 +247,7 @@ export function PublicAgents({ fixture }: { fixture?: PublicAgentsData }) {
             <aside className="public-agent-detail">
               {profile ? (
                 <>
-                  <h2>{profile.name} · Agent</h2>
+                  <h2>{state?.name || profile.agent_name || profile.name}</h2>
                   <p>{profile.focus}</p>
                   <h3>语言与思考方式</h3>
                   <p>{profile.voice}</p>

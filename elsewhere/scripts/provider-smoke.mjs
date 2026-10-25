@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { parseEnv } from 'node:util';
 import { checkConfig } from './check.mjs';
+import { readRuntimeEnv } from './runtime-env.mjs';
 
-const env = parseEnv(await readFile('.env.elsewhere', 'utf8'));
+const env = parseEnv(await readRuntimeEnv());
 assert.deepEqual(checkConfig(env), []);
 assert.equal(env.LLM_API_STYLE, 'chat_completions');
 const probes = [

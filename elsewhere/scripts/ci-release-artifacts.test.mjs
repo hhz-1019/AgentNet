@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {selectArtifacts, services} from './ci-release-artifacts.mjs';
 import {releaseJob} from './hk.mjs';
-import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
+import {mkdtempSync, readFileSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -24,6 +24,26 @@ void test('production imports CI artifacts without compiling and retains exclusi
   assert.match(script,/code-release.sh import/);
   assert.doesNotMatch(script,/docker build|code-release.sh build/);
   assert.match(script,/available >= 8589934592/);
+});
+void test('activation follows the committed schema version and rejects stale or malformed releases', () => {
+  const root=mkdtempSync(join(tmpdir(),'release-schema-'));
+  const source=readFileSync(new URL('./aliyun-hk-code-release.sh',import.meta.url),'utf8');
+  const checker=source.match(/node -e '([^']+)' "\$revision"/)?.[1];
+  assert.ok(checker, 'release verifier missing');
+  const actual=join(root,'actual.json'), expected=join(root,'expected.json');
+  const code=checker.replace('"/evidence/public-release.json"',JSON.stringify(actual)).replace('"/expected-release.json"',JSON.stringify(expected));
+  try {
+    for(const version of [154,155,156]) {
+      writeFileSync(expected,JSON.stringify({migration:version}));
+      for(const [release,accepted] of [[{revision,migration:version},true],[{revision,migration:version-1},false],[{revision:'b'.repeat(40),migration:version},false]]) {
+        writeFileSync(actual,JSON.stringify(release));
+        assert.equal(spawnSync(process.execPath,['-e',code,revision]).status===0,accepted);
+      }
+    }
+    writeFileSync(expected,JSON.stringify({migration:'155'}));
+    writeFileSync(actual,JSON.stringify({revision,migration:'155'}));
+    assert.notEqual(spawnSync(process.execPath,['-e',code,revision]).status,0);
+  } finally {rmSync(root,{recursive:true,force:true});}
 });
 void test('Docker classic and containerd archives share a canonical config digest', () => {
   const root=mkdtempSync(join(tmpdir(),'image-config-'));

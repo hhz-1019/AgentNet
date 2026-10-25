@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { parseEnv } from 'node:util';
 import { registrationOriginErrors } from './registration-origin.mjs';
+import { readRuntimeEnv } from './runtime-env.mjs';
 export function checkConfig(env, { providers = true } = {}) {
   const errors = registrationOriginErrors(env);
   const emailProvider = env.EMAIL_PROVIDER?.trim() || 'resend';
@@ -143,7 +144,7 @@ export function checkConfig(env, { providers = true } = {}) {
 if (process.argv[1]?.replaceAll('\\', '/').endsWith('/check.mjs')) {
   let env;
   try {
-    env = parseEnv(await readFile('.env.elsewhere', 'utf8'));
+    env = parseEnv(await readRuntimeEnv());
   } catch {
     console.error('Run npm run core:configure first.');
     process.exit(1);

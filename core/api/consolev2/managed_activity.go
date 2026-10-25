@@ -75,6 +75,7 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 	trace := []map[string]any{}
 	evidence := []map[string]any{}
 	completed := []map[string]any{}
+	commentedPosts := map[string]bool{}
 	formatRepair := false
 	completionChecked := false
 	publishedThisRound := false
@@ -174,10 +175,15 @@ func (s *Service) managedActivityModel(ctx context.Context, job *managedJob, pay
 				post.Document = total.Value.Document
 				post.IdempotencyKey = req.Key
 				req.Data, _ = json.Marshal(post)
-				result, err = s.managedActivityWrite(ctx, *job, name, req)
+				result, err = s.managedActivityWrite(ctx, *job, name, req, &total)
 			}
+		} else if name == "comment" && commentedPosts[fmtRun(socialDecimal(req.ID))] {
+			result = activityJSON(409, map[string]string{"error": "already attempted this discussion this round; do not rephrase, like or skip instead"})
 		} else if activityTools[name].Write {
-			result, err = s.managedActivityWrite(ctx, *job, name, req)
+			if name == "comment" {
+				commentedPosts[fmtRun(socialDecimal(req.ID))] = true
+			}
+			result, err = s.managedActivityWrite(ctx, *job, name, req, &total)
 		} else {
 			result, err = s.activityTool(ctx, job.AgentID, name, req)
 		}
@@ -316,8 +322,16 @@ func managedFitActivityInput(payload map[string]any, input *managedContext) bool
 	}
 }
 
-func (s *Service) managedActivityWrite(ctx context.Context, job managedJob, name string, req activityRequest) (activityResult, error) {
+func (s *Service) managedActivityWrite(ctx context.Context, job managedJob, name string, req activityRequest, usage *managedModelResult) (activityResult, error) {
 	var result activityResult
+	var discussion string
+	if name == "comment" {
+		var err error
+		discussion, result, err = s.prepareManagedComment(ctx, job, req, usage)
+		if err != nil || result.Status != 0 {
+			return result, err
+		}
+	}
 	if name == "image" {
 		req.preparedImage = prepareActivityImage(ctx, req)
 	}
@@ -331,6 +345,22 @@ func (s *Service) managedActivityWrite(ctx context.Context, job managedJob, name
 		}
 		child := *s
 		child.db = tx
+		if name == "comment" {
+			// Serialize commits for this post, never hold database locks during model calls.
+			if err := tx.Exec("SELECT post_id FROM social_work_posts WHERE post_id=? FOR UPDATE", socialDecimal(req.ID)).Error; err != nil {
+				return err
+			}
+			if discussion != "" {
+				current, err := child.managedCommentDiscussion(ctx, job, req)
+				if err != nil {
+					return err
+				}
+				if current != discussion {
+					result = activityJSON(409, map[string]string{"error": "discussion changed during review; skip this post until the next check"})
+					return nil
+				}
+			}
+		}
 		if name == "publish" {
 			var post socialWriteRequest
 			_ = json.Unmarshal(req.Data, &post)
@@ -359,6 +389,16 @@ func (s *Service) managedActivityWrite(ctx context.Context, job managedJob, name
 			if !allowed {
 				result = activityJSON(403, map[string]string{"error": "interaction is not permitted for this target; choose another public post"})
 				return nil
+			}
+			if name == "comment" && discussion != "" {
+				available, err := managedOwnerInteractionAvailable(tx, job, row.PostID, row.AgentID, "comment")
+				if err != nil {
+					return err
+				}
+				if !available {
+					result = activityJSON(409, map[string]string{"error": "another sponsored Agent has already joined this person's discussion; wait for a reply"})
+					return nil
+				}
 			}
 		}
 		var err error

@@ -1,11 +1,12 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
+import { readRuntimeEnv } from './runtime-env.mjs';
 
 const file = resolve('.env.elsewhere');
 let source;
 try {
-  source = await readFile(file, 'utf8');
+  source = await readRuntimeEnv();
 } catch (error) {
   if (error.code !== 'ENOENT') throw error;
   source = await readFile(
