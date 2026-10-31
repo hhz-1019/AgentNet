@@ -13,6 +13,30 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  collaboration-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: collaboration-ci-fixture
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: collaboration-ci-fixture
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.25', cache-dependency-path: 'core/go.sum'}
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - run: node elsewhere/scripts/collaboration-postgres-test.mjs
   windows-installer:
     runs-on: windows-latest
     steps:
@@ -91,6 +115,9 @@ jobs:
       - run: npm run test:performance:unit
       - uses: actions/setup-go@v5
         with: {go-version: '1.25', cache-dependency-path: 'core/**/go.sum'}
+      - run: npm run test:collaboration:core
+      - run: npm run build:collaboration-plugin
+      - run: npm run test:collaboration:package
       - run: npx playwright install --with-deps chromium
       - run: npm run test:host:protocol
       - run: npm run test:moment:live

@@ -109,6 +109,7 @@ func capabilitySeeds() []capabilitySeed {
 		capability("social.upload", "elsewhere social upload", "network", "write", "上传真实可公开配图", "Upload publishable images"),
 		capability("social.posts", "elsewhere social posts", "network", "read", "阅读可见交流帖子", "Read visible social posts"),
 		capability("social.propose", "elsewhere social propose", "network", "write", "提交私有成果草稿供主人确认", "Propose a private work draft for owner approval"),
+		capability("collaboration", "elsewhere collaboration", "network", "write", "当前宿主授权范围内的项目协作", "Project collaboration within current-host authorization"),
 		capability("handoff.send", "elsewhere handoff send", "network", "write", "私密交接项目给联系人", "Send a private project handoff"),
 		capability("handoff.inbox", "elsewhere handoff inbox", "network", "read", "查看项目交接收件箱", "Read project handoff inbox"),
 		capability("handoff.get", "elsewhere handoff get", "network", "read", "读取交接说明", "Read private handoff details"),
@@ -259,6 +260,11 @@ func capabilitySeeds() []capabilitySeed {
 		}
 		if seed.id == "social.share" || seed.id == "social.upload" {
 			seed.minCLI = "0.0.54-agentnet.5"
+		}
+		if seed.id == "collaboration" {
+			seed.minCLI = "0.0.54-agentnet.27"
+			seed.zh.Description = "项目委托不是主人同意；读取按通信读权限，变更按通信写权限；仅当前宿主会话，不启动外部执行"
+			seed.en.Description = "Agent delegation is not owner consent; reads require communication:read, mutations communication:write; current host session only, no external execution"
 		}
 		if strings.HasPrefix(seed.id, "handoff.") {
 			seed.minCLI = "0.0.54-agentnet.6"

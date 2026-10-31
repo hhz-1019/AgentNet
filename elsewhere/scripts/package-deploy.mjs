@@ -37,6 +37,7 @@ const ownPaths =
         'core',
         'elsewhere/skills/agentnet-onboarding',
         'elsewhere/skills/agentnet-handoff',
+        'elsewhere/skills/agentnet-collaboration',
         'elsewhere/skills/agentnet-social',
         'elsewhere/Caddyfile',
       ]

@@ -1,3 +1,4 @@
+import { collaborationRequest } from './collaboration.mjs';
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, writeFile, stat, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -16,7 +17,49 @@ import {
 
 // Reuse the core client's signing, refresh, credential storage and fencing.
 // No owner cookies or platform model keys enter this adapter.
-export class AgentNet {
+export class Elsewhere {
+  collaboration_project(request) {
+    return this.command(['collaboration', 'project', '--stdin'], {
+      input: collaborationRequest('project', request),
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  }
+  collaboration_membership(request) {
+    return this.command(['collaboration', 'membership', '--stdin'], {
+      input: collaborationRequest('membership', request),
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  }
+  collaboration_tasks(request) {
+    return this.command(['collaboration', 'tasks', '--stdin'], {
+      input: collaborationRequest('tasks', request),
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  }
+  collaboration_context(request) {
+    return this.command(['collaboration', 'context', '--stdin'], {
+      input: collaborationRequest('context', request),
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  }
+  collaboration_updates(request) {
+    return this.command(['collaboration', 'updates', '--stdin'], {
+      input: collaborationRequest('updates', request),
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  }
+  collaboration_submit(request) {
+    return this.command(['collaboration', 'submit', '--stdin'], {
+      input: collaborationRequest('submit', request),
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  }
+  collaboration_review(request) {
+    return this.command(['collaboration', 'review', '--stdin'], {
+      input: collaborationRequest('review', request),
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  }
   activity_tool({ tool, ...request }) {
     if (!/^[a-z_]{1,32}$/.test(tool)) throw new Error('Invalid activity tool');
     return this.command(['activity', tool, '--stdin'], { input: request });
@@ -50,7 +93,10 @@ export class AgentNet {
     this.workInFlight = new Map();
     this.ready = false;
   }
-  async command(args, { input, configuration = false } = {}) {
+  async command(
+    args,
+    { input, configuration = false, maxBuffer = 2 * 1024 * 1024 } = {},
+  ) {
     if (!configuration && !this.ready) await this.connect();
     return new Promise((resolve, reject) => {
       let inputError;
@@ -65,11 +111,14 @@ export class AgentNet {
           '--no-interactive',
           ...args,
         ],
-        { windowsHide: true, timeout: 60000, maxBuffer: 2 * 1024 * 1024 },
+        { windowsHide: true, timeout: 60000, maxBuffer },
         async (error, stdout, stderr) => {
           if (error) {
             const failure = new Error(
-              stderr.trim() || 'elsewhere client command failed',
+              stderr.trim() ||
+                (error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
+                  ? 'elsewhere response exceeds the configured transport limit'
+                  : 'elsewhere client command failed'),
             );
             failure.exitCode = error.code;
             failure.apiCode = stderr.match(
@@ -128,7 +177,9 @@ export class AgentNet {
         },
       );
       if (identities.length)
-        throw new Error('Existing identity has no server configuration; restore its configuration before connecting');
+        throw new Error(
+          'Existing identity has no server configuration; restore its configuration before connecting',
+        );
     }
     const servers = await this.command(['server', 'list'], {
       configuration: true,
@@ -136,7 +187,8 @@ export class AgentNet {
     if (!Array.isArray(servers))
       throw new Error('Unexpected client configuration response');
     const existing = servers.find((s) => s.name === 'agentnet');
-    const mismatch = existing && existing.endpoint.replace(/\/$/, '') !== this.endpoint;
+    const mismatch =
+      existing && existing.endpoint.replace(/\/$/, '') !== this.endpoint;
     if (mismatch && hasConfig)
       throw new Error(
         'This Home belongs to another elsewhere endpoint; use a separate Home',
@@ -453,10 +505,7 @@ export class AgentNet {
       const { path: identityHome } = await this.command(['config', 'home']);
       const snapshot = JSON.parse(
         await readFile(
-          resolve(
-            identityHome,
-            'servers/agentnet/control-context.json',
-          ),
+          resolve(identityHome, 'servers/agentnet/control-context.json'),
           'utf8',
         ),
       );
@@ -859,4 +908,4 @@ export class AgentNet {
 }
 
 // Preserve existing integrations while exposing the current product name.
-export { AgentNet as Elsewhere };
+export { Elsewhere as AgentNet };

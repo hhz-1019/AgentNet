@@ -4,7 +4,7 @@ COPY core/cli/go.mod core/cli/go.sum ./
 RUN go mod download
 COPY core/cli/ ./
 ARG RELEASE_REVISION=local
-RUN GOMAXPROCS=2 GOFLAGS=-p=2 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.26 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet .
+RUN GOMAXPROCS=2 GOFLAGS=-p=2 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.27 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet .
 FROM node:24-bookworm-slim
 RUN useradd -m -u 10001 agentnet && mkdir -p /home/agentnet/home /home/agentnet/work-records && chown -R agentnet:agentnet /home/agentnet
 WORKDIR /app

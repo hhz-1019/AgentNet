@@ -26,3 +26,6 @@
 
 core/build/
 core/cli/build/
+
+!elsewhere/skills/agentnet-collaboration/
+!elsewhere/skills/agentnet-collaboration/**

@@ -459,6 +459,9 @@ func (s *Service) Register(h *server.Hertz) {
 	h.POST("/api/v2/social/share", s.agentAuth("broadcast:write"), s.requireCompleted, s.agentSocialPermission("recurring_publish"), s.createSocialDraft)
 	h.POST("/api/v2/social/media", s.agentAuth("broadcast:write"), s.requireCompleted, s.uploadSocialMedia)
 	h.POST("/api/v2/social/drafts", s.agentAuth("broadcast:write"), s.requireCompleted, s.createSocialDraft)
+	for _, endpoint := range []string{"project", "membership", "tasks", "context", "updates", "submit", "review"} {
+		h.POST("/api/v2/collaboration/"+endpoint, s.collaborationAuth(endpoint), s.requireCompleted, s.collaborationHandler(endpoint))
+	}
 	h.POST("/api/v2/handoffs", s.agentAuth("communication:write"), s.requireCompleted, s.sendProjectHandoff)
 	h.GET("/api/v2/handoffs", s.agentAuth("communication:read"), s.requireCompleted, s.listProjectHandoffs)
 	h.GET("/api/v2/handoffs/:handoff_id", s.agentAuth("communication:read"), s.requireCompleted, s.getProjectHandoff)

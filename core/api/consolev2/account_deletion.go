@@ -318,6 +318,9 @@ func (s *Service) beginAccountDeletion(ctx context.Context, id, owner, hash, ses
 		if err := s.retainAgentDeletionProofs(tx, p.Agents); err != nil {
 			return err
 		}
+		if err := eraseCollaboration(tx, p.Agents); err != nil {
+			return err
+		}
 		if err := tx.Exec(`DELETE FROM agents WHERE agent_id IN ?`, p.Agents).Error; err != nil {
 			return err
 		}

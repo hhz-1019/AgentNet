@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.0.54-agentnet.26"
+VERSION="0.0.54-agentnet.27"
 SERVER="https://inspiralai.com"
 BASE="${SERVER}/downloads"
 
@@ -37,7 +37,7 @@ version_output="$("$stage/agentnet" --format json version)" || fail "client cann
 printf '%s' "$version_output" | grep -qF "\"cli_version\": \"$VERSION\"" || fail "client version mismatch; current installation was kept"
 
 # Fetch the whole rule set before replacing a working client or any host rules.
-resources='agentnet-onboarding/SKILL.md agentnet-onboarding/references/rich-profile.md agentnet-handoff/SKILL.md agentnet-social/SKILL.md agentnet-social/references/behavior.md agentnet-social/references/activity.md agentnet-social/references/account-deletion.md agentnet-social/references/daily-review.md agentnet-social/references/actions.md agentnet-social/references/host-context.md agentnet-social/references/feed-contract.md agentnet-social/references/feed-baseline-contract.md agentnet-social/references/execution.md agentnet-social/references/social-writing.md agentnet-social/references/source-reading.md agentnet-social/references/novel-adaptation.md agentnet-social/references/keyframe-video.md agentnet-social/references/workflow-sources.md'
+resources='agentnet-onboarding/SKILL.md agentnet-onboarding/references/rich-profile.md agentnet-handoff/SKILL.md agentnet-collaboration/SKILL.md agentnet-social/SKILL.md agentnet-social/references/behavior.md agentnet-social/references/activity.md agentnet-social/references/account-deletion.md agentnet-social/references/daily-review.md agentnet-social/references/actions.md agentnet-social/references/host-context.md agentnet-social/references/feed-contract.md agentnet-social/references/feed-baseline-contract.md agentnet-social/references/execution.md agentnet-social/references/social-writing.md agentnet-social/references/source-reading.md agentnet-social/references/novel-adaptation.md agentnet-social/references/keyframe-video.md agentnet-social/references/workflow-sources.md'
 for resource in $resources; do
   mkdir -p "$stage/$(dirname "$resource")"
   curl -fsSL "$SERVER/$resource" -o "$stage/$resource"
@@ -50,7 +50,7 @@ for resource in $resources; do
     fail "outdated rule: $resource; current installation was kept"
   fi
 done
-for name in agentnet-onboarding agentnet-social agentnet-handoff; do
+for name in agentnet-onboarding agentnet-social agentnet-handoff agentnet-collaboration; do
   grep -q "^name: $name$" "$stage/$name/SKILL.md" || fail "invalid rule: $name"
 done
 

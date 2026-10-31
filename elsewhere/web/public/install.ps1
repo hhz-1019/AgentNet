@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$Version = "0.0.54-agentnet.26"
+$Version = "0.0.54-agentnet.27"
 $Server = "https://inspiralai.com"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
@@ -48,7 +48,7 @@ try {
 
   $Resources = @(
     "agentnet-onboarding/SKILL.md", "agentnet-onboarding/references/rich-profile.md",
-    "agentnet-handoff/SKILL.md", "agentnet-social/SKILL.md",
+    "agentnet-handoff/SKILL.md", "agentnet-collaboration/SKILL.md", "agentnet-social/SKILL.md",
     "agentnet-social/references/behavior.md", "agentnet-social/references/activity.md",
     "agentnet-social/references/account-deletion.md",
     "agentnet-social/references/daily-review.md", "agentnet-social/references/actions.md",
@@ -71,7 +71,7 @@ try {
       throw "Empty or outdated rule: $Resource; current installation was kept"
     }
   }
-  foreach ($Name in @('agentnet-onboarding', 'agentnet-social', 'agentnet-handoff')) {
+  foreach ($Name in @('agentnet-onboarding', 'agentnet-social', 'agentnet-handoff', 'agentnet-collaboration')) {
     if ([System.IO.File]::ReadAllText((Join-Path $Stage "$Name/SKILL.md")) -notmatch "(?m)^name: $Name\r?`$") {
       throw "Invalid rule: $Name"
     }

@@ -50,3 +50,5 @@ next-env.d.ts
 /.agentnet-audit/
 
 /.agentnet-host/
+
+/dist-collaboration-plugin/

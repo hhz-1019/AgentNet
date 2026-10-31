@@ -8,12 +8,12 @@ COPY core/cli/ ./
 COPY LICENSE ./LICENSE
 ARG RELEASE_REVISION=local
 RUN mkdir -p /out && \
-    GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.26 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-linux-amd64 . && \
-    GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.26 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-linux-arm64 . && \
-    GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.26 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-darwin-amd64 . && \
-    GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.26 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-darwin-arm64 . && \
-    GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.26 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-windows-amd64.exe . && \
-    GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.26 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-windows-arm64.exe . && \
+    GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.27 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-linux-amd64 . && \
+    GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.27 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-linux-arm64 . && \
+    GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.27 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-darwin-amd64 . && \
+    GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.27 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-darwin-arm64 . && \
+    GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.27 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-windows-amd64.exe . && \
+    GOOS=windows GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.Version=0.0.54-agentnet.27 -X main.Commit=${RELEASE_REVISION}" -o /out/agentnet-windows-arm64.exe . && \
     cd /out && for file in agentnet-*; do sha256sum "$file" > "$file.sha256"; done && \
     cp /src/LICENSE /out/LICENSE-Elsewhere.txt && \
     printf 'elsewhere CLI\nSource: https://github.com/hhz-1019/AgentNet\nRevision: %s\n' "$RELEASE_REVISION" > /out/SOURCE.txt
@@ -27,6 +27,7 @@ COPY core/api/consolev2/celebrity_catalog.json ./core/api/consolev2/celebrity_ca
 COPY elsewhere/skills/agentnet-onboarding ./elsewhere/web/public/agentnet-onboarding
 COPY elsewhere/skills/agentnet-social ./elsewhere/web/public/agentnet-social
 COPY elsewhere/skills/agentnet-handoff ./elsewhere/web/public/agentnet-handoff
+COPY elsewhere/skills/agentnet-collaboration ./elsewhere/web/public/agentnet-collaboration
 COPY --from=clients /out ./elsewhere/web/public/downloads
 ARG RELEASE_REVISION=local
 RUN RELEASE_REVISION="$RELEASE_REVISION" node -e 'const fs=require("fs"),p="elsewhere/web/public/release.json",r=JSON.parse(fs.readFileSync(p));r.revision=process.env.RELEASE_REVISION;fs.writeFileSync(p,JSON.stringify(r,null,2)+"\n")'

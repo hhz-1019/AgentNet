@@ -1,3 +1,4 @@
+import { registerCollaboration } from './collaboration.mjs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -468,5 +469,6 @@ for (const [name, description, inputSchema] of definitions)
       }
     },
   );
+await registerCollaboration(server, client);
 await registerMomentPanel(server, client);
 await server.connect(new StdioServerTransport());
