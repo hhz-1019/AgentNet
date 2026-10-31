@@ -46,7 +46,7 @@ let bytes;if(resource.startsWith('downloads/agentnet-')){
  const binary=fs.readFileSync(process.env.INSTALL_TEST_BINARY);
  bytes=resource.endsWith('.sha256')?Buffer.from(crypto.createHash('sha256').update(binary).digest('hex')+'  fixture\\n'):binary;
 }else{
- if(!/^(agentnet-onboarding|agentnet-social|agentnet-handoff)\\//.test(resource)||resource.includes('..'))process.exit(22);
+ if(!/^(agentnet-onboarding|agentnet-social|agentnet-handoff|agentnet-collaboration)\\//.test(resource)||resource.includes('..'))process.exit(22);
  bytes=fs.readFileSync(p.join(process.env.INSTALL_TEST_REPO,'elsewhere/skills',resource));
  if(resource===process.env.INSTALL_TEST_OUTDATED)bytes=Buffer.from('https://elsewhere.twintalk.cn');
  if(resource===process.env.INSTALL_TEST_HTML)bytes=Buffer.from('<!doctype html><html><body>SPA fallback</body></html>');
@@ -273,6 +273,11 @@ export async function verifyInstallerUpgrade(
         );
         assert(fresh.includes('inspiralai.com'));
         assert(!fresh.includes('elsewhere.twintalk.cn'));
+        assert.equal(
+          await readFile(join(selected, 'agentnet-collaboration/SKILL.md'), 'utf8'),
+          await readFile(join(repo, 'elsewhere/skills/agentnet-collaboration/SKILL.md'), 'utf8'),
+          'collaboration Skill installed in the selected host directory',
+        );
         const legacyRule = await readFile(
           join(legacy, 'agentnet-onboarding/SKILL.md'),
           'utf8',

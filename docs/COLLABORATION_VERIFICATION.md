@@ -26,6 +26,7 @@
 
 - 当前 Node 测试：Linux Node 24.12.0 环境 219/219 通过。此前 Windows 回归为 217/218，唯一失败为原有符号链接用例的 EPERM；没有修改该测试以掩盖失败。
 - TypeScript 类型检查、现有 lint、Web 和面板构建通过。
+- 安装器升级：Windows PowerShell 9/9、Linux Shell 10/10 场景通过，验证新增协作 Skill 实际写入所选宿主目录，同时保留已有身份、其他网络配置和无关 Skill。
 - Windows Go 可编译并运行协作与 PostgreSQL 测试；部分原有 SQLite 测试依赖 CGO/C 编译器，不能用 Windows 的该组失败推断协作核心失败或整套测试通过。
 - 原有 Go Console 整包回归已在隔离 `golang:1.25-bookworm` 容器中通过（含 CGO），没有为绕过环境问题修改原有 SQLite 测试。
 
