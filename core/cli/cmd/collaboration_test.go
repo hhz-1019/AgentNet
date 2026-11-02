@@ -8,6 +8,8 @@ import (
 
 func TestCollaborationRouteStrict(t *testing.T) {
 	cases := []struct{ group, body string }{
+		{"project", `{"action":"resolve","short_id":"@PeerB"}`},
+		{"project", `{"action":"invite","project_id":"p","agent_id":"2","role":"worker","scopes":["read","work"],"text":"Build a sample together","expected_version":1,"idempotency_key":"offer"}`},
 		{"project", `{"action":"create","goal":"goal","expected_version":0,"idempotency_key":"a"}`},
 		{"membership", `{"action":"accept","project_id":"p","expected_version":1,"idempotency_key":"b"}`},
 		{"tasks", `{"action":"heartbeat","project_id":"p","task_id":"t","epoch":2,"expected_version":1,"idempotency_key":"c"}`},

@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
-$Version = "0.0.54-agentnet.27"
+$Version = "0.0.54-agentnet.29"
 $Server = "https://inspiralai.com"
 $Base = "$Server/downloads"
 $Arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {

@@ -1,2 +1,5 @@
 elsewhere/web/public/install.sh text eol=lf
 elsewhere/Dockerfile.web text eol=lf
+
+/plugins/elsewhere/runtime/launch text eol=lf
+/plugins/elsewhere/runtime/*.gz binary

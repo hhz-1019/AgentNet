@@ -33,6 +33,7 @@ func TestCollaborationAccountErasure(t *testing.T) {
 	shared.Members[creator] = member(ids[0], creator)
 	shared.Members[departed] = member(ids[1], creator)
 	shared.Members[child] = member(ids[2], departed)
+	shared.Members[child].Invitation = "DEPARTED-INVITATION-TEXT"
 	shared.Members[invitee] = member(ids[3], creator)
 	shared.Members[invitee].State = "invited"
 	shared.Members[reviewer] = member(ids[4], creator)

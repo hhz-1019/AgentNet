@@ -1,0 +1,20 @@
+{
+  "name": "elsewhere-local",
+  "interface": {
+    "displayName": "Elsewhere"
+  },
+  "plugins": [
+    {
+      "name": "elsewhere",
+      "source": {
+        "source": "local",
+        "path": "./plugins/elsewhere"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

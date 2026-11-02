@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION="0.0.54-agentnet.27"
+VERSION="0.0.54-agentnet.29"
 SERVER="https://inspiralai.com"
 BASE="${SERVER}/downloads"
 
@@ -51,7 +51,7 @@ for resource in $resources; do
   fi
 done
 for name in agentnet-onboarding agentnet-social agentnet-handoff agentnet-collaboration; do
-  grep -q "^name: $name$" "$stage/$name/SKILL.md" || fail "invalid rule: $name"
+  awk -v expected="name: $name" '{ sub(/\r$/, ""); if ($0 == expected) found=1 } END { exit !found }' "$stage/$name/SKILL.md" || fail "invalid rule: $name"
 done
 
 host="${INVOKING_HOST:-${ELSEWHERE_HOST:-}}"

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"elsewhere_server/pkg/agentidentity"
 	"github.com/cloudwego/hertz/pkg/app"
 	"gorm.io/gorm"
 )
@@ -58,13 +59,14 @@ func collabCheckResult(result any) error {
 // All capability grants are project-local delegation by an authenticated Agent.
 // They are never represented as owner consent or host execution authorization.
 type collaborationMember struct {
-	AgentID   string   `json:"agent_id"`
-	OwnerUID  string   `json:"owner_uid"`
-	State     string   `json:"state"`
-	Role      string   `json:"role"`
-	Scopes    []string `json:"scopes"`
-	ExpiresAt int64    `json:"expires_at"`
-	Inviter   string   `json:"inviter"`
+	Invitation string   `json:"invitation,omitempty"`
+	AgentID    string   `json:"agent_id"`
+	OwnerUID   string   `json:"owner_uid"`
+	State      string   `json:"state"`
+	Role       string   `json:"role"`
+	Scopes     []string `json:"scopes"`
+	ExpiresAt  int64    `json:"expires_at"`
+	Inviter    string   `json:"inviter"`
 }
 type collaborationTask struct {
 	ID              string   `json:"task_id"`
@@ -102,6 +104,7 @@ type collaborationArtifact struct {
 	Verification string `json:"verification"`
 }
 type collaborationRequest struct {
+	ShortID         string                 `json:"short_id,omitempty"`
 	Action          string                 `json:"action"`
 	ProjectID       string                 `json:"project_id"`
 	IdempotencyKey  string                 `json:"idempotency_key"`
@@ -225,7 +228,26 @@ func (s *Service) collaborationOperation(endpoint, actor string, r collaboration
 		if _, e := collabOwner(tx, actor); e != nil {
 			return e
 		}
-		read := (endpoint == "project" && (r.Action == "list" || r.Action == "get")) || (endpoint == "tasks" && (r.Action == "list" || r.Action == "get")) || endpoint == "context" || (endpoint == "updates" && r.Action == "read")
+		read := collabRead(endpoint, r.Action)
+		if endpoint == "project" && r.Action == "resolve" {
+			short := strings.TrimPrefix(r.ShortID, "@")
+			if !agentidentity.ValidShortID(short) {
+				return collabFail(400, "use the exact public short ID")
+			}
+			var rows []struct {
+				AgentID string `json:"agent_id"`
+				ShortID string `json:"short_id,omitempty"`
+				Name    string `json:"name"`
+			}
+			if e := tx.Raw(`SELECT a.agent_id::text AS agent_id,a.short_id,COALESCE(a.agent_name,'') AS name FROM agents a JOIN agent_owners o USING(agent_id) WHERE a.short_id=? AND a.identity_state='active' LIMIT 2`, short).Scan(&rows).Error; e != nil {
+				return e
+			}
+			if len(rows) != 1 {
+				return collabFail(404, "collaborator not found")
+			}
+			result = rows[0]
+			return nil
+		}
 		canonical := collabJSON(struct {
 			Endpoint string
 			Request  collaborationRequest
@@ -395,12 +417,12 @@ func (s *Service) collaborationOperation(endpoint, actor string, r collaboration
 				if r.Cursor < 0 {
 					return collabFail(400, "invalid cursor")
 				}
-				var rows []struct {
+				rows := []struct {
 					Sequence  int64           `json:"sequence"`
 					Actor     string          `json:"actor"`
 					Document  json.RawMessage `json:"document"`
 					CreatedAt int64           `json:"created_at"`
-				}
+				}{}
 				if e := tx.Raw(`SELECT sequence,actor::text,document,created_at FROM collaboration_events WHERE project_id=? AND sequence>? ORDER BY sequence LIMIT 100`, p.ID, r.Cursor).Scan(&rows).Error; e != nil {
 					return e
 				}
@@ -487,7 +509,7 @@ func collabTransition(tx *gorm.DB, p *collaborationProject, actor, endpoint stri
 			if e != nil {
 				return e
 			}
-			p.Members[r.AgentID] = &collaborationMember{AgentID: r.AgentID, OwnerUID: uid, State: "invited", Role: r.Role, Scopes: r.Scopes, ExpiresAt: r.ExpiresAt, Inviter: actor}
+			p.Members[r.AgentID] = &collaborationMember{AgentID: r.AgentID, OwnerUID: uid, State: "invited", Role: r.Role, Scopes: r.Scopes, ExpiresAt: r.ExpiresAt, Inviter: actor, Invitation: r.Text}
 			return nil
 		case "complete":
 			if actor != p.Creator {
@@ -769,7 +791,7 @@ func collabTransition(tx *gorm.DB, p *collaborationProject, actor, endpoint stri
 }
 
 func collabRead(endpoint, action string) bool {
-	return (endpoint == "project" && (action == "list" || action == "get")) || (endpoint == "tasks" && (action == "list" || action == "get")) || endpoint == "context" || (endpoint == "updates" && action == "read")
+	return (endpoint == "project" && (action == "list" || action == "get" || action == "resolve")) || (endpoint == "tasks" && (action == "list" || action == "get")) || endpoint == "context" || (endpoint == "updates" && action == "read")
 }
 func (s *Service) collaborationAuth(endpoint string) app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {

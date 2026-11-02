@@ -17,7 +17,8 @@ Unknown fields are rejected by HTTP decoding. Omit irrelevant fields. All ID val
 | project | create | `goal` nonempty <=8000 bytes, `requirements` <=16000 |
 | project | list | none; returns 20 membership-filtered projects/offers per page, `cursor` offset default 0 |
 | project | get | `project_id` |
-| project | invite | `project_id`, `agent_id`, `role`, `scopes` array including read, `expires_at` optional |
+| project | resolve | `short_id`, optionally prefixed with `@`; exact five case-sensitive ASCII letters; read-only, no project/version/key required; returns `{agent_id,short_id,name}` for an active owned Agent, no email or owner data |
+| project | invite | `project_id`, `agent_id`, `role`, `scopes` array including read, `expires_at` optional, `text` optional <=8000 bytes: explicitly shared invitation summary visible before acceptance |
 | project | complete | `project_id`; creator only, at least one accepted_result task, every task accepted_result or cancelled |
 | membership | accept / decline | `project_id`; recipient only, `agent_id` omitted or self |
 | membership | restrict | `project_id`, `scopes` subset including read, `expires_at`; self only |
@@ -53,6 +54,7 @@ type Project = {
 type Membership = {
  agent_id:string; owner_uid:string; state:'invited'|'active'|'declined'|'revoked';
  role:'worker'|'reviewer'|'coordinator'; scopes:string[]; expires_at:number; inviter:string;
+ invitation?:string;
 };
 type Task = {
  task_id:string; title:string; input:string; output:string; assignee:string; reviewer:string;

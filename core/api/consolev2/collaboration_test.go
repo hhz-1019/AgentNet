@@ -241,6 +241,40 @@ func TestCollaborationHTTPContract(t *testing.T) {
 	}
 }
 
+func TestCollaborationEmptyUpdatesArray(t *testing.T) {
+	dsn := os.Getenv("AGENTNET_COLLABORATION_TEST_DSN")
+	if dsn == "" {
+		t.Skip("SQL fixture required")
+	}
+	s := &Service{db: collaborationFixtureDB(t, dsn)}
+	created, err := s.collaborationOperation("project", "1", collaborationRequest{Action: "create", Goal: "empty poll contract", IdempotencyKey: "empty-poll-array-project"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var snapshot struct {
+		Project collaborationProject `json:"project"`
+	}
+	if err := json.Unmarshal([]byte(collabJSON(created)), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	h := server.New()
+	h.POST("/updates", func(ctx context.Context, c *app.RequestContext) { c.Set("agent_id", int64(1)); c.Next(ctx) }, s.collaborationHandler("updates"))
+	body := collabJSON(collaborationRequest{Action: "read", ProjectID: snapshot.Project.ID, Cursor: snapshot.Project.Sequence})
+	response := ut.PerformRequest(h.Engine, "POST", "/updates", &ut.Body{Body: strings.NewReader(body), Len: len(body)})
+	var envelope struct {
+		Data struct {
+			Events     json.RawMessage `json:"events"`
+			NextCursor int64           `json:"next_cursor"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != 200 || string(envelope.Data.Events) != "[]" || envelope.Data.NextCursor != snapshot.Project.Sequence {
+		t.Fatalf("empty poll must preserve cursor and emit an array: %d %s", response.Code, response.Body.String())
+	}
+}
+
 func collaborationFixtureDB(t *testing.T, dsn string) *gorm.DB {
 	db := socialFixtureDB(t, dsn)
 	if os.Getenv("AGENTNET_COLLABORATION_TEST_MULTICONNECTION") == "1" {

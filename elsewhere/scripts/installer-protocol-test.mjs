@@ -48,6 +48,7 @@ let bytes;if(resource.startsWith('downloads/agentnet-')){
 }else{
  if(!/^(agentnet-onboarding|agentnet-social|agentnet-handoff|agentnet-collaboration)\\//.test(resource)||resource.includes('..'))process.exit(22);
  bytes=fs.readFileSync(p.join(process.env.INSTALL_TEST_REPO,'elsewhere/skills',resource));
+ if(process.env.INSTALL_TEST_CRLF==='1')bytes=Buffer.from(bytes.toString('utf8').replace(/\\r?\\n/g,'\\r\\n'));
  if(resource===process.env.INSTALL_TEST_OUTDATED)bytes=Buffer.from('https://elsewhere.twintalk.cn');
  if(resource===process.env.INSTALL_TEST_HTML)bytes=Buffer.from('<!doctype html><html><body>SPA fallback</body></html>');
 }
@@ -186,6 +187,7 @@ export async function verifyInstallerUpgrade(
         INSTALL_TEST_BINARY: resolve(binary),
         INSTALL_TEST_REPO: repo,
         INSTALL_TEST_CALLS: join(user, 'downloads.txt'),
+        INSTALL_TEST_CRLF: scenario === 'codex' ? '1' : '',
         PATH: mocks + (windows ? ';' : ':') + process.env.PATH,
       });
       if (scenario === 'zsh-profile') {
@@ -273,9 +275,13 @@ export async function verifyInstallerUpgrade(
         );
         assert(fresh.includes('inspiralai.com'));
         assert(!fresh.includes('elsewhere.twintalk.cn'));
+        const sourceSkill = await readFile(
+          join(repo, 'elsewhere/skills/agentnet-collaboration/SKILL.md'),
+          'utf8',
+        );
         assert.equal(
           await readFile(join(selected, 'agentnet-collaboration/SKILL.md'), 'utf8'),
-          await readFile(join(repo, 'elsewhere/skills/agentnet-collaboration/SKILL.md'), 'utf8'),
+          scenario === 'codex' ? sourceSkill.replace(/\r?\n/g, '\r\n') : sourceSkill,
           'collaboration Skill installed in the selected host directory',
         );
         const legacyRule = await readFile(

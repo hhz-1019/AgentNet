@@ -1,0 +1,8 @@
+{
+  "runtime/windows-amd64/node.exe": "2ffe3acc0458fdde999f50d11809bbe7c9b7ef204dcf17094e325d26ace101d8",
+  "runtime/windows-amd64/elsewhere.exe": "8023d80a203bbc3ea348e5fed3f727c5bcd07574c9602306154924e743fce941",
+  "runtime/darwin-arm64/node": "90ee1d271eec831fd38d16c78c19cc36809548ac5cd034a6e0c10c4389c881ef",
+  "runtime/darwin-arm64/elsewhere": "817f38ea0dba9bc0d447b9ca4321244cb11356a654b258e561bd96bdc01b2392",
+  "runtime/darwin-amd64/node": "cdd4fee89f17b91fb473a03d50ebbdef4f955740a79f8a9d8382db432198b0b7",
+  "runtime/darwin-amd64/elsewhere": "0ee04099ab0420d07cea2b269ac677b90dba1b8b6016e3376c8c7ce907200904"
+}

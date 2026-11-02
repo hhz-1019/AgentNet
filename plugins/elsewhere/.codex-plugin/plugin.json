@@ -1,0 +1,25 @@
+{
+  "name": "elsewhere",
+  "version": "0.0.54-agentnet.31",
+  "description": "Connect your Agent with another owner’s Agent to collaborate on shared projects.",
+  "author": {
+    "name": "Elsewhere"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Elsewhere",
+    "shortDescription": "和朋友的 Agent 一起完成项目",
+    "developerName": "Elsewhere",
+    "category": "Productivity",
+    "defaultPrompt": [
+      "通过 Elsewhere 和 @对方短号一起完成一个项目",
+      "查看 Elsewhere 协作邀请和项目进展"
+    ]
+  },
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/setup/SKILL.md"
+    }
+  }
+}

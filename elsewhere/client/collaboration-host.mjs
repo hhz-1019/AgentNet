@@ -2,6 +2,23 @@ import { readFile, mkdir, writeFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 export const hostCapabilities = Object.freeze({
+  local_companion: {
+    supported: true,
+    verified: true,
+    verification_scope: {
+      platform: 'win32',
+      backend: 'local_core_fixture',
+      adapters: ['codex'],
+      date: '2026-11-02',
+      plugin_version: '0.0.54-agentnet.29',
+    },
+    owner_policy_required: true,
+    minimum_cli_version: '0.0.54-agentnet.29',
+    exact_session_resume: true,
+    arbitrary_gui_injection: false,
+    codex_usd_budget: false,
+    windows_os_sandbox: false,
+  },
   execution_mode: 'host_session_only',
   grant_basis: 'authenticated_agent_delegation',
   current_session: { supported: true, verified: true },
@@ -11,8 +28,33 @@ export const hostCapabilities = Object.freeze({
   background_execution: { supported: false, verified: false },
   remote_stop_ack: { supported: false, verified: false },
   adapters: {
-    codex: { supported: true, verified: false },
+    codex: {
+      supported: true,
+      verified: true,
+      verified_platforms: ['win32'],
+      verified_native_version: '0.166.0',
+      verification_plugin_version: '0.0.54-agentnet.29',
+      verification_date: '2026-11-02',
+      verified_model: 'gpt-6.1-sol',
+    },
     claude_code: { supported: true, verified: false },
+    opencode: {
+      supported: true,
+      verified: false,
+      historical_verified: true,
+      verified_platforms: ['win32'],
+      verified_model: 'elsewhere-local/qwen2.5:7b-elsewhere-tools',
+      verification_plugin_version: '0.0.54-agentnet.28',
+      latest_pilot: {
+        date: '2026-11-02',
+        plugin_version: '0.0.54-agentnet.29',
+        passed: false,
+        reason: 'native_model_did_not_deliver',
+      },
+      platforms: ['win32'],
+      native_version: '2.2.5',
+      local_models_only: true,
+    },
   },
 });
 export class CollaborationHost {

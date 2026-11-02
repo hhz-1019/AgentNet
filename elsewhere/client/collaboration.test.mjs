@@ -19,6 +19,32 @@ import { CollaborationHost, hostCapabilities } from './collaboration-host.mjs';
 const mutation = { expected_version: 1, idempotency_key: 'key' },
   project_id = 'project',
   task_id = 'task';
+await test('background discovery excludes identity lookup and project setup actions', async () => {
+  const tools = new Map();
+  let forwarded = false;
+  await registerCollaboration(
+    {
+      registerTool: (name, definition, call) =>
+        tools.set(name, { definition, call }),
+    },
+    {},
+    {
+      backgroundBridge: async () => {
+        forwarded = true;
+        return {};
+      },
+    },
+  );
+  assert.equal(tools.size, 6);
+  const project = tools.get('network_collaboration_project');
+  assert.deepEqual(project.definition.inputSchema.shape.action.options, [
+    'get',
+    'complete',
+  ]);
+  const result = await project.call({ action: 'resolve', short_id: '@PeerB' });
+  assert.equal(result.isError, true);
+  assert.equal(forwarded, false);
+});
 const requests = {
   project: { action: 'get', project_id },
   membership: { action: 'accept', project_id, ...mutation },
@@ -45,6 +71,73 @@ const requests = {
     ...mutation,
   },
 };
+void test('action guidance follows strict schemas and safely explains invalid parameters', async () => {
+  const tools = new Map();
+  let calls = 0;
+  await registerCollaboration(
+    {
+      registerTool: (name, definition, callback) =>
+        tools.set(name, { ...definition, callback }),
+    },
+    {},
+    {
+      backgroundBridge: async () => {
+        calls++;
+        throw new Error('authorization-secret-sentinel');
+      },
+    },
+  );
+  const tasks = tools.get('network_collaboration_tasks');
+  const startGuide = tasks.description.match(
+    /action=start:.*?optional \[[^\]]*\]\./,
+  )[0];
+  assert.match(startGuide, /host/);
+  assert.doesNotMatch(startGuide, /epoch|artifact/);
+  const valid = {
+    action: 'start',
+    project_id,
+    task_id,
+    host: 'fixture',
+    ...mutation,
+  };
+  const invalid = await tasks.callback({
+    ...valid,
+    epoch: 2,
+    artifact: { text: 'value-secret-sentinel' },
+    'field-secret-sentinel': true,
+  });
+  assert.equal(invalid.isError, true);
+  assert.equal(calls, 0);
+  const message = invalid.content[0].text;
+  assert.match(message, /Invalid collaboration parameters/);
+  assert.match(message, /action=start:.*host/);
+  assert.doesNotMatch(
+    message,
+    /secret-sentinel|epoch|artifact|action=heartbeat/,
+  );
+  const unknown = await tasks.callback({
+    ...valid,
+    action: 'action-secret-sentinel',
+  });
+  assert.doesNotMatch(unknown.content[0].text, /secret-sentinel/);
+  assert.match(unknown.content[0].text, /action=start/);
+  const denied = await tasks.callback(valid);
+  assert.equal(calls, 1);
+  assert.match(denied.content[0].text, /operation rejected/);
+  assert.doesNotMatch(
+    denied.content[0].text,
+    /secret-sentinel|Invalid collaboration parameters/,
+  );
+  const submit = tools.get('network_collaboration_submit');
+  assert.match(
+    submit.description,
+    /artifact.kind=text: required \[kind, text, provenance, verification\]/,
+  );
+  assert.match(
+    submit.description,
+    /artifact.kind=https: required \[kind, uri, provenance, verification\]/,
+  );
+});
 void test('strict action schemas and SDK preserve exact group payloads', async () => {
   const sdk = new Elsewhere({
     binary: resolve('fixture-cli'),
@@ -125,7 +218,7 @@ void test('actual MCP initialize, list, seven calls, strict invalid calls and he
   await client.connect(b);
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 9);
+    assert.equal(tools.length, 10);
     for (const group of [
       'project',
       'membership',
@@ -229,7 +322,14 @@ void test('checkpoint poll redelivery, explicit contiguous ack, restart, failed 
   await assert.rejects(gap.acknowledge(2), /undelivered/);
   for (const method of ['externalWake', 'resume', 'inject', 'background'])
     assert.throws(() => host[method](), /UNSUPPORTED/);
-  assert.equal(hostCapabilities.adapters.codex.verified, false);
+  assert.equal(hostCapabilities.adapters.codex.verified, true);
+  assert.deepEqual(hostCapabilities.adapters.codex.verified_platforms, [
+    'win32',
+  ]);
+  assert.equal(
+    hostCapabilities.local_companion.verification_scope.backend,
+    'local_core_fixture',
+  );
   assert.equal(hostCapabilities.adapters.claude_code.verified, false);
 });
 void test('MCP checkpoint uses existing identity and does not consume on read', async () => {
@@ -343,7 +443,7 @@ if (process.env.COLLABORATION_PACKAGE_STAGE)
     const client = new Client({ name: 'standalone', version: '1' });
     try {
       await client.connect(transport);
-      assert.equal((await client.listTools()).tools.length, 9);
+      assert.equal((await client.listTools()).tools.length, 10);
       const result = await client.callTool({
         name: 'network_collaboration_capabilities',
         arguments: {},
@@ -398,10 +498,57 @@ void test('real child stdout above 2 MiB succeeds only for collaboration-specifi
 });
 
 void test('collaboration rejects NUL consistently before PostgreSQL JSONB storage', () => {
- for (const request of [
-  {action:'create',goal:'bad\u0000goal',expected_version:0,idempotency_key:'nul'},
-  {action:'invite',project_id:'p',agent_id:'peer\u0000',role:'worker',scopes:['read'],expected_version:1,idempotency_key:'nul'},
- ]) assert.equal(collaborationSchemas.project.safeParse(request).success,false);
- assert.equal(collaborationSchemas.submit.safeParse({project_id:'p',task_id:'t',epoch:1,expected_version:1,idempotency_key:'nul',artifact:{kind:'text',text:'bad\u0000artifact',provenance:'',verification:''}}).success,false);
- assert.equal(collaborationSchemas.submit.safeParse({project_id:'p',task_id:'t',epoch:1,expected_version:1,idempotency_key:'control',artifact:{kind:'text',text:'valid\u0001control',provenance:'',verification:''}}).success,true);
+  for (const request of [
+    {
+      action: 'create',
+      goal: 'bad\u0000goal',
+      expected_version: 0,
+      idempotency_key: 'nul',
+    },
+    {
+      action: 'invite',
+      project_id: 'p',
+      agent_id: 'peer\u0000',
+      role: 'worker',
+      scopes: ['read'],
+      expected_version: 1,
+      idempotency_key: 'nul',
+    },
+  ])
+    assert.equal(
+      collaborationSchemas.project.safeParse(request).success,
+      false,
+    );
+  assert.equal(
+    collaborationSchemas.submit.safeParse({
+      project_id: 'p',
+      task_id: 't',
+      epoch: 1,
+      expected_version: 1,
+      idempotency_key: 'nul',
+      artifact: {
+        kind: 'text',
+        text: 'bad\u0000artifact',
+        provenance: '',
+        verification: '',
+      },
+    }).success,
+    false,
+  );
+  assert.equal(
+    collaborationSchemas.submit.safeParse({
+      project_id: 'p',
+      task_id: 't',
+      epoch: 1,
+      expected_version: 1,
+      idempotency_key: 'control',
+      artifact: {
+        kind: 'text',
+        text: 'valid\u0001control',
+        provenance: '',
+        verification: '',
+      },
+    }).success,
+    true,
+  );
 });

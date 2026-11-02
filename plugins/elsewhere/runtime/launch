@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+case "$(uname -s):$(uname -m)" in
+ Darwin:arm64) platform=darwin-arm64 ;;
+ Darwin:x86_64) platform=darwin-amd64 ;;
+ *) printf '%s\n' 'This Elsewhere package supports Windows x64 and macOS.' >&2; exit 1 ;;
+esac
+digest=$(cat "$root/runtime/$platform.sha256")
+case "$digest" in *[!0-9a-f]*|'') exit 1 ;; esac
+[ "${#digest}" -eq 64 ] || exit 1
+parent="$HOME/.elsewhere/plugin-runtimes"
+target="$parent/$digest"
+if [ ! -f "$target/ready" ]; then
+  actual=$(shasum -a 256 "$root/runtime/$platform.tar.gz" | cut -d ' ' -f 1)
+  [ "$actual" = "$digest" ] || { echo 'Elsewhere runtime integrity mismatch' >&2; exit 1; }
+  mkdir -p "$parent"
+  stage=$(mktemp -d "$parent/unpack-XXXXXXXX")
+  trap 'rm -rf -- "$stage"' EXIT HUP INT TERM
+  tar -xzf "$root/runtime/$platform.tar.gz" -C "$stage"
+  [ -x "$stage/node" ] && [ -x "$stage/elsewhere" ] && [ -f "$stage/NODE-LICENSE.txt" ]
+  printf '%s' "$digest" > "$stage/ready"
+  if [ ! -d "$target" ]; then mv "$stage" "$target"; fi
+fi
+if [ -z "${AGENTNET_CLI:-}" ]; then AGENTNET_CLI="$target/elsewhere"; export AGENTNET_CLI; fi
+exec "$target/node" "$root/elsewhere/client/collaboration-plugin.mjs" "$@"

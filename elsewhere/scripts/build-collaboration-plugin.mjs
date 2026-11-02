@@ -9,8 +9,16 @@ const stage = join(out, `stage-${Date.now()}`);
 await mkdir(stage);
 export const sources = [
   'elsewhere/client/collaboration-mcp.mjs',
+  'elsewhere/client/collaboration-setup.mjs',
+  'elsewhere/client/collaboration-enable.mjs',
   'elsewhere/client/collaboration.mjs',
   'elsewhere/client/collaboration-host.mjs',
+  'elsewhere/client/collaboration-background.mjs',
+  'elsewhere/client/collaboration-background-policy.mjs',
+  'elsewhere/client/collaboration-background-bridge.mjs',
+  'elsewhere/client/collaboration-background-execution.mjs',
+  'elsewhere/client/collaboration-native-host.mjs',
+  'elsewhere/client/collaboration-opencode-host.mjs',
   'elsewhere/client/sdk.mjs',
   'elsewhere/client/receipts.mjs',
   'elsewhere/client/identity.mjs',
@@ -22,8 +30,12 @@ export const sources = [
   'elsewhere/skills/agentnet-social/references/host-context.md',
   'elsewhere/skills/agentnet-social/references/social-writing.md',
   'elsewhere/skills/agentnet-collaboration/SKILL.md',
+  'elsewhere/skills/agentnet-onboarding/SKILL.md',
+  'elsewhere/skills/agentnet-onboarding/references/rich-profile.md',
   'docs/COLLABORATION.md',
   'docs/COLLABORATION_API.md',
+  'docs/COLLABORATION_VERIFICATION.md',
+  'docs/COLLABORATION_PILOT.md',
   'LICENSE',
 ];
 for (const source of sources) {
@@ -42,13 +54,18 @@ const dependencies = Object.fromEntries(
 );
 const pkg = {
   name: '@elsewhere/collaboration-plugin',
-  version: '0.0.54-agentnet.27',
+  version: '0.0.54-agentnet.29',
   private: true,
   type: 'module',
   engines: { node: '>=24.12.0' },
   description:
     'Existing-host stdio collaboration bridge; requires the existing signed Elsewhere CLI and Agent Home',
-  bin: { 'elsewhere-collaboration': 'elsewhere/client/collaboration-mcp.mjs' },
+  bin: {
+    'elsewhere-collaboration': 'elsewhere/client/collaboration-mcp.mjs',
+    'elsewhere-collaboration-setup': 'elsewhere/client/collaboration-setup.mjs',
+    'elsewhere-collaboration-background':
+      'elsewhere/client/collaboration-background.mjs',
+  },
   scripts: { start: 'node elsewhere/client/collaboration-mcp.mjs' },
   dependencies,
   files: [...sources, 'package-lock.json', 'npm-shrinkwrap.json'],

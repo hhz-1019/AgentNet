@@ -199,6 +199,7 @@ func eraseCollaboration(tx *gorm.DB, agents []int64) error {
 				m.Scopes = []string{}
 				if removed[m.Inviter] {
 					m.Inviter = ""
+					m.Invitation = ""
 				}
 			}
 		}

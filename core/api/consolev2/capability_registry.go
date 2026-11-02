@@ -262,7 +262,7 @@ func capabilitySeeds() []capabilitySeed {
 			seed.minCLI = "0.0.54-agentnet.5"
 		}
 		if seed.id == "collaboration" {
-			seed.minCLI = "0.0.54-agentnet.27"
+			seed.minCLI = "0.0.54-agentnet.29"
 			seed.zh.Description = "项目委托不是主人同意；读取按通信读权限，变更按通信写权限；仅当前宿主会话，不启动外部执行"
 			seed.en.Description = "Agent delegation is not owner consent; reads require communication:read, mutations communication:write; current host session only, no external execution"
 		}

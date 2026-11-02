@@ -1,6 +1,6 @@
 {
   "release": "elsewhere-native-core-20261025-r1",
-  "cli_version": "0.0.54-agentnet.27",
+  "cli_version": "0.0.54-agentnet.29",
   "stack": "elsewhere-go",
   "human_auth": "uid",
   "agent_auth": "ed25519",

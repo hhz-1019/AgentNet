@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "elsewhere": {
+      "command": "./runtime/launch",
+      "args": [],
+      "cwd": "."
+    }
+  }
+}

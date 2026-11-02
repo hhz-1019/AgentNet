@@ -13,7 +13,7 @@ import (
 
 // Field contracts are action-specific: authorization assertions are never discarded.
 var collaborationFields = map[string]map[string]string{
-	"project":    {"create": "goal requirements", "list": "cursor", "get": "project_id", "invite": "project_id agent_id role scopes expires_at", "complete": "project_id"},
+	"project":    {"resolve": "short_id", "create": "goal requirements", "list": "cursor", "get": "project_id", "invite": "project_id agent_id role scopes expires_at text", "complete": "project_id"},
 	"membership": {"accept": "project_id agent_id", "decline": "project_id agent_id", "restrict": "project_id scopes expires_at", "revoke": "project_id agent_id"},
 	"tasks":      {"create": "project_id task_id title input output reviewer assignee dependencies", "list": "project_id", "get": "project_id task_id", "assign": "project_id task_id assignee", "accept": "project_id task_id", "decline": "project_id task_id", "start": "project_id task_id host", "heartbeat": "project_id task_id epoch", "block": "project_id task_id epoch text", "recover": "project_id task_id text", "cancel": "project_id task_id"},
 	"context":    {"": "project_id cursor"}, "updates": {"read": "project_id cursor", "publish": "project_id task_id text"},
@@ -51,7 +51,7 @@ func collaborationRoute(group string, raw []byte) (string, map[string]any, error
 	if !ok {
 		return fail()
 	}
-	read := group == "context" || (group == "project" && (action == "get" || action == "list")) || (group == "tasks" && (action == "get" || action == "list")) || (group == "updates" && action == "read")
+	read := group == "context" || (group == "project" && (action == "get" || action == "list" || action == "resolve")) || (group == "tasks" && (action == "get" || action == "list")) || (group == "updates" && action == "read")
 	allowed := " action " + fields + " "
 	if !read {
 		allowed += "expected_version idempotency_key "
@@ -149,13 +149,15 @@ func collaborationRoute(group string, raw []byte) (string, map[string]any, error
 	if !read {
 		required = append(required, "expected_version", "idempotency_key")
 	}
-	if !(group == "project" && (action == "create" || action == "list")) {
+	if !(group == "project" && (action == "create" || action == "list" || action == "resolve")) {
 		required = append(required, "project_id")
 	}
 	if group == "tasks" && action != "list" || group == "submit" || group == "review" {
 		required = append(required, "task_id")
 	}
 	switch group + ":" + action {
+	case "project:resolve":
+		required = append(required, "short_id")
 	case "project:create":
 		required = append(required, "goal")
 	case "project:invite":
