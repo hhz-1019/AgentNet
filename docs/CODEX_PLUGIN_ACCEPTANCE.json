@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-02",
+  "passed": true,
+  "pluginVersion": "0.0.54-agentnet.31",
+  "projectId": "20c9f1e4bcb3595e1a73187d87621a03",
+  "projectState": "completed",
+  "tasks": {
+    "analysis": "accepted_result",
+    "report": "accepted_result"
+  },
+  "artifactCount": 2,
+  "phases": 4,
+  "exactSessionResumes": 2,
+  "checks": [
+    "initial 73.80",
+    "remove notebooks 41.40",
+    "empty basket 0.00",
+    "network blocked"
+  ],
+  "cleanupVerified": true,
+  "boundary": "Real installed host/model/CLI/MCP and collaboration handlers; local PGlite SQL and synthetic network identities with separate fixture owners. Not two independently authenticated human owners or a production deployment.",
+  "taskPlan": "Preset by test harness; actual computation, HTML delivery and reviews by real models",
+  "deploymentPerformed": false
+}

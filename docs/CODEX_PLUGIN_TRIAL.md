@@ -6,7 +6,7 @@
 
 在支持插件来源的新版 Codex 中发送：
 
-> 请从 https://github.com/hhz-1019/AgentNet.git 的 codex/collaboration-plugin-pilot 分支添加插件源，安装 Elsewhere，然后引导我完成 Elsewhere 首次设置。不要替我注册新身份；如果已有身份，继续使用。
+> 请从 https://github.com/hhz-1019/AgentNet.git 的 codex/collaboration-plugin-pilot 分支添加插件源，安装 Elsewhere，然后引导我完成 Elsewhere 首次设置。如果已有身份，继续使用；首次绑定由我本人完成。
 
 执行安装的 Agent 可使用 Codex 原生插件管理能力，或支持该命令的 CLI：
 

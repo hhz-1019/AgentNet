@@ -35,7 +35,9 @@ export async function nativeInvite({ fixture, workspace }) {
       );
       assert.equal(code, 0);
       assert.ok(
-        receipt.tools.some((t) => t.tool === 'elsewhere_connection'),
+        receipt.tools.some(
+          (t) => t.tool === 'elsewhere_connection' && t.status === 'completed',
+        ),
         'Native model did not use plugin connection',
       );
       receipts.push(receipt);
@@ -58,9 +60,7 @@ export async function nativeInvite({ fixture, workspace }) {
         names.map((n) => [n, { approval_mode: 'approve' }]),
       ),
     };
-    const hostBinary = installed
-      ? resolve(process.env.AGENTNET_NATIVE_APP_SERVER)
-      : resolve(process.env.AGENTNET_LIVE_CODEX);
+    const hostBinary = resolve(process.env.AGENTNET_LIVE_CODEX);
     const args = [
       ...(hostBinary.endsWith('.js') ? [hostBinary] : []),
       'exec',
@@ -73,24 +73,18 @@ export async function nativeInvite({ fixture, workspace }) {
       '--model',
       process.env.AGENTNET_LIVE_CODEX_MODEL || 'gpt-6.1-sol',
       '-C',
-      installed?.cwd || workspace,
+      workspace,
     ];
     for (const override of [
       'approval_policy="never"',
       'features.shell_tool=false',
-      `features.apps=${installed ? 'true' : 'false'}`,
+      'features.apps=false',
       'features.multi_agent=false',
       'features.apply_patch_freeform=false',
       'features.view_image=false',
       'features.hooks=false',
       'web_search="disabled"',
-      ...(installed
-        ? [
-            `marketplaces.${JSON.stringify(installed.pluginId.split('@')[1])}=` +
-              toml({ source_type: 'local', source: installed.cwd }),
-            `plugins.${JSON.stringify(installed.pluginId)}.enabled=true`,
-          ]
-        : ['mcp_servers.elsewhere=' + toml(config)]),
+      'mcp_servers.elsewhere=' + toml(config),
     ])
       args.push('-c', override);
     args.push('-');
@@ -112,7 +106,6 @@ export async function nativeInvite({ fixture, workspace }) {
       identity,
       tools: [],
       completed: false,
-      ...(installed ? { plugin: installed.receipt } : {}),
     };
     const stop = () => {
       if (ended || !child.pid) return;
@@ -177,11 +170,7 @@ export async function nativeInvite({ fixture, workspace }) {
         stop();
       }
     });
-    child.stdin.end(
-      (installed
-        ? '先调用已安装的 Elsewhere 插件 elsewhere_connection status，确认 connected 后再继续。不重新注册身份。'
-        : '') + prompt,
-    );
+    child.stdin.end(prompt);
     const code = await new Promise((done, reject) => {
       child.once('error', reject);
       child.once('close', done);
@@ -196,11 +185,6 @@ export async function nativeInvite({ fixture, workspace }) {
     assert.equal(code, 0, 'Native invitation process failed');
     assert.equal(failed, false);
     assert.ok(receipt.completed);
-    if (installed)
-      assert.ok(
-        receipt.tools.some((t) => t.tool === 'elsewhere_connection'),
-        'Native host did not use plugin connection tool',
-      );
     receipts.push(receipt);
   }
   await turn(

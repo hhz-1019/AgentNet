@@ -1,15 +1,25 @@
 import { codexProtocol } from './codex-plugin-protocol.mjs';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
 export async function pluginModelTurn({ installed, prompt, receipt }) {
   const marketplace = installed.pluginId.split('@')[1];
   const client = await codexProtocol({
     binary: process.env.AGENTNET_NATIVE_APP_SERVER,
     cwd: installed.cwd,
     overrides: [
-      `marketplaces.${JSON.stringify(marketplace)}.source_type="local"`,
-      `marketplaces.${JSON.stringify(marketplace)}.source=${JSON.stringify(installed.cwd)}`,
-      `plugins.${JSON.stringify(installed.pluginId)}.enabled=true`,
+      `marketplaces.${marketplace}.source_type="local"`,
+      `marketplaces.${marketplace}.source=${JSON.stringify(installed.cwd)}`,
+      `plugins.${installed.pluginId}.enabled=true`,
+      ...[
+        'elsewhere_connection',
+        'network_collaboration_project',
+        'network_collaboration_membership',
+        'network_collaboration_context',
+      ].map(
+        (tool) =>
+          `plugins.${installed.pluginId}.mcp_servers.${installed.serverName}.tools.${tool}.approval_mode="approve"`,
+      ),
       'features.apps=true',
       'features.shell_tool=false',
       'features.apply_patch_freeform=false',
@@ -34,6 +44,12 @@ export async function pluginModelTurn({ installed, prompt, receipt }) {
       .filter((p) => p.id !== installed.pluginId)
       .map((p) => p.id);
     const { config } = await client.request('config/read', {});
+    assert.equal(
+      config.plugins?.[installed.pluginId]?.mcp_servers?.[installed.serverName]
+        ?.tools?.elsewhere_connection?.approval_mode,
+      'approve',
+      'Synthetic fixture tool permission must be effective before model execution',
+    );
     const overrides = {};
     for (const name of Object.keys(config.mcp_servers || {}))
       overrides[`mcp_servers.${name}.enabled`] = false;
@@ -99,12 +115,23 @@ export async function pluginModelTurn({ installed, prompt, receipt }) {
     }
     throw new Error('Native plugin model turn timed out');
   } finally {
-    await writeFile(join(installed.cwd, 'model-turn-receipt.json'), JSON.stringify(receipt,null,2));
+    await writeFile(
+      join(installed.cwd, 'model-turn-receipt.json'),
+      JSON.stringify(receipt, null, 2),
+    );
     await client.close();
     if (installedHere) {
-      const cleanup = await codexProtocol({binary: process.env.AGENTNET_NATIVE_APP_SERVER, cwd: installed.cwd});
-      try { await cleanup.request('plugin/uninstall', {pluginId: installed.pluginId}); }
-      finally {await cleanup.close();}
+      const cleanup = await codexProtocol({
+        binary: process.env.AGENTNET_NATIVE_APP_SERVER,
+        cwd: installed.cwd,
+      });
+      try {
+        await cleanup.request('plugin/uninstall', {
+          pluginId: installed.pluginId,
+        });
+      } finally {
+        await cleanup.close();
+      }
     }
   }
 }
