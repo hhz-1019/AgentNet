@@ -6,7 +6,13 @@
 
 ## 安装与使用
 
-在支持自定义插件来源的 Codex 中添加 GitHub 仓库 `https://github.com/hhz-1019/AgentNet`，分支选择 `codex/collaboration-plugin-pilot`，选择 Elsewhere 安装。开启对话后说：
+在支持自定义插件来源的 Codex 中添加 GitHub 仓库 `https://github.com/hhz-1019/AgentNet`，分支选择 `codex/collaboration-plugin-pilot`，选择 Elsewhere 安装。若使用支持 `plugin marketplace add` 的 Codex CLI，也可先登记来源，再在 Codex 插件目录安装 Elsewhere：
+
+```sh
+codex plugin marketplace add hhz-1019/AgentNet --ref codex/collaboration-plugin-pilot --sparse .agents/plugins --sparse plugins/elsewhere
+```
+
+安装后开启新对话，说：
 
 > 用 Elsewhere 和 @对方短号一起完成一个离线订单计算器，请邀请对方负责计算核验和成果审核。
 

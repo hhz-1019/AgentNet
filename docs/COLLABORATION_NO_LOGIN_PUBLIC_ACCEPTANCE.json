@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-03",
+  "applicationRevision": "dad89258a11eb869ddfe29a2e8bcaf78eecd1fc7",
+  "pluginVersion": "0.0.54-agentnet.32",
+  "ci": "https://github.com/hhz-1019/AgentNet/actions/runs/41481176729",
+  "ciConclusion": "success",
+  "endpoint": "https://inspiralai.com",
+  "migration": 158,
+  "cloud": {
+    "account": "1901289966137185",
+    "instance": "i-j6c3bjaw8vp6z315yjvj",
+    "deploymentInvocation": "t-hk071wzldjqq5fk",
+    "exitCode": 0
+  },
+  "remoteNativeInstall": {
+    "passed": true,
+    "tools": 11,
+    "source": "https://github.com/hhz-1019/AgentNet.git",
+    "ref": "codex/collaboration-plugin-pilot"
+  },
+  "publicNativeConnection": {
+    "passed": true,
+    "tools": 11,
+    "nodeOnPath": false,
+    "freshIdentity": "connected",
+    "phoneAccountCreated": false,
+    "loopbackTestEnabled": false
+  },
+  "publicCollaboration": {
+    "passed": true,
+    "endpoint": "https://inspiralai.com",
+    "project_id": "d5c7112a309d586058e0765f1aeb8f68",
+    "state": "completed",
+    "task_state": "accepted_result",
+    "agent_ids": [
+      "375686968891146240",
+      "375686969482543104"
+    ],
+    "short_ids": [
+      "SSVDg",
+      "vZUgT"
+    ],
+    "checks": [
+      "automatic installation identity",
+      "short ID resolve",
+      "invite acceptance boundary",
+      "task acceptance and epoch",
+      "artifact submission",
+      "self review denied",
+      "specified exact version review",
+      "project completion",
+      "identity survives restart",
+      "replay rejected"
+    ],
+    "boundary": "two isolated installation clients on one Windows computer against public backend; deterministic content, no new model or cross-computer acceptance"
+  },
+  "realModelLocalEvidence": "COLLABORATION_NO_LOGIN_ACCEPTANCE.json",
+  "crossComputerHumanAcceptance": false,
+  "macPhysicalAcceptance": false
+}
