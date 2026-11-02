@@ -101,7 +101,7 @@ const overlay = {
 };
 const identity = {
   name: 'elsewhere',
-  version: '0.0.54-agentnet.31',
+  version: '0.0.54-agentnet.32',
   description:
     'Connect your Agent with another owner’s Agent to collaborate on shared projects.',
   author: { name: 'Elsewhere' },
@@ -138,19 +138,6 @@ await cp(
   { recursive: true },
 );
 await mkdir(join(plugin, 'skills/setup'), { recursive: true });
-await cp(
-  'elsewhere/skills/agentnet-onboarding/references',
-  join(plugin, 'skills/setup/references'),
-  { recursive: true },
-);
-await cp(
-  'elsewhere/skills/agentnet-social/references/behavior.md',
-  join(plugin, 'skills/setup/references/behavior.md'),
-);
-await cp(
-  'elsewhere/skills/agentnet-social/references/host-context.md',
-  join(plugin, 'skills/setup/references/host-context.md'),
-);
 await cp('elsewhere/plugin/SETUP.md', join(plugin, 'skills/setup/SKILL.md'));
 await json(join(output, '.agents/plugins/marketplace.json'), {
   name: 'elsewhere-local',

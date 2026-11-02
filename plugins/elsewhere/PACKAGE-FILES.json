@@ -17,15 +17,23 @@
   },
   {
     "name": "elsewhere/docs/COLLABORATION_API.md",
-    "bytes": 15821
+    "bytes": 17718
+  },
+  {
+    "name": "elsewhere/docs/COLLABORATION_NO_LOGIN.md",
+    "bytes": 5289
+  },
+  {
+    "name": "elsewhere/docs/COLLABORATION_NO_LOGIN_ACCEPTANCE.json",
+    "bytes": 3230
   },
   {
     "name": "elsewhere/docs/COLLABORATION_PILOT.md",
-    "bytes": 4172
+    "bytes": 4289
   },
   {
     "name": "elsewhere/docs/COLLABORATION_VERIFICATION.md",
-    "bytes": 13688
+    "bytes": 16176
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-background-bridge.mjs",
@@ -37,43 +45,47 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-background-policy.mjs",
-    "bytes": 8034
+    "bytes": 8512
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-background.mjs",
-    "bytes": 22085
+    "bytes": 22142
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-enable.mjs",
-    "bytes": 3500
+    "bytes": 3473
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-host.mjs",
     "bytes": 5261
   },
   {
+    "name": "elsewhere/elsewhere/client/collaboration-identity.mjs",
+    "bytes": 8483
+  },
+  {
     "name": "elsewhere/elsewhere/client/collaboration-mcp.mjs",
-    "bytes": 1112
+    "bytes": 1354
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-native-host.mjs",
-    "bytes": 20384
+    "bytes": 20489
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-opencode-host.mjs",
-    "bytes": 17348
+    "bytes": 17457
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-plugin.mjs",
-    "bytes": 5555
+    "bytes": 2912
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-setup.mjs",
-    "bytes": 8162
+    "bytes": 8191
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration.mjs",
-    "bytes": 12935
+    "bytes": 12474
   },
   {
     "name": "elsewhere/elsewhere/client/connection-deletion.mjs",
@@ -105,7 +117,7 @@
   },
   {
     "name": "elsewhere/elsewhere/skills/agentnet-collaboration/SKILL.md",
-    "bytes": 8560
+    "bytes": 8977
   },
   {
     "name": "elsewhere/elsewhere/skills/agentnet-onboarding/references/rich-profile.md",
@@ -14093,7 +14105,7 @@
   },
   {
     "name": "elsewhere/package.json",
-    "bytes": 2153
+    "bytes": 2295
   },
   {
     "name": "elsewhere/plugin.json",
@@ -14141,22 +14153,10 @@
   },
   {
     "name": "elsewhere/skills/collaborate/SKILL.md",
-    "bytes": 8560
-  },
-  {
-    "name": "elsewhere/skills/setup/references/behavior.md",
-    "bytes": 20768
-  },
-  {
-    "name": "elsewhere/skills/setup/references/host-context.md",
-    "bytes": 7420
-  },
-  {
-    "name": "elsewhere/skills/setup/references/rich-profile.md",
-    "bytes": 3959
+    "bytes": 8977
   },
   {
     "name": "elsewhere/skills/setup/SKILL.md",
-    "bytes": 2090
+    "bytes": 2186
   }
 ]

@@ -66,6 +66,7 @@
     "build:collaboration-plugin": "node elsewhere/scripts/build-collaboration-plugin.mjs",
     "test:collaboration:plugin": "node --test elsewhere/client/collaboration.test.mjs elsewhere/client/collaboration-background.test.mjs elsewhere/client/collaboration-opencode-host.test.mjs elsewhere/client/collaboration-setup.test.mjs elsewhere/client/collaboration-enable.test.mjs elsewhere/client/collaboration-plugin.test.mjs",
     "test:collaboration:core": "node elsewhere/scripts/collaboration-core-test.mjs",
+    "test:collaboration:installation": "node elsewhere/scripts/collaboration-installation-test.mjs",
     "test:collaboration:postgres": "node elsewhere/scripts/collaboration-postgres-test.mjs",
     "test:collaboration:package": "node elsewhere/scripts/collaboration-package-test.mjs",
     "test:collaboration:live": "node elsewhere/scripts/collaboration-live-hosts.mjs",

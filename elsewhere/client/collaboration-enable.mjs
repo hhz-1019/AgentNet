@@ -3,7 +3,7 @@
 import { readFile, realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Elsewhere } from './sdk.mjs';
+import { existingCollaborationClient, collaborationIdentity } from './collaboration-identity.mjs';
 import {
   authorizePolicy,
   startBackground,
@@ -28,18 +28,13 @@ export async function enable({
   const saved = JSON.parse(await readFile(resolve(connection), 'utf8'));
   if (saved.host !== 'codex' || !saved.hostBinary)
     throw new Error('This shortcut currently supports installed Codex only.');
-  const client = new Elsewhere({
+  const client = await existingCollaborationClient({
     binary: await realpath(saved.cli),
     home: await realpath(saved.home),
     endpoint: saved.endpoint,
   });
   await client.connect();
-  const identity = JSON.parse(
-    await readFile(
-      resolve(client.cliHome, 'servers/agentnet/agent-v2-credentials.json'),
-      'utf8',
-    ),
-  ).agent_id;
+  const identity = await collaborationIdentity(client);
   const context = await client.collaboration_context({ project_id: project });
   if (context.project?.members?.[identity]?.state !== 'active')
     throw new Error('Accept the project before enabling background work.');

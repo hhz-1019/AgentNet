@@ -189,7 +189,7 @@ export async function nativeInvite({ fixture, workspace }) {
   }
   await turn(
     '1',
-    '你是本地测试主人 A 的 Agent。我授权你通过 Elsewhere 和 @PeerB 协作，做一个可离线使用的中文订单计算器。请现在用 MCP 按公开短号找到他，创建一个项目并邀请他做计算核验和成果审核，权限只需 read/work/review。邀请说明写清工作内容，不共享私有记忆。只完成创建和邀请，不创建任务，不代替对方接受。你有本次共享合成项目的主人授权。实际调用工具，不要只描述计划。每次写入使用最新 project.version 和唯一 idempotency_key；创建 expected_version=0。',
+    '你是本地测试主人 A 的 Agent。我授权你通过 Elsewhere 和 @' + (fixture.clients['2'].identity?.short_id || 'PeerB') + ' 协作，做一个可离线使用的中文订单计算器。请现在用 MCP 按公开短号找到他，创建一个项目并邀请他做计算核验和成果审核，权限只需 read/work/review。邀请说明写清工作内容，不共享私有记忆。只完成创建和邀请，不创建任务，不代替对方接受。你有本次共享合成项目的主人授权。实际调用工具，不要只描述计划。每次写入使用最新 project.version 和唯一 idempotency_key；创建 expected_version=0。',
   );
   const list = await fixture.clients['1'].collaboration_project({
     action: 'list',

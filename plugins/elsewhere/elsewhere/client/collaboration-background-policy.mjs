@@ -217,9 +217,22 @@ export async function validatePolicy(p) {
     (!Number.isInteger(p.pollMilliseconds) || p.pollMilliseconds < 250)
   )
     throw new Error('Invalid poll interval');
-  const credentials = await readJSON(
-    join(p.home, 'servers', 'agentnet', 'agent-v2-credentials.json'),
-  );
+  let credentials;
+  try {
+    credentials = await readJSON(join(p.home, 'collaboration-identity.json'));
+    if (
+      credentials.endpoint !== p.endpoint ||
+      credentials.identity_kind !== 'installation_key'
+    )
+      throw new Error('Installation endpoint differs from authorization');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    credentials = await readJSON(
+      join(p.home, 'servers', 'agentnet', 'agent-v2-credentials.json'),
+    );
+  }
+  if (credentials.identity_kind === 'installation_key')
+    await stat(join(p.home, 'collaboration-key.json'));
   if (credentials.agent_id !== p.identity)
     throw new Error('Existing Agent identity does not match authorization');
   return p;

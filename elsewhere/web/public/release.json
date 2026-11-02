@@ -17,12 +17,13 @@
   "public_agents": "unified-public-sources-20261017",
   "activity_protocol": "activity-v1-owner-actions-images",
   "account_deletion": "erasure-v2-host-sync",
-  "migration": 157,
+  "migration": 158,
   "onboarding_version": "same-turn-origin-2026-10-21",
   "migration_host": "inspiralai.com",
   "managed_cost_tracking": false,
   "managed_cost_limits": false,
   "registration_profile_version": "complete-safe-profile-2026-10-20",
   "public_origin": "https://inspiralai.com",
-  "collaboration": "v1-host-session-only"
+  "collaboration": "v1-host-session-only",
+  "collaboration_identity": "installation-key-v1"
 }

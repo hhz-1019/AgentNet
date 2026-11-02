@@ -79,6 +79,7 @@ try {
     CREATE TABLE agent_owners(agent_id BIGINT PRIMARY KEY REFERENCES agents(agent_id),owner_uid TEXT NOT NULL);
     INSERT INTO agent_owners VALUES(1,'independent-owner-A'),(2,'independent-owner-B'),(3,'independent-owner-C');
     ${migration}
+    ${(await readFile('core/migrations/000158_collaboration_installations.sql','utf8')).split('-- +goose Down')[0]}
   `,
     database,
   );

@@ -1,6 +1,6 @@
 # Elsewhere 原生 Codex 插件
 
-用户入口是 Codex 的插件目录：安装 Elsewhere → 运行首次设置并绑定账号 → 用公开短号邀请同伴 → 双方交付和审核共同项目。
+当前 .32 用户入口：安装 Elsewhere → 首次调用自动连接 → 用短号邀请同伴 → 双方交付和审核项目。无需另行注册或绑定账号。当前安装说明见 [试用说明](CODEX_PLUGIN_TRIAL.md)，以下保留早期版本验收历史。
 
 ## 包结构
 
@@ -14,7 +14,7 @@
 
 Codex MCP 加载器将 `command: ./runtime/launch` 和 `cwd: .` 解析到插件根目录；不要使用 `${CLAUDE_PLUGIN_ROOT}`，本机版本的 MCP 加载器没有展开该变量。Windows 使用同名 `launch.exe`；Mac 使用 shell 入口选择对应架构。运行时原文件哈希在构建时核验，许可证随包保留。
 
-身份保存在用户的独立 Agent Home，默认沿用 `~/.agentnet-codex/.elsewhere`，不进入插件缓存。插件升级和重新安装不重新注册身份。服务地址不匹配、认证失败或身份不完整时保留原身份并停止，不切换账号。自定义 Home 可通过宿主 MCP 环境配置指定；不要在聊天或公共插件包里保存身份路径或凭证。
+当前 .32 安装身份保存在 `~/.elsewhere-collaboration/codex`；旧版身份目录保持原样。身份保存在用户的独立 Agent Home，不进入插件缓存。插件升级和重新安装不重新注册身份。服务地址不匹配、认证失败或身份不完整时保留原身份并停止，不切换账号。自定义 Home 可通过宿主 MCP 环境配置指定；不要在聊天或公共插件包里保存身份路径或凭证。
 
 ## 本地安装与分发
 
@@ -70,6 +70,8 @@ Codex MCP 加载器将 `command: ./runtime/launch` 和 `cwd: .` 解析到插件�
 
 官方依据：[插件打包与 marketplace](https://developers.openai.com/plugins/build/plugins)、[插件安装入口](https://learn.chatgpt.com/docs/plugins)。
 
-## 2026-11-02 新账号后端部署
+## 免注册候选版 .32（2026-11-02，本地实现）
 
-`https://inspiralai.com` 已部署应用提交 `43558a413740211d7bc2dfde9831e8fedf4a7d89`，HTTPS、数据库迁移和协作接口未认证拒绝检查通过。详见 [部署记录](COLLABORATION_PILOT_DEPLOYMENT_20261102.md)。新环境未导入旧账户，PNVS 按用户要求暂缓配置，因此尚不能完成新用户注册绑定。跨电脑真人验收仍由用户后续手动完成，不改变上述本机模型测试的证据范围。
+新版入口改为“安装 → 自动连接并取得短号 → 邀请 → 对方接受 → 协作交付”，不再依赖手机号账号、资料卡或网页绑定。签名身份仅用于协作，不读取宿主登录凭证；异常保留原身份，后台执行授权仍独立。见 [免注册流程](COLLABORATION_NO_LOGIN.md) 和 [新版试用说明](CODEX_PLUGIN_TRIAL.md)。上文的 needs_binding、注册页面和 .31 部署记录属于旧版历史，不是 .32 用户流程。
+
+当前 .32 未推送 GitHub或部署线上，不以本地验证代替跨电脑真人或 Mac 实机验收。

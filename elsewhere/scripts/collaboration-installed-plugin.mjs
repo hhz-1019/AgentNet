@@ -21,6 +21,7 @@ export async function installFixturePlugin({ fixture, workspace, identity }) {
     data.mcpServers.elsewhere.env = {
       AGENTNET_HOME: fixture.homes[identity],
       AGENTNET_URL: fixture.endpoint,
+      ...(process.env.AGENTNET_PLUGIN_TEST_LOOPBACK==='1'?{AGENTNET_PLUGIN_TEST_LOOPBACK:'1'}:{}),
     };
     data.mcpServers[serverName] = data.mcpServers.elsewhere;
     delete data.mcpServers.elsewhere;

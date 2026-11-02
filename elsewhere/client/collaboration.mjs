@@ -1,8 +1,7 @@
 import { CollaborationHost, hostCapabilities } from './collaboration-host.mjs';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { z } from 'zod';
 import { actionNames } from './collaboration-background-policy.mjs';
+import { collaborationIdentity } from './collaboration-identity.mjs';
 const str = (max, min = 0) =>
   z
     .string()
@@ -216,17 +215,7 @@ export async function registerCollaboration(
       async (args) => {
         try {
           if (!client.ready) await client.connect();
-          const { agent_id } = JSON.parse(
-            await readFile(
-              join(
-                client.cliHome,
-                'servers',
-                'agentnet',
-                'agent-v2-credentials.json',
-              ),
-              'utf8',
-            ),
-          );
+          const agent_id = await collaborationIdentity(client);
           const runtime = await import('./collaboration-background.mjs');
           const binding = {
             home: client.cliHome,
@@ -278,17 +267,7 @@ export async function registerCollaboration(
         try {
           args = checkpointSchema.parse(args);
           if (!client.ready) await client.connect();
-          const { agent_id } = JSON.parse(
-            await readFile(
-              join(
-                client.cliHome,
-                'servers',
-                'agentnet',
-                'agent-v2-credentials.json',
-              ),
-              'utf8',
-            ),
-          );
+          const agent_id = await collaborationIdentity(client);
           if (typeof agent_id !== 'string' || !agent_id)
             throw new Error('Existing Agent identity required');
           const key = JSON.stringify([

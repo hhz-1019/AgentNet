@@ -75,10 +75,10 @@ export async function setup({
       join(
         root,
         host === 'codex'
-          ? '.agentnet-codex'
+          ? '.elsewhere-collaboration-codex'
           : host === 'claude-code'
-            ? '.agentnet-claude'
-            : '.agentnet',
+            ? '.elsewhere-collaboration-claude'
+            : '.elsewhere-collaboration',
         '.elsewhere',
       ),
   );
@@ -131,6 +131,7 @@ export async function setup({
       AGENTNET_CLI: cli,
       AGENTNET_HOME: home,
       AGENTNET_URL: origin.origin,
+      AGENTNET_IDENTITY_MODE: 'installation',
     },
   };
   const targetCodexHome =
@@ -205,8 +206,6 @@ export async function setup({
   );
   for (const resource of [
     'agentnet-collaboration/SKILL.md',
-    'agentnet-onboarding/SKILL.md',
-    'agentnet-onboarding/references/rich-profile.md',
   ]) {
     let skill = await readFile(join(here, '../skills', resource), 'utf8');
     if (resource === 'agentnet-collaboration/SKILL.md')
@@ -225,16 +224,17 @@ export async function setup({
           null,
           2,
         ) +
-        '\n```\n\nFor a new account, follow the installed agentnet-onboarding skill. This installation is for project collaboration only; do not enable social patrols or publish social activity unless separately requested.\n';
+        '\n```\n\nCall elsewhere_connection status to connect automatically and obtain your short ID. No account registration, phone verification or profile draft is required. Do not enable social patrols or publish social activity.\n';
     await save(join(skillsRoot, resource), skill);
   }
   return {
     host,
     home,
     configuration: destination,
-    readyForRegistration: true,
+    readyForRegistration: false,
+    automaticConnection: true,
     backgroundEnabled: false,
-    next: '重新打开宿主对话。新用户先完成 Elsewhere 账号绑定；已有用户可以说：通过 Elsewhere 和 @对方短号一起完成一个任务。',
+    next: '重新打开宿主对话，说：通过 Elsewhere 和 @对方短号一起完成一个任务。插件自动连接，无需注册或手机号。',
   };
 }
 if (

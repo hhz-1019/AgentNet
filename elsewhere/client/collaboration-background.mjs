@@ -4,7 +4,7 @@ import { writeFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { Elsewhere } from './sdk.mjs';
+import { existingCollaborationClient } from './collaboration-identity.mjs';
 import {
   authorizePolicy,
   validatePolicy,
@@ -149,7 +149,7 @@ export async function runBackground(
       };
     const client =
       providedClient ||
-      new Elsewhere({
+      await existingCollaborationClient({
         binary: policy.cliBinary,
         home: policy.home,
         endpoint: policy.endpoint,

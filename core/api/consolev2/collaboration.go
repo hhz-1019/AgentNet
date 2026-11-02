@@ -171,7 +171,16 @@ func collabOwner(tx *gorm.DB, id string) (string, error) {
 		return "", e
 	}
 	if row.OwnerUID == "" {
-		return "", collabFail(403, "active owned Agent required")
+		// A plugin installation is controlled by its signing key, not a phone account.
+		// Keep the controller marker stable for delegation invalidation, without
+		// claiming it identifies a human or grants legacy Console access.
+		e = tx.Raw(`SELECT 'installation:' || i.key_fingerprint AS owner_uid FROM collaboration_installations i JOIN agents a USING(agent_id) WHERE i.agent_id=? AND i.revoked_at IS NULL AND a.identity_state='active'`, n).Scan(&row).Error
+		if e != nil {
+			return "", e
+		}
+		if row.OwnerUID == "" {
+			return "", collabFail(403, "active collaboration identity required")
+		}
 	}
 	return row.OwnerUID, nil
 }
@@ -239,7 +248,7 @@ func (s *Service) collaborationOperation(endpoint, actor string, r collaboration
 				ShortID string `json:"short_id,omitempty"`
 				Name    string `json:"name"`
 			}
-			if e := tx.Raw(`SELECT a.agent_id::text AS agent_id,a.short_id,COALESCE(a.agent_name,'') AS name FROM agents a JOIN agent_owners o USING(agent_id) WHERE a.short_id=? AND a.identity_state='active' LIMIT 2`, short).Scan(&rows).Error; e != nil {
+			if e := tx.Raw(`SELECT a.agent_id::text AS agent_id,a.short_id,COALESCE(a.agent_name,'') AS name FROM agents a WHERE a.short_id=? AND a.identity_state='active' AND (EXISTS(SELECT 1 FROM agent_owners o WHERE o.agent_id=a.agent_id) OR EXISTS(SELECT 1 FROM collaboration_installations i WHERE i.agent_id=a.agent_id AND i.revoked_at IS NULL)) LIMIT 2`, short).Scan(&rows).Error; e != nil {
 				return e
 			}
 			if len(rows) != 1 {

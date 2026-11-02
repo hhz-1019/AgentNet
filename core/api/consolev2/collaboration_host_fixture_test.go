@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,6 +20,10 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/ut"
 )
+
+type installationFixtureIDs struct{ value atomic.Int64 }
+
+func (g *installationFixtureIDs) NextID() (int64, error) { return g.value.Add(1), nil }
 
 // Opt-in loopback fixture for REAL installed host sessions. Only authentication
 // uses fixture bearer tokens; collaboration handlers and SQL transactions are
@@ -34,6 +39,10 @@ func TestCollaborationHostFixture(t *testing.T) {
 	}
 	db := collaborationFixtureDB(t, dsn)
 	s := &Service{db: db}
+	installationMode := os.Getenv("AGENTNET_PLUGIN_TEST_LOOPBACK") == "1"
+	if installationMode {
+		s.idgen = &installationFixtureIDs{}
+	}
 	tokens := map[string]string{"1": collabID() + collabID(), "2": collabID() + collabID()}
 	h := server.New()
 	fixtureAuth := func(ctx context.Context, c *app.RequestContext) {
@@ -50,7 +59,12 @@ func TestCollaborationHostFixture(t *testing.T) {
 		c.Abort()
 	}
 	for _, group := range []string{"project", "membership", "tasks", "context", "updates", "submit", "review"} {
-		h.POST("/api/v2/collaboration/"+group, fixtureAuth, s.collaborationHandler(group))
+		if !installationMode {
+			h.POST("/api/v2/collaboration/"+group, fixtureAuth, s.collaborationHandler(group))
+		}
+	}
+	if installationMode {
+		s.Register(h)
 	}
 	listener := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(io.LimitReader(r.Body, (512<<10)+1))
@@ -58,12 +72,19 @@ func TestCollaborationHostFixture(t *testing.T) {
 			http.Error(w, "read failed", 400)
 			return
 		}
-		response := ut.PerformRequest(h.Engine, r.Method, r.URL.RequestURI(), &ut.Body{Body: bytes.NewReader(body), Len: len(body)}, ut.Header{Key: "Authorization", Value: r.Header.Get("Authorization")})
+		headers := []ut.Header{}
+		for key, values := range r.Header {
+			for _, value := range values {
+				headers = append(headers, ut.Header{Key: key, Value: value})
+			}
+		}
+		response := ut.PerformRequest(h.Engine, r.Method, r.URL.RequestURI(), &ut.Body{Body: bytes.NewReader(body), Len: len(body)}, headers...)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(response.Code)
 		_, _ = w.Write(response.Body.Bytes())
 	}))
 	defer listener.Close()
+	s.publicURL = listener.URL
 	write := func(name string, value any) {
 		t.Helper()
 		raw, err := json.MarshalIndent(value, "", "  ")
@@ -74,7 +95,11 @@ func TestCollaborationHostFixture(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("ready.json", map[string]any{"endpoint": listener.URL, "fixture_tokens": tokens, "authentication": "loopback-only fixture bearer; not production identity provisioning"})
+	if installationMode {
+		write("ready.json", map[string]any{"endpoint": listener.URL, "authentication": "production installation enrollment and Ed25519 verification"})
+	} else {
+		write("ready.json", map[string]any{"endpoint": listener.URL, "fixture_tokens": tokens, "authentication": "loopback-only fixture bearer; not production identity provisioning"})
+	}
 	deadline := time.Now().Add(18 * time.Minute)
 	for {
 		if _, err := os.Stat(filepath.Join(directory, "stop")); err == nil {

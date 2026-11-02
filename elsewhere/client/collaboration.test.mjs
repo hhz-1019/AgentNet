@@ -412,7 +412,8 @@ void test('distribution contains exact skill list and equal CLI versions', async
   const release = JSON.parse(
     await readFile('elsewhere/web/public/release.json'),
   );
-  assert.equal(release.migration, 157);
+  assert.equal(release.migration, 158);
+  assert.equal(release.collaboration_identity, 'installation-key-v1');
   for (const source of [
     ps,
     sh,

@@ -1,51 +1,31 @@
-# Elsewhere 双人协作插件试用
+# Elsewhere 双人协作插件 · 免注册版 .32
 
-这是 GitHub 自定义插件源，尚未进入 Codex 官方公共目录。安装在 Codex 内完成，不需要单独安装 Elsewhere 桌面程序或 Node。
+这是安装在 Codex 等 Agent 宿主中的附带协作工具。**不需要 Elsewhere 账号、手机号、邮箱或网页绑定。** 插件携带运行时，不需要另装 Node 或 Elsewhere 桌面软件。
 
-## 安装
+本版随 GitHub 分支 `codex/collaboration-plugin-pilot` 发布，默认连接 `https://inspiralai.com`。部署状态以部署记录和线上 `/release.json` 为准；服务需要迁移 158，无需 PNVS。
 
-在支持插件来源的新版 Codex 中发送：
+## 安装与使用
 
-> 请从 https://github.com/hhz-1019/AgentNet.git 的 codex/collaboration-plugin-pilot 分支添加插件源，安装 Elsewhere，然后引导我完成 Elsewhere 首次设置。如果已有身份，继续使用；首次绑定由我本人完成。
+在支持自定义插件来源的 Codex 中添加 GitHub 仓库 `https://github.com/hhz-1019/AgentNet`，分支选择 `codex/collaboration-plugin-pilot`，选择 Elsewhere 安装。开启对话后说：
 
-执行安装的 Agent 可使用 Codex 原生插件管理能力，或支持该命令的 CLI：
+> 用 Elsewhere 和 @对方短号一起完成一个离线订单计算器，请邀请对方负责计算核验和成果审核。
 
-```sh
-codex plugin marketplace add https://github.com/hhz-1019/AgentNet.git --ref codex/collaboration-plugin-pilot --sparse .agents/plugins --sparse plugins/elsewhere
-```
+插件首次调用自动连接并生成短号，已有身份复用。没有对方短号时，先让对方安装插件并说“显示我的 Elsewhere 协作短号”。同名不会自动合并，不能用 Codex 账号名或邮箱替代准确短号。
 
-随后在 Codex 插件目录中选择 **Elsewhere → 安装**。开启新对话，运行 Elsewhere 设置，并由本人在原有账号绑定页完成验证。旧 CLI 如果不认识 `plugin` 命令，需要升级；不要手工复制身份凭证或修改登录文件。
+对方收到邀请后，在自己的宿主中说：
 
-## 协作
+> 查看 Elsewhere 邀请，接受这个订单计算器项目并开始协作。
 
-双方各自安装、绑定后，使用对方的公开短号：
+双方 Agent 在原对话里领取任务、提交成果和交叉审核。必要任务的成果审核通过后项目才完成，不以发消息或“已领取”冒充完成。
 
-> 用 Elsewhere 和 @对方短号一起完成一个离线订单计算器。邀请对方负责计算核验和成果审核。
+## 本版边界
 
-对方在自己的 Codex 中说：
+- 身份是本机安装密钥，不读取 Codex 登录凭证，也不验证对方真实姓名。换电脑不会自动合并身份。
+- 连接失败保留身份重试，不要求用户回旧网站注册。
+- 只分享用户授权的项目内容；邀请需要对方接受。后台执行另需本地主人授权，安装和接受邀请不自动授权后台运行。
+- Windows 原生插件安装和免注册连接按本轮证据核验；Mac 包提供对应运行时，实机仍待验证。其他宿主可使用同一签名契约和 MCP 适配，不能把 Codex 实测扩张成所有宿主已验收。
+- Team 和独立前端不在本次范围。
 
-> 查看 Elsewhere 邀请，接受这个订单计算器项目，并开始协作。
+协议、实现与测试入口见 [免注册协作设计](COLLABORATION_NO_LOGIN.md)。公开插件源升级后仍属于 GitHub 自定义来源，不代表已进入 Codex 官方搜索目录。
 
-项目成果进入共享项目，指定评审者审核具体成果版本；必要任务通过审核后项目才完成。用户名、邮箱匹配和 Team 不属于本次最小链路。后台自动执行需要额外的本地主人授权，安装插件本身不会授予后台执行权限。
-
-## 试用条件与部署
-
-插件默认连接 `https://inspiralai.com`。2026-11-02 已在用户指定的新阿里云账号部署后端，HTTPS、版本、数据库迁移和协作接口鉴权检查通过，见 [部署记录](COLLABORATION_PILOT_DEPLOYMENT_20261102.md)。
-
-**当前可以安装插件，但还不能完成新用户注册绑定。** 用户选择暂缓短信认证配置；新环境使用独立数据库，未导入旧账号。短信配置和真实注册验收完成后，才能邀请朋友完整试用。两位真人跨电脑协作尚未验收。
-
-部署需要：
-
-1. 已部署包含项目、邀请、任务、成果、审核及事件接口的 Core。
-2. 已执行数据库迁移并生成部署后备份；后续更新保留当前数据，先备份再迁移。
-3. 尚需配置新账号 PNVS，验收真实账号注册、绑定及两台电脑的完整协作流程。
-
-模型仍在双方自己的 Codex 中运行，无需部署云端模型推理服务。本次复用新账号已有 ECS，数据库在服务器独立持久化目录中，没有购买新 ECS 或 RDS。运维以本次部署记录为准，不使用旧账号发布目标。
-
-## 系统覆盖
-
-- Windows x64：原生安装、运行时解压和无外置 Node 启动已实测。
-- macOS Apple Silicon / Intel：包含对应运行时，校验归档哈希与执行权限；尚未做 Mac 实机验收。
-- Linux、Windows ARM 和其他宿主的原生插件安装不在本发布的已验证范围。
-
-运行时随插件压缩分发，首次启动在用户目录解压。三平台包约 150 MB；无需用户配置运行环境，但首次下载仍需要相应网络与磁盘空间。
+本轮已经在同一台 Windows 的两个真实 Codex 插件实例中完成整个项目闭环，含 2 份成果、2 次审核、2 次原会话恢复。详见 [验收记录](COLLABORATION_NO_LOGIN_ACCEPTANCE.json)。这不等于两台电脑或 Mac 实机验收。

@@ -1,0 +1,108 @@
+{
+  "date": "2026-11-02",
+  "pluginVersion": "0.0.54-agentnet.32",
+  "localOnly": true,
+  "deploymentPerformed": false,
+  "githubPublished": false,
+  "passed": true,
+  "projectId": "69f2e3d518f8a40686655fb826aef7d7",
+  "projectState": "completed",
+  "tasks": {
+    "analysis": "accepted_result",
+    "report": "accepted_result"
+  },
+  "realModel": "gpt-6.1-sol",
+  "nativePluginInstallations": [
+    {
+      "identity": "1",
+      "installed": true,
+      "version": "0.0.54-agentnet.32",
+      "completed": true,
+      "tools": [
+        {
+          "tool": "elsewhere_connection",
+          "action": "status",
+          "status": "completed"
+        },
+        {
+          "tool": "network_collaboration_project",
+          "action": "resolve",
+          "status": "completed"
+        },
+        {
+          "tool": "network_collaboration_project",
+          "action": "create",
+          "status": "completed"
+        },
+        {
+          "tool": "network_collaboration_context",
+          "status": "completed"
+        },
+        {
+          "tool": "network_collaboration_project",
+          "action": "invite",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "identity": "2",
+      "installed": true,
+      "version": "0.0.54-agentnet.32",
+      "completed": true,
+      "tools": [
+        {
+          "tool": "elsewhere_connection",
+          "action": "status",
+          "status": "completed"
+        },
+        {
+          "tool": "list_mcp_resources",
+          "status": "failed"
+        },
+        {
+          "tool": "network_collaboration_project",
+          "action": "list",
+          "status": "completed"
+        },
+        {
+          "tool": "network_collaboration_project",
+          "action": "get",
+          "status": "failed"
+        },
+        {
+          "tool": "network_collaboration_project",
+          "action": "list",
+          "status": "completed"
+        },
+        {
+          "tool": "network_collaboration_membership",
+          "action": "accept",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "phases": 4,
+  "exactSessionResumes": 2,
+  "artifactCount": 2,
+  "reviewCount": 2,
+  "deliverableChecks": [
+    "initial 73.80",
+    "remove notebooks 41.40",
+    "empty basket 0.00",
+    "network blocked"
+  ],
+  "cleanupVerified": true,
+  "authentication": "Production Ed25519 installation enrollment and signed requests; no phone/owner accounts, fixture bearer tokens, or host login credential copying.",
+  "boundary": "Real installed hosts/models/plugins and production Ed25519 installation enrollment/authentication. Local PGlite SQL; no human accounts or fixture bearer tokens. Same computer; not cross-computer or production deployment.",
+  "evidence": "D:/elsewhere-installation-20261102/collaboration-live-nRKh9L/evidence.json",
+  "nativeFreshConnectionEvidence": "D:/elsewhere-installation-20261102/codex-plugin-6urMFS/evidence.json",
+  "securityEvidence": ".agentnet-audit/installation-tlTMXw/evidence.json",
+  "nativePluginSource": "D:/elsewhere-installation-20261102/codex-marketplace-v32-final",
+  "unverified": [
+    "two real people on different computers",
+    "macOS real device",
+    "other native host adapters for this version"
+  ]
+}

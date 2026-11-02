@@ -9,6 +9,7 @@ INSERT INTO agents(agent_id) VALUES(1),(2),(3);
 CREATE TABLE agent_owners(agent_id BIGINT PRIMARY KEY REFERENCES agents(agent_id),owner_uid TEXT NOT NULL);
 INSERT INTO agent_owners VALUES(1,'independent-owner-A'),(2,'independent-owner-B'),(3,'independent-owner-C');`);
 await db.exec((await readFile('core/migrations/000157_collaboration.sql','utf8')).split('-- +goose Down')[0]);
+await db.exec((await readFile('core/migrations/000158_collaboration_installations.sql','utf8')).split('-- +goose Down')[0]);
 const port=Number(process.env.AGENTNET_COLLABORATION_TEST_PORT||15443);
 const socket=new PGLiteSocketServer({db,port,host:'127.0.0.1'});
 await mkdir('.agentnet-audit',{recursive:true});

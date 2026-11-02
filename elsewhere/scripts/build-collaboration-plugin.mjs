@@ -2,12 +2,14 @@ import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 const root = process.cwd(),
-  out = resolve(root, 'dist-collaboration-plugin');
+  out = resolve(process.env.ELSEWHERE_PLUGIN_OUTPUT || resolve(root, 'dist-collaboration-plugin'));
 await mkdir(out, { recursive: true });
 // A new immutable stage prevents accidentally including previous output or local secrets.
 const stage = join(out, `stage-${Date.now()}`);
 await mkdir(stage);
 export const sources = [
+  'elsewhere/client/collaboration-plugin.mjs',
+  'elsewhere/client/collaboration-identity.mjs',
   'elsewhere/client/collaboration-mcp.mjs',
   'elsewhere/client/collaboration-setup.mjs',
   'elsewhere/client/collaboration-enable.mjs',
@@ -36,6 +38,7 @@ export const sources = [
   'docs/COLLABORATION_API.md',
   'docs/COLLABORATION_VERIFICATION.md',
   'docs/COLLABORATION_PILOT.md',
+  'docs/COLLABORATION_NO_LOGIN.md',
   'LICENSE',
 ];
 for (const source of sources) {
@@ -54,12 +57,12 @@ const dependencies = Object.fromEntries(
 );
 const pkg = {
   name: '@elsewhere/collaboration-plugin',
-  version: '0.0.54-agentnet.29',
+  version: '0.0.54-agentnet.32',
   private: true,
   type: 'module',
   engines: { node: '>=24.12.0' },
   description:
-    'Existing-host stdio collaboration bridge; requires the existing signed Elsewhere CLI and Agent Home',
+    'Host-neutral collaboration bridge with automatic installation-key connection; no phone account required',
   bin: {
     'elsewhere-collaboration': 'elsewhere/client/collaboration-mcp.mjs',
     'elsewhere-collaboration-setup': 'elsewhere/client/collaboration-setup.mjs',

@@ -1,98 +1,142 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { registerConnection } from './collaboration-plugin.mjs';
+import { InstallationClient } from './collaboration-identity.mjs';
 
-async function harness({
-  existing = false,
-  failure = false,
-  url = 'https://example.test/bind',
-} = {}) {
-  const home = await mkdtemp(join(tmpdir(), 'elsewhere-plugin-'));
-  if (existing) {
-    await mkdir(join(home, 'servers/agentnet'), { recursive: true });
-    await writeFile(
-      join(home, 'servers/agentnet/agent-v2-credentials.json'),
-      '{}',
-    );
-  }
-  let handler;
-  const calls = [];
-  const client = {
-    ready: true,
-    cliHome: home,
-    endpoint: 'https://example.test',
-    async collaboration_project() {
-      if (failure) throw new Error('Private diagnostic');
-      return { projects: [] };
-    },
-    async command(args) {
-      calls.push(args);
-      return { console_url: url };
-    },
-  };
+await test('connection is automatic and exposes only a shareable identity', async () => {
+  let call;
   registerConnection(
     {
-      registerTool(n, s, fn) {
-        handler = fn;
+      registerTool(_n, _s, fn) {
+        call = fn;
       },
     },
-    client,
+    {
+      async connect() {
+        return {
+          state: 'connected',
+          agent_id: '7',
+          short_id: 'Abc12',
+          identity_kind: 'installation_key',
+        };
+      },
+    },
   );
-  const invoke = async (request) => {
-    const r = await handler(request);
-    return { error: r.isError, ...JSON.parse(r.content[0].text) };
+  const result = await call({ action: 'status' });
+  const value = JSON.parse(result.content[0].text);
+  assert.equal(value.state, 'connected');
+  assert.equal(value.short_id, 'Abc12');
+  assert.equal(value.console_url, undefined);
+});
+await test('errors do not offer replacement registration or leak diagnostics', async () => {
+  let call;
+  registerConnection(
+    {
+      registerTool(_n, _s, fn) {
+        call = fn;
+      },
+    },
+    {
+      async connect() {
+        throw Error('private secret');
+      },
+    },
+  );
+  const result = await call({ action: 'prepare' });
+  assert.equal(result.isError, true);
+  assert.ok(!JSON.stringify(result).includes('private secret'));
+});
+await test('concurrent first use saves one durable key; retries and endpoint changes preserve it', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'elsewhere-installation-'));
+  const options = {
+    home,
+    endpoint: 'https://example.test',
+    fetchImpl: async () => {
+      throw Error('offline');
+    },
   };
-  return { invoke, calls };
-}
-await test('fresh install needs binding and does not provision implicitly', async () => {
-  const h = await harness();
-  assert.equal((await h.invoke({ action: 'status' })).state, 'needs_binding');
-  assert.equal(h.calls.length, 0);
+  const a = new InstallationClient(options),
+    b = new InstallationClient(options);
+  await Promise.all([a.loadKey(), b.loadKey()]);
+  assert.equal(a.publicKey, b.publicKey);
+  const before = await readFile(join(home, 'collaboration-key.json'), 'utf8');
+  await assert.rejects(a.connect());
+  await assert.rejects(a.connect());
+  await assert.rejects(
+    new InstallationClient({
+      ...options,
+      endpoint: 'https://other.test',
+    }).connect(),
+  );
+  assert.equal(
+    await readFile(join(home, 'collaboration-key.json'), 'utf8'),
+    before,
+  );
 });
-await test('existing authenticated owner is ready without registration', async () => {
-  const h = await harness({ existing: true });
-  assert.equal((await h.invoke({ action: 'status' })).state, 'connected');
-  assert.equal(h.calls.length, 0);
-});
-await test('authentication failure preserves identity and never provisions', async () => {
-  const h = await harness({ existing: true, failure: true });
-  const r = await h.invoke({ action: 'status' });
-  assert.equal(r.state, 'connection_needs_attention');
-  assert.equal(h.calls.length, 0);
-  assert.ok(!JSON.stringify(r).includes('Private diagnostic'));
-});
-await test('explicit setup validates profile, preserves identity, returns only owner URL', async () => {
-  const h = await harness({ existing: true });
-  const r = await h.invoke({
-    action: 'prepare',
-    display_name: 'Pilot',
-    draft: { test: true },
-  });
-  assert.equal(r.state, 'awaiting_owner_binding');
-  assert.equal(h.calls[0][0], 'validate-profile');
-  assert.ok(h.calls[1].includes('--require-existing-agent'));
-});
-await test('foreign binding URLs are rejected', async () => {
-  const h = await harness({ url: 'https://foreign.test/bind' });
-  const r = await h.invoke({
-    action: 'prepare',
-    display_name: 'Pilot',
-    draft: {},
-  });
-  assert.equal(r.error, true);
-  assert.ok(!JSON.stringify(r).includes('foreign.test'));
+await test('HTTP and embedded credentials cannot receive plugin keys', () => {
+  for (const endpoint of [
+    'http://remote.test',
+    'https://user:password@example.test',
+    'https://example.test/path',
+  ])
+    assert.throws(() => new InstallationClient({ home: tmpdir(), endpoint }));
 });
 
-await test('binding URL cannot embed userinfo even on the configured origin', async () => {
-  const h = await harness({ url: 'https://user:secret@example.test/bind' });
-  const r = await h.invoke({
-    action: 'prepare',
-    display_name: 'Pilot',
-    draft: {},
+await test('a replaced valid key fails before network enrollment', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'elsewhere-key-'));
+  const other = await mkdtemp(join(tmpdir(), 'elsewhere-other-key-'));
+  let requests = 0;
+  const options = {
+    home,
+    endpoint: 'https://example.test',
+    fetchImpl: async () => {
+      requests++;
+      throw Error('unexpected network');
+    },
+  };
+  const a = new InstallationClient(options),
+    b = new InstallationClient({ ...options, home: other });
+  await a.loadKey();
+  await b.loadKey();
+  await writeFile(
+    join(home, 'collaboration-identity.json'),
+    JSON.stringify({
+      agent_id: '1',
+      endpoint: a.endpoint,
+      key_fingerprint: a.fingerprint,
+    }),
+  );
+  await copyFile(
+    join(other, 'collaboration-key.json'),
+    join(home, 'collaboration-key.json'),
+  );
+  await assert.rejects(a.connect());
+  assert.equal(requests, 0);
+});
+
+await test('version conflict retains definite-rejection semantics for background receipts', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'elsewhere-error-'));
+  let status = 409;
+  const client = new InstallationClient({
+    home,
+    endpoint: 'https://example.test',
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({ error: { code: 'COLLABORATION_VERSION_CONFLICT' } }),
+        { status },
+      ),
   });
-  assert.equal(r.error, true);
-  assert.ok(!JSON.stringify(r).includes('secret'));
+  await client.loadKey();
+  await assert.rejects(
+    client.request('/api/v2/plugin/collaboration/project', {}),
+    (e) => e.status === 409 && e.apiCode === 'COLLABORATION_VERSION_CONFLICT',
+  );
+  status = 502;
+  await assert.rejects(
+    client.request('/api/v2/plugin/collaboration/project', {}),
+    (e) => e.status === 502 && !e.apiCode,
+  );
 });

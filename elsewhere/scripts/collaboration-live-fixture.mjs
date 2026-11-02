@@ -7,6 +7,7 @@ import { spawn, execFile } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Elsewhere } from '../client/sdk.mjs';
+import { InstallationClient } from '../client/collaboration-identity.mjs';
 
 export async function startCollaborationLiveFixture({
   directory,
@@ -16,6 +17,7 @@ export async function startCollaborationLiveFixture({
   directory = resolve(directory);
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const db = await PGlite.create();
+  const installationMode=process.env.AGENTNET_PLUGIN_TEST_LOOPBACK==='1';
   let socket;
   let child;
   let exited;
@@ -96,11 +98,15 @@ export async function startCollaborationLiveFixture({
       INSERT INTO agents VALUES(1,'active','PeerA','Pilot A'),(2,'active','PeerB','Pilot B'),(3,'active','PeerC','Pilot C');
       CREATE TABLE agent_owners(agent_id BIGINT PRIMARY KEY REFERENCES agents(agent_id),owner_uid TEXT NOT NULL);
       INSERT INTO agent_owners VALUES(1,'synthetic-pilot-owner-A'),(2,'synthetic-pilot-owner-B'),(3,'synthetic-pilot-owner-C');`);
+    if(installationMode) {
+      await db.exec("DELETE FROM agent_owners; DELETE FROM agents; ALTER TABLE agents ADD COLUMN email TEXT UNIQUE; ALTER TABLE agents ADD COLUMN email_kind TEXT; ALTER TABLE agents ADD COLUMN bio TEXT; ALTER TABLE agents ADD COLUMN created_at BIGINT; ALTER TABLE agents ADD COLUMN updated_at BIGINT;");
+    }
     const migration = await readFile(
       'core/migrations/000157_collaboration.sql',
       'utf8',
     );
     await db.exec(migration.split('-- +goose Down')[0]);
+    await db.exec((await readFile('core/migrations/000158_collaboration_installations.sql','utf8')).split('-- +goose Down')[0]);
     const port = Number(
       process.env.AGENTNET_COLLABORATION_LIVE_DB_PORT || 15453,
     );
@@ -173,6 +179,12 @@ export async function startCollaborationLiveFixture({
     const homes = {};
     for (const identity of ['1', '2']) {
       const home = join(directory, 'agent-' + identity, '.elsewhere');
+      if(installationMode){
+        clients[identity]=new InstallationClient({home,endpoint:ready.endpoint,binary:resolve(cliBinary),allowLoopback:true});
+        await clients[identity].connect({displayName:'Pilot '+identity});
+        homes[identity]=home;
+        continue;
+      }
       await mkdir(join(home, 'servers', 'agentnet'), {
         recursive: true,
         mode: 0o700,
@@ -213,7 +225,7 @@ export async function startCollaborationLiveFixture({
       await clients[identity].connect();
       homes[identity] = home;
     }
-    return { endpoint: ready.endpoint, clients, homes, directory, close };
+    return { endpoint: ready.endpoint, clients, homes, directory, close, db };
   } catch (error) {
     await close();
     throw error;

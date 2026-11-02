@@ -57,7 +57,7 @@ for (const key of [
   await stat(resolve(process.env[key]));
 }
 await mkdir('.agentnet-audit', { recursive: true });
-const directory = await mkdtemp(resolve('.agentnet-audit/collaboration-live-'));
+const directory = await mkdtemp(resolve(process.env.AGENTNET_LIVE_AUDIT_ROOT || '.agentnet-audit', 'collaboration-live-'));
 const workspace = join(directory, 'workspace');
 await mkdir(workspace);
 const fixture = await startCollaborationLiveFixture({
@@ -76,7 +76,9 @@ const evidence = {
     : 'codex-and-' + workerHost,
   startedAt: new Date().toISOString(),
   boundary:
-    'Real installed host/model/CLI/MCP and collaboration handlers; local PGlite SQL and synthetic network identities with separate fixture owners. Not two independently authenticated human owners or a production deployment.',
+    process.env.AGENTNET_PLUGIN_TEST_LOOPBACK === '1'
+      ? 'Real installed hosts/models/plugins and production Ed25519 installation enrollment/authentication. Local PGlite SQL; no human accounts or fixture bearer tokens. Same computer; not cross-computer or production deployment.'
+      : 'Real installed host/model/CLI/MCP and collaboration handlers; local PGlite SQL and synthetic network identities with separate fixture owners. Not two independently authenticated human owners or a production deployment.',
   phases: [],
 };
 let project;
@@ -215,7 +217,7 @@ try {
     const initiated = await nativeInvite({ fixture, workspace });
     project = initiated.project;
     evidence.nativeInvitations = initiated.receipts;
-    evidence.discovery = { short_id: 'PeerB', agent_id: '2', native: true };
+    evidence.discovery = { short_id: fixture.clients['2'].identity?.short_id || 'PeerB', agent_id: '2', native: true };
     evidence.invitation = {
       native: true,
       acceptance:
@@ -224,7 +226,7 @@ try {
   } else {
     const peer = await fixture.clients['1'].collaboration_project({
       action: 'resolve',
-      short_id: '@PeerB',
+      short_id: '@'+(fixture.clients['2'].identity?.short_id || 'PeerB'),
     });
     assert.equal(peer.agent_id, '2');
     evidence.discovery = { short_id: peer.short_id, agent_id: peer.agent_id };

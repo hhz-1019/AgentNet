@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 const npm = process.env.npm_execpath;
 if (!npm) throw new Error('Run through npm run test:collaboration:package');
 const artifact = resolve(
-  'dist-collaboration-plugin/elsewhere-collaboration-plugin-0.0.54-agentnet.29.tgz',
+  process.env.ELSEWHERE_PLUGIN_OUTPUT || 'dist-collaboration-plugin', 'elsewhere-collaboration-plugin-0.0.54-agentnet.32.tgz',
 );
 const directory = await mkdtemp(join(tmpdir(), 'elsewhere-installed-plugin-'));
 await writeFile(
@@ -42,6 +42,7 @@ const transport = new StdioClientTransport({
     AGENTNET_CLI: join(directory, 'unused-cli'),
     AGENTNET_HOME: join(directory, 'existing-home-fixture'),
     AGENTNET_URL: 'https://fixture.invalid',
+    AGENTNET_IDENTITY_MODE: 'installation',
   },
   stderr: 'pipe',
 });
@@ -49,7 +50,7 @@ const client = new Client({ name: 'installed-package-smoke', version: '1' });
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 10);
+  assert.equal(tools.length, 11);
   for (const group of [
     'project',
     'membership',

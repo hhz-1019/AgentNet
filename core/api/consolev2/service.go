@@ -361,6 +361,7 @@ func (s *Service) requireSameOrigin() app.HandlerFunc {
 // Register exposes only V2 routes. The caller controls registration with the
 // Console V2 feature flag, so disabled deployments retain the exact V1 surface.
 func (s *Service) Register(h *server.Hertz) {
+	s.registerInstallationRoutes(h)
 	h.POST("/api/v2/bootstrap-grants", s.issueBootstrapGrant)
 	if s.enablePublicRegistration {
 		h.POST("/api/v2/agent-identities/registration-challenges", s.issuePublicRegistrationChallenge)

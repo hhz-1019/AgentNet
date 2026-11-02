@@ -12,7 +12,7 @@ import { join, resolve } from 'node:path';
 import { codexProtocol } from './codex-plugin-protocol.mjs';
 const source = resolve(process.argv[2]);
 const binary = resolve(process.argv[3]);
-const directory = await mkdtemp(resolve('.agentnet-audit/codex-plugin-'));
+const directory = await mkdtemp(resolve(process.env.AGENTNET_LIVE_AUDIT_ROOT || '.agentnet-audit','codex-plugin-'));
 const marketplace = join(directory, 'marketplace');
 const home = join(directory, 'codex-home');
 const identity = join(directory, 'fresh-identity');
@@ -21,7 +21,7 @@ await cp(source, marketplace, { recursive: true });
 for (const filename of ['.mcp.json', 'mcp.json']) {
   const file = join(marketplace, 'plugins/elsewhere', filename);
   const config = JSON.parse(await readFile(file, 'utf8'));
-  config.mcpServers.elsewhere.env = { AGENTNET_HOME: identity };
+  config.mcpServers.elsewhere.env = { AGENTNET_HOME: identity, AGENTNET_URL: process.env.AGENTNET_PLUGIN_TEST_ENDPOINT || 'http://127.0.0.1:1', AGENTNET_PLUGIN_TEST_LOOPBACK:'1' };
   await writeFile(file, JSON.stringify(config));
 }
 const client = await codexProtocol({
@@ -67,7 +67,7 @@ try {
     arguments: { action: 'status' },
   });
   const state = JSON.parse(result.content[0].text);
-  assert.equal(state.state, 'needs_binding');
+  assert.equal(state.state, process.env.AGENTNET_PLUGIN_TEST_ENDPOINT ? 'connected' : 'connection_needs_attention');
   assert.equal(
     await access(
       join(identity, 'servers/agentnet/agent-v2-credentials.json'),
@@ -84,7 +84,8 @@ try {
     tools: Object.keys(mcp.tools),
     nodeOnPath: false,
     freshIdentity: state.state,
-    implicitlyRegistered: false,
+    phoneAccountCreated: false,
+    automaticInstallationIdentity: state.state==='connected',
     directory,
   };
   await writeFile(

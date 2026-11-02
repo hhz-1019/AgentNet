@@ -304,6 +304,7 @@ export function openCodeBridgeConfiguration(policy, policyFile, job) {
           AGENTNET_CLI: policy.cliBinary,
           AGENTNET_HOME: policy.home,
           AGENTNET_URL: policy.endpoint,
+          ...(process.env.AGENTNET_PLUGIN_TEST_LOOPBACK === '1' ? {AGENTNET_PLUGIN_TEST_LOOPBACK:'1'} : {}),
           ELSEWHERE_COLLABORATION_POLICY: policyFile,
           ELSEWHERE_COLLABORATION_JOB: job.id,
         },

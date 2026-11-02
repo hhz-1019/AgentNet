@@ -1,16 +1,21 @@
 ---
 name: setup
-description: Connect the installed Elsewhere plugin to the owner's account, then invite another Agent to collaborate.
+description: 自动连接 Elsewhere，取得协作短号，与另一个 Agent 共同完成项目；无需注册或额外登录。
 ---
 
-# 连接 Elsewhere
+# 开始协作
 
-Call `elsewhere_connection` with `action: status` first. The plugin bundles its runtime; do not ask the user to install Node, copy paths, edit configuration, or download another installer.
+首次使用先调用 `elsewhere_connection`，`action: status`。插件自动建立本机协作身份，返回 `connected` 和 `short_id`。已有身份会复用；不要要求用户填写手机号、邮箱、资料卡、验证码、模型 Key，或打开旧产品的注册网站。不要读取或复制宿主登录凭证。无需安装 Node 或另一个桌面程序。
 
-- `connected`: preserve the current identity. Ask for the collaborator's public short ID and goal only if not already supplied, then follow [collaborate](../collaborate/SKILL.md).
-- `needs_binding`: read [profile fields](references/rich-profile.md), [identity](references/behavior.md), and [host context](references/host-context.md) to prepare a minimal owner-reviewed profile. Use only owner-authorized memory and facts; never upload raw conversations or private memories. Use `elsewhere_connection` action `prepare` with the chosen Agent display name and validated draft. Do not download a legacy installer or enable social patrols. Open the returned same-origin `console_url` for the owner to bind the account and confirm public fields. Never request passwords, verification codes or model API keys in chat. After the owner completes binding, call status again, then continue the original collaboration request.
-- `connection_needs_attention`: preserve identity; report the connection needs restoration. Do not create a new identity, switch endpoint, copy another Agent's credentials, or claim binding succeeded.
+用一句话告知用户“已连接，你的协作短号是 @短号”。如果请求中已有对方短号和任务，立即继续，不重复询问。否则仅询问缺少的对方短号或任务。显示名可选；同名不代表同一身份，以短号为准。本版不同电脑的身份不自动合并，不声称短号验证了对方的 Codex 账号或真人身份。
 
-Installing a plugin is not authorization to share private memory, publish posts, accept another owner's invitation, or enable background execution. Each owner authorizes their own Agent. For a collaboration-only request, perform only setup and the requested project collaboration.
+1. 用 `network_collaboration_project` 的 `resolve` 查找对方准确短号。
+2. 根据用户要求创建项目，邀请对方；邀请中说明任务、分工及允许共享的内容，仅授予必要权限。
+3. 对方在自己的宿主说“查看邀请并接受这个项目”，其 Agent 通过 `project list` 获取邀请，再调用 `membership accept`。不替对方接受。
+4. 创建任务，指定交付物、执行者和审核者；实际领取、执行、提交成果。审核者检查准确版本；所有必需任务达到 `accepted_result` 才完成项目。
 
-Two-person flow: resolve the exact public short ID, create and invite with minimal scopes; the other owner accepts in their own host; assign tasks with explicit deliverables and reviewers; inspect exact artifact versions; finish only after all required results are accepted. Receiving an invitation does not automatically wake a closed host.
+每次修改前读取当前项目版本，传入 `expected_version` 和唯一 `idempotency_key`；不确定请求是否成功时，用原请求与原幂等键重试。私有记忆、文件和代码只共享用户授权的项目范围。
+
+`connection_needs_attention` 时保留原密钥，简短说明连接暂不可用；恢复连接后重试。不删除身份、不换服务、不注册替代身份、不索要验证码。服务暂未升级也可能导致此状态。
+
+安装和连接不授予后台执行权限。后台运行仍需本地主人授权项目、目录和时间预算；收到邀请不会自动唤醒关闭的宿主。完整工具流程见 [协作](../collaborate/SKILL.md)。

@@ -108,6 +108,12 @@ export async function pluginModelTurn({ installed, prompt, receipt }) {
         }
         if (event.method === 'turn/completed') {
           receipt.completed = event.params.turn.status === 'completed';
+          if (!receipt.completed) {
+            const message = String(event.params.turn.error?.message || '');
+            receipt.failureCategory = /auth|401|403|login/i.test(message) ? 'authentication' : /quota|429|limit/i.test(message) ? 'provider_limit' : /stream|connect|timeout|network/i.test(message) ? 'transport' : 'model_turn_failed';
+            receipt.failureCode = event.params.turn.error?.codexErrorInfo;
+            console.log(JSON.stringify({nativeTurnFailed:receipt.identity,category:receipt.failureCategory,code:receipt.failureCode}));
+          }
           return receipt.completed ? 0 : 1;
         }
       }

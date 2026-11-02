@@ -2,6 +2,8 @@
 
 日期：2026-10-31。以下为本地构建与验收，不代表线上已发布，也不代表所有宿主已适配。
 
+2026-11-02 原生 Codex 插件 `.30` 的安装、首次设置、双身份协议闭环及真实模型重跑限制见 [原生插件交付记录](CODEX_PLUGIN.md#2026-11-02-实测结果)。本轮原生协议验收不替代下述 `.29` 的模型验收，也不继承其通过结论。
+
 ## 核心合同
 
 `node elsewhere/scripts/collaboration-core-test.mjs` 使用隔离 PGlite 数据库，经 PostgreSQL wire protocol 执行原生 Go 服务，并将实际 Hertz 错误响应交给既有 CLI transport 验证。已通过：项目邀请与成员接受、权限祖先约束、归属变更拒绝、任务依赖、接单与执行分离、唯一执行权、租约 epoch、过期恢复、幂等键冲突、成果版本、指定评审、返工、项目完成和撤销后拒绝访问。
@@ -82,3 +84,15 @@ CLI/plugin .29 增加公开短号精确查找、邀请说明、Codex 原生 MCP 
 真实 CLI/Core 后台快捷入口空任务测试 pair-shortcut-WC0vgi 通过：明确本地授权、后台启动、零模型调用、停止确认。Windows 新 setup 用独立 Codex Home 实际写入原生 MCP 配置，未修改本用户现有宿主配置。Windows 旧安装器配套 .29 CLI 的9个场景通过。插件 Windows 54项测试通过；Linux 全套初轮262通过、1个Windows专属用例跳过，后续新增用例另见最终日志。核心 SQL/CLI 回归包括短号大小写、已删除身份拒绝和邀请说明删除保护通过；多连接 PostgreSQL 用例仍为跳过，不冒充本次真实PostgreSQL验收。
 
 Windows amd64 CLI 实际运行；macOS amd64/arm64 CLI 交叉编译通过，Node24.12.0对应官方macOS发行包SHA256校验通过。尚无 Mac 实机、真实账号跨机器试用、代码签名/notarization 或公共服务部署的通过证据。
+
+### 最终自然语言发起的整链验收
+
+最终目录 `.agentnet-audit/collaboration-live-mgcvTG`，项目 `0c7904a30204cdbba96f94892eea308f`。使用 `--run-live --same-host-diagnostic --native-invitations`：两条明确的本地测试主人指令交给真实 Codex CLI，发起方实际调用 resolve/create/get/invite，接收方实际调用 list/accept。接受前尝试 get 被服务端拒绝，随后正确接受；没有绕过邀请隐私边界。原生邀请会话完成收据和工具操作记录保存在 evidence.json 的 nativeInvitations。之后四阶段交付、两次精确会话恢复、两份成果、两次指定审核、项目 completed，以及真实浏览器的三个金额检查全部通过，passed=true，cleanupVerified=true。
+
+测试脚本只负责生成合成身份、明确测试主人的授权、定义两项任务和检查结果。按短号查找、项目创建、邀请和接受，以及成果计算/生成/提交/审核/完成，均由原生模型实际调用 MCP。任务拆解仍由验收脚本提供；本轮不宣称测试了任意自然语言任务的自主拆解能力。模型登录沿用本机既有登录；不是两位独立登录的真人，也不是跨机器或异构宿主验收。
+
+此前 aBh5I0 轮在邀请接受及第一份成果后被会话中断终止，未计为通过；保留其状态，没有恢复或重放未确认的执行。本轮使用新的独立项目重新验证。
+
+最终 Linux 全套为266项：265通过、1个Windows专属用例跳过；Windows插件54项通过；后续能力元数据单测9项通过；lint通过。完整 Windows 包在独立用户目录实际执行安装后，用安装后的独立 Node/MCP 枚举10个工具并验证 resolve 和 capabilities，无仓库运行时依赖。未修改本用户原来的 Codex 配置或认证。
+
+macOS归档在Windows构建时通过WSL GNU tar显式写入执行权限；打包工具检查 Install.command、runtime/node、runtime/elsewhere 的执行位，并生成每个归档SHA256。最终用户不需要WSL。该检查验证分发格式，不等于Mac实机运行通过。构建机的Windows tar直接打包曾产生无执行位归档，已由显式权限打包路径替代。
