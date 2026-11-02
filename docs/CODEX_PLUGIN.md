@@ -69,3 +69,7 @@ Codex MCP 加载器将 `command: ./runtime/launch` 和 `cwd: .` 解析到插件�
 测试宿主版本为 Codex `0.166.0`，插件入口为原生 `0.166.0-alpha.5.1`。其他版本的兼容性需要分别核验，不以当前版本实测替代通用兼容承诺。
 
 官方依据：[插件打包与 marketplace](https://developers.openai.com/plugins/build/plugins)、[插件安装入口](https://learn.chatgpt.com/docs/plugins)。
+
+## 2026-11-02 新账号后端部署
+
+`https://inspiralai.com` 已部署应用提交 `43558a413740211d7bc2dfde9831e8fedf4a7d89`，HTTPS、数据库迁移和协作接口未认证拒绝检查通过。详见 [部署记录](COLLABORATION_PILOT_DEPLOYMENT_20261102.md)。新环境未导入旧账户，PNVS 按用户要求暂缓配置，因此尚不能完成新用户注册绑定。跨电脑真人验收仍由用户后续手动完成，不改变上述本机模型测试的证据范围。
