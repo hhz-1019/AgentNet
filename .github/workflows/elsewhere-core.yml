@@ -7,6 +7,11 @@ on:
     branches: [main]
     paths: ['elsewhere/**', 'core/**', '.github/workflows/elsewhere-core.yml', 'package*.json', '.oxlintrc.json', '.oxfmtrc.json', '.dockerignore']
   workflow_dispatch:
+    inputs:
+      export_release_images:
+        description: Export verified images for an explicitly requested deployment
+        type: boolean
+        default: false
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -69,10 +74,10 @@ jobs:
           cache-from: type=gha,scope=gorse
           cache-to: type=gha,scope=gorse,mode=max,timeout=2m,ignore-error=true
       - name: Export tested gorse image
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || (github.event_name == 'workflow_dispatch' && inputs.export_release_images)
         run: bash elsewhere/scripts/export-release-image.sh gorse "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || (github.event_name == 'workflow_dispatch' && inputs.export_release_images)
         with:
           name: release-gorse-${{ github.sha }}
           path: /tmp/release-gorse/*
@@ -88,10 +93,10 @@ jobs:
           cache-from: type=gha,scope=sync
           cache-to: type=gha,scope=sync,mode=max,timeout=2m,ignore-error=true
       - name: Export tested sync image
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || (github.event_name == 'workflow_dispatch' && inputs.export_release_images)
         run: bash elsewhere/scripts/export-release-image.sh sync "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || (github.event_name == 'workflow_dispatch' && inputs.export_release_images)
         with:
           name: release-sync-${{ github.sha }}
           path: /tmp/release-sync/*
@@ -170,10 +175,10 @@ jobs:
           curl -fsSI http://localhost:8080/api/v2/console/session | grep -i 'cache-control: private, no-store'
           docker rm -f web-routing
       - name: Export tested web image
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || (github.event_name == 'workflow_dispatch' && inputs.export_release_images)
         run: bash elsewhere/scripts/export-release-image.sh web "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || (github.event_name == 'workflow_dispatch' && inputs.export_release_images)
         with:
           name: release-web-${{ github.sha }}
           path: /tmp/release-web/*
@@ -228,10 +233,10 @@ jobs:
         if: always()
         run: docker compose --env-file .env.elsewhere.verify -f elsewhere/compose.test.yaml down --volumes || true
       - name: Export tested core image
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || (github.event_name == 'workflow_dispatch' && inputs.export_release_images)
         run: bash elsewhere/scripts/export-release-image.sh core "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || (github.event_name == 'workflow_dispatch' && inputs.export_release_images)
         with:
           name: release-core-${{ github.sha }}
           path: /tmp/release-core/*
