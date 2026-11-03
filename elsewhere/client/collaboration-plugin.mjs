@@ -77,7 +77,13 @@ export async function pluginClient({
         if (e.code === 'ENOENT') return;
         throw e;
       }
-      if (resolve(record.home) !== resolve(env.AGENTNET_HOME)) return;
+      if (
+        ![record.home, ...(record.previous_homes || [])].some(
+          (p) =>
+            typeof p === 'string' && resolve(p) === resolve(env.AGENTNET_HOME),
+        )
+      )
+        return;
     }
     await rememberCollaborationHome({
       root: userHome,

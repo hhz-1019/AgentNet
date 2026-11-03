@@ -65,7 +65,7 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-home.mjs",
-    "bytes": 6864
+    "bytes": 7140
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-host.mjs",
@@ -97,7 +97,7 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-plugin.mjs",
-    "bytes": 8345
+    "bytes": 8479
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-runtime.mjs",
@@ -14197,7 +14197,7 @@
   },
   {
     "name": "elsewhere/updates/client-0.0.54-agentnet.38.json",
-    "bytes": 267207
+    "bytes": 267633
   },
   {
     "name": "elsewhere/updates/update.json",

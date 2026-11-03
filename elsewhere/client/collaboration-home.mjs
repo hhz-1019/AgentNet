@@ -31,7 +31,11 @@ export async function resolveCollaborationHome({
   if (record?.endpoint && record.endpoint !== endpoint && !home)
     throw Error('Existing connection belongs to another service; preserved.');
   const candidates = new Set([primary]);
-  const discover = !home || (record?.home && resolve(record.home) === primary);
+  const discover =
+    !home ||
+    [record?.home, ...(record?.previous_homes || [])].some(
+      (p) => typeof p === 'string' && resolve(p) === primary,
+    );
   if (discover) {
     candidates.add(resolve(root, '.elsewhere/recovery', host));
     candidates.add(resolve(root, '.elsewhere-collaboration', host));
@@ -192,6 +196,12 @@ export async function rememberCollaborationHome({
         ...old,
         host,
         home,
+        previous_homes: [
+          ...new Set([
+            ...(old?.previous_homes || []),
+            ...(old?.home && old.home !== home ? [old.home] : []),
+          ]),
+        ].slice(-8),
         endpoint,
         identity_pending: !info && !old?.identity,
         ...(info ? { identity: info } : {}),

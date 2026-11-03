@@ -91,6 +91,17 @@ await test('stale record recovers known home, backs up identity and notification
   );
   assert.equal(binding.home, recovered);
   assert.equal(binding.automationId, 'real-host-id');
+  await rememberCollaborationHome({
+    root,
+    host: 'codex',
+    home: recovered,
+    endpoint,
+  });
+  assert.equal(
+    await resolveCollaborationHome({ root, host: 'codex', home, endpoint }),
+    recovered,
+    'old explicit MCP path keeps resolving after a second restart',
+  );
 });
 await test('missing original key fails closed; explicit isolated home never borrows another identity', async () => {
   const root = await mkdtemp(join(tmpdir(), 'upgrade-missing-'));
