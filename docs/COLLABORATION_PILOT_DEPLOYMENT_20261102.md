@@ -1,3 +1,5 @@
+> 当前入口已改为 https://collab.gongshi.world；本文为历史记录。运维只按 [当前部署目标](COLLABORATION_DEPLOY_TARGET.md) 执行。
+
 > 本文记录 .31 历史部署。当前 .32 采用免注册安装身份，不需要 PNVS 或手机号绑定；后续发布记录见 COLLABORATION_NO_LOGIN_DEPLOYMENT.md。
 
 # 双人协作后端部署记录 · 2026-11-02

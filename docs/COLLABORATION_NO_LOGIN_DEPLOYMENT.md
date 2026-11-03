@@ -1,3 +1,5 @@
+> 当前入口已改为 https://collab.gongshi.world；本文为历史记录。运维只按 [当前部署目标](COLLABORATION_DEPLOY_TARGET.md) 执行。
+
 # 免注册协作发布 · 2026-11-03
 
 .32 原生插件已推送，免注册后端已上线。用户明确授权 GitHub 推送与上线。

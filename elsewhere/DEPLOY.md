@@ -1,3 +1,5 @@
+> **协作插件当前部署：新账号 1901289966137185 / collab.gongshi.world。** 见 [当前部署目标](../docs/COLLABORATION_DEPLOY_TARGET.md)。以下旧账号和旧产品入口不用于协作插件发布，不要运行其历史默认脚本。
+
 # 部署与最终启用
 
 正式入口为 `https://inspiralai.com`，运行在阿里云香港 ECS。迁移及验收见 [香港迁移记录](../docs/ALIYUN_HK_MIGRATION_20261017.md)。后续修改仍需构建、部署与公网验证，GitHub CI 成功不会自动替代部署。

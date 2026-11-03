@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-03",
+  "endpoint": "https://collab.gongshi.world",
+  "pluginVersion": "0.0.54-agentnet.33",
+  "pluginSourceRevision": "737d5d31efb3ea998cb78dd4d66de1edaea67f83",
+  "applicationImageRevision": "dad89258a11eb869ddfe29a2e8bcaf78eecd1fc7",
+  "configurationVersion": "gongshi-20261103",
+  "account": "1901289966137185",
+  "instance": "i-j6c3bjaw8vp6z315yjvj",
+  "dnsRecord": "2117440249440987136",
+  "deploymentInvocation": "t-hk071yel5etn1fk",
+  "deploymentExitCode": 0,
+  "backup": "/srv/elsewhere/collaboration-pilot/backups/domain-gongshi-20261103T021634Z",
+  "nativeDefaultEndpoint": true,
+  "nativeConnection": {
+    "passed": true,
+    "nativeInstall": true,
+    "onboardingSkill": "elsewhere:setup",
+    "tools": [
+      "network_collaboration_membership",
+      "network_collaboration_context",
+      "network_collaboration_background",
+      "elsewhere_connection",
+      "network_collaboration_checkpoint",
+      "network_collaboration_capabilities",
+      "network_collaboration_review",
+      "network_collaboration_tasks",
+      "network_collaboration_updates",
+      "network_collaboration_project",
+      "network_collaboration_submit"
+    ],
+    "nodeOnPath": false,
+    "freshIdentity": "connected",
+    "phoneAccountCreated": false,
+    "automaticInstallationIdentity": true
+  },
+  "publicCollaboration": {
+    "passed": true,
+    "endpoint": "https://collab.gongshi.world",
+    "project_id": "97f84b8447d1a7c1c8fb5ba238eb309a",
+    "state": "completed",
+    "task_state": "accepted_result",
+    "agent_ids": [
+      "375830911091998720",
+      "375830911515623424"
+    ],
+    "short_ids": [
+      "VrNZX",
+      "pUsNF"
+    ],
+    "checks": [
+      "automatic installation identity",
+      "short ID resolve",
+      "invite acceptance boundary",
+      "task acceptance and epoch",
+      "artifact submission",
+      "self review denied",
+      "specified exact version review",
+      "project completion",
+      "identity survives restart",
+      "replay rejected"
+    ],
+    "boundary": "two isolated installation clients on one Windows computer against public backend; deterministic content, no new model or cross-computer acceptance"
+  },
+  "oldSiteBlockRemoved": true
+}
