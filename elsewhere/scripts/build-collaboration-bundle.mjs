@@ -56,7 +56,7 @@ const pkg = JSON.parse(
 );
 if (
   pkg.name !== '@elsewhere/collaboration-plugin' ||
-  pkg.version !== '0.0.54-agentnet.37'
+  pkg.version !== '0.0.54-agentnet.38'
 )
   throw new Error('Use the matching isolated plugin stage');
 await cp(resolve(options.stage), join(out, 'plugin'), {

@@ -1,0 +1,28 @@
+{
+  "version": "0.0.54-agentnet.38",
+  "verifiedAt": "2026-11-03T11:56:04.199Z",
+  "passed": true,
+  "platform": "Windows x64",
+  "realPublicBackend": true,
+  "nativeCodex": true,
+  "staleRecordRecovered": true,
+  "missingDirectoryRecovered": true,
+  "sameAgentAndShortId": true,
+  "notificationBindingPreserved": true,
+  "projectExecutionGranted": false,
+  "regressionTests": 90,
+  "autoUpdate": {
+    "compatibleCodeOnly": true,
+    "checkOnMcpStartup": true,
+    "minimumCheckIntervalHours": 6,
+    "checksumAndOriginValidation": true,
+    "offlineFallback": true,
+    "simulatedNewVersionActivationTest": true
+  },
+  "limits": [
+    "macOS physical device not tested",
+    "Missing all original keys and local backups cannot be recovered",
+    "Existing in-flight sessions adopt updates on next MCP startup",
+    "Runtime, tools and skill changes require official host plugin update"
+  ]
+}

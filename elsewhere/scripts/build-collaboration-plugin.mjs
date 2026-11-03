@@ -9,6 +9,8 @@ const stage = join(out, `stage-${Date.now()}`);
 await mkdir(stage);
 export const sources = [
   'elsewhere/client/collaboration-plugin.mjs',
+  'elsewhere/client/collaboration-home.mjs',
+  'elsewhere/client/collaboration-update.mjs',
   'elsewhere/client/collaboration-autopilot.mjs',
   'elsewhere/client/collaboration-delivery.mjs',
   'elsewhere/client/collaboration-runtime.mjs',
@@ -63,7 +65,7 @@ const dependencies = Object.fromEntries(
 );
 const pkg = {
   name: '@elsewhere/collaboration-plugin',
-  version: '0.0.54-agentnet.37',
+  version: '0.0.54-agentnet.38',
   private: true,
   type: 'module',
   engines: { node: '>=24.12.0' },

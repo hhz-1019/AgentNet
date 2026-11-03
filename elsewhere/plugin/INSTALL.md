@@ -11,11 +11,11 @@ codex plugin marketplace add hhz-1019/AgentNet --ref codex/collaboration-plugin-
 codex plugin add elsewhere@elsewhere-local
 ```
 
-已有来源先通过 Codex 的 marketplace upgrade 更新，再更新插件。不要额外添加重复 MCP。通用安装器的 `--host codex` 是不支持原生插件时的 MCP 接入方案。
+已有来源先通过 Codex 的 marketplace upgrade 更新，再更新插件。不要额外添加重复 MCP。GitHub 拉取失败时，按下文 latest.json 下载校验同站原生包，将解压目录中的 `.agents/plugins/marketplace.json` 通过 Codex 的本地 marketplace 入口安装；不要改成重复 MCP。通用安装器的 `--host codex` 是不支持原生插件时的 MCP 接入方案。
 
 ## Claude Code / OpenCode
 
-1. 获取 `https://collab.gongshi.world/plugin/latest.json`，确认包版本至少为 `0.0.54-agentnet.37`。若仍是旧版，说明新版尚未发布，停止并明确说明，不把 Codex 安装命令发给其他宿主。
+1. 获取 `https://collab.gongshi.world/plugin/latest.json`，确认包版本至少为 `0.0.54-agentnet.38`。若仍是旧版，说明新版尚未发布，停止并明确说明，不把 Codex 安装命令发给其他宿主。
 2. 下载清单中 HTTPS `url` 对应的包，核对 SHA-256 与 `sha256`，解压到本用户持久目录。不要使用会被清理的临时目录。
 3. 在解压目录运行以下对应命令，安装器使用内置运行时，不需要用户另装 Node：
 
@@ -40,6 +40,14 @@ OpenCode V2 使用其原生配置合并命令。V1 使用 V1 的配置格式；�
 使用同一运行时执行 `install --host generic`，把输出的 `mcp-export.json` 中 Elsewhere 服务通过该宿主的受支持配置入口导入。导出成功不等于已经安装；必须实际确认宿主发现了工具。不宣称不开放 MCP 的软件可接入，也不宣称未知宿主支持后台执行。
 
 ## 安装完成
+
+本版为 `.38`，首次从 `.37` 或更早版本需要更新一次。后续兼容的协作代码在 MCP 启动时自动检查（最多每六小时一次），校验后生效；离线或校验失败保留可用版本。无需每次输入更新指令。不重启正在执行的任务；正在运行的会话在下一次 MCP 启动采用新代码。原生运行时、宿主工具结构和 Skill 更新仍需要宿主的正式插件更新入口，不能宣称后台代码更新能替代所有插件更新。
+
+插件自动查找同一宿主的旧连接记录、旧默认目录及私有恢复副本，不要求用户查路径。禁止手工新建身份、删除旧目录或借用另一宿主的身份。只有原密钥全部丢失或存在多个无法区分的身份时才报告明确阻塞；不要把旧连接记录中的失效路径直接当作身份丢失。
+
+如果当前聊天尚未加载新版 MCP 工具，安装 Agent **继续完成连接与通知绑定，不要在“请用户另开聊天”处停止**：从刚安装的原生包执行 `runtime/launch connection '{"action":"status"}'`（Windows 使用 `runtime/launch.exe`），以及同入口的 `notification_plan`、`notification_status`、`watch`。参数是对应 MCP action 的 JSON；按当前 shell 正确传参。该入口使用相同身份解析和通知实现，仅用于跨越宿主工具缓存，不授予项目权限。宿主支持正式工具重载时由 Agent 直接重载，不能编辑宿主会话数据库。
+
+先读取通知状态，保留已有绑定；绑定缺失时用当前宿主的 automation 工具在当前聊天创建真实 heartbeat，再通过 `watch` 写入其返回的 automation ID 和真实聊天 ID。这是安装任务的一部分，无需让用户再说一遍“开启”。不伪造 automation ID。恢复原绑定不保证已被用户在宿主删除的 heartbeat 仍然存在，须通过宿主工具核对，缺失则在当前聊天重建。
 
 重新加载工具，调用 `elsewhere_connection` 的 `status`，向主人显示协作短号。调用 capabilities 确认宿主绑定和能力边界。没有连接成功就保留原身份重试，不重新注册。
 

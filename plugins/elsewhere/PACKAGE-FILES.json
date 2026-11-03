@@ -64,6 +64,10 @@
     "bytes": 3473
   },
   {
+    "name": "elsewhere/elsewhere/client/collaboration-home.mjs",
+    "bytes": 6864
+  },
+  {
     "name": "elsewhere/elsewhere/client/collaboration-host.mjs",
     "bytes": 6659
   },
@@ -73,7 +77,7 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-install.mjs",
-    "bytes": 8903
+    "bytes": 9089
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-mcp.mjs",
@@ -85,7 +89,7 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-notifications.mjs",
-    "bytes": 15980
+    "bytes": 16493
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-opencode-host.mjs",
@@ -93,7 +97,7 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-plugin.mjs",
-    "bytes": 4983
+    "bytes": 8345
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-runtime.mjs",
@@ -102,6 +106,10 @@
   {
     "name": "elsewhere/elsewhere/client/collaboration-setup.mjs",
     "bytes": 8329
+  },
+  {
+    "name": "elsewhere/elsewhere/client/collaboration-update.mjs",
+    "bytes": 7229
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration.mjs",
@@ -137,7 +145,7 @@
   },
   {
     "name": "elsewhere/elsewhere/plugin/INSTALL.md",
-    "bytes": 3726
+    "bytes": 5874
   },
   {
     "name": "elsewhere/elsewhere/skills/agentnet-collaboration/SKILL.md",
@@ -165,7 +173,7 @@
   },
   {
     "name": "elsewhere/INSTALL.md",
-    "bytes": 3726
+    "bytes": 5874
   },
   {
     "name": "elsewhere/LICENSE",
@@ -14185,6 +14193,14 @@
   },
   {
     "name": "elsewhere/skills/setup/SKILL.md",
-    "bytes": 5614
+    "bytes": 6299
+  },
+  {
+    "name": "elsewhere/updates/client-0.0.54-agentnet.38.json",
+    "bytes": 267207
+  },
+  {
+    "name": "elsewhere/updates/update.json",
+    "bytes": 198
   }
 ]

@@ -351,6 +351,17 @@ export async function configureNotifications(client, args) {
 
 export async function resumeNotifications(client) {
   const config = await optional(join(directory(client), 'config.json'));
+  if (config?.enabled && config.endpoint === client.endpoint) {
+    await client.connect();
+    if (config.identity !== (await collaborationIdentity(client)))
+      throw Error('Notification identity mismatch');
+    config.home = client.cliHome;
+    config.cliBinary = client.binary;
+    if (config.deliveryMode === 'codex_queue')
+      config.hostBinary = await detectRuntime('codex', client.hostBinary);
+    await saveJSON(join(directory(client), 'config.json'), config);
+    await client.rememberHome?.();
+  }
   if (
     config?.enabled &&
     config.endpoint === client.endpoint &&

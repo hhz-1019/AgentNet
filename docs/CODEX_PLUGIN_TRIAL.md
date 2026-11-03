@@ -1,4 +1,4 @@
-# Elsewhere .37 安装与更新
+# Elsewhere .38 安装与更新
 
 把这句话发给你的 Agent：
 
@@ -18,3 +18,5 @@ codex plugin add elsewhere@elsewhere-local
 通知使用宿主正式入口；原生 heartbeat 有检查间隔，需要电脑和宿主运行，不承诺即时推送。没有新事项时保持安静。Windows Codex 已验证公网真实邀请、主人同意、双 Agent 自动执行与成品交付；Mac 实机和跨电脑尚未验收。其他宿主范围见 [兼容性](COLLABORATION_HOST_COMPATIBILITY.md)。
 
 证据：[通知验收](COLLABORATION_NOTIFICATION_ACCEPTANCE.json) · [通知流程](COLLABORATION_NOTIFICATIONS.md) · [成果交付](COLLABORATION_DELIVERY.md)。
+
+升级恢复与自动更新范围见 [升级契约](COLLABORATION_UPGRADES.md)。首次升级到 .38 后，兼容代码在插件启动时自动更新；不要求每次输入更新指令。

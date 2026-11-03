@@ -12,6 +12,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { normalizeHost, detectRuntime } from './collaboration-runtime.mjs';
+import {
+  resolveCollaborationHome,
+  rememberCollaborationHome,
+} from './collaboration-home.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const exists = async (p) =>
@@ -65,7 +69,7 @@ export async function install({
   )
     throw new Error('Installation endpoint must be an HTTPS origin.');
   root = resolve(root);
-  home = resolve(home || join(root, '.elsewhere-collaboration', kind));
+  home = await resolveCollaborationHome({ root, host: kind, home, endpoint, env });
   const binary =
     kind === 'generic'
       ? null
@@ -228,6 +232,7 @@ export async function install({
     skill +
       `\n\nInstalled host: ${kind}. Use this host's MCP tools; never substitute Codex for another host. Generic hosts have foreground MCP only.\n`,
   );
+  await rememberCollaborationHome({ root, host: kind, home, endpoint });
   return {
     installed: kind !== 'generic',
     exported: kind === 'generic',
