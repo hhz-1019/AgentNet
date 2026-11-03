@@ -76,7 +76,7 @@ if (
   });
   const server = new McpServer({
     name: 'elsewhere',
-    version: '0.0.54-agentnet.32',
+    version: '0.0.54-agentnet.33',
   });
   registerConnection(server, client);
   await registerCollaboration(server, client);

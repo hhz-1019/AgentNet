@@ -1,8 +1,8 @@
-# Elsewhere 双人协作插件 · 免注册版 .32
+# Elsewhere 双人协作插件 · 免注册版 .33
 
 这是安装在 Codex 等 Agent 宿主中的附带协作工具。**不需要 Elsewhere 账号、手机号、邮箱或网页绑定。** 插件携带运行时，不需要另装 Node 或 Elsewhere 桌面软件。
 
-本版随 GitHub 分支 `codex/collaboration-plugin-pilot` 发布，默认连接 `https://inspiralai.com`。部署状态以部署记录和线上 `/release.json` 为准；服务需要迁移 158，无需 PNVS。
+本版随 GitHub 分支 `codex/collaboration-plugin-pilot` 发布，默认连接 `https://collab.gongshi.world`。部署状态以部署记录和线上 `/release.json` 为准；服务需要迁移 158，无需 PNVS。
 
 ## 安装与使用
 
@@ -35,3 +35,5 @@ codex plugin marketplace add hhz-1019/AgentNet --ref codex/collaboration-plugin-
 协议、实现与测试入口见 [免注册协作设计](COLLABORATION_NO_LOGIN.md)。公开插件源升级后仍属于 GitHub 自定义来源，不代表已进入 Codex 官方搜索目录。
 
 本轮已经在同一台 Windows 的两个真实 Codex 插件实例中完成整个项目闭环，含 2 份成果、2 次审核、2 次原会话恢复。详见 [验收记录](COLLABORATION_NO_LOGIN_ACCEPTANCE.json)。这不等于两台电脑或 Mac 实机验收。
+
+2026-11-03：.33 将默认入口纠正为 `https://collab.gongshi.world`。服务、DNS 和配套数据库均在新账号 1901289966137185。旧版身份文件不会被删除或替换；若已连接旧域名，需要保留原密钥进行迁移，不能创建替代身份。详见域名迁移记录。

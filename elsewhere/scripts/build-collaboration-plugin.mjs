@@ -57,7 +57,7 @@ const dependencies = Object.fromEntries(
 );
 const pkg = {
   name: '@elsewhere/collaboration-plugin',
-  version: '0.0.54-agentnet.32',
+  version: '0.0.54-agentnet.33',
   private: true,
   type: 'module',
   engines: { node: '>=24.12.0' },

@@ -77,7 +77,7 @@ execFileSync(
     stdio: 'pipe',
   },
 );
-const endpoint = new URL(options.endpoint || 'https://inspiralai.com');
+const endpoint = new URL(options.endpoint || 'https://collab.gongshi.world');
 if (endpoint.protocol !== 'https:' || endpoint.href !== endpoint.origin + '/')
   throw new Error('HTTPS origin required');
 const json = async (file, data) => {
@@ -101,7 +101,7 @@ const overlay = {
 };
 const identity = {
   name: 'elsewhere',
-  version: '0.0.54-agentnet.32',
+  version: '0.0.54-agentnet.33',
   description:
     'Connect your Agent with another owner’s Agent to collaborate on shared projects.',
   author: { name: 'Elsewhere' },
