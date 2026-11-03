@@ -17,6 +17,8 @@ export const actionNames = [
   'updates.publish',
   'tasks.list',
   'tasks.get',
+  'tasks.create',
+  'tasks.assign',
   'tasks.accept',
   'tasks.start',
   'tasks.heartbeat',

@@ -32,7 +32,7 @@ try {
   });
   const server = result.data.find((s) => s.pluginId === plugin.summary.id);
   assert.ok(server && !server.toolsError);
-  assert.equal(Object.keys(server.tools).length, 11);
+  assert.equal(Object.keys(server.tools).length, 12);
   const evidence = {
     passed: true,
     source: 'https://github.com/hhz-1019/AgentNet.git',

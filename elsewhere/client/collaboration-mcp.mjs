@@ -6,6 +6,10 @@ import {
   InstallationClient,
 } from './collaboration-identity.mjs';
 import { registerConnection } from './collaboration-plugin.mjs';
+import {
+  registerAutomation,
+  resumeAutopilots,
+} from './collaboration-autopilot.mjs';
 import { registerCollaboration } from './collaboration.mjs';
 import {
   createBackgroundBridge,
@@ -25,8 +29,11 @@ const jobId = process.env.ELSEWHERE_COLLABORATION_JOB;
 if (Boolean(policyFile) !== Boolean(jobId))
   throw new Error('Incomplete background binding');
 if (policyFile) await loadBridgeAuthorization(policyFile, jobId);
-if (!policyFile && client instanceof InstallationClient)
+if (!policyFile && client instanceof InstallationClient) {
   registerConnection(server, client);
+  registerAutomation(server, client);
+  await resumeAutopilots(client);
+}
 await registerCollaboration(server, client, {
   backgroundBridge: policyFile
     ? createBackgroundBridge(client, policyFile, jobId)

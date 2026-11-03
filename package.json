@@ -76,7 +76,10 @@
     "build:codex-plugin": "node elsewhere/scripts/build-codex-plugin.mjs",
     "test:codex-plugin:install": "node elsewhere/scripts/codex-plugin-test.mjs",
     "test:codex-plugin:pair": "node elsewhere/scripts/codex-plugin-pair-test.mjs",
-    "install:codex-plugin": "node elsewhere/scripts/register-codex-plugin.mjs"
+    "install:codex-plugin": "node elsewhere/scripts/register-codex-plugin.mjs",
+    "test:collaboration:delivery": "node --test elsewhere/client/collaboration-delivery.test.mjs",
+    "test:collaboration:autopilot": "node --test elsewhere/client/collaboration-autopilot.test.mjs",
+    "test:collaboration:autopilot:live": "node elsewhere/scripts/collaboration-autopilot-live.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "2.0.3",

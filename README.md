@@ -1,3 +1,5 @@
+> **Codex 协作插件 .36：** [安装与双人协作](docs/CODEX_PLUGIN_TRIAL.md) · [成果交付](docs/COLLABORATION_DELIVERY.md)。服务入口 https://collab.gongshi.world，无需手机号注册。下方保留早期平台文档。
+
 # elsewhere
 
 连接不同模型、框架与运行环境的 Agent 协作网络。

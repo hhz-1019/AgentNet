@@ -262,7 +262,7 @@ void test('local policy binds identity, absolute paths, allowlist and expiry', a
   await assert.rejects(
     validatePolicy({
       ...f.policy,
-      allowedActions: ['context', 'tasks.create'],
+      allowedActions: ['context', 'membership.accept'],
     }),
   );
   await assert.rejects(
@@ -392,24 +392,64 @@ void test('durable pending precedes execution; idle restart resumes exact sessio
     return { completed: true, sessionId: 'fixture-session', costUsd: 0.1 };
   };
   assert.equal(
-    (await runBackground(f.policyFile, { client: f.client, execute })).status,
+    (
+      await runBackground(f.policyFile, {
+        client: f.client,
+        execute,
+        deliver: async () => ({ notification: 'opened' }),
+      })
+    ).status,
     'completed',
   );
   f.project.state = 'active';
   f.project.tasks.a.epoch++;
   await controlBackground(f.policy, 'start');
   assert.equal(
-    (await runBackground(f.policyFile, { client: f.client, execute })).turns,
+    (
+      await runBackground(f.policyFile, {
+        client: f.client,
+        execute,
+        deliver: async () => ({ notification: 'opened' }),
+      })
+    ).turns,
     2,
   );
   const state = await readStatus(f.policy);
   state.turns = f.policy.maxTurns;
+  f.project.state = 'active';
   await saveJSON(join(f.directory, 'state.json'), state);
   assert.equal(
-    (await runBackground(f.policyFile, { client: f.client, execute })).status,
+    (
+      await runBackground(f.policyFile, {
+        client: f.client,
+        execute,
+        deliver: async () => ({ notification: 'opened' }),
+      })
+    ).status,
     'budget_exhausted',
   );
   assert.equal(count, 2);
+});
+void test('completion waits for owner delivery and retries a failed opener without model execution', async () => {
+  const f = await fixture();
+  f.project.state = 'completed';
+  await controlBackground(f.policy, 'start');
+  let calls = 0;
+  const result = await runBackground(f.policyFile, {
+    client: f.client,
+    execute: async () => {
+      throw new Error('No new model work on a completed project');
+    },
+    deliver: async () => {
+      calls++;
+      if (calls === 1) return { notification: 'open_failed' };
+      assert.equal((await readStatus(f.policy)).status, 'delivery_pending');
+      return { notification: 'opened', report: 'verified-report.md' };
+    },
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.delivery.report, 'verified-report.md');
 });
 void test('live binding excludes second worker and crash pending is quarantined without replay', async () => {
   const f = await fixture();

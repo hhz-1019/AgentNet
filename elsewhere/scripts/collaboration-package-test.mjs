@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 const npm = process.env.npm_execpath;
 if (!npm) throw new Error('Run through npm run test:collaboration:package');
 const artifact = resolve(
-  process.env.ELSEWHERE_PLUGIN_OUTPUT || 'dist-collaboration-plugin', 'elsewhere-collaboration-plugin-0.0.54-agentnet.32.tgz',
+  process.env.ELSEWHERE_PLUGIN_OUTPUT || 'dist-collaboration-plugin', 'elsewhere-collaboration-plugin-0.0.54-agentnet.36.tgz',
 );
 const directory = await mkdtemp(join(tmpdir(), 'elsewhere-installed-plugin-'));
 await writeFile(
@@ -50,7 +50,7 @@ const client = new Client({ name: 'installed-package-smoke', version: '1' });
 try {
   await client.connect(transport);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 11);
+  assert.equal(tools.length, 12);
   for (const group of [
     'project',
     'membership',

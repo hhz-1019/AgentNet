@@ -8,6 +8,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { InstallationClient } from './collaboration-identity.mjs';
 import { registerCollaboration } from './collaboration.mjs';
+import {
+  registerAutomation,
+  resumeAutopilots,
+} from './collaboration-autopilot.mjs';
 
 export async function pluginClient({
   root,
@@ -76,8 +80,10 @@ if (
   });
   const server = new McpServer({
     name: 'elsewhere',
-    version: '0.0.54-agentnet.33',
+    version: '0.0.54-agentnet.36',
   });
+  registerAutomation(server, client);
+  await resumeAutopilots(client);
   registerConnection(server, client);
   await registerCollaboration(server, client);
   await server.connect(new StdioServerTransport());

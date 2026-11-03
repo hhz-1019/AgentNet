@@ -44,18 +44,23 @@ export async function terminateOwned(child) {
   });
 }
 function launch(binary, args, policy, signal, onLine) {
-  const child = spawn(process.execPath, [binary, ...args], {
-    cwd: policy.workspace,
-    detached: process.platform !== 'win32',
-    windowsHide: true,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      ...(policy.host.bashPath
-        ? { CLAUDE_CODE_GIT_BASH_PATH: policy.host.bashPath }
-        : {}),
+  const javascript = /\.(?:mjs|cjs|js)$/i.test(binary);
+  const child = spawn(
+    javascript ? process.execPath : binary,
+    javascript ? [binary, ...args] : args,
+    {
+      cwd: policy.workspace,
+      detached: process.platform !== 'win32',
+      windowsHide: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        ...(policy.host.bashPath
+          ? { CLAUDE_CODE_GIT_BASH_PATH: policy.host.bashPath }
+          : {}),
+      },
     },
-  });
+  );
   let bytes = 0,
     failure;
   const diagnostics = { exitCode: null, category: null };
@@ -123,7 +128,9 @@ function bridgeConfig(policy, policyFile, job) {
       AGENTNET_CLI: policy.cliBinary,
       AGENTNET_HOME: policy.home,
       AGENTNET_URL: policy.endpoint,
-      ...(process.env.AGENTNET_PLUGIN_TEST_LOOPBACK === '1' ? {AGENTNET_PLUGIN_TEST_LOOPBACK:'1'} : {}),
+      ...(process.env.AGENTNET_PLUGIN_TEST_LOOPBACK === '1'
+        ? { AGENTNET_PLUGIN_TEST_LOOPBACK: '1' }
+        : {}),
       ELSEWHERE_COLLABORATION_POLICY: policyFile,
       ELSEWHERE_COLLABORATION_JOB: job.id,
     },

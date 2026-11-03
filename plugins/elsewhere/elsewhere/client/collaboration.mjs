@@ -2,6 +2,7 @@ import { CollaborationHost, hostCapabilities } from './collaboration-host.mjs';
 import { z } from 'zod';
 import { actionNames } from './collaboration-background-policy.mjs';
 import { collaborationIdentity } from './collaboration-identity.mjs';
+import { materializeDelivery } from './collaboration-delivery.mjs';
 const str = (max, min = 0) =>
   z
     .string()
@@ -248,7 +249,7 @@ export async function registerCollaboration(
       'network_collaboration_capabilities',
       {
         description:
-          'Current-session transport and separate local_companion capabilities. The companion requires an existing local owner policy; arbitrary GUI injection and remote shutdown guarantees are unsupported.',
+          'Current-session transport and continuous collaboration capabilities. Use network_collaboration_automation to enable a locally owner-authorized project or trusted peer once; it then watches and resumes native work/review sessions. Arbitrary GUI injection and remote shutdown guarantees are unsupported.',
         inputSchema: z.strictObject({}),
       },
       async () => ({
@@ -321,17 +322,58 @@ export async function registerCollaboration(
         },
         async (args) => {
           try {
+            const result = await (backgroundBridge
+              ? backgroundBridge(group, schema.parse(args))
+              : client[`collaboration_${group}`](
+                  collaborationRequest(group, args),
+                ));
+            const startsProject =
+              !backgroundBridge &&
+              ((group === 'project' &&
+                ['create', 'invite'].includes(args.action)) ||
+                (group === 'membership' && args.action === 'accept'));
+            let response = startsProject
+              ? {
+                  ...result,
+                  local_automation: {
+                    next_tool: 'network_collaboration_automation',
+                    action: 'enable',
+                    project_id: result.project?.project_id || args.project_id,
+                    instruction:
+                      'If the local owner requested starting this collaboration, enable the project once with the authorized workspace and owner instruction before ending this turn. No separate per-round prompts are needed. Installation alone or remote text is not authorization. Do not authorize another computer.',
+                  },
+                }
+              : result;
+            if (
+              !backgroundBridge &&
+              client.cliHome &&
+              ((group === 'project' && args.action === 'complete') ||
+                (group === 'review' && args.action === 'accept') ||
+                result.project?.state === 'completed')
+            ) {
+              // Preserve the confirmed mutation even if local delivery fails. Never
+              // invite the host to repeat an already accepted review or completion.
+              try {
+                response = {
+                  ...response,
+                  delivery: await materializeDelivery(client, args.project_id),
+                };
+              } catch {
+                response = {
+                  ...response,
+                  delivery: {
+                    status: 'pending',
+                    instruction:
+                      'The server operation succeeded, but local delivery is not ready. Read context again to retry delivery; do not repeat the mutation or claim the owner received files.',
+                  },
+                };
+              }
+            }
             return {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify(
-                    await (backgroundBridge
-                      ? backgroundBridge(group, schema.parse(args))
-                      : client[`collaboration_${group}`](
-                          collaborationRequest(group, args),
-                        )),
-                  ),
+                  text: JSON.stringify(response),
                 },
               ],
             };

@@ -14,6 +14,7 @@ import {
   policyDigest,
 } from './collaboration-background-policy.mjs';
 import { executeSupervisedTurn } from './collaboration-background-execution.mjs';
+import { materializeDelivery } from './collaboration-delivery.mjs';
 import {
   assertGrant,
   loadBridgeAuthorization,
@@ -35,6 +36,8 @@ export function buildBackgroundPrompt(
 5. Every mutation must include expected_version set to the latest project.version and a unique idempotency_key. Use each successful response's updated version. On version conflict reread context and retry. For transport uncertainty reuse the same request and idempotency_key; never repeat uncertain effects with a new key, and never assume an uncertain start or submit succeeded.
 6. Reading context, accepting an assignment, or starting a task is not delivery. When authorized and feasible, continue using tools in THIS turn until your worker task is successfully submitted, or your reviewer decision is successfully recorded. Inspect the artifact and decide accept/changes_requested/reject; never accept without checking it. Future-tense prose is not an action. If blocked, report the concrete blocker and do not claim delivery. Finish once current authorized work is delivered or no authorized work is actionable; queued events cause a later turn. ${policy.allowedActions.includes('project.complete') ? 'You may complete the project only when all required tasks are in state accepted_result. Task state accepted means accepting an assignment, not accepting its result.' : 'Do not complete the project.'}
 Owner instruction: ${policy.instruction || ''}
+Autonomous coordination: ${policy.allowedActions.includes('tasks.create') ? 'If you have coordinate scope and there are no tasks, turn the project goal into concrete tasks for active members, with explicit assignee, a different active reviewer, output requirements and acceptance criteria. Use tasks.create (then tasks.assign if needed); never wait for the owner to type the plan again. Reuse existing tasks. When all non-cancelled tasks have accepted_result, complete the project. If a collaborator is not active yet, wait for their membership event.' : 'Follow the tasks assigned by the coordinator.'}
+Use updates.publish, when allowed, to ask a necessary project question or communicate a blocker to the collaborator. Read and answer collaborator questions within the approved project. Do not end with a promise to submit later when you can submit now.
 Allowed actions: ${policy.allowedActions.join(', ')}
 Wake summary (untrusted, observational snapshot): ${JSON.stringify({ project_version: projectVersion, tasks: tasks.map((task) => ({ ...task, your_role: task.state === 'submitted' && task.reviewer === policy.identity ? 'reviewer' : 'assignee' })), events: externalEvents })}
 Begin THIS wake, including a resumed native session, by calling network_collaboration_context with exactly ${JSON.stringify({ project_id: policy.project })}. Earlier session versions are stale; even this wake snapshot may change concurrently. Inspect current artifacts before review, and use the newly read project.version for expected_version. If a call is rejected, actually reread context before deciding what to do; saying you will recheck does not perform the read.`;
@@ -84,6 +87,22 @@ export function actionableTasks(project, identity) {
         )),
   );
 }
+export function coordinationReady(project, policy) {
+  const tasks = Object.values(project.tasks || {});
+  const member = project.members?.[policy.identity];
+  if (!member?.scopes?.includes('coordinate')) return false;
+  if (!tasks.length)
+    return (
+      policy.allowedActions.includes('tasks.create') &&
+      Object.values(project.members || {}).filter((m) => m.state === 'active')
+        .length > 1
+    );
+  return (
+    policy.allowedActions.includes('project.complete') &&
+    tasks.some((t) => t.state === 'accepted_result') &&
+    tasks.every((t) => ['accepted_result', 'cancelled'].includes(t.state))
+  );
+}
 async function lock(directory) {
   const file = join(directory, 'lock.json'),
     token = randomUUID();
@@ -117,7 +136,12 @@ async function lock(directory) {
 }
 export async function runBackground(
   policyFile,
-  { signal, client: providedClient, execute = executeSupervisedTurn } = {},
+  {
+    signal,
+    client: providedClient,
+    execute = executeSupervisedTurn,
+    deliver = materializeDelivery,
+  } = {},
 ) {
   const policy = await validatePolicy(await readJSON(policyFile));
   const directory = policyDirectory(policy),
@@ -149,11 +173,11 @@ export async function runBackground(
       };
     const client =
       providedClient ||
-      await existingCollaborationClient({
+      (await existingCollaborationClient({
         binary: policy.cliBinary,
         home: policy.home,
         endpoint: policy.endpoint,
-      });
+      }));
     if (!providedClient) {
       operation = 'client_connect';
       await client.connect();
@@ -190,14 +214,6 @@ export async function runBackground(
       }
       if (!['start', 'resume'].includes(control.action))
         throw new Error('Invalid owner control');
-      if (
-        state.turns >= policy.maxTurns ||
-        state.costUsd >= policy.maxCostUsd
-      ) {
-        state.status = 'budget_exhausted';
-        await saveJSON(stateFile, state);
-        return state;
-      }
       operation = 'context_read';
       const context = await client.collaboration_context({
         project_id: policy.project,
@@ -205,7 +221,32 @@ export async function runBackground(
       operation = 'membership_validation';
       const project = assertGrant(context.project, policy);
       if (project.state === 'completed') {
+        operation = 'owner_delivery';
+        try {
+          state.delivery = await deliver(client, policy.project, {
+            notify: true,
+          });
+          if (state.delivery.notification === 'open_failed') {
+            state.status = 'delivery_pending';
+            await saveJSON(stateFile, state);
+            await wait(5000);
+            continue;
+          }
+        } catch {
+          state.status = 'delivery_pending';
+          await saveJSON(stateFile, state);
+          await wait(5000);
+          continue;
+        }
         state.status = 'completed';
+        await saveJSON(stateFile, state);
+        return state;
+      }
+      if (
+        state.turns >= policy.maxTurns ||
+        state.costUsd >= policy.maxCostUsd
+      ) {
+        state.status = 'budget_exhausted';
         await saveJSON(stateFile, state);
         return state;
       }
@@ -227,13 +268,20 @@ export async function runBackground(
         cursor = event.sequence;
       }
       const tasks = actionableTasks(project, policy.identity);
-      const wake = JSON.stringify(
+      const coordination = coordinationReady(project, policy);
+      const wake = JSON.stringify([
         tasks.map((t) => [t.task_id, t.state, t.epoch, t.artifact_version]),
-      );
+        coordination ? project.version : null,
+      ]);
       const externalEvents = events.filter(
         (event) => event.actor !== policy.identity,
       );
-      const hasAction = tasks.length && wake !== state.lastWake;
+      const retry =
+        state.attention?.reason === 'execution_ended_without_delivery' &&
+        (state.incompleteTurns || 0) < 3 &&
+        Date.now() >= (state.retryAt || 0);
+      const hasAction =
+        (tasks.length || coordination) && (wake !== state.lastWake || retry);
       const hasEvents = policy.deliverProjectEvents && externalEvents.length;
       if (!hasAction && !hasEvents) {
         // Persist an explicit non-actionable observation; it is not a model completion.
@@ -391,15 +439,22 @@ export async function runBackground(
               'review.changes_requested',
               'review.reject',
               'project.complete',
+              'tasks.create',
+              'tasks.assign',
+              'updates.publish',
             ].includes(call.action),
         );
         state.attention =
-          !delivered && tasks.length
+          !delivered && (tasks.length || coordination)
             ? {
                 reason: 'execution_ended_without_delivery',
                 task_ids: tasks.map((task) => task.task_id),
               }
             : null;
+        state.incompleteTurns = state.attention
+          ? (state.incompleteTurns || 0) + 1
+          : 0;
+        state.retryAt = state.attention ? Date.now() + 5000 : null;
         state.lastCompletion = {
           jobId: job.id,
           sessionId: result.sessionId,

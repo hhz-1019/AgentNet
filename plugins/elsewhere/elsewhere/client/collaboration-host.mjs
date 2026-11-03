@@ -2,6 +2,19 @@ import { readFile, mkdir, writeFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 export const hostCapabilities = Object.freeze({
+  continuous_collaboration: {
+    supported: true,
+    entry_tool: 'network_collaboration_automation',
+    adapters: ['codex'],
+    verified_platforms: ['win32'],
+    one_time_local_owner_scope: true,
+    trusted_invitation_watch: true,
+    automatic_planning_and_revision: true,
+    same_native_session_resume: true,
+    arbitrary_gui_injection: false,
+    requires_computer_awake: true,
+    operating_system_startup_service: false,
+  },
   local_companion: {
     supported: true,
     verified: true,

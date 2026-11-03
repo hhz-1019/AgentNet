@@ -53,7 +53,7 @@ try {
     (s) => s.pluginId === 'elsewhere@elsewhere-local',
   );
   assert.ok(mcp && !mcp.toolsError, mcp?.toolsError);
-  assert.equal(Object.keys(mcp.tools).length, 11);
+  assert.equal(Object.keys(mcp.tools).length, 12);
   const { thread } = await client.request('thread/start', {
     ephemeral: true,
     cwd: marketplace,

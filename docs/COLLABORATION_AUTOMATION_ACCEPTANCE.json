@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-03",
+  "passed": true,
+  "cleanupVerified": true,
+  "projectId": "8241c2805b8e2a0df5ce0bc7e895665e",
+  "projectState": "completed",
+  "artifactVersions": 2,
+  "manualPromptsAfterInvite": 0,
+  "taskPlanning": "real coordinator model, no harness task creation",
+  "reviewCycle": "submit v1 -> changes_requested -> submit v2 -> accepted_result -> completed",
+  "workers": [
+    {
+      "sessionId": "01a19f5e-40bc-7aa1-98b5-8072079705a9",
+      "turns": 6,
+      "status": "completed",
+      "model": "gpt-6.1-sol"
+    },
+    {
+      "sessionId": "01a19f5e-40bd-7bc3-8307-8c1cb5239373",
+      "turns": 4,
+      "status": "completed",
+      "model": "gpt-6.1-sol"
+    }
+  ],
+  "boundary": "Same Windows machine; two real Codex model sessions; local production-signature Core fixture. No cross-computer or Mac claim.",
+  "deliveryPluginVersion": "0.0.54-agentnet.35",
+  "published": false
+}
