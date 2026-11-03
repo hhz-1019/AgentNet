@@ -1,0 +1,43 @@
+{
+  "version": "0.0.54-agentnet.37",
+  "date": "2026-11-03",
+  "passed": true,
+  "backend": "https://collab.gongshi.world",
+  "platform": "Windows",
+  "physicalComputers": 1,
+  "independentInstallationIdentities": 2,
+  "realAgentHosts": 2,
+  "hostKind": "codex",
+  "model": "gpt-6.1-sol",
+  "projectId": "4031b079535d92de429b88d951f5027b",
+  "notificationChannel": "native_same_chat_heartbeat",
+  "notificationPresentedAt": "2026-11-03T07:08:41.150Z",
+  "ownerApprovedAt": "2026-11-03T07:12:52.821Z",
+  "finishedAt": "2026-11-03T07:16:12.849Z",
+  "ownerConsentRecorded": true,
+  "manualWorkPromptsAfterConsent": 0,
+  "projectState": "completed",
+  "tasks": [
+    {
+      "taskId": "calculation-markdown",
+      "state": "accepted_result",
+      "acceptedArtifactVersion": 1
+    }
+  ],
+  "nativeTurns": [
+    5,
+    2
+  ],
+  "artifactSha256": "2898835e7cb007c22ce6eb78103b88956df8f2584e4fc6829da9d5de2b2998e3",
+  "deliveryDocumentGenerated": true,
+  "localTests": {
+    "passed": 83,
+    "failed": 0
+  },
+  "limits": [
+    "Not a two-computer acceptance",
+    "Not instant push or app-closed wakeup",
+    "macOS notification delivery not physically tested",
+    "Claude Code real model authentication still unverified"
+  ]
+}

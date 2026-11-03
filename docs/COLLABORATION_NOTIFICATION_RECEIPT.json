@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-03",
+  "test_id": "elsewhere-notify-20261103-a",
+  "transport": "codex_queue_resume",
+  "thread_id": "01a18dce-2020-7292-8f4a-174a63aa01d3",
+  "queue_message_id": "01a1a01c-a242-73b0-9da0-60345887bc0e",
+  "command_reported_resume_warning": true,
+  "observed_receipt": "test message arrived as a new turn in the original chat after the preceding turn ended",
+  "eventual_host_receipt_verified": true,
+  "immediate_wakeup_verified": false,
+  "heartbeat_receipt_verified": true,
+  "heartbeat_test_id": "elsewhere-owner-notification-20261103-b",
+  "heartbeat_received_at": "2026-11-03T06:43:21.360Z",
+  "heartbeat_test_automation_deleted": true,
+  "real_invitation": false,
+  "project_execution_authorized": false,
+  "scope": "single Windows Codex desktop chat; local candidate not published"
+}

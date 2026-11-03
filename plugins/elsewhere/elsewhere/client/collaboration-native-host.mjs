@@ -219,6 +219,7 @@ async function claudeTurn({
     sessionId ? '--resume' : '--session-id',
     id,
   ];
+  if (policy.host.model) args.push('--model', policy.host.model);
   let result,
     seenSession = false,
     model;

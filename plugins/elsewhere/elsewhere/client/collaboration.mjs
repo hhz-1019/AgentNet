@@ -253,7 +253,15 @@ export async function registerCollaboration(
         inputSchema: z.strictObject({}),
       },
       async () => ({
-        content: [{ type: 'text', text: JSON.stringify(hostCapabilities) }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              ...hostCapabilities,
+              installed_host: client.hostKind || 'unspecified',
+            }),
+          },
+        ],
       }),
     );
   if (!backgroundBridge)

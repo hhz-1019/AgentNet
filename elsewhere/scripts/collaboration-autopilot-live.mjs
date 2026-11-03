@@ -38,6 +38,7 @@ const evidence = {
   passed: false,
   directory,
   manualPromptsAfterInvite: 0,
+  workerHost: process.env.AGENTNET_LIVE_WORKER_HOST || 'codex',
   realModels: true,
 };
 try {
@@ -60,6 +61,8 @@ try {
       action: 'enable',
       ...scope,
       workspace,
+      host_kind:
+        i === 1 ? process.env.AGENTNET_LIVE_WORKER_HOST || 'codex' : 'codex',
       host_binary: resolve(process.env.AGENTNET_LIVE_CODEX),
       model: process.env.AGENTNET_LIVE_CODEX_MODEL || 'gpt-6.1-sol',
       hours: 1,
@@ -67,6 +70,15 @@ try {
       instruction:
         'Complete the arithmetic test entirely through collaboration MCP; no user follow-up. Follow the project requirements including the deliberate version-1 review correction.',
     };
+    if (i === 1 && process.env.AGENTNET_LIVE_WORKER_HOST === 'opencode') {
+      args.host_binary = resolve(process.env.AGENTNET_LIVE_OPENCODE);
+      args.model = process.env.AGENTNET_LIVE_OPENCODE_MODEL;
+      args.model_base_url = process.env.AGENTNET_LIVE_OPENCODE_URL;
+    }
+    if (i === 1 && process.env.AGENTNET_LIVE_WORKER_HOST === 'claude_code') {
+      args.host_binary = resolve(process.env.AGENTNET_LIVE_CLAUDE);
+      delete args.model;
+    }
     console.log('ENABLE', i, await configureAutopilot(clients[i], args));
     enabled.push({ client: clients[i], scope });
   }

@@ -130,13 +130,13 @@ export async function validatePolicy(p) {
               ]
             : p.host.kind === 'codex'
               ? ['kind', 'binary', 'serviceTier', 'bashPath', 'model']
-              : ['kind', 'binary', 'serviceTier', 'bashPath']
+              : ['kind', 'binary', 'serviceTier', 'bashPath', 'model']
         ).includes(k),
     )
   )
     throw new Error('Unsupported host configuration');
   if (
-    p.host.kind === 'codex' &&
+    ['codex', 'claude_code'].includes(p.host.kind) &&
     p.host.model !== undefined &&
     (typeof p.host.model !== 'string' ||
       !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(p.host.model))

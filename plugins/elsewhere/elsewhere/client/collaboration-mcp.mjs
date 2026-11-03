@@ -6,6 +6,7 @@ import {
   InstallationClient,
 } from './collaboration-identity.mjs';
 import { registerConnection } from './collaboration-plugin.mjs';
+import { resumeNotifications } from './collaboration-notifications.mjs';
 import {
   registerAutomation,
   resumeAutopilots,
@@ -24,6 +25,8 @@ const server = new McpServer({
   name: 'elsewhere-collaboration',
   version: '0.0.54-agentnet.29',
 });
+client.hostKind = process.env.AGENTNET_HOST_KIND || 'generic';
+client.hostBinary = process.env.AGENTNET_HOST_BINARY;
 const policyFile = process.env.ELSEWHERE_COLLABORATION_POLICY;
 const jobId = process.env.ELSEWHERE_COLLABORATION_JOB;
 if (Boolean(policyFile) !== Boolean(jobId))
@@ -33,6 +36,7 @@ if (!policyFile && client instanceof InstallationClient) {
   registerConnection(server, client);
   registerAutomation(server, client);
   await resumeAutopilots(client);
+  await resumeNotifications(client);
 }
 await registerCollaboration(server, client, {
   backgroundBridge: policyFile

@@ -1,41 +1,20 @@
-# Elsewhere 双人协作插件 · 自动协作交付版 .36
+# Elsewhere .37 安装与更新
 
-这是安装在 Codex 等 Agent 宿主中的附带协作工具。**不需要 Elsewhere 账号、手机号、邮箱或网页绑定。** 插件携带运行时，不需要另装 Node 或 Elsewhere 桌面软件。
+把这句话发给你的 Agent：
 
-本版随 GitHub 分支 `codex/collaboration-plugin-pilot` 发布，默认连接 `https://collab.gongshi.world`。部署状态以部署记录和线上 `/release.json` 为准；服务需要迁移 158，无需 PNVS。
+> 按 https://collab.gongshi.world/install.md 安装或更新 Elsewhere，并启用当前对话的协作通知。
 
-## 安装与使用
+已有用户保留原协作身份与短号，更新后重新加载工具并绑定当前聊天通知。新邀请会在该对话询问是否同意；同意后自动执行、交付和审阅。无需手机号注册。
 
-在支持自定义插件来源的 Codex 中添加 GitHub 仓库 `https://github.com/hhz-1019/AgentNet`，分支选择 `codex/collaboration-plugin-pilot`，选择 Elsewhere 安装。若使用支持 `plugin marketplace add` 的 Codex CLI，也可先登记来源，再在 Codex 插件目录安装 Elsewhere：
+Codex 原生插件来源：
 
 ```sh
 codex plugin marketplace add hhz-1019/AgentNet --ref codex/collaboration-plugin-pilot --sparse .agents/plugins --sparse plugins/elsewhere
+codex plugin add elsewhere@elsewhere-local
 ```
 
-安装后开启新对话，说：
+已有来源先执行 `codex plugin marketplace upgrade elsewhere-local`，再更新插件并重新加载工具；让 Agent 按安装文档完成通知绑定，不要只更新文件就报告通知已开启。
 
-> 用 Elsewhere 和 @对方短号一起完成一个离线订单计算器，请邀请对方负责计算核验和成果审核。
+通知使用宿主正式入口；原生 heartbeat 有检查间隔，需要电脑和宿主运行，不承诺即时推送。没有新事项时保持安静。Windows Codex 已验证公网真实邀请、主人同意、双 Agent 自动执行与成品交付；Mac 实机和跨电脑尚未验收。其他宿主范围见 [兼容性](COLLABORATION_HOST_COMPATIBILITY.md)。
 
-插件首次调用自动连接并生成短号，已有身份复用。没有对方短号时，先让对方安装插件并说“显示我的 Elsewhere 协作短号”。同名不会自动合并，不能用 Codex 账号名或邮箱替代准确短号。
-
-对方收到邀请后，在自己的宿主中说：
-
-> 查看 Elsewhere 邀请，接受这个订单计算器项目并开始协作。
-
-双方发起或接受并要求开始后，Agent 启动后台协作，自动领取任务、提交成果、交叉审核和返工，无需每轮输入“继续”。完成后自动打开本地交付页，提供实际成果与交付文档。必要任务的成果审核通过后项目才完成，不以发消息或“已领取”冒充完成。
-
-## 本版边界
-
-- 身份是本机安装密钥，不读取 Codex 登录凭证，也不验证对方真实姓名。换电脑不会自动合并身份。
-- 连接失败保留身份重试，不要求用户回旧网站注册。
-- 只分享用户授权的项目内容；邀请需要对方接受。仅安装或查询短号不会启动后台；主人发起项目或接受并要求开始即由本机 Agent 启用一次有期限的项目授权。陌生邀请不自动接受。
-- Windows 原生插件安装和免注册连接按本轮证据核验；Mac 包提供对应运行时，实机仍待验证。其他宿主可使用同一签名契约和 MCP 适配，不能把 Codex 实测扩张成所有宿主已验收。
-- Team 和独立前端不在本次范围。
-
-协议、实现与测试入口见 [免注册协作设计](COLLABORATION_NO_LOGIN.md)。公开插件源升级后仍属于 GitHub 自定义来源，不代表已进入 Codex 官方搜索目录。
-
-本轮已经在同一台 Windows 的两个真实 Codex 插件实例中完成整个项目闭环，含 2 份成果、2 次审核、2 次原会话恢复。详见 [验收记录](COLLABORATION_NO_LOGIN_ACCEPTANCE.json)。这不等于两台电脑或 Mac 实机验收。
-
-2026-11-03：.33 将默认入口纠正为 `https://collab.gongshi.world`。服务、DNS 和配套数据库均在新账号 1901289966137185。旧版身份文件不会被删除或替换；若已连接旧域名，需要保留原密钥进行迁移，不能创建替代身份。详见域名迁移记录。
-
-2026-11-03：.36 包含持续自动协作和验收后成果交付。双方需更新插件并重新加载工具。详见 [成果交付](COLLABORATION_DELIVERY.md)。
+证据：[通知验收](COLLABORATION_NOTIFICATION_ACCEPTANCE.json) · [通知流程](COLLABORATION_NOTIFICATIONS.md) · [成果交付](COLLABORATION_DELIVERY.md)。

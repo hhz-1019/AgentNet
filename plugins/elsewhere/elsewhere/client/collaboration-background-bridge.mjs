@@ -57,6 +57,68 @@ export function assertGrant(project, policy) {
     throw new Error('Active bound project membership required');
   return project;
 }
+export function nextAuthorizedAction(
+  project,
+  policy,
+  receipt = { leases: [] },
+) {
+  if (!project || project.state !== 'active') return null;
+  const tasks = Object.values(project.tasks || {});
+  const task = tasks.find(
+    (t) =>
+      t.assignee === policy.identity &&
+      ['assigned', 'accepted', 'changes_requested', 'running'].includes(
+        t.state,
+      ) &&
+      (t.dependencies || []).every(
+        (id) => project.tasks[id]?.state === 'accepted_result',
+      ),
+  );
+  if (!task || !project.members?.[policy.identity]?.scopes?.includes('work'))
+    return null;
+  const common = {
+    project_id: project.project_id,
+    task_id: task.task_id,
+    expected_version: project.version,
+    idempotency_key: randomUUID(),
+  };
+  if (
+    task.state === 'assigned' &&
+    policy.allowedActions.includes('tasks.accept')
+  )
+    return {
+      tool: 'network_collaboration_tasks',
+      arguments: { action: 'accept', ...common },
+      instruction:
+        'Call this now. Local owner permission is already granted. This accepts the assignment, not its result.',
+    };
+  if (
+    ['accepted', 'changes_requested'].includes(task.state) &&
+    policy.allowedActions.includes('tasks.start')
+  )
+    return {
+      tool: 'network_collaboration_tasks',
+      arguments: { action: 'start', ...common, host: 'native-background' },
+      instruction:
+        'Call this now, then use the returned epoch to submit the actual result in this turn.',
+    };
+  if (
+    task.state === 'running' &&
+    policy.allowedActions.includes('submit') &&
+    receipt.leases.some(
+      (l) => l.task_id === task.task_id && l.epoch === task.epoch,
+    )
+  )
+    return {
+      tool: 'network_collaboration_submit',
+      arguments: { ...common, epoch: task.epoch },
+      required_addition:
+        'artifact: {kind: text, text: your actual completed result, provenance: source, verification: checks performed}',
+      instruction:
+        'Finish the work and add artifact before calling. A project update containing the answer is not a submission. Do not ask the owner or coordinator to repeat authorization.',
+    };
+  return null;
+}
 export function createBackgroundBridge(client, policyFile, jobId) {
   let queue = Promise.resolve();
   return (group, args) => {
@@ -170,7 +232,8 @@ export function createBackgroundBridge(client, policyFile, jobId) {
           (r) => r.task_id !== args.task_id,
         );
       await saveJSON(receiptFile, receipt);
-      return result;
+      const nextAction = nextAuthorizedAction(result.project, policy, receipt);
+      return nextAction ? { ...result, local_next_action: nextAction } : result;
     });
     queue = next.catch(() => {});
     return next;

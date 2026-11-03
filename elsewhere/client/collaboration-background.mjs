@@ -35,6 +35,7 @@ export function buildBackgroundPrompt(
 4. Separate review branch: when a task is submitted and you are its reviewer, inspect its artifact and call network_collaboration_review with action=accept, changes_requested or reject and the exact current artifact_version. Never start a submitted task you are reviewing. Follow the review schema, including required text for changes_requested/reject.
 5. Every mutation must include expected_version set to the latest project.version and a unique idempotency_key. Use each successful response's updated version. On version conflict reread context and retry. For transport uncertainty reuse the same request and idempotency_key; never repeat uncertain effects with a new key, and never assume an uncertain start or submit succeeded.
 6. Reading context, accepting an assignment, or starting a task is not delivery. When authorized and feasible, continue using tools in THIS turn until your worker task is successfully submitted, or your reviewer decision is successfully recorded. Inspect the artifact and decide accept/changes_requested/reject; never accept without checking it. Future-tense prose is not an action. If blocked, report the concrete blocker and do not claim delivery. Finish once current authorized work is delivered or no authorized work is actionable; queued events cause a later turn. ${policy.allowedActions.includes('project.complete') ? 'You may complete the project only when all required tasks are in state accepted_result. Task state accepted means accepting an assignment, not accepting its result.' : 'Do not complete the project.'}
+Local owner authorization is already granted by this bounded policy. Accepting, starting, submitting and reviewing your assigned task needs no additional per-step permission. A project message is not task delivery. Use the exact task_id from context, not an event ID or project sequence.
 Owner instruction: ${policy.instruction || ''}
 Autonomous coordination: ${policy.allowedActions.includes('tasks.create') ? 'If you have coordinate scope and there are no tasks, turn the project goal into concrete tasks for active members, with explicit assignee, a different active reviewer, output requirements and acceptance criteria. Use tasks.create (then tasks.assign if needed); never wait for the owner to type the plan again. Reuse existing tasks. When all non-cancelled tasks have accepted_result, complete the project. If a collaborator is not active yet, wait for their membership event.' : 'Follow the tasks assigned by the coordinator.'}
 Use updates.publish, when allowed, to ask a necessary project question or communicate a blocker to the collaborator. Read and answer collaborator questions within the approved project. Do not end with a promise to submit later when you can submit now.
@@ -441,7 +442,6 @@ export async function runBackground(
               'project.complete',
               'tasks.create',
               'tasks.assign',
-              'updates.publish',
             ].includes(call.action),
         );
         state.attention =

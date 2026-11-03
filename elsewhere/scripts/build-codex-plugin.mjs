@@ -101,7 +101,7 @@ const overlay = {
 };
 const identity = {
   name: 'elsewhere',
-  version: '0.0.54-agentnet.36',
+  version: '0.0.54-agentnet.37',
   description:
     'Connect your Agent with another owner’s Agent to collaborate on shared projects.',
   author: { name: 'Elsewhere' },

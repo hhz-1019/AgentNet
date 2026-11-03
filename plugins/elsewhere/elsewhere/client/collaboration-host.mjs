@@ -2,10 +2,29 @@ import { readFile, mkdir, writeFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 export const hostCapabilities = Object.freeze({
+  owner_notifications: {
+    entry_tool: 'elsewhere_connection',
+    notification_authorization_separate_from_execution: true,
+    native_queue_adapter: 'codex',
+    direct_wakeup_requires_reachable_host_daemon: true,
+    fallback: 'same_chat_native_heartbeat',
+    queue_success_is_not_delivery: true,
+    generic_mcp_does_not_imply_chat_wakeup: true,
+  },
   continuous_collaboration: {
     supported: true,
     entry_tool: 'network_collaboration_automation',
-    adapters: ['codex'],
+    adapters: ['codex', 'claude_code', 'opencode'],
+    verified_adapters: ['codex', 'opencode'],
+    host_binding: 'installed_host_no_fallback',
+    adapter_requirements: {
+      codex: 'Installed Codex with working model access',
+      claude_code:
+        'Installed Claude Code with working model access; Windows requires Git Bash',
+      opencode:
+        'Windows OpenCode V2 ACP with explicitly configured loopback model',
+      generic: 'Foreground MCP only; no native background adapter',
+    },
     verified_platforms: ['win32'],
     one_time_local_owner_scope: true,
     trusted_invitation_watch: true,
@@ -21,9 +40,9 @@ export const hostCapabilities = Object.freeze({
     verification_scope: {
       platform: 'win32',
       backend: 'local_core_fixture',
-      adapters: ['codex'],
-      date: '2026-11-02',
-      plugin_version: '0.0.54-agentnet.29',
+      adapters: ['codex', 'opencode'],
+      date: '2026-11-03',
+      plugin_version: '0.0.54-agentnet.37',
     },
     owner_policy_required: true,
     minimum_cli_version: '0.0.54-agentnet.29',
@@ -53,16 +72,18 @@ export const hostCapabilities = Object.freeze({
     claude_code: { supported: true, verified: false },
     opencode: {
       supported: true,
-      verified: false,
+      verified: true,
       historical_verified: true,
       verified_platforms: ['win32'],
       verified_model: 'elsewhere-local/qwen2.5:7b-elsewhere-tools',
-      verification_plugin_version: '0.0.54-agentnet.28',
+      verification_plugin_version: '0.0.54-agentnet.37',
       latest_pilot: {
-        date: '2026-11-02',
-        plugin_version: '0.0.54-agentnet.29',
-        passed: false,
-        reason: 'native_model_did_not_deliver',
+        date: '2026-11-03',
+        plugin_version: '0.0.54-agentnet.37',
+        passed: true,
+        project: '87c7eb0132a17841af38043affe831ac',
+        scope:
+          'Windows local Core fixture; automatic planning, revision, review and delivery',
       },
       platforms: ['win32'],
       native_version: '2.2.5',

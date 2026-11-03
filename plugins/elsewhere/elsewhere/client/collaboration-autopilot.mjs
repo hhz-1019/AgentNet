@@ -12,7 +12,7 @@ import {
   readFile,
 } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { homedir } from 'node:os';
+import { automationHost, detectRuntime } from './collaboration-runtime.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { z } from 'zod';
@@ -91,44 +91,7 @@ export function autopilotDirectory(client, scope) {
     .digest('hex');
   return join(client.cliHome, 'collaboration-autopilot', key);
 }
-export async function detectCodex(explicit) {
-  if (explicit) {
-    const file = await realpath(resolve(explicit));
-    if (!(await stat(file)).isFile())
-      throw new Error('Host runtime must be a file');
-    return file;
-  }
-  const candidates = [];
-  if (process.env.AGENTNET_CODEX_BINARY)
-    candidates.push(process.env.AGENTNET_CODEX_BINARY);
-  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
-    const root = join(process.env.LOCALAPPDATA, 'OpenAI', 'Codex', 'bin');
-    const dirs = await readdir(root).catch(() => []);
-    const versions = await Promise.all(
-      dirs.map(async (d) => ({
-        path: join(root, d, 'codex.exe'),
-        time: await stat(join(root, d, 'codex.exe'))
-          .then((s) => s.mtimeMs)
-          .catch(() => 0),
-      })),
-    );
-    candidates.push(
-      ...versions.sort((a, b) => b.time - a.time).map((v) => v.path),
-    );
-  }
-  candidates.push(
-    '/Applications/Codex.app/Contents/Resources/codex',
-    join(homedir(), 'Applications/Codex.app/Contents/Resources/codex'),
-  );
-  for (const path of candidates)
-    if (
-      await stat(path)
-        .then((s) => s.isFile())
-        .catch(() => false)
-    )
-      return realpath(path);
-  throw new Error('Codex runtime not found; provide host_binary once.');
-}
+export const detectCodex = (explicit) => detectRuntime('codex', explicit);
 export const automationSchema = z
   .strictObject({
     action: z.enum(['enable', 'status', 'stop']),
@@ -136,6 +99,8 @@ export const automationSchema = z
     peer_short_id: z.string().min(1).max(32).optional(),
     workspace: z.string().min(1).optional(),
     host_binary: z.string().min(1).optional(),
+    host_kind: z.enum(['codex', 'claude_code', 'opencode']).optional(),
+    model_base_url: z.url().optional(),
     model: z.string().min(1).max(128).optional(),
     hours: z.number().int().min(1).max(24).default(4),
     turns: z.number().int().min(1).max(32).default(16),
@@ -170,12 +135,23 @@ export async function configureAutopilot(client, raw) {
     throw new Error(
       'Specify the authorized workspace and project instruction once.',
     );
+  const previous = await optionalJSON(join(directory, 'config.json'));
+  if (previous) {
+    // Repeated tool calls never reset budgets, unpause, replace an uncertain job,
+    // or create a second scheduler. Stop/reconfigure requires deliberate handling.
+    await resumeAutopilots(client);
+    return {
+      alreadyConfigured: true,
+      ...(await optionalJSON(join(directory, 'state.json'))),
+      scope,
+    };
+  }
   await client.connect();
   const identity = await collaborationIdentity(client);
   const workspace = await realpath(resolve(args.workspace));
   if (!(await stat(workspace)).isDirectory())
     throw new Error('Workspace must be a directory');
-  const hostBinary = await detectCodex(args.host_binary);
+  const host = await automationHost(args, client, directory);
   let peer;
   if (scope.peer)
     peer = (
@@ -190,17 +166,6 @@ export async function configureAutopilot(client, raw) {
       project_id: scope.project,
     });
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const previous = await optionalJSON(join(directory, 'config.json'));
-  if (previous) {
-    // Repeated tool calls never reset budgets, unpause, replace an uncertain job,
-    // or create a second scheduler. Stop/reconfigure requires deliberate handling.
-    await resumeAutopilots(client);
-    return {
-      alreadyConfigured: true,
-      ...(await optionalJSON(join(directory, 'state.json'))),
-      scope,
-    };
-  }
   const config = {
     id: randomUUID(),
     home: client.cliHome,
@@ -209,7 +174,7 @@ export async function configureAutopilot(client, raw) {
     scope,
     peer,
     workspace,
-    hostBinary,
+    host,
     model: args.model,
     instruction: args.instruction,
     turns: args.turns,
@@ -267,7 +232,7 @@ export function projectPolicy(config, project) {
     project: project.project_id,
     workspace: config.workspace,
     cliBinary: config.cliBinary,
-    host: {
+    host: config.host || {
       kind: 'codex',
       binary: config.hostBinary,
       ...(config.model ? { model: config.model } : {}),
@@ -529,7 +494,7 @@ export function registerAutomation(server, client) {
           content: [
             {
               type: 'text',
-              text: 'Automation could not be enabled. Check the project or trusted peer, workspace, installed Codex runtime and existing automation status. Existing identity and authorization were preserved.',
+              text: 'Automation could not be enabled. Check the project or trusted peer, workspace, matching host runtime and model configuration and existing automation status. Existing identity and authorization were preserved.',
             },
           ],
         };

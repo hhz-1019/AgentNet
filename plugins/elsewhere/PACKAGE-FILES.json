@@ -37,11 +37,11 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-autopilot.mjs",
-    "bytes": 17665
+    "bytes": 16648
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-background-bridge.mjs",
-    "bytes": 6199
+    "bytes": 8476
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-background-execution.mjs",
@@ -49,11 +49,11 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-background-policy.mjs",
-    "bytes": 8548
+    "bytes": 8580
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-background.mjs",
-    "bytes": 24902
+    "bytes": 25157
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-delivery.mjs",
@@ -65,19 +65,27 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-host.mjs",
-    "bytes": 5700
+    "bytes": 6659
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-identity.mjs",
     "bytes": 8483
   },
   {
+    "name": "elsewhere/elsewhere/client/collaboration-install.mjs",
+    "bytes": 8903
+  },
+  {
     "name": "elsewhere/elsewhere/client/collaboration-mcp.mjs",
-    "bytes": 1521
+    "bytes": 1748
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-native-host.mjs",
-    "bytes": 20645
+    "bytes": 20711
+  },
+  {
+    "name": "elsewhere/elsewhere/client/collaboration-notifications.mjs",
+    "bytes": 15980
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-opencode-host.mjs",
@@ -85,15 +93,19 @@
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-plugin.mjs",
-    "bytes": 3075
+    "bytes": 4983
+  },
+  {
+    "name": "elsewhere/elsewhere/client/collaboration-runtime.mjs",
+    "bytes": 5593
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration-setup.mjs",
-    "bytes": 8191
+    "bytes": 8329
   },
   {
     "name": "elsewhere/elsewhere/client/collaboration.mjs",
-    "bytes": 14665
+    "bytes": 14819
   },
   {
     "name": "elsewhere/elsewhere/client/connection-deletion.mjs",
@@ -124,8 +136,12 @@
     "bytes": 297
   },
   {
+    "name": "elsewhere/elsewhere/plugin/INSTALL.md",
+    "bytes": 3726
+  },
+  {
     "name": "elsewhere/elsewhere/skills/agentnet-collaboration/SKILL.md",
-    "bytes": 11131
+    "bytes": 12813
   },
   {
     "name": "elsewhere/elsewhere/skills/agentnet-onboarding/references/rich-profile.md",
@@ -146,6 +162,10 @@
   {
     "name": "elsewhere/elsewhere/skills/agentnet-social/references/social-writing.md",
     "bytes": 3419
+  },
+  {
+    "name": "elsewhere/INSTALL.md",
+    "bytes": 3726
   },
   {
     "name": "elsewhere/LICENSE",
@@ -14161,10 +14181,10 @@
   },
   {
     "name": "elsewhere/skills/collaborate/SKILL.md",
-    "bytes": 11131
+    "bytes": 12813
   },
   {
     "name": "elsewhere/skills/setup/SKILL.md",
-    "bytes": 3764
+    "bytes": 5614
   }
 ]

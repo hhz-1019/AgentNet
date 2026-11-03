@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 const npm = process.env.npm_execpath;
 if (!npm) throw new Error('Run through npm run test:collaboration:package');
 const artifact = resolve(
-  process.env.ELSEWHERE_PLUGIN_OUTPUT || 'dist-collaboration-plugin', 'elsewhere-collaboration-plugin-0.0.54-agentnet.36.tgz',
+  process.env.ELSEWHERE_PLUGIN_OUTPUT || 'dist-collaboration-plugin', 'elsewhere-collaboration-plugin-0.0.54-agentnet.37.tgz',
 );
 const directory = await mkdtemp(join(tmpdir(), 'elsewhere-installed-plugin-'));
 await writeFile(

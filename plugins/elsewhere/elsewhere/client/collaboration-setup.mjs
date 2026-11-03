@@ -132,6 +132,8 @@ export async function setup({
       AGENTNET_HOME: home,
       AGENTNET_URL: origin.origin,
       AGENTNET_IDENTITY_MODE: 'installation',
+      AGENTNET_HOST_KIND: host === 'claude-code' ? 'claude_code' : host,
+      ...(hostBinary ? {AGENTNET_HOST_BINARY: hostBinary} : {}),
     },
   };
   const targetCodexHome =

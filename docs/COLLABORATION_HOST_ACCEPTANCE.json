@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-03",
+  "version": "0.0.54-agentnet.37",
+  "release_state": "validated_for_release",
+  "unit_tests": { "passed": 77, "failed": 0 },
+  "lint": true,
+  "isolated_npm_package": { "initialized": true, "tools": 12, "repository_dependencies": false },
+  "windows_bundled_installer": {
+    "codex": "configuration_installed",
+    "claude_code": "configuration_installed",
+    "opencode": "configuration_installed",
+    "generic": "export_only_not_installed",
+    "existing_user_configuration_modified": false
+  },
+  "heterogeneous_live": {
+    "passed": true,
+    "project_id": "87c7eb0132a17841af38043affe831ac",
+    "backend": "local_core_fixture",
+    "platform": "win32",
+    "physical_computers": 1,
+    "coordinator": { "host": "codex", "model": "gpt-6.1-sol", "turns": 4 },
+    "worker": { "host": "opencode", "version": "2.2.5", "model": "elsewhere-local/qwen2.5:7b-elsewhere-tools", "turns": 2 },
+    "real_models": true,
+    "manual_prompts_after_invite": 0,
+    "project_state": "completed",
+    "task_state": "accepted_result",
+    "accepted_artifact_version": 2,
+    "delivery_generated": true,
+    "cleanup_verified": true,
+    "raw_evidence": "D:/elsewhere-installation-20261102/autopilot-live-WK4Hwq/evidence.json"
+  },
+  "limitations": [
+    "Claude Code model authentication returned 403; native configuration verified but real collaboration not verified",
+    "macOS physical host not tested",
+    "Cross-computer and public backend not tested in this acceptance",
+    "OpenCode background supports Windows V2 ACP with an explicitly selected loopback model only",
+    "OpenCode V1 JSONC preserved and requires host-assisted merge",
+    "Generic MCP does not imply native background execution"
+  ]
+}

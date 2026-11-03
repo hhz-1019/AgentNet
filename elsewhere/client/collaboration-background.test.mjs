@@ -634,12 +634,10 @@ void test('explicit Codex model pin applies to start and exact resume; mismatche
       host: { ...policy.host, model: 'invalid\nmodel' },
     }),
   );
-  await assert.rejects(
-    validatePolicy({
-      ...policy,
-      host: { ...policy.host, kind: 'claude_code' },
-    }),
-  );
+  await validatePolicy({
+    ...policy,
+    host: { ...policy.host, kind: 'claude_code' },
+  });
   await writeFile(
     policy.host.binary,
     fakeCodex.replace(

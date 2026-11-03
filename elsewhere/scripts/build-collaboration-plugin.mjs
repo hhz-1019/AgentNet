@@ -11,6 +11,10 @@ export const sources = [
   'elsewhere/client/collaboration-plugin.mjs',
   'elsewhere/client/collaboration-autopilot.mjs',
   'elsewhere/client/collaboration-delivery.mjs',
+  'elsewhere/client/collaboration-runtime.mjs',
+  'elsewhere/client/collaboration-notifications.mjs',
+  'elsewhere/client/collaboration-install.mjs',
+  'elsewhere/plugin/INSTALL.md',
   'elsewhere/client/collaboration-identity.mjs',
   'elsewhere/client/collaboration-mcp.mjs',
   'elsewhere/client/collaboration-setup.mjs',
@@ -59,7 +63,7 @@ const dependencies = Object.fromEntries(
 );
 const pkg = {
   name: '@elsewhere/collaboration-plugin',
-  version: '0.0.54-agentnet.36',
+  version: '0.0.54-agentnet.37',
   private: true,
   type: 'module',
   engines: { node: '>=24.12.0' },

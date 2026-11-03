@@ -267,7 +267,7 @@ void test('actual MCP initialize, list, seven calls, strict invalid calls and he
         })
       ).content[0].text,
     );
-    assert.deepEqual(caps, hostCapabilities);
+    assert.deepEqual(caps, { ...hostCapabilities, installed_host: 'unspecified' });
   } finally {
     await client.close();
     await server.close();
